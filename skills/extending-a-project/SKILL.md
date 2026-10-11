@@ -1,6 +1,6 @@
 ---
 name: extending-a-project
-description: Use when a project that has the architecture kit (a tools/arch folder and an architecture.config file) needs coverage gates and reports, visual golden tests or rendering-performance checks added, when its copy of the kit or of an add-on should be brought up to date, or when an existing project wants the architecture gates for the first time.
+description: Use when a project that has the architecture kit (a tools/arch folder and an architecture.config file) needs an add-on (coverage gates, visual golden tests, end-to-end tests, rendering-performance checks, a formatter and linter, CI security checks, repository hygiene, typed lint, agent workflow), when its copy of the kit or of an add-on should be brought up to date, or when an existing project wants the architecture gates for the first time.
 ---
 
 # Extending a project
@@ -32,6 +32,10 @@ node <plugin root>/scripts/add-to-project.mts --list
 | `visual` | Screenshot tests of the UI against committed golden images |
 | `e2e` | End-to-end tests: Playwright drives the built client in a real browser, on the simulator and against the real server |
 | `performance` | A static check of animations and transitions, a runtime motion audit, a guide |
+| `format-lint` | Biome: a formatter, a general linter and import sorting, and `pnpm fix` |
+| `ci-security` | Workflow lint, Dependency Review, `pnpm audit`, a Scorecard report, a Dockerfile check, a security policy, and Dependabot's config or Renovate's |
+| `repo-hygiene` | One version of each dependency across the workspace, every markdown link resolving, CSS lint with colours taken from tokens |
+| `strict-lint` | The ESLint rules that need types, and knip for unused files, exports and dependencies |
 | `agent-workflow` | A hook that keeps each push and pull request step in a call of its own, a worktree script, a weekly tag, a checked changelog |
 
 Adding a unit a project already has updates it.
