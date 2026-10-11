@@ -96,6 +96,50 @@ describe("creating-a-project", () => {
   });
 });
 
+describe("documenting-architecture", () => {
+  const skillFolder = join(SKILLS, "documenting-architecture");
+  const skill = readFileSync(join(skillFolder, "SKILL.md"), "utf8");
+  const pluginRoot = resolve(skillFolder, "..", "..");
+
+  it("finds every script where it tells the agent to look: two folders above the skill", () => {
+    const named = [...skill.matchAll(/node <plugin root>\/(\S+\.mts)/g)].map((match) => match[1] as string);
+
+    expect([...new Set(named)].sort()).toEqual([
+      "addons/repo-hygiene/files/tools/repo-hygiene/check-doc-links.mts",
+      "scripts/architecture-docs/build-site.mts",
+      "scripts/architecture-docs/check-cited-paths.mts",
+      "scripts/architecture-docs/check-diagrams.mts",
+    ]);
+
+    for (const script of named) {
+      expect(existsSync(join(pluginRoot, script)), script).toBe(true);
+    }
+  });
+
+  it("links only to files that ship beside it", () => {
+    const linked = [...skill.matchAll(/\]\(([a-z-]+\.md)\)/g)].map((match) => match[1] as string);
+
+    expect([...new Set(linked)].sort()).toEqual(["briefs.md", "mermaid.md"]);
+
+    for (const file of linked) {
+      expect(existsSync(join(skillFolder, file)), file).toBe(true);
+    }
+  });
+
+  it("does not let the set be called finished before it is fact-checked", () => {
+    expect(skill).toContain("**Do not report the set as finished before this step.**");
+    expect(skill).toContain("Not checked is not passed.");
+  });
+
+  it("says the size of what the first run fetches as the lockfile makes it", () => {
+    // The skill tells the person what the first run costs. If the toolset changes, look again.
+    const toolset = JSON.parse(readFileSync(join(pluginRoot, "scripts/architecture-docs/toolset/toolset.json"), "utf8")) as { dependencies: Record<string, string> };
+
+    expect(toolset.dependencies).toEqual({ marked: "15.0.12", mermaid: "12.1.0", "puppeteer-core": "25.13.0" });
+    expect(skill).toContain("(about 230 MB, once per machine)");
+  });
+});
+
 interface Manifest {
   name: string;
   description: string;

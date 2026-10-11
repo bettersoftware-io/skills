@@ -3,7 +3,7 @@
 What is not done yet. Finished work is removed from this page, not archived;
 the test records in this folder and the git log say what was done.
 
-**Last updated: 2026-10-06**
+**Last updated: 2026-10-11**
 
 ## Waiting on something outside this repository
 
@@ -56,6 +56,40 @@ on 2026-10-05, on pushes to main and on a pull request
 - **The motion audit had nothing to judge.** The starter has no animation, so
   the audit skipped, on GitHub as locally. Whether Chromium in the CI image
   gives the same compositing verdicts as on macOS is still unknown.
+
+## The documenting-architecture skill
+
+Added on 2026-10-11 ([the record](documenting-architecture-2026-10-11.md)).
+
+- **The skill has never been run.** It was written from two runs made without
+  it. Whether an agent that has it does the fact-check of step 6 unprompted,
+  and what is left wrong in the set afterwards, is not known. The test to make
+  is the one the review skill had: the same request, several fresh sessions,
+  with and without.
+- **Not run in Codex.** The skill starts subagents for the readers of steps 3
+  and 6, and says what to do when none can be started; that branch is untried.
+- **The scripts ran on one machine:** macOS arm64, Node 26.11.1, with the
+  headless-only Chromium that Puppeteer had already downloaded, and once with
+  the whole Google Chrome. Linux and Windows are untried, and their lists of
+  browser paths in `lib/tools.mts` are not from a run.
+- **This repository's CI neither fetches the tools nor starts a browser.** The
+  tests give `ensureToolset` a fake `npm` and `checkDiagrams` a fake renderer.
+  A job that runs `check-diagrams.mts` on a fixture would cover the real path:
+  `ubuntu-latest` has Chrome, and the fetch needs the npm registry.
+- **The toolset is installed with `npm`, not `pnpm`,** from a lockfile of its
+  own, into a cache folder. It is the one place here that does not go through
+  the pinned pnpm, and pnpm's rule against a release younger than a day is not
+  applied to it. The three versions were 3 days old or more when pinned;
+  nothing checks the next change.
+- **Nothing tells a person that the cache holds an old toolset.** A changed
+  lockfile is fetched into a new folder, and the old one (about 230 MB) stays
+  until it is deleted by hand.
+- **`check-cited-paths` judges by the first part of the path.** In a
+  repository that has a top-level `docs/`, a chapter that writes
+  `` `docs/architecture/` `` as an example of where a set goes is a finding.
+  `--except` is the way out, and the skill's own text trips it in this
+  repository.
+- **The reading copy was looked at in Chromium only.**
 
 ## Dated
 

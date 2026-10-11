@@ -1,7 +1,7 @@
 {
   "name": "bettersoftware-skills",
-  "version": "0.13.1",
-  "description": "Clean architecture with a streaming UI for TypeScript monorepos: a tested starter project, deterministic architecture gates, and a review of what no gate can check.",
+  "version": "0.14.0",
+  "description": "Clean architecture with a streaming UI for TypeScript monorepos: a tested starter project, deterministic architecture gates, and a review of what no gate can check. Also: architecture documents for any codebase, checked against its source before they are called finished.",
   "author": {
     "name": "bettersoftware-io",
     "url": "https://github.com/bettersoftware-io"
@@ -17,19 +17,23 @@
     "typescript",
     "monorepo",
     "architecture-gates",
-    "code-review"
+    "code-review",
+    "architecture-docs",
+    "c4-model",
+    "mermaid"
   ],
   "skills": "./skills/",
   "interface": {
     "displayName": "Better Software Skills",
     "shortDescription": "Clean architecture with a streaming UI, checked by gates",
-    "longDescription": "Start a TypeScript monorepo from a tested starter (domain, core, bindings, client, server), keep it in shape with deterministic architecture gates and lint rules that run as agent hooks and in CI, and review what no gate can check with seven judgement questions.",
+    "longDescription": "Start a TypeScript monorepo from a tested starter (domain, core, bindings, client, server), keep it in shape with deterministic architecture gates and lint rules that run as agent hooks and in CI, and review what no gate can check with seven judgement questions. For any codebase: write its architecture as documents with diagrams, check that every diagram renders and every cited file exists, and have the text fact-checked against the source before it is called finished.",
     "developerName": "bettersoftware-io",
     "category": "Developer Tools",
     "capabilities": ["Interactive", "Read", "Write"],
     "defaultPrompt": [
       "Start a new project from the starter.",
-      "Review this change against the architecture."
+      "Review this change against the architecture.",
+      "Document this codebase's architecture."
     ],
     "websiteURL": "https://github.com/bettersoftware-io/skills"
   }
