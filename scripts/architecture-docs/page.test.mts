@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { countDiagrams, finishBody, isSafeTarget, pageHtml, pageName, plain, rewriteTarget, safeHtml, titleOf, withAnchors, withDiagrams, withLinks, withTables, type PageContext } from "./lib/page.mts";
+import { countDiagrams, finishBody, isSafeTarget, onlyKnownTags, pageHtml, pageName, plain, rewriteTarget, safeHtml, titleOf, urlPath, withAnchors, withDiagrams, withLinks, withTables, type PageContext } from "./lib/page.mts";
 
 const context: PageContext = {
   source: "/repo/docs/architecture/02-c4.md",
@@ -88,7 +88,14 @@ describe("a link", () => {
   it("with an encoded name finds the file by its real name", () => {
     const spaced = { ...context, pages: new Map([...context.pages, ["/repo/docs/architecture/two words.md", "two words.html"]]) };
 
-    expect(rewriteTarget("two%20words.md", spaced)).toBe("two words.html");
+    expect(rewriteTarget("two%20words.md", spaced)).toBe("two%20words.html");
+  });
+
+  it("to a file whose name reads like a scheme is still a link to a file", () => {
+    // Read with %3A turned into ":" to find the file. Written out like that, a browser would run it.
+    expect(rewriteTarget("javascript%3Aalert(1)", context)).toBe("javascript%3Aalert(1)");
+    expect(rewriteTarget("data%3Atext/html,x.svg", context)).toBe("data%3Atext/html%2Cx.svg");
+    expect(urlPath("a b/c:d/../é.md")).toBe("a%20b/c%3Ad/../%C3%A9.md");
   });
 
   it("is rewritten in the page, and one that leaves the copy opens in a new tab", () => {
@@ -117,6 +124,22 @@ describe("a link that is not safe to follow", () => {
 
     expect(withLinks(html, context, (target) => refused.push(target))).toBe('<p><a href="#">x</a> <img src="#" alt="y"> <a href="index.html">ok</a></p>');
     expect(refused).toEqual(["javascript:alert(1)", "data:image/svg+xml,<svg onload=alert(1)>"]);
+  });
+
+  it("is judged as it will stand in the page, not only as it was written", () => {
+    const refused: string[] = [];
+    // Safe as written: a path to a file outside the set. What it is pointed at is not.
+    const pointed = { ...context, outside: () => "javascript:alert(1)" };
+
+    expect(withLinks('<p><a href="../../server/web.ts">x</a> <img src="../../logo.png" alt="y"></p>', pointed, (target) => refused.push(target))).toBe('<p><a href="#">x</a> <img src="#" alt="y"></p>');
+    expect(refused).toEqual(["../../server/web.ts", "../../logo.png"]);
+  });
+
+  it("is not made by decoding one that was safe", () => {
+    const refused: string[] = [];
+
+    expect(withLinks('<p><a href="javascript%3Aalert(1)">x</a> <img src="data%3Atext/html,x" alt="y"></p>', context, (target) => refused.push(target))).toBe('<p><a href="javascript%3Aalert(1)">x</a> <img src="data%3Atext/html%2Cx" alt="y"></p>');
+    expect(refused).toEqual([]);
   });
 });
 
@@ -147,7 +170,58 @@ describe("HTML an author wrote by hand", () => {
   });
 });
 
+describe("what a converter hands over", () => {
+  it("keeps every tag the converter writes", () => {
+    // Written by the real converter (marked 15.0.12) for a task list, a numbered list, a table, a code block, and a line of text.
+    const written = [
+      "<h2>Head</h2>",
+      '<ul>\n<li><input checked="" disabled="" type="checkbox"> done</li>\n<li><input disabled="" type="checkbox"> todo</li>\n</ul>',
+      '<ol start="3">\n<li>three</li>\n</ol>',
+      '<table>\n<thead>\n<tr>\n<th align="left">l</th>\n<th align="center">c</th>\n</tr>\n</thead>\n<tbody><tr>\n<td align="left">1</td>\n<td>2</td>\n</tr>\n</tbody></table>',
+      '<pre><code class="language-ts">const a = 1 &lt; 2\n</code></pre>',
+      '<blockquote>\n<p><del>gone</del> <strong>b</strong> <em>i</em> <code>c</code><br>break</p>\n</blockquote>\n<hr>',
+      '<p><a href="a.md" title="t &quot;q&quot;">a</a> <img src="x.png" alt="x"> <img src="x.png" alt="x" title="t"></p>',
+    ].join("\n");
+
+    expect(onlyKnownTags(written)).toBe(written);
+  });
+
+  it("shows as text a tag the converter let through after <kbd>, <code> or <pre>", () => {
+    // What marked 15.0.12 writes for `<kbd><img/src="x"/onerror=alert(1)></kbd>`: it stops escaping text there.
+    expect(onlyKnownTags('<p>Press <kbd><img/src="x"/onerror=alert(1)></kbd> now</p>')).toBe('<p>Press <kbd>&lt;img/src="x"/onerror=alert(1)&gt;</kbd> now</p>');
+    expect(onlyKnownTags("<p>A <code><svg/onload=alert(1)></code> b</p>")).toBe("<p>A <code>&lt;svg/onload=alert(1)&gt;</code> b</p>");
+  });
+
+  it("shows as text a tag that is the converter's with something added", () => {
+    // What marked 15.0.12 writes for `![" onerror="alert(1)](x.png)` when left to write the picture itself.
+    expect(onlyKnownTags('<img src="x.png" alt="" onerror="alert(1)">')).toBe('&lt;img src="x.png" alt="" onerror="alert(1)"&gt;');
+    expect(onlyKnownTags('<a href="a.md" onclick="alert(1)">')).toBe('&lt;a href="a.md" onclick="alert(1)"&gt;');
+    expect(onlyKnownTags('<code class="x" id="y">')).toBe('&lt;code class="x" id="y"&gt;');
+    expect(onlyKnownTags('<td align="left" style="x">')).toBe('&lt;td align="left" style="x"&gt;');
+  });
+
+  it("shows as text a tag spelled another way than the converter spells it", () => {
+    // `withLinks` reads a link the way the converter writes it. A link written any other way would pass it unread.
+    expect(onlyKnownTags('<A HREF="javascript:alert(1)">')).toBe('&lt;A HREF="javascript:alert(1)"&gt;');
+    expect(onlyKnownTags("<a href='javascript:alert(1)'>")).toBe("&lt;a href='javascript:alert(1)'&gt;");
+    expect(onlyKnownTags('<a  href="javascript:alert(1)">')).toBe('&lt;a  href="javascript:alert(1)"&gt;');
+    expect(onlyKnownTags('<img alt="x" src="javascript:alert(1)">')).toBe('&lt;img alt="x" src="javascript:alert(1)"&gt;');
+  });
+
+  it("shows as text what was never a tag, and loses nothing after it", () => {
+    expect(onlyKnownTags("<script>alert(1)</script> <!-- <b>kept</b> rest")).toBe("&lt;script&gt;alert(1)&lt;/script&gt; &lt;!-- <b>kept</b> rest");
+  });
+});
+
 describe("the body of a page", () => {
+  it("keeps only the tags it knows, whatever converter made it", () => {
+    const refused: string[] = [];
+    const body = finishBody('<p><script>alert(1)</script><img src="x.png" alt="" onerror="alert(1)"><A HREF="javascript:alert(1)">x</A></p>', context, (target) => refused.push(target));
+
+    expect(body).toBe('<p>&lt;script&gt;alert(1)&lt;/script&gt;&lt;img src="x.png" alt="" onerror="alert(1)"&gt;&lt;A HREF="javascript:alert(1)"&gt;x&lt;/A&gt;</p>');
+    expect(refused).toEqual([]);
+  });
+
   it("has every step applied, and a wide table scrolls in a box of its own", () => {
     const body = finishBody('<h1>Title</h1>\n<table><tr><td><a href="deep/notes.md">n</a></td></tr></table>\n<pre><code class="language-mermaid">flowchart LR\n</code></pre>', context);
 

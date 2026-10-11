@@ -95,9 +95,19 @@ Added on 2026-10-11 ([the record](documenting-architecture-2026-10-11.md)).
   and its unsafe links lead nowhere. A policy would be a second wall, and
   needs the page's own script moved out of the page first; whether `'self'`
   holds for a page opened from disk in each browser is not known.
-- **`safeHtml` is a list of tags, kept by hand.** It was tried against one
-  hostile document. It has not been fuzzed, and the converter's own output
-  for markdown syntax is trusted as it is.
+- **What is a tag in the reading copy is two lists, kept by hand:** the bare
+  tags a document may write, and the tags the converter writes
+  (`onlyKnownTags` in `lib/page.mts`). They were tried against one hostile
+  document of 24 attacks, and have not been fuzzed. Two reviews in a row
+  found a way to run script, so a third way is likely. A changed version of
+  the converter that spells a tag another way would not be unsafe: its tag
+  would show as text, in every page, and nothing here would say why.
+- **The hostile document does not run in CI.** `hostile.test.mts` needs the
+  fetched tools and a browser, and CI has neither, so there it is skipped
+  (it says so in its name). The tests that do run in CI use a stand-in
+  converter, which is how the three faults of 2026-10-11 were missed.
+- **A link is safe by this code's reading of its scheme.** The hostile test
+  asks the browser how it reads each link, in Chromium only.
 
 ## Dated
 

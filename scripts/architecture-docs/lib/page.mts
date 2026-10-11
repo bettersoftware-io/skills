@@ -51,7 +51,7 @@ export interface PageContext {
   pages: Map<string, string>;
   /** The folder that holds the set. A file under it that is not a document is copied beside the pages. */
   root: string;
-  /** What a link to a file outside the set becomes. Given the file's absolute path. */
+  /** What a link to a file outside the set becomes, ready to be written as a link. Given the file's absolute path. */
   outside: (path: string) => string;
 }
 
@@ -119,6 +119,23 @@ export function safeHtml(raw: string): string {
     .replace(/<[^<>]*>|[<>]/g, (piece) => (PLAIN_TAG.test(piece) ? piece : piece.replace(/</g, "&lt;").replace(/>/g, "&gt;")));
 }
 
+/** The tags the converter writes with an attribute, exactly as it writes them: lower case, one space, double quotes. */
+const WRITTEN_TAG = /^(?:<a href="[^"]*"(?: title="[^"]*")?>|<\/a>|<img src="[^"]*" alt="[^"]*"(?: title="[^"]*")?>|<code class="language-[^"]*">|<ol start="\d+">|<t[hd] align="(?:left|center|right)">|<input (?:checked="" )?disabled="" type="checkbox">)$/;
+
+/**
+ * The last word on what is a tag in a page. Whatever the converter handed
+ * over, a `<…>` stays a tag only when it is one the converter writes or a bare
+ * one that shapes text; anything else is shown as the text it is.
+ *
+ * `safeHtml` judges what the converter says is hand-written HTML. That is not
+ * all of it: the converter writes a picture's alt text as it stands, and
+ * stops escaping text after `<kbd>`, `<code>` or `<pre>`. So what counts is
+ * judged here, on what is written to the page, and not on what went in.
+ */
+export function onlyKnownTags(html: string): string {
+  return html.replace(/<[^<>]*>|[<>]/g, (piece) => (PLAIN_TAG.test(piece) || WRITTEN_TAG.test(piece) ? piece : piece.replace(/</g, "&lt;").replace(/>/g, "&gt;")));
+}
+
 function decode(text: string): string {
   try {
     return decodeURIComponent(text);
@@ -129,6 +146,15 @@ function decode(text: string): string {
 
 function posix(path: string): string {
   return path.split(sep).join("/");
+}
+
+/**
+ * A path on disk as the path of a link, every part encoded. A link is read
+ * with its `%3A` turned back into `:` to find the file it names, so written
+ * out as it stands a file named `javascript:x` would be a link that runs `x`.
+ */
+export function urlPath(path: string): string {
+  return posix(path).split("/").map(encodeURIComponent).join("/");
 }
 
 /** Where `target`, written in `source`, leads in the copy. */
@@ -145,14 +171,14 @@ export function rewriteTarget(target: string, { source, pages, root, outside }: 
   const page = pages.get(file);
 
   if (page !== undefined) {
-    return `${posix(relative(here, page))}${anchor}`;
+    return `${urlPath(relative(here, page))}${anchor}`;
   }
 
   const inSet = relative(root, file);
 
   // A picture or a data file of the set: copied to the same place under the copy's top.
   if (inSet !== "" && !inSet.startsWith("..") && !isAbsolute(inSet)) {
-    return `${posix(relative(here, inSet))}${anchor}`;
+    return `${urlPath(relative(here, inSet))}${anchor}`;
   }
 
   return `${outside(file)}${anchor}`;
@@ -162,18 +188,24 @@ export function rewriteTarget(target: string, { source, pages, root, outside }: 
  * Points every link and picture of the page at its place in the copy. A link
  * that leaves the copy opens in a new tab. A link that is not safe to follow
  * leads nowhere, and is handed to `refused` so the build can say so.
+ *
+ * It is judged twice: as written, and again as it will stand in the page.
+ * Pointing a link at its place changes it, and what a browser follows is the
+ * second.
  */
 export function withLinks(html: string, context: PageContext, refused: (target: string) => void = () => {}): string {
   const lead = (written: string): string => {
     const target = plain(written);
 
-    if (!isSafeTarget(target)) {
+    const led = isSafeTarget(target) ? rewriteTarget(target, context) : undefined;
+
+    if (led === undefined || !isSafeTarget(led)) {
       refused(target);
 
       return "#";
     }
 
-    return rewriteTarget(target, context);
+    return led;
   };
 
   return html
@@ -190,9 +222,13 @@ export function withTables(html: string): string {
   return html.replace(/<table>/g, '<div class="table-wrap"><table>').replace(/<\/table>/g, "</table></div>");
 }
 
-/** The body of a page, from what the converter produced. */
+/**
+ * The body of a page, from what the converter produced. `onlyKnownTags` comes
+ * first, so no converter, real or a test's own, can put a tag in a page that
+ * is not on the list.
+ */
 export function finishBody(html: string, context: PageContext, refused: (target: string) => void = () => {}): string {
-  return withTables(withLinks(withAnchors(withDiagrams(html)), context, refused));
+  return withTables(withLinks(withAnchors(withDiagrams(onlyKnownTags(html))), context, refused));
 }
 
 export interface NavEntry {

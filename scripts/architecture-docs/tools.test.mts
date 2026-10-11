@@ -3,7 +3,7 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
 import { CouldNotRun } from "./lib/outcome.mts";
-import { browserArguments, cacheFolder, ensureToolset, findBrowser, isHeadlessShell, toolsetKey, type RunCommand } from "./lib/tools.mts";
+import { browserArguments, cacheFolder, ensureToolset, findBrowser, installedToolset, isHeadlessShell, toolsetKey, type RunCommand } from "./lib/tools.mts";
 import { createFolder, SCRIPTS } from "./support.mts";
 
 const LOCK = readFileSync(join(SCRIPTS, "toolset", "toolset.lock.json"), "utf8");
@@ -115,6 +115,20 @@ describe("fetching the tools", () => {
 
     expect(ensureToolset({ env: { ARCHITECTURE_DOCS_TOOLSET: given }, cache: createFolder(), run: () => { throw new Error("npm was run"); } }).folder).toBe(given);
     expect(() => ensureToolset({ env: { ARCHITECTURE_DOCS_TOOLSET: createFolder() }, cache: createFolder() })).toThrow(CouldNotRun);
+  });
+});
+
+describe("asking whether the tools are here", () => {
+  it("answers with them when they were fetched, and fetches nothing when they were not", () => {
+    const cache = createFolder();
+
+    expect(installedToolset({}, cache)).toBeUndefined();
+
+    const fetched = ensureToolset({ env: {}, cache, run: fakeNpm([]), announce: () => {} });
+
+    expect(installedToolset({}, cache)).toEqual(fetched);
+    expect(installedToolset({ ARCHITECTURE_DOCS_TOOLSET: fetched.folder }, createFolder())).toEqual(fetched);
+    expect(installedToolset({ ARCHITECTURE_DOCS_TOOLSET: createFolder() }, cache)).toBeUndefined();
   });
 });
 

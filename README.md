@@ -143,8 +143,17 @@ and copied into pages that open in the user's own browser. So:
 - HTML written by hand in a document is shown as text. A few tags that only
   shape text (`<br>`, `<kbd>`, `<details>`, `<sub>`) are kept, and only bare:
   with an attribute they are text too.
+- That is judged on the page as it will be written, not on what the markdown
+  converter was given. A tag stays a tag only when it is one of those, or one
+  the converter writes, spelled exactly as it writes it. The converter is not
+  trusted to have escaped anything.
 - A link whose scheme is not `http`, `https` or `mailto` leads nowhere in the
-  copy, and the build says which.
+  copy, and the build says which. It is judged twice: as written, and again
+  as it stands after it is pointed at its place in the copy.
+- `hostile.test.mts` builds a document that tries each of these with the real
+  converter, opens it in a browser, and asks the browser what ran and how it
+  reads every link. It runs where the tools have been fetched and is skipped,
+  by name, where they have not.
 - Mermaid runs in its `strict` mode, in the check and in the copy.
 - `build-site.mts` empties the folder it writes to. It writes only into a
   folder that is new, empty, or a copy it built before (it leaves a marker

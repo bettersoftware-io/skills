@@ -78,6 +78,17 @@ function isWhole(toolset: Toolset): boolean {
   return existsSync(toolset.mermaidBundle) && existsSync(toolset.puppeteer) && existsSync(toolset.marked);
 }
 
+/**
+ * The pinned tools if this machine already has them, and undefined if not.
+ * Nothing is fetched: for a check that should run where the tools are and be
+ * skipped, out loud, where they are not.
+ */
+export function installedToolset(env: NodeJS.ProcessEnv = process.env, cache: string = cacheFolder(env)): Toolset | undefined {
+  const toolset = toolsetIn(env.ARCHITECTURE_DOCS_TOOLSET || join(cache, "tools", toolsetKey(readFileSync(join(TOOLSET, "toolset.lock.json"), "utf8"))));
+
+  return isWhole(toolset) ? toolset : undefined;
+}
+
 export interface EnsureOptions {
   env?: NodeJS.ProcessEnv;
   cache?: string;

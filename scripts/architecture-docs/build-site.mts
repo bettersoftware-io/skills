@@ -39,25 +39,41 @@ import { pathToFileURL } from "node:url";
 import { isMainModule } from "../../kit/gates/lib/files.mts";
 import { isLink, listMarkdown, notRead } from "./lib/blocks.mts";
 import { CouldNotRun } from "./lib/outcome.mts";
-import { countDiagrams, finishBody, pageHtml, pageName, safeHtml, titleOf, type NavEntry } from "./lib/page.mts";
+import { countDiagrams, escapeHtml, finishBody, pageHtml, pageName, safeHtml, titleOf, urlPath, type NavEntry } from "./lib/page.mts";
 import { SITE_CSS, SITE_SCRIPT } from "./lib/site-assets.mts";
 import { cacheFolder, ensureToolset } from "./lib/tools.mts";
 
 /**
  * Turns markdown into HTML. The real one is fetched; tests bring their own.
- *
- * It must hand HTML that the author wrote by hand through `safeHtml`, as
- * `createConverter` does: a document from someone else's repository is opened
- * in the reader's browser, and a script written in it would run there.
+ * Nothing rests on it being careful: `finishBody` keeps only the tags it
+ * knows, whatever a converter hands it.
  */
 export type ToHtml = (markdown: string) => string;
 
-/** The part of the fetched converter that is used: a class that takes how to render, and parses. */
-export type MarkedClass = new (options: { gfm: true; async: false; renderer: { html: (token: { text: string }) => string } }) => { parse: (markdown: string) => string };
+/** How the converter is told to write the two things it would otherwise write as they stand. */
+export interface Renderer {
+  html: (token: { text: string }) => string;
+  image: (token: { href: string; title?: string | null; text: string }) => string;
+}
 
-/** The converter the copy is built with: markdown as GitHub reads it, and hand-written HTML made harmless. */
+/** The part of the fetched converter that is used: a class that takes how to render, and parses. */
+export type MarkedClass = new (options: { gfm: true; async: false; renderer: Renderer }) => { parse: (markdown: string) => string };
+
+/**
+ * The converter the copy is built with: markdown as GitHub reads it.
+ * Hand-written HTML is made harmless. A picture is written here because the
+ * converter writes its alt text unescaped, so `![a "b" c](x.png)` would lose
+ * the picture to a broken tag.
+ */
 export function createConverter(Marked: MarkedClass): ToHtml {
-  const converter = new Marked({ gfm: true, async: false, renderer: { html: (token) => safeHtml(token.text) } });
+  const converter = new Marked({
+    gfm: true,
+    async: false,
+    renderer: {
+      html: (token) => safeHtml(token.text),
+      image: ({ href, title, text }) => `<img src="${escapeHtml(href)}" alt="${escapeHtml(text)}"${title ? ` title="${escapeHtml(title)}"` : ""}>`,
+    },
+  });
 
   return (markdown) => converter.parse(markdown);
 }
@@ -144,8 +160,8 @@ export function buildSite({ folder, index, out, title, repoUrl, toHtml, mermaidB
   const repository = repositoryOf(root);
   const outside = (file: string, from: string): string =>
     repoUrl !== undefined && isUnder(repository, file)
-      ? `${repoUrl.replace(/\/+$/, "")}/${relative(repository, file).split(sep).join("/")}`
-      : relative(dirname(join(destination, from)), file).split(sep).join("/");
+      ? `${repoUrl.replace(/\/+$/, "")}/${urlPath(relative(repository, file))}`
+      : urlPath(relative(dirname(join(destination, from)), file));
 
   const refused: string[] = [];
   const rendered = sources.map((source) => {

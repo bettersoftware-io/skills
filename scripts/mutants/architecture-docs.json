@@ -93,7 +93,7 @@
   {
     "name": "site: a link to a document leads to its page",
     "file": "scripts/architecture-docs/lib/page.mts",
-    "find": "  if (page !== undefined) {\n    return `${posix(relative(here, page))}${anchor}`;\n  }\n",
+    "find": "  if (page !== undefined) {\n    return `${urlPath(relative(here, page))}${anchor}`;\n  }\n",
     "replace": "",
     "test": "pnpm vitest run scripts/architecture-docs/page.test.mts -t \"to another document of the set leads to its page\""
   },
@@ -261,8 +261,8 @@
   {
     "name": "site: the converter makes hand-written HTML harmless",
     "file": "scripts/architecture-docs/build-site.mts",
-    "find": "renderer: { html: (token) => safeHtml(token.text) } });",
-    "replace": "renderer: { html: (token) => token.text } });",
+    "find": "      html: (token) => safeHtml(token.text),",
+    "replace": "      html: (token) => token.text,",
     "test": "pnpm vitest run scripts/architecture-docs/build-site.test.mts -t \"has its hand-written HTML made harmless by the converter\""
   },
   {
@@ -299,5 +299,89 @@
     "find": "securityLevel: 'strict' })",
     "replace": "securityLevel: 'loose' })",
     "test": "pnpm vitest run scripts/architecture-docs/check-diagrams.test.mts -t \"is drawn with Mermaid in strict mode\""
+  },
+  {
+    "name": "site: a page keeps only the tags it knows, whatever the converter handed over",
+    "file": "scripts/architecture-docs/lib/page.mts",
+    "find": "withDiagrams(onlyKnownTags(html))",
+    "replace": "withDiagrams(html)",
+    "test": "pnpm vitest run scripts/architecture-docs/page.test.mts -t \"keeps only the tags it knows, whatever converter made it\""
+  },
+  {
+    "name": "site: a tag the converter let through after <kbd> is shown as text",
+    "file": "scripts/architecture-docs/lib/page.mts",
+    "find": "(PLAIN_TAG.test(piece) || WRITTEN_TAG.test(piece) ? piece :",
+    "replace": "(true ? piece :",
+    "test": "pnpm vitest run scripts/architecture-docs/page.test.mts -t \"shows as text a tag the converter let through after\""
+  },
+  {
+    "name": "site: a converter's tag with something added is not the converter's tag",
+    "file": "scripts/architecture-docs/lib/page.mts",
+    "find": "|<img src=\"[^\"]*\" alt=\"[^\"]*\"(?: title=\"[^\"]*\")?>|",
+    "replace": "|<img src=\"[^\"]*\" alt=\"[^\"]*\"[^<>]*>|",
+    "test": "pnpm vitest run scripts/architecture-docs/page.test.mts -t \"shows as text a tag that is the converter's with something added\""
+  },
+  {
+    "name": "site: a tag is known only as the converter spells it",
+    "file": "scripts/architecture-docs/lib/page.mts",
+    "find": "<input (?:checked=\"\" )?disabled=\"\" type=\"checkbox\">)$/;",
+    "replace": "<input (?:checked=\"\" )?disabled=\"\" type=\"checkbox\">)$/i;",
+    "test": "pnpm vitest run scripts/architecture-docs/page.test.mts -t \"shows as text a tag spelled another way than the converter spells it\""
+  },
+  {
+    "name": "site: a link is judged again as it will stand in the page",
+    "file": "scripts/architecture-docs/lib/page.mts",
+    "find": "    if (led === undefined || !isSafeTarget(led)) {",
+    "replace": "    if (led === undefined) {",
+    "test": "pnpm vitest run scripts/architecture-docs/page.test.mts -t \"is judged as it will stand in the page, not only as it was written\""
+  },
+  {
+    "name": "site: a file whose name reads like a scheme is written as a file name",
+    "file": "scripts/architecture-docs/lib/page.mts",
+    "find": "    return `${urlPath(relative(here, inSet))}${anchor}`;",
+    "replace": "    return `${posix(relative(here, inSet))}${anchor}`;",
+    "test": "pnpm vitest run scripts/architecture-docs/page.test.mts -t \"to a file whose name reads like a scheme is still a link to a file\""
+  },
+  {
+    "name": "site: a link to another page is written encoded",
+    "file": "scripts/architecture-docs/lib/page.mts",
+    "find": "    return `${urlPath(relative(here, page))}${anchor}`;",
+    "replace": "    return `${posix(relative(here, page))}${anchor}`;",
+    "test": "pnpm vitest run scripts/architecture-docs/page.test.mts -t \"with an encoded name finds the file by its real name\""
+  },
+  {
+    "name": "site: a picture's alt text is written as text",
+    "file": "scripts/architecture-docs/build-site.mts",
+    "find": "alt=\"${escapeHtml(text)}\"",
+    "replace": "alt=\"${text}\"",
+    "test": "pnpm vitest run scripts/architecture-docs/build-site.test.mts -t \"has a picture's alt text and title written as text\""
+  },
+  {
+    "name": "site: a link that leaves the set is written encoded, to a web address",
+    "file": "scripts/architecture-docs/build-site.mts",
+    "find": "/${urlPath(relative(repository, file))}`",
+    "replace": "/${relative(repository, file).split(sep).join(\"/\")}`",
+    "test": "pnpm vitest run scripts/architecture-docs/build-site.test.mts -t \"write a link that leaves the set with every part of its path encoded\""
+  },
+  {
+    "name": "site: a link that leaves the set is written encoded, to a file on disk",
+    "file": "scripts/architecture-docs/build-site.mts",
+    "find": "      : urlPath(relative(dirname(join(destination, from)), file));",
+    "replace": "      : relative(dirname(join(destination, from)), file).split(sep).join(\"/\");",
+    "test": "pnpm vitest run scripts/architecture-docs/build-site.test.mts -t \"write a link that leaves the set with every part of its path encoded\""
+  },
+  {
+    "name": "tools: tools that are not there are not said to be there",
+    "file": "scripts/architecture-docs/lib/tools.mts",
+    "find": "  return isWhole(toolset) ? toolset : undefined;",
+    "replace": "  return toolset;",
+    "test": "pnpm vitest run scripts/architecture-docs/tools.test.mts -t \"answers with them when they were fetched, and fetches nothing when they were not\""
+  },
+  {
+    "name": "hostile document (needs the fetched tools and a browser): with the page's list of tags gone, the real converter lets a script run",
+    "file": "scripts/architecture-docs/lib/page.mts",
+    "find": "withDiagrams(onlyKnownTags(html))",
+    "replace": "withDiagrams(html)",
+    "test": "pnpm vitest run scripts/architecture-docs/hostile.test.mts -t \"runs nothing the document wrote\""
   }
 ]

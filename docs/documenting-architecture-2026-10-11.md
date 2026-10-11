@@ -97,7 +97,7 @@ The second set, 17 markdown files, on macOS (arm64), Node 26.11.1.
 | `check-doc-links.mts` (from `repo-hygiene`) | `PASS doc-links — 307 relative link(s) in 21 markdown file(s) resolve` |
 | `build-site.mts` | 17 pages, 94 diagrams, 2 other files. Opened in Chromium by a script: every diagram on every page drew, a link to a heading in another chapter landed on it after the diagrams above it had drawn, and a clicked diagram opened at full size |
 
-| `build-site.mts`, on a document written to attack its reader | A `<script>`, a picture with `onerror`, a tag with `onmouseover`, an `<iframe srcdoc>`, a `javascript:` link, a `javascript:` autolink, a `data:` picture, and a mermaid label and `click` that carry script. Built with the real converter and opened in Chromium, with every link clicked and every element hovered: nothing ran, the page held no script, frame or handler, the three unsafe links were listed by the build, and `<details>` still worked |
+| `build-site.mts`, on a document written to attack its reader (by hand; it found nothing, and three faults were there: see below) | A `<script>`, a picture with `onerror`, a tag with `onmouseover`, an `<iframe srcdoc>`, a `javascript:` link, a `javascript:` autolink, a `data:` picture, and a mermaid label and `click` that carry script. Built with the real converter and opened in Chromium, with every link clicked and every element hovered: nothing ran, the page held no script, frame or handler, the three unsafe links were listed by the build, and `<details>` still worked |
 | `build-site.mts --out`, on a folder that held other files | Exit 2, and the files were still there |
 
 An earlier version of `check-diagrams.mts` ran Mermaid's own command line,
@@ -112,8 +112,47 @@ into the copy as they were, and a document that was a symbolic link was read.
 Looking for the second turned up a third: `--out` emptied any folder it was
 given.
 
-The scripts have 100 tests. 43 mutants were each applied, seen to turn their
-test red, and removed:
+A review of that fix found two more, and reproducing them a third. All three
+got script into the page past the fix:
+
+| Written in a document | What the page held |
+|---|---|
+| `[x](javascript%3Aalert(1))` | `href="javascript:alert(1)"`. The link was judged, then `%3A` was decoded to find the file it named, and the decoded text was written |
+| `<kbd><img/src="x"/onerror=alert(1)></kbd>` | The tag as it stood. After `<kbd>`, `<code>` or `<pre>` the converter (marked 15.0.12) stops escaping text, and it does not take `<img/src…` for a tag, so the tag was never handed to `safeHtml` |
+| `![" onerror="alert(1)](x.png)` | `<img src="x.png" alt="" onerror="alert(1)">`. The converter writes alt text unescaped |
+
+Each was a thing made safe on its way in and changed on its way out. So the
+judging moved to the way out: `finishBody` keeps a `<…>` as a tag only when it
+is on a list, whatever converter made the HTML, and a link is judged again
+after it is rewritten. A path is written with every part encoded, and the
+picture is written by the builder and not by the converter.
+
+The tests had not seen any of this because they give the builder a stand-in
+converter, and a stand-in does what its author believes the real one does.
+Two of the three faults are places where it does not. The hostile document,
+which had been a file in a temporary folder, is now
+[`hostile.test.mts`](../scripts/architecture-docs/hostile.test.mts): 24
+attacks, built with the real converter, opened in one browser with no window.
+The browser is asked whether anything ran, what tags the page holds, and what
+scheme it reads on every link and picture.
+
+That test was itself wrong at first. Seven attacks had a space in their
+payload, which ends a link's address in markdown, so they were cut short and
+could not have run. A test that passes because its attack is broken proves
+nothing, so it was tried with each protection taken out:
+
+| Taken out | What the hostile test then said |
+|---|---|
+| Nothing | 5 of 5 pass |
+| The page's list of tags | A script ran, and the page held a handler |
+| The list, and the builder's own writing of a picture | The same, and the checks on the refused links and on the harmless picture failed too |
+| Encoding a path, and judging a link the second time | The browser read a link as `javascript:` |
+
+The moi set built before and after the change is the same, byte for byte, in
+all 17 pages.
+
+The scripts have 118 tests, 5 of them the hostile document. 55 mutants were
+each applied, seen to turn their test red, and removed:
 [`scripts/mutants/architecture-docs.json`](../scripts/mutants/architecture-docs.json).
 
 ## Not done

