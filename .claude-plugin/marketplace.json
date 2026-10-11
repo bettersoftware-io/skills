@@ -9,7 +9,7 @@
     {
       "name": "bettersoftware-skills",
       "source": "./",
-      "description": "Clean architecture with a streaming UI for TypeScript monorepos: a tested starter project, deterministic architecture gates, and a review of what no gate can check."
+      "description": "Clean architecture with a streaming UI for TypeScript monorepos: a tested starter project, deterministic architecture gates, and a review of what no gate can check. Also: architecture documents for any codebase, checked against its source before they are called finished."
     }
   ]
 }

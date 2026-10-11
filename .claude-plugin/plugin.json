@@ -1,6 +1,6 @@
 {
   "name": "bettersoftware-skills",
-  "description": "Clean architecture with a streaming UI for TypeScript monorepos: a tested starter project, deterministic architecture gates, and a review of what no gate can check.",
+  "description": "Clean architecture with a streaming UI for TypeScript monorepos: a tested starter project, deterministic architecture gates, and a review of what no gate can check. Also: architecture documents for any codebase, checked against its source before they are called finished.",
   "author": {
     "name": "bettersoftware-io",
     "url": "https://github.com/bettersoftware-io"
@@ -16,6 +16,9 @@
     "typescript",
     "monorepo",
     "architecture-gates",
-    "code-review"
+    "code-review",
+    "architecture-docs",
+    "c4-model",
+    "mermaid"
   ]
 }

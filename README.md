@@ -32,6 +32,7 @@ codex plugin add bettersoftware-skills@bettersoftware
 | `bettersoftware-skills:creating-a-project` | To start a new project from the starter. It runs the script, installs, and proves `gate:full` passes before anything is changed |
 | `bettersoftware-skills:extending-a-project` | To add an add-on to a project, bring its copy of the kit up to date, or give an existing project the gates for the first time |
 | `bettersoftware-skills:reviewing-architecture` | To review a change for what no gate can check, as seven judgement questions |
+| `bettersoftware-skills:documenting-architecture` | To write a codebase's architecture as documents with diagrams, in any language or stack. Every diagram is rendered, every cited file is checked to exist, and the text is fact-checked against the source by readers who did not write it |
 
 **In Codex's default sandbox a new project is created but not proven.** The
 sandbox has no network and keeps `.git` and `.codex` read-only, so the skill
@@ -95,6 +96,78 @@ written over. An add-on may offer a choice between two sets of such files
 the first only if the project never changed it.
 [The contract an add-on follows](addons/README.md).
 
+## Architecture documents
+
+`documenting-architecture` is the one skill here that is not about the
+starter. It works on any repository, and writes nothing into it but the
+documents.
+
+```bash
+node scripts/architecture-docs/check-diagrams.mts docs/architecture      # every mermaid block renders
+node scripts/architecture-docs/check-cited-paths.mts docs/architecture   # every `path/in/backticks` exists
+node addons/repo-hygiene/files/tools/repo-hygiene/check-doc-links.mts --root docs/architecture
+node scripts/architecture-docs/build-site.mts docs/architecture          # a copy that opens in a browser
+```
+
+| Script | What it does |
+|---|---|
+| `check-diagrams.mts` | Draws every ```` ```mermaid ```` block with Mermaid's own bundle, in one browser with no window. A diagram that does not render is named by its file and line, and Mermaid's "line 3" is given as a line of the file |
+| `check-cited-paths.mts` | Fails a repository path cited in backticks that is not there. A path the set says is missing is named with `--except` |
+| `build-site.mts` | Writes one page per document with a list of chapters, the anchors GitHub would give, and Mermaid beside the pages, so it reads from disk with nothing fetched. It goes to a cache folder unless `--out` says where |
+
+Each check prints `PASS` with how much it judged, `SKIP` with the reason, or
+`FAIL` with a file and line, and exits 0, 0 or 1. It exits 2 when it could
+not run.
+
+**The plugin's other scripts need Node and nothing else. These need three
+packages**, and an installed plugin has no `node_modules`. So the first run
+fetches them into `~/.cache/bettersoftware-skills/architecture-docs/` (or
+`XDG_CACHE_HOME`), with `npm ci --ignore-scripts`, at the versions
+[`toolset.lock.json`](scripts/architecture-docs/toolset/toolset.lock.json)
+pins by hash: `marked` 15.0.12, `mermaid` 12.1.0 and `puppeteer-core`
+25.13.0, about 230 MB with what they depend on. A later run fetches nothing.
+`ARCHITECTURE_DOCS_TOOLSET` names a folder that already holds them, for a
+machine with no network.
+
+No browser is downloaded. The checks use one the machine has: a headless-only
+Chromium that Puppeteer already put in `~/.cache/puppeteer` if there is one,
+then Chrome, Chromium, Edge or Brave. `ARCHITECTURE_DOCS_BROWSER` names
+another. A machine with none is told so, and the check exits 2.
+
+**The documents may be someone else's.** These scripts are run on
+repositories their user did not write, and what they read is printed, drawn
+and copied into pages that open in the user's own browser. So:
+
+- A symbolic link is never followed. A document that is one is left out and
+  named in the output; one named on the command line is refused.
+- HTML written by hand in a document is shown as text. A few tags that only
+  shape text (`<br>`, `<kbd>`, `<details>`, `<sub>`) are kept, and only bare:
+  with an attribute they are text too.
+- That is judged on the page as it will be written, not on what the markdown
+  converter was given. A tag stays a tag only when it is one of those, or one
+  the converter writes, spelled exactly as it writes it. The converter is not
+  trusted to have escaped anything.
+- A link whose scheme is not `http`, `https` or `mailto` leads nowhere in the
+  copy, and the build says which. It is judged twice: as written, and again
+  as it stands after it is pointed at its place in the copy.
+- `hostile.test.mts` builds a document that tries each of these with the real
+  converter, opens it in a browser, and asks the browser what ran and how it
+  reads every link. It runs where the tools have been fetched and is skipped,
+  by name, where they have not.
+- Mermaid runs in its `strict` mode, in the check and in the copy.
+- `build-site.mts` empties the folder it writes to. It writes only into a
+  folder that is new, empty, or a copy it built before (it leaves a marker
+  file), and never into the documents' own folder.
+
+Mermaid's own command line is not used. It starts a browser for each
+diagram: a set of 94 diagrams was 94 browsers and took 67 seconds. One
+browser for the run takes 6.
+
+The three checks prove form. Whether a sentence is true is step 6 of the
+skill: readers who did not write the set check it against the source.
+[The record](docs/documenting-architecture-2026-10-11.md) has what that found
+on two sets that had passed every check.
+
 ## What is in this repository
 
 - [`starter/`](starter/README.md): a working project to start from, with one
@@ -105,7 +178,8 @@ the first only if the project never changed it.
   rules), the agent hooks that run them, and the review questions. Copied into
   a project as `tools/arch`.
 - [`addons/`](addons/README.md): the add-ons above.
-- [`skills/`](skills): the three skills above.
+- [`skills/`](skills): the four skills above.
+- [`scripts/architecture-docs/`](scripts/architecture-docs): what `documenting-architecture` runs. See [Architecture documents](#architecture-documents).
 - [`docs/STATUS.md`](docs/STATUS.md): what is not done yet.
 
 How each part was tested:
@@ -120,6 +194,7 @@ How each part was tested:
 | [`docs/github-run-2026-10-05.md`](docs/github-run-2026-10-05.md) | The add-ons' workflows on GitHub, the Linux goldens, and CI's visual noise |
 | [`docs/demo-feature-2026-10-05.md`](docs/demo-feature-2026-10-05.md) | A CRUD feature over REST, built by an agent in the demo project, and what review and use found |
 | [`docs/small-model-2026-10-05.md`](docs/small-model-2026-10-05.md) | A feature built by the smallest model: where it stopped, what a second session fixed, and a stale-cache bug found on the way |
+| [`docs/documenting-architecture-2026-10-11.md`](docs/documenting-architecture-2026-10-11.md) | Two sets of architecture documents written without the skill, what a fact-check then found in each, and what the scripts were run on |
 | [`docs/inventory.md`](docs/inventory.md) | What was extracted, and how it was sorted |
 
 No skill exists yet for placing logic, adding a port, streaming state or

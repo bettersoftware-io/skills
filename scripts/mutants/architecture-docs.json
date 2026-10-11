@@ -1,0 +1,387 @@
+[
+  {
+    "name": "diagrams: a block shown inside a longer fence is an example, not a diagram",
+    "file": "scripts/architecture-docs/lib/blocks.mts",
+    "find": "    if (closing.length >= fence.length && closing === fence.mark.repeat(closing.length)) {",
+    "replace": "    if (closing.length >= 3 && closing === fence.mark.repeat(closing.length)) {",
+    "test": "pnpm vitest run scripts/architecture-docs/blocks.test.mts -t \"do not include a mermaid block that is shown inside a longer fence\""
+  },
+  {
+    "name": "diagrams: a fence the file ends inside is not called closed",
+    "file": "scripts/architecture-docs/lib/blocks.mts",
+    "find": "source: lines.slice(fence.diagram.from).join(\"\\n\"), closed: false });",
+    "replace": "source: lines.slice(fence.diagram.from).join(\"\\n\"), closed: true });",
+    "test": "pnpm vitest run scripts/architecture-docs/blocks.test.mts -t \"say so when the file ends before the fence does\""
+  },
+  {
+    "name": "diagrams: a path that is not there is refused, not skipped",
+    "file": "scripts/architecture-docs/lib/blocks.mts",
+    "find": "      throw new CouldNotRun(`${path} does not exist`);",
+    "replace": "      continue;",
+    "test": "pnpm vitest run scripts/architecture-docs/blocks.test.mts -t \"refuse a path that is not there\""
+  },
+  {
+    "name": "diagrams: nothing to render fetches nothing and starts no browser",
+    "file": "scripts/architecture-docs/check-diagrams.mts",
+    "find": "  if (jobs.length > 0) {\n    const render = await renderer();",
+    "replace": "  {\n    const render = await renderer();",
+    "test": "pnpm vitest run scripts/architecture-docs/check-diagrams.test.mts -t \"is a skip, not a pass, and never asks for the renderer\""
+  },
+  {
+    "name": "diagrams: nothing to render is a skip, not a pass",
+    "file": "scripts/architecture-docs/check-diagrams.mts",
+    "find": "    ...(diagrams === 0 ? { skipped: files.length === 0 ? \"no markdown file\" : `no mermaid diagram in ${files.length} markdown file(s)` } : {}),",
+    "replace": "",
+    "test": "pnpm vitest run scripts/architecture-docs/check-diagrams.test.mts -t \"says when there was no markdown file at all\""
+  },
+  {
+    "name": "diagrams: the line named is a line of the file",
+    "file": "scripts/architecture-docs/check-diagrams.mts",
+    "find": "(line ${fenceLine + Number(named[1])} of the file)",
+    "replace": "(line ${Number(named[1])} of the file)",
+    "test": "pnpm vitest run scripts/architecture-docs/check-diagrams.test.mts -t \"names the line of the file, not the line of the diagram\""
+  },
+  {
+    "name": "diagrams: a fence that is never closed is not handed to the renderer",
+    "file": "scripts/architecture-docs/check-diagrams.mts",
+    "find": "      if (diagram.closed) {",
+    "replace": "      if (diagram.closed || true) {",
+    "test": "pnpm vitest run scripts/architecture-docs/check-diagrams.test.mts -t \"is a finding, and is not handed to the renderer\""
+  },
+  {
+    "name": "cited paths: a line citation is not part of the path",
+    "file": "scripts/architecture-docs/check-cited-paths.mts",
+    "find": "      .replace(/:\\d+(?:-\\d+)?$/, \"\")\n",
+    "replace": "",
+    "test": "pnpm vitest run scripts/architecture-docs/check-cited-paths.test.mts -t \"is read without a line citation\""
+  },
+  {
+    "name": "cited paths: only a span that starts at the top of the repository is a path",
+    "file": "scripts/architecture-docs/check-cited-paths.mts",
+    "find": "    if (path.includes(\"/\") && topLevel.has(first)) {",
+    "replace": "    if (path.includes(\"/\")) {",
+    "test": "pnpm vitest run scripts/architecture-docs/check-cited-paths.test.mts -t \"is not a route, a dot-file, a placeholder\""
+  },
+  {
+    "name": "cited paths: what a code block shows is an example",
+    "file": "scripts/architecture-docs/check-cited-paths.mts",
+    "find": "    proseLines(readFileSync(file, \"utf8\")).forEach((line, index) => {",
+    "replace": "    readFileSync(file, \"utf8\").split(\"\\n\").forEach((line, index) => {",
+    "test": "pnpm vitest run scripts/architecture-docs/check-cited-paths.test.mts -t \"passes, counts every citation, and finds the repository from the document\""
+  },
+  {
+    "name": "cited paths: an exception excuses the path it names and no other",
+    "file": "scripts/architecture-docs/check-cited-paths.mts",
+    "find": "        if (allowed.has(path.replace(/\\/+$/, \"\"))) {",
+    "replace": "        if (allowed.size > 0) {",
+    "test": "pnpm vitest run scripts/architecture-docs/check-cited-paths.test.mts -t \"is still a finding when only another path is excepted\""
+  },
+  {
+    "name": "cited paths: nothing cited is a skip, not a pass",
+    "file": "scripts/architecture-docs/check-cited-paths.mts",
+    "find": "    ...(cited === 0 ? { skipped: files.length === 0 ? \"no markdown file\" : `no repository path is cited in ${files.length} markdown file(s)` } : {}),",
+    "replace": "",
+    "test": "pnpm vitest run scripts/architecture-docs/check-cited-paths.test.mts -t \"is a skip, not a pass\""
+  },
+  {
+    "name": "site: a heading's anchor is GitHub's, not the simple rule",
+    "file": "scripts/architecture-docs/lib/page.mts",
+    "find": "    const anchor = nextAnchor(plain(inner));",
+    "replace": "    const anchor = plain(inner).toLowerCase().replace(/[^a-z0-9 -]/g, \"\").replace(/ +/g, \"-\");",
+    "test": "pnpm vitest run scripts/architecture-docs/page.test.mts -t \"gets the anchor GitHub gives it\""
+  },
+  {
+    "name": "site: a link to a document leads to its page",
+    "file": "scripts/architecture-docs/lib/page.mts",
+    "find": "  if (page !== undefined) {\n    return `${urlPath(relative(here, page))}${anchor}`;\n  }\n",
+    "replace": "",
+    "test": "pnpm vitest run scripts/architecture-docs/page.test.mts -t \"to another document of the set leads to its page\""
+  },
+  {
+    "name": "site: a link is written from where the page is",
+    "file": "scripts/architecture-docs/lib/page.mts",
+    "find": "  const here = dirname(pages.get(source) ?? \"index.html\");",
+    "replace": "  const here = \".\";",
+    "test": "pnpm vitest run scripts/architecture-docs/page.test.mts -t \"is written from where the page is, not from the top\""
+  },
+  {
+    "name": "site: only a mermaid block becomes a figure",
+    "file": "scripts/architecture-docs/lib/page.mts",
+    "find": "  return html.replace(/<pre><code class=\"language-mermaid\">",
+    "replace": "  return html.replace(/<pre><code class=\"language-[a-z]+\">",
+    "test": "pnpm vitest run scripts/architecture-docs/page.test.mts -t \"is the only kind of block that does\""
+  },
+  {
+    "name": "site: a page in a folder reaches the top of the copy",
+    "file": "scripts/architecture-docs/lib/page.mts",
+    "find": "  return \"../\".repeat(page.split(\"/\").length - 1);",
+    "replace": "  return \"\";",
+    "test": "pnpm vitest run scripts/architecture-docs/page.test.mts -t \"reaches the top of the copy from a page in a folder\""
+  },
+  {
+    "name": "site: the copy is never written into the documents' own folder",
+    "file": "scripts/architecture-docs/build-site.mts",
+    "find": "  if (destination === root || isUnder(root, destination)) {",
+    "replace": "  if (destination === root) {",
+    "test": "pnpm vitest run scripts/architecture-docs/build-site.test.mts -t \"refuses to write into the documents' own folder\""
+  },
+  {
+    "name": "site: two documents never become one page",
+    "file": "scripts/architecture-docs/build-site.mts",
+    "find": "    if ([...pages.values()].includes(page)) {",
+    "replace": "    if (false) {",
+    "test": "pnpm vitest run scripts/architecture-docs/build-site.test.mts -t \"refuses two documents that would become one page\""
+  },
+  {
+    "name": "site: what was built before does not stay",
+    "file": "scripts/architecture-docs/build-site.mts",
+    "find": "  rmSync(destination, { recursive: true, force: true });\n  mkdirSync(destination, { recursive: true });",
+    "replace": "  mkdirSync(destination, { recursive: true });",
+    "test": "pnpm vitest run scripts/architecture-docs/build-site.test.mts -t \"replaces what was there\""
+  },
+  {
+    "name": "site: a link that leaves the set points at a web address when one is given",
+    "file": "scripts/architecture-docs/build-site.mts",
+    "find": "    repoUrl !== undefined && isUnder(repository, file)",
+    "replace": "    false",
+    "test": "pnpm vitest run scripts/architecture-docs/build-site.test.mts -t \"point a link that leaves the set at a web address when one is given\""
+  },
+  {
+    "name": "tools: no package's install script is run",
+    "file": "scripts/architecture-docs/lib/tools.mts",
+    "find": "  const installed = run(\"npm\", [\"ci\", \"--ignore-scripts\", \"--no-audit\", \"--no-fund\"], { cwd: partial, env });",
+    "replace": "  const installed = run(\"npm\", [\"ci\", \"--no-audit\", \"--no-fund\"], { cwd: partial, env });",
+    "test": "pnpm vitest run scripts/architecture-docs/tools.test.mts -t \"installs from the lockfile, runs no package's script\""
+  },
+  {
+    "name": "tools: a failed fetch leaves no folder that looks finished",
+    "file": "scripts/architecture-docs/lib/tools.mts",
+    "find": "  if (installed.error !== undefined || installed.status !== 0) {\n    rmSync(partial, { recursive: true, force: true });\n",
+    "replace": "  if (installed.error !== undefined || installed.status !== 0) {\n",
+    "test": "pnpm vitest run scripts/architecture-docs/tools.test.mts -t \"leaves no folder that looks finished when the fetch fails\""
+  },
+  {
+    "name": "tools: tools already fetched are not fetched again",
+    "file": "scripts/architecture-docs/lib/tools.mts",
+    "find": "  if (isWhole(toolset)) {\n    return toolset;\n  }\n\n  // Installed beside",
+    "replace": "  // Installed beside",
+    "test": "pnpm vitest run scripts/architecture-docs/tools.test.mts -t \"fetches nothing the second time\""
+  },
+  {
+    "name": "tools: the headless-only build is used before the whole browser",
+    "file": "scripts/architecture-docs/lib/tools.mts",
+    "find": "    downloaded(\"chrome-headless-shell\", [\"chrome-headless-shell\", \"chrome-headless-shell.exe\"]) ??\n    (usual[platform] ?? []).find((path) => exists(path)) ??",
+    "replace": "    (usual[platform] ?? []).find((path) => exists(path)) ??\n    downloaded(\"chrome-headless-shell\", [\"chrome-headless-shell\", \"chrome-headless-shell.exe\"]) ??",
+    "test": "pnpm vitest run scripts/architecture-docs/tools.test.mts -t \"is the headless-only build before the whole browser\""
+  },
+  {
+    "name": "tools: a browser a person named is the only one tried",
+    "file": "scripts/architecture-docs/lib/tools.mts",
+    "find": "      return exists(named) ? named : undefined;",
+    "replace": "      if (exists(named)) return named;",
+    "test": "pnpm vitest run scripts/architecture-docs/tools.test.mts -t \"is the one a person named, and nothing else when that one is not there\""
+  },
+  {
+    "name": "tools: the browser keeps its sandbox outside CI",
+    "file": "scripts/architecture-docs/lib/tools.mts",
+    "find": "  return isRoot || env.CI ? [\"--no-sandbox\"] : [];",
+    "replace": "  return [\"--no-sandbox\"];",
+    "test": "pnpm vitest run scripts/architecture-docs/tools.test.mts -t \"keeps its sandbox, except as root and in CI\""
+  },
+  {
+    "name": "render: a diagram Mermaid cannot read is an error, never a drawn bomb",
+    "file": "scripts/architecture-docs/lib/render.mts",
+    "find": "    return { error: String((error && error.message) || error) };",
+    "replace": "    return { svg: \"\" };",
+    "test": "pnpm vitest run scripts/architecture-docs/check-diagrams.test.mts -t \"is asked for in a way that makes a diagram Mermaid cannot read an error\""
+  },
+  {
+    "name": "links: a document that is a symbolic link is named, not passed over in silence",
+    "file": "scripts/architecture-docs/lib/blocks.mts",
+    "find": "      if (entry.isSymbolicLink()) {\n        if (/\\.md$/i.test(entry.name)) {\n          links.push(path);\n        }\n      } else if (entry.isDirectory()) {",
+    "replace": "      if (entry.isSymbolicLink()) {\n      } else if (entry.isDirectory()) {",
+    "test": "pnpm vitest run scripts/architecture-docs/blocks.test.mts -t \"is never followed: a linked file is left out and named\""
+  },
+  {
+    "name": "links: a document that is a symbolic link is never read",
+    "file": "scripts/architecture-docs/lib/blocks.mts",
+    "find": "      } else if (entry.isFile() && /\\.md$/i.test(entry.name)) {\n        found.add(path);\n      }",
+    "replace": "      }\n\n      if (!entry.isDirectory() && /\\.md$/i.test(entry.name)) {\n        found.add(path);\n      }",
+    "test": "pnpm vitest run scripts/architecture-docs/check-diagrams.test.mts -t \"is not read, so what it points at is never rendered or quoted\""
+  },
+  {
+    "name": "links: a link named on the command line is refused",
+    "file": "scripts/architecture-docs/lib/blocks.mts",
+    "find": "    if (isLink(absolute)) {\n      throw new CouldNotRun(`${path} is a symbolic link, and a link is never followed. Name the file or folder it points at.`);\n    }\n",
+    "replace": "",
+    "test": "pnpm vitest run scripts/architecture-docs/blocks.test.mts -t \"is refused when it is named on the command line\""
+  },
+  {
+    "name": "site: a tag that carries an attribute is not kept",
+    "file": "scripts/architecture-docs/lib/page.mts",
+    "find": "|table|thead|tbody|tr|th|td|h[1-6])\\s*\\/?>$/i;",
+    "replace": "|table|thead|tbody|tr|th|td|h[1-6])[^>]*>$/i;",
+    "test": "pnpm vitest run scripts/architecture-docs/page.test.mts -t \"does not keep such a tag once it carries an attribute\""
+  },
+  {
+    "name": "site: a tag that could run something is shown as text",
+    "file": "scripts/architecture-docs/lib/page.mts",
+    "find": "(piece) => (PLAIN_TAG.test(piece) ? piece : piece.replace(/</g, \"&lt;\").replace(/>/g, \"&gt;\")));",
+    "replace": "(piece) => piece);",
+    "test": "pnpm vitest run scripts/architecture-docs/page.test.mts -t \"is shown as text when it could run something\""
+  },
+  {
+    "name": "site: a comment is dropped, closed or not",
+    "file": "scripts/architecture-docs/lib/page.mts",
+    "find": "    .replace(/<!--[\\s\\S]*?(?:-->|$)/g, \"\")\n",
+    "replace": "",
+    "test": "pnpm vitest run scripts/architecture-docs/page.test.mts -t \"drops a comment, closed or not\""
+  },
+  {
+    "name": "site: a scheme is read as a browser reads it, without the whitespace",
+    "file": "scripts/architecture-docs/lib/page.mts",
+    "find": ".exec(target.replace(/[\\u0000-\\u0020]/g, \"\"));",
+    "replace": ".exec(target);",
+    "test": "pnpm vitest run scripts/architecture-docs/page.test.mts -t \"is one whose scheme is not the web's or a mailbox's\""
+  },
+  {
+    "name": "site: only the web and a mailbox are schemes a reader may follow",
+    "file": "scripts/architecture-docs/lib/page.mts",
+    "find": "[\"http\", \"https\", \"mailto\"].includes(",
+    "replace": "[\"http\", \"https\", \"mailto\", \"data\"].includes(",
+    "test": "pnpm vitest run scripts/architecture-docs/page.test.mts -t \"is one whose scheme is not the web's or a mailbox's\""
+  },
+  {
+    "name": "site: a link that is not safe leads nowhere",
+    "file": "scripts/architecture-docs/lib/page.mts",
+    "find": "      refused(target);\n\n      return \"#\";",
+    "replace": "      refused(target);\n\n      return target;",
+    "test": "pnpm vitest run scripts/architecture-docs/page.test.mts -t \"leads nowhere in the page, for a link and for a picture\""
+  },
+  {
+    "name": "site: the converter makes hand-written HTML harmless",
+    "file": "scripts/architecture-docs/build-site.mts",
+    "find": "      html: (token) => safeHtml(token.text),",
+    "replace": "      html: (token) => token.text,",
+    "test": "pnpm vitest run scripts/architecture-docs/build-site.test.mts -t \"has its hand-written HTML made harmless by the converter\""
+  },
+  {
+    "name": "site: a folder that holds someone's files is never emptied",
+    "file": "scripts/architecture-docs/build-site.mts",
+    "find": "(readdirSync(destination).length > 0 && !existsSync(join(destination, MARKER)))",
+    "replace": "false",
+    "test": "pnpm vitest run scripts/architecture-docs/build-site.test.mts -t \"is emptied only when it is new, empty, or a copy built here\""
+  },
+  {
+    "name": "site: a copy is marked, so that it can be built again",
+    "file": "scripts/architecture-docs/build-site.mts",
+    "find": "  writeFileSync(join(destination, MARKER), \"Built by scripts/architecture-docs/build-site.mts. The next build empties this folder.\\n\");\n",
+    "replace": "",
+    "test": "pnpm vitest run scripts/architecture-docs/build-site.test.mts -t \"may be an empty folder, and may be built into again\""
+  },
+  {
+    "name": "site: the copy is never written through a symbolic link",
+    "file": "scripts/architecture-docs/build-site.mts",
+    "find": "  if (isLink(destination)) {",
+    "replace": "  if (false) {",
+    "test": "pnpm vitest run scripts/architecture-docs/build-site.test.mts -t \"is never a file, and never a symbolic link\""
+  },
+  {
+    "name": "site: a start page that is a symbolic link is refused",
+    "file": "scripts/architecture-docs/build-site.mts",
+    "find": "  if (isLink(start)) {",
+    "replace": "  if (false) {",
+    "test": "pnpm vitest run scripts/architecture-docs/build-site.test.mts -t \"is refused as the start page\""
+  },
+  {
+    "name": "diagrams: Mermaid runs in strict mode where a reader's browser draws them",
+    "file": "scripts/architecture-docs/lib/site-assets.mts",
+    "find": "securityLevel: 'strict' })",
+    "replace": "securityLevel: 'loose' })",
+    "test": "pnpm vitest run scripts/architecture-docs/check-diagrams.test.mts -t \"is drawn with Mermaid in strict mode\""
+  },
+  {
+    "name": "site: a page keeps only the tags it knows, whatever the converter handed over",
+    "file": "scripts/architecture-docs/lib/page.mts",
+    "find": "withDiagrams(onlyKnownTags(html))",
+    "replace": "withDiagrams(html)",
+    "test": "pnpm vitest run scripts/architecture-docs/page.test.mts -t \"keeps only the tags it knows, whatever converter made it\""
+  },
+  {
+    "name": "site: a tag the converter let through after <kbd> is shown as text",
+    "file": "scripts/architecture-docs/lib/page.mts",
+    "find": "(PLAIN_TAG.test(piece) || WRITTEN_TAG.test(piece) ? piece :",
+    "replace": "(true ? piece :",
+    "test": "pnpm vitest run scripts/architecture-docs/page.test.mts -t \"shows as text a tag the converter let through after\""
+  },
+  {
+    "name": "site: a converter's tag with something added is not the converter's tag",
+    "file": "scripts/architecture-docs/lib/page.mts",
+    "find": "|<img src=\"[^\"]*\" alt=\"[^\"]*\"(?: title=\"[^\"]*\")?>|",
+    "replace": "|<img src=\"[^\"]*\" alt=\"[^\"]*\"[^<>]*>|",
+    "test": "pnpm vitest run scripts/architecture-docs/page.test.mts -t \"shows as text a tag that is the converter's with something added\""
+  },
+  {
+    "name": "site: a tag is known only as the converter spells it",
+    "file": "scripts/architecture-docs/lib/page.mts",
+    "find": "<input (?:checked=\"\" )?disabled=\"\" type=\"checkbox\">)$/;",
+    "replace": "<input (?:checked=\"\" )?disabled=\"\" type=\"checkbox\">)$/i;",
+    "test": "pnpm vitest run scripts/architecture-docs/page.test.mts -t \"shows as text a tag spelled another way than the converter spells it\""
+  },
+  {
+    "name": "site: a link is judged again as it will stand in the page",
+    "file": "scripts/architecture-docs/lib/page.mts",
+    "find": "    if (led === undefined || !isSafeTarget(led)) {",
+    "replace": "    if (led === undefined) {",
+    "test": "pnpm vitest run scripts/architecture-docs/page.test.mts -t \"is judged as it will stand in the page, not only as it was written\""
+  },
+  {
+    "name": "site: a file whose name reads like a scheme is written as a file name",
+    "file": "scripts/architecture-docs/lib/page.mts",
+    "find": "    return `${urlPath(relative(here, inSet))}${anchor}`;",
+    "replace": "    return `${posix(relative(here, inSet))}${anchor}`;",
+    "test": "pnpm vitest run scripts/architecture-docs/page.test.mts -t \"to a file whose name reads like a scheme is still a link to a file\""
+  },
+  {
+    "name": "site: a link to another page is written encoded",
+    "file": "scripts/architecture-docs/lib/page.mts",
+    "find": "    return `${urlPath(relative(here, page))}${anchor}`;",
+    "replace": "    return `${posix(relative(here, page))}${anchor}`;",
+    "test": "pnpm vitest run scripts/architecture-docs/page.test.mts -t \"with an encoded name finds the file by its real name\""
+  },
+  {
+    "name": "site: a picture's alt text is written as text",
+    "file": "scripts/architecture-docs/build-site.mts",
+    "find": "alt=\"${escapeHtml(text)}\"",
+    "replace": "alt=\"${text}\"",
+    "test": "pnpm vitest run scripts/architecture-docs/build-site.test.mts -t \"has a picture's alt text and title written as text\""
+  },
+  {
+    "name": "site: a link that leaves the set is written encoded, to a web address",
+    "file": "scripts/architecture-docs/build-site.mts",
+    "find": "/${urlPath(relative(repository, file))}`",
+    "replace": "/${relative(repository, file).split(sep).join(\"/\")}`",
+    "test": "pnpm vitest run scripts/architecture-docs/build-site.test.mts -t \"write a link that leaves the set with every part of its path encoded\""
+  },
+  {
+    "name": "site: a link that leaves the set is written encoded, to a file on disk",
+    "file": "scripts/architecture-docs/build-site.mts",
+    "find": "      : urlPath(relative(dirname(join(destination, from)), file));",
+    "replace": "      : relative(dirname(join(destination, from)), file).split(sep).join(\"/\");",
+    "test": "pnpm vitest run scripts/architecture-docs/build-site.test.mts -t \"write a link that leaves the set with every part of its path encoded\""
+  },
+  {
+    "name": "tools: tools that are not there are not said to be there",
+    "file": "scripts/architecture-docs/lib/tools.mts",
+    "find": "  return isWhole(toolset) ? toolset : undefined;",
+    "replace": "  return toolset;",
+    "test": "pnpm vitest run scripts/architecture-docs/tools.test.mts -t \"answers with them when they were fetched, and fetches nothing when they were not\""
+  },
+  {
+    "name": "hostile document (needs the fetched tools and a browser): with the page's list of tags gone, the real converter lets a script run",
+    "file": "scripts/architecture-docs/lib/page.mts",
+    "find": "withDiagrams(onlyKnownTags(html))",
+    "replace": "withDiagrams(html)",
+    "test": "pnpm vitest run scripts/architecture-docs/hostile.test.mts -t \"runs nothing the document wrote\""
+  }
+]
