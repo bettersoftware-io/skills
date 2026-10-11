@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { countDiagrams, finishBody, pageHtml, pageName, plain, rewriteTarget, titleOf, withAnchors, withDiagrams, withLinks, withTables, type PageContext } from "./lib/page.mts";
+import { countDiagrams, finishBody, isSafeTarget, pageHtml, pageName, plain, rewriteTarget, safeHtml, titleOf, withAnchors, withDiagrams, withLinks, withTables, type PageContext } from "./lib/page.mts";
 
 const context: PageContext = {
   source: "/repo/docs/architecture/02-c4.md",
@@ -94,7 +94,56 @@ describe("a link", () => {
   it("is rewritten in the page, and one that leaves the copy opens in a new tab", () => {
     const html = '<p><a href="README.md#a">in</a> <a href="https://example.test/?a=1&amp;b=2">out</a> <img src="flow.svg" alt="x"></p>';
 
-    expect(withLinks(html, context)).toBe('<p><a href="index.html#a">in</a> <a target="_blank" rel="noopener" href="https://example.test/?a=1&amp;b=2">out</a> <img src="flow.svg" alt="x"></p>');
+    expect(withLinks(html, context)).toBe('<p><a href="index.html#a">in</a> <a target="_blank" rel="noopener noreferrer" href="https://example.test/?a=1&amp;b=2">out</a> <img src="flow.svg" alt="x"></p>');
+  });
+});
+
+describe("a link that is not safe to follow", () => {
+  it("is one whose scheme is not the web's or a mailbox's, however it is spelled", () => {
+    for (const target of ["javascript:alert(1)", "JaVaScRiPt:alert(1)", "java\tscript:alert(1)", " javascript:alert(1)", "data:text/html,<script>1</script>", "vbscript:x", "file:///etc/passwd"]) {
+      expect(isSafeTarget(target), target).toBe(false);
+    }
+  });
+
+  it("is not a link inside the copy, to the web, or to a mailbox", () => {
+    for (const target of ["02-c4.md#a", "../x/y.md", "#top", "https://example.test", "HTTP://example.test", "mailto:a@example.test", "deep/a:b.md", ""]) {
+      expect(isSafeTarget(target), target).toBe(true);
+    }
+  });
+
+  it("leads nowhere in the page, for a link and for a picture, and is handed to the caller", () => {
+    const refused: string[] = [];
+    const html = '<p><a href="javascript:alert(1)">x</a> <img src="data:image/svg+xml,&lt;svg onload=alert(1)&gt;" alt="y"> <a href="README.md">ok</a></p>';
+
+    expect(withLinks(html, context, (target) => refused.push(target))).toBe('<p><a href="#">x</a> <img src="#" alt="y"> <a href="index.html">ok</a></p>');
+    expect(refused).toEqual(["javascript:alert(1)", "data:image/svg+xml,<svg onload=alert(1)>"]);
+  });
+});
+
+describe("HTML an author wrote by hand", () => {
+  it("is shown as text when it could run something", () => {
+    expect(safeHtml("<script>alert(1)</script>")).toBe("&lt;script&gt;alert(1)&lt;/script&gt;");
+    expect(safeHtml('<img src=x onerror="alert(1)">')).toBe('&lt;img src=x onerror="alert(1)"&gt;');
+    expect(safeHtml('<iframe src="https://example.test"></iframe>')).toBe('&lt;iframe src="https://example.test"&gt;&lt;/iframe&gt;');
+    expect(safeHtml("<svg><a xlink:href='javascript:1'>x</a></svg>")).toBe("&lt;svg&gt;&lt;a xlink:href='javascript:1'&gt;x&lt;/a&gt;&lt;/svg&gt;");
+  });
+
+  it("keeps a tag that only shapes text, when it is bare", () => {
+    expect(safeHtml("<details>\n<summary>More</summary>\n\nText<br/>and <kbd>Esc</kbd>\n</details>")).toBe("<details>\n<summary>More</summary>\n\nText<br/>and <kbd>Esc</kbd>\n</details>");
+    expect(safeHtml("<B>loud</B> <br >")).toBe("<B>loud</B> <br >");
+  });
+
+  it("does not keep such a tag once it carries an attribute: an attribute can run something", () => {
+    expect(safeHtml('<b onmouseover="alert(1)">x</b>')).toBe('&lt;b onmouseover="alert(1)"&gt;x</b>');
+    expect(safeHtml('<div style="position:fixed">x</div>')).toBe('&lt;div style="position:fixed"&gt;x</div>');
+    expect(safeHtml("<p/onclick=alert(1)>")).toBe("&lt;p/onclick=alert(1)&gt;");
+  });
+
+  it("drops a comment, closed or not, and leaves no bare angle bracket behind", () => {
+    expect(safeHtml("a<!-- <script>x</script> -->b")).toBe("ab");
+    expect(safeHtml("a<!-- never closed <script>x")).toBe("a");
+    expect(safeHtml("1 < 2 and <script")).toBe("1 &lt; 2 and &lt;script");
+    expect(safeHtml("<scr<b>ipt>")).toBe("&lt;scr<b>ipt&gt;");
   });
 });
 

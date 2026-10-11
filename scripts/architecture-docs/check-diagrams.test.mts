@@ -1,10 +1,12 @@
 import { spawnSync } from "node:child_process";
+import { symlinkSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
 import { checkDiagrams, formatResult, inFileTerms, parseArguments } from "./check-diagrams.mts";
 import { CouldNotRun } from "./lib/outcome.mts";
-import { drawScript, shortError, type Render } from "./lib/render.mts";
+import { drawScript, MERMAID_SETUP, shortError, type Render } from "./lib/render.mts";
+import { SITE_SCRIPT } from "./lib/site-assets.mts";
 import { createFolder, mermaid, SCRIPTS } from "./support.mts";
 
 const script = join(SCRIPTS, "check-diagrams.mts");
@@ -78,6 +80,14 @@ describe("what the renderer said", () => {
   });
 });
 
+describe("a diagram that is someone else's", () => {
+  it("is drawn with Mermaid in strict mode, in the check and in the reading copy: a label is text, and a click runs nothing", () => {
+    expect(MERMAID_SETUP).toContain('securityLevel: "strict"');
+    expect(SITE_SCRIPT).toContain("securityLevel: 'strict'");
+    expect(`${MERMAID_SETUP}${SITE_SCRIPT}`).not.toMatch(/securityLevel: ["'](?:loose|antiscript|sandbox)/);
+  });
+});
+
 describe("a fence that is never closed", () => {
   it("is a finding, and is not handed to the renderer", async () => {
     const root = createFolder({ "a.md": "# A\n\n```mermaid\nflowchart LR\n" });
@@ -103,6 +113,21 @@ describe("nothing to render", () => {
 
   it("says when there was no markdown file at all", async () => {
     expect(formatResult(await checkDiagrams([createFolder({ "a.txt": "" })], () => fake))).toBe("SKIP diagrams — no markdown file");
+  });
+});
+
+describe("a document that is a symbolic link", () => {
+  it("is not read, so what it points at is never rendered or quoted, and the result says so", async () => {
+    const outside = createFolder({ "private.md": mermaid("flowchart LR\n  broken secret") });
+    const root = createFolder({ "docs/a.md": mermaid("flowchart LR\n  a --> b") });
+
+    symlinkSync(join(outside, "private.md"), join(root, "docs/linked.md"));
+
+    const sources: string[] = [];
+    const result = await checkDiagrams([join(root, "docs")], () => async (source) => void sources.push(source), root);
+
+    expect(sources).toEqual(["flowchart LR\n  a --> b"]);
+    expect(formatResult(result)).toBe("PASS diagrams — 1 diagram(s) in 1 markdown file(s) render\n  not read, because a symbolic link is never followed: docs/linked.md");
   });
 });
 

@@ -89,6 +89,36 @@ function isExternal(target: string): boolean {
   return /^[a-z][a-z0-9+.-]*:/i.test(target) || target.startsWith("//");
 }
 
+/**
+ * A link a reader may follow: one inside the copy, or one to the web or to a
+ * mailbox. `javascript:`, `data:`, `vbscript:` and `file:` are none of these:
+ * the first three run or carry code in the page that holds them. Whitespace
+ * and control characters are dropped first, as a browser drops them, so that
+ * `java\tscript:` is seen for what it is.
+ */
+export function isSafeTarget(target: string): boolean {
+  const scheme = /^([a-z][a-z0-9+.-]*):/i.exec(target.replace(/[\u0000-\u0020]/g, ""));
+
+  return scheme === null || ["http", "https", "mailto"].includes((scheme[1] as string).toLowerCase());
+}
+
+/** The tags that may be written as HTML in a document, bare: with no attribute, they can only shape text. */
+const PLAIN_TAG = /^<\/?(?:br|hr|b|i|em|strong|u|s|del|ins|mark|small|sub|sup|kbd|code|pre|samp|var|q|blockquote|p|div|span|details|summary|ul|ol|li|dl|dt|dd|table|thead|tbody|tr|th|td|h[1-6])\s*\/?>$/i;
+
+/**
+ * HTML that a document's author wrote by hand, made harmless. A document from
+ * a repository that is not the reader's own is opened in the reader's browser:
+ * a `<script>` in it, or an `onerror` on a picture, would run there. So a tag
+ * is kept only when it is one of a few that shape text and it carries no
+ * attribute. Everything else is shown as the text it is, and a comment is
+ * dropped. Nothing is "cleaned": what is not known to be harmless is not HTML.
+ */
+export function safeHtml(raw: string): string {
+  return raw
+    .replace(/<!--[\s\S]*?(?:-->|$)/g, "")
+    .replace(/<[^<>]*>|[<>]/g, (piece) => (PLAIN_TAG.test(piece) ? piece : piece.replace(/</g, "&lt;").replace(/>/g, "&gt;")));
+}
+
 function decode(text: string): string {
   try {
     return decodeURIComponent(text);
@@ -128,15 +158,31 @@ export function rewriteTarget(target: string, { source, pages, root, outside }: 
   return `${outside(file)}${anchor}`;
 }
 
-/** Points every link and picture of the page at its place in the copy. A link that leaves the copy opens in a new tab. */
-export function withLinks(html: string, context: PageContext): string {
+/**
+ * Points every link and picture of the page at its place in the copy. A link
+ * that leaves the copy opens in a new tab. A link that is not safe to follow
+ * leads nowhere, and is handed to `refused` so the build can say so.
+ */
+export function withLinks(html: string, context: PageContext, refused: (target: string) => void = () => {}): string {
+  const lead = (written: string): string => {
+    const target = plain(written);
+
+    if (!isSafeTarget(target)) {
+      refused(target);
+
+      return "#";
+    }
+
+    return rewriteTarget(target, context);
+  };
+
   return html
     .replace(/<a href="([^"]*)"/g, (_, href: string) => {
-      const target = rewriteTarget(plain(href), context);
+      const target = lead(href);
 
-      return `<a ${isExternal(target) ? 'target="_blank" rel="noopener" ' : ""}href="${escapeHtml(target)}"`;
+      return `<a ${isExternal(target) ? 'target="_blank" rel="noopener noreferrer" ' : ""}href="${escapeHtml(target)}"`;
     })
-    .replace(/<img src="([^"]*)"/g, (_, src: string) => `<img src="${escapeHtml(rewriteTarget(plain(src), context))}"`);
+    .replace(/<img src="([^"]*)"/g, (_, src: string) => `<img src="${escapeHtml(lead(src))}"`);
 }
 
 /** A wide table scrolls in its own box, not the page. */
@@ -145,8 +191,8 @@ export function withTables(html: string): string {
 }
 
 /** The body of a page, from what the converter produced. */
-export function finishBody(html: string, context: PageContext): string {
-  return withTables(withLinks(withAnchors(withDiagrams(html)), context));
+export function finishBody(html: string, context: PageContext, refused: (target: string) => void = () => {}): string {
+  return withTables(withLinks(withAnchors(withDiagrams(html)), context, refused));
 }
 
 export interface NavEntry {

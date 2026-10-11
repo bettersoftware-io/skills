@@ -37,14 +37,33 @@ import { basename, dirname, isAbsolute, join, relative, resolve, sep } from "nod
 import { pathToFileURL } from "node:url";
 
 import { isMainModule } from "../../kit/gates/lib/files.mts";
-import { listMarkdown } from "./lib/blocks.mts";
+import { isLink, listMarkdown, notRead } from "./lib/blocks.mts";
 import { CouldNotRun } from "./lib/outcome.mts";
-import { countDiagrams, finishBody, pageHtml, pageName, titleOf, type NavEntry } from "./lib/page.mts";
+import { countDiagrams, finishBody, pageHtml, pageName, safeHtml, titleOf, type NavEntry } from "./lib/page.mts";
 import { SITE_CSS, SITE_SCRIPT } from "./lib/site-assets.mts";
 import { cacheFolder, ensureToolset } from "./lib/tools.mts";
 
-/** Turns markdown into HTML. The real one is fetched; tests bring their own. */
+/**
+ * Turns markdown into HTML. The real one is fetched; tests bring their own.
+ *
+ * It must hand HTML that the author wrote by hand through `safeHtml`, as
+ * `createConverter` does: a document from someone else's repository is opened
+ * in the reader's browser, and a script written in it would run there.
+ */
 export type ToHtml = (markdown: string) => string;
+
+/** The part of the fetched converter that is used: a class that takes how to render, and parses. */
+export type MarkedClass = new (options: { gfm: true; async: false; renderer: { html: (token: { text: string }) => string } }) => { parse: (markdown: string) => string };
+
+/** The converter the copy is built with: markdown as GitHub reads it, and hand-written HTML made harmless. */
+export function createConverter(Marked: MarkedClass): ToHtml {
+  const converter = new Marked({ gfm: true, async: false, renderer: { html: (token) => safeHtml(token.text) } });
+
+  return (markdown) => converter.parse(markdown);
+}
+
+/** Written into every copy. A folder that holds something and lacks it was not built here, and is never emptied. */
+export const MARKER = ".architecture-docs-site";
 
 export interface SiteOptions {
   /** The folder that holds the set. */
@@ -68,6 +87,10 @@ export interface Built {
   diagrams: number;
   /** Files of the set that are not documents, copied as they are. */
   copied: number;
+  /** Links that were not safe to follow (`javascript:` and the like). They lead nowhere in the copy. */
+  refused: string[];
+  /** Documents that are symbolic links. They were not read. */
+  links: string[];
 }
 
 export function buildSite({ folder, index, out, title, repoUrl, toHtml, mermaidBundle }: SiteOptions): Built {
@@ -83,14 +106,29 @@ export function buildSite({ folder, index, out, title, repoUrl, toHtml, mermaidB
     throw new CouldNotRun(index === undefined ? `${folder} has no README.md to start from. Name the start page with --index <file>.` : `${index} does not exist`);
   }
 
+  if (isLink(start)) {
+    throw new CouldNotRun(`${index ?? join(folder, "README.md")} is a symbolic link, and a link is never followed. Name the file it points at with --index.`);
+  }
+
   const destination = resolve(out);
 
   if (destination === root || isUnder(root, destination)) {
     throw new CouldNotRun(`--out is ${out}, which is the documents' own folder or inside it. Name a folder outside it.`);
   }
 
+  // The folder is emptied before it is written. So it must be new, empty, or a
+  // copy this script built: a mistyped --out must not cost a person their files.
+  if (isLink(destination)) {
+    throw new CouldNotRun(`--out is ${out}, which is a symbolic link. Name a real folder.`);
+  }
+
+  if (existsSync(destination) && (!statSync(destination).isDirectory() || (readdirSync(destination).length > 0 && !existsSync(join(destination, MARKER))))) {
+    throw new CouldNotRun(`--out is ${out}, which already holds something this script did not build. It empties the folder it writes to, so name a new or empty one.`);
+  }
+
   // The start page first, then the rest in name order: that is the order of the chapter list.
-  const sources = [start, ...listMarkdown([root]).filter((path) => path !== start)];
+  const links: string[] = [];
+  const sources = [start, ...listMarkdown([root], links).filter((path) => path !== start)];
   const pages = new Map<string, string>();
 
   for (const source of sources) {
@@ -109,9 +147,10 @@ export function buildSite({ folder, index, out, title, repoUrl, toHtml, mermaidB
       ? `${repoUrl.replace(/\/+$/, "")}/${relative(repository, file).split(sep).join("/")}`
       : relative(dirname(join(destination, from)), file).split(sep).join("/");
 
+  const refused: string[] = [];
   const rendered = sources.map((source) => {
     const page = pages.get(source) as string;
-    const body = finishBody(toHtml(readFileSync(source, "utf8")), { source, pages, root, outside: (file) => outside(file, page) });
+    const body = finishBody(toHtml(readFileSync(source, "utf8")), { source, pages, root, outside: (file) => outside(file, page) }, (target) => refused.push(target));
 
     return { page, body, title: titleOf(body) ?? basename(source, ".md") };
   });
@@ -121,6 +160,7 @@ export function buildSite({ folder, index, out, title, repoUrl, toHtml, mermaidB
 
   rmSync(destination, { recursive: true, force: true });
   mkdirSync(destination, { recursive: true });
+  writeFileSync(join(destination, MARKER), "Built by scripts/architecture-docs/build-site.mts. The next build empties this folder.\n");
 
   for (const { page, body, title: pageTitle } of rendered) {
     mkdirSync(dirname(join(destination, page)), { recursive: true });
@@ -142,6 +182,8 @@ export function buildSite({ folder, index, out, title, repoUrl, toHtml, mermaidB
     pages: rendered.length,
     diagrams: rendered.reduce((sum, { body }) => sum + countDiagrams(body), 0),
     copied: others.length,
+    refused,
+    links: links.map((link) => relative(root, link).split(sep).join("/")),
   };
 }
 
@@ -151,7 +193,7 @@ function isUnder(folder: string, path: string): boolean {
   return inside !== "" && !inside.startsWith("..") && !isAbsolute(inside);
 }
 
-/** Every file under `root` that is not a markdown document, as paths from `root`. */
+/** Every file under `root` that is not a markdown document, as paths from `root`. A symbolic link is not a file here, and is not copied. */
 function listOthers(root: string): string[] {
   const found: string[] = [];
 
@@ -189,8 +231,14 @@ export function defaultOut(folder: string, cache: string = cacheFolder()): strin
   return join(cache, "sites", `${name}-${createHash("sha256").update(root).digest("hex").slice(0, 8)}`);
 }
 
-export function formatResult({ out, start, pages, diagrams, copied }: Built): string {
-  return [`Built ${pages} page(s) with ${diagrams} diagram(s)${copied === 0 ? "" : ` and ${copied} other file(s)`} in ${out}`, `Open ${start}`].join("\n");
+export function formatResult({ out, start, pages, diagrams, copied, refused, links }: Built): string {
+  return [
+    `Built ${pages} page(s) with ${diagrams} diagram(s)${copied === 0 ? "" : ` and ${copied} other file(s)`} in ${out}`,
+    // Said, not passed over: the reader should know the copy differs from the documents here.
+    ...(refused.length === 0 ? [] : [`  ${refused.length} link(s) are not safe to follow and lead nowhere in the copy: ${[...new Set(refused)].map((target) => JSON.stringify(target.slice(0, 60))).join(", ")}`]),
+    ...(links.length === 0 ? [] : [notRead("", links).trimStart().replace(/^/, "  ")]),
+    `Open ${start}`,
+  ].join("\n");
 }
 
 export function parseArguments(argv: string[]): { folder: string; index?: string; out?: string; title?: string; repoUrl?: string } {
@@ -240,8 +288,8 @@ if (isMainModule(import.meta.url)) {
     }
 
     const toolset = ensureToolset();
-    const { marked } = (await import(pathToFileURL(toolset.marked).href)) as { marked: { parse: (markdown: string, options: { async: false; gfm: true }) => string } };
-    const built = buildSite({ folder, out: out ?? defaultOut(folder), ...rest, toHtml: (markdown) => marked.parse(markdown, { async: false, gfm: true }), mermaidBundle: toolset.mermaidBundle });
+    const { Marked } = (await import(pathToFileURL(toolset.marked).href)) as { Marked: MarkedClass };
+    const built = buildSite({ folder, out: out ?? defaultOut(folder), ...rest, toHtml: createConverter(Marked), mermaidBundle: toolset.mermaidBundle });
 
     console.log(formatResult(built));
   } catch (error) {

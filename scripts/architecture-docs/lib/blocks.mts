@@ -1,7 +1,7 @@
 // The mermaid diagrams written in a markdown file, each with the line it
 // starts on, and the markdown files of a document set. Node built-ins only.
 
-import { existsSync, readdirSync, statSync } from "node:fs";
+import { existsSync, lstatSync, readdirSync } from "node:fs";
 import { join, relative, resolve, sep } from "node:path";
 
 import { CouldNotRun } from "./outcome.mts";
@@ -70,18 +70,31 @@ const SKIPPED_DIRECTORIES = new Set(["node_modules", ".git"]);
  * The markdown files named by `paths`, as absolute paths in a stable order. A
  * folder gives every `.md` file under it; a file gives itself. Throws on a
  * path that is not there, so that a mistyped folder is never "nothing to check".
+ *
+ * A symbolic link is never followed. These scripts read repositories that are
+ * not the reader's own, and what they read is printed, rendered or copied
+ * into a site: a link named `notes.md` that points at a private file would
+ * carry it there. A link found under a folder is left out and added to
+ * `links`, so the caller can say it was not read. A link named on the command
+ * line is refused: the person asked for it, and should be told why not.
  */
-export function listMarkdown(paths: string[]): string[] {
+export function listMarkdown(paths: string[], links: string[] = []): string[] {
   const found = new Set<string>();
 
   function walk(folder: string): void {
     for (const entry of readdirSync(folder, { withFileTypes: true })) {
-      if (entry.isDirectory()) {
-        if (!SKIPPED_DIRECTORIES.has(entry.name)) {
-          walk(join(folder, entry.name));
+      const path = join(folder, entry.name);
+
+      if (entry.isSymbolicLink()) {
+        if (/\.md$/i.test(entry.name)) {
+          links.push(path);
         }
-      } else if (/\.md$/i.test(entry.name)) {
-        found.add(join(folder, entry.name));
+      } else if (entry.isDirectory()) {
+        if (!SKIPPED_DIRECTORIES.has(entry.name)) {
+          walk(path);
+        }
+      } else if (entry.isFile() && /\.md$/i.test(entry.name)) {
+        found.add(path);
       }
     }
   }
@@ -89,11 +102,15 @@ export function listMarkdown(paths: string[]): string[] {
   for (const path of paths) {
     const absolute = resolve(path);
 
-    if (!existsSync(absolute)) {
+    if (!existsSync(absolute) && !isLink(absolute)) {
       throw new CouldNotRun(`${path} does not exist`);
     }
 
-    if (statSync(absolute).isDirectory()) {
+    if (isLink(absolute)) {
+      throw new CouldNotRun(`${path} is a symbolic link, and a link is never followed. Name the file or folder it points at.`);
+    }
+
+    if (lstatSync(absolute).isDirectory()) {
       walk(absolute);
     } else {
       found.add(absolute);
@@ -101,6 +118,20 @@ export function listMarkdown(paths: string[]): string[] {
   }
 
   return [...found].sort();
+}
+
+/** True when the path itself is a symbolic link, whether or not it leads anywhere. */
+export function isLink(path: string): boolean {
+  try {
+    return lstatSync(path).isSymbolicLink();
+  } catch {
+    return false;
+  }
+}
+
+/** One line that says which links were left unread, or nothing when there were none. */
+export function notRead(root: string, links: string[]): string {
+  return links.length === 0 ? "" : `\n  not read, because a symbolic link is never followed: ${links.map((link) => shown(root, link)).join(", ")}`;
 }
 
 /** `path` as written from `root`, with forward slashes: how a finding names a file. */

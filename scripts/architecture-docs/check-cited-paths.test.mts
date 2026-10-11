@@ -1,4 +1,5 @@
 import { spawnSync } from "node:child_process";
+import { symlinkSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
@@ -85,6 +86,20 @@ describe("nothing cited", () => {
     const root = createFolder({ "server/a.ts": "", "docs/a.md": "# A\n\nNo path here.\n" });
 
     expect(formatResult(checkCitedPaths([join(root, "docs")], { root }))).toBe("SKIP cited-paths — no repository path is cited in 1 markdown file(s)");
+  });
+});
+
+describe("a document that is a symbolic link", () => {
+  it("is not read, and the result says so", () => {
+    const outside = createFolder({ "private.md": "`server/gone.ts`\n" });
+    const root = createFolder({ "server/web.ts": "", "docs/a.md": "`server/web.ts`\n" });
+
+    symlinkSync(join(outside, "private.md"), join(root, "docs/linked.md"));
+
+    const result = checkCitedPaths([join(root, "docs")], { root });
+
+    expect(result.findings).toEqual([]);
+    expect(formatResult(result)).toBe("PASS cited-paths — 1 cited path(s) in 1 markdown file(s) are in the repository\n  not read, because a symbolic link is never followed: docs/linked.md");
   });
 });
 

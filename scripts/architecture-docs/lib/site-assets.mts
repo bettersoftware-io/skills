@@ -324,7 +324,8 @@ export const SITE_SCRIPT = String.raw`
   })
 
   var dark = window.matchMedia('(prefers-color-scheme: dark)').matches
-  mermaid.initialize({ startOnLoad: false, theme: dark ? 'dark' : 'default' })
+  // strict: a label is text, and a diagram cannot bind a click to a script.
+  mermaid.initialize({ startOnLoad: false, theme: dark ? 'dark' : 'default', securityLevel: 'strict' })
 
   // Draw the diagrams one at a time, top to bottom, yielding between them so
   // the page stays responsive. Drawing changes heights, so a link that landed

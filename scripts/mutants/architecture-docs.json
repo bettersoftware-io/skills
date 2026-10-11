@@ -194,5 +194,110 @@
     "find": "    return { error: String((error && error.message) || error) };",
     "replace": "    return { svg: \"\" };",
     "test": "pnpm vitest run scripts/architecture-docs/check-diagrams.test.mts -t \"is asked for in a way that makes a diagram Mermaid cannot read an error\""
+  },
+  {
+    "name": "links: a document that is a symbolic link is named, not passed over in silence",
+    "file": "scripts/architecture-docs/lib/blocks.mts",
+    "find": "      if (entry.isSymbolicLink()) {\n        if (/\\.md$/i.test(entry.name)) {\n          links.push(path);\n        }\n      } else if (entry.isDirectory()) {",
+    "replace": "      if (entry.isSymbolicLink()) {\n      } else if (entry.isDirectory()) {",
+    "test": "pnpm vitest run scripts/architecture-docs/blocks.test.mts -t \"is never followed: a linked file is left out and named\""
+  },
+  {
+    "name": "links: a document that is a symbolic link is never read",
+    "file": "scripts/architecture-docs/lib/blocks.mts",
+    "find": "      } else if (entry.isFile() && /\\.md$/i.test(entry.name)) {\n        found.add(path);\n      }",
+    "replace": "      }\n\n      if (!entry.isDirectory() && /\\.md$/i.test(entry.name)) {\n        found.add(path);\n      }",
+    "test": "pnpm vitest run scripts/architecture-docs/check-diagrams.test.mts -t \"is not read, so what it points at is never rendered or quoted\""
+  },
+  {
+    "name": "links: a link named on the command line is refused",
+    "file": "scripts/architecture-docs/lib/blocks.mts",
+    "find": "    if (isLink(absolute)) {\n      throw new CouldNotRun(`${path} is a symbolic link, and a link is never followed. Name the file or folder it points at.`);\n    }\n",
+    "replace": "",
+    "test": "pnpm vitest run scripts/architecture-docs/blocks.test.mts -t \"is refused when it is named on the command line\""
+  },
+  {
+    "name": "site: a tag that carries an attribute is not kept",
+    "file": "scripts/architecture-docs/lib/page.mts",
+    "find": "|table|thead|tbody|tr|th|td|h[1-6])\\s*\\/?>$/i;",
+    "replace": "|table|thead|tbody|tr|th|td|h[1-6])[^>]*>$/i;",
+    "test": "pnpm vitest run scripts/architecture-docs/page.test.mts -t \"does not keep such a tag once it carries an attribute\""
+  },
+  {
+    "name": "site: a tag that could run something is shown as text",
+    "file": "scripts/architecture-docs/lib/page.mts",
+    "find": "(piece) => (PLAIN_TAG.test(piece) ? piece : piece.replace(/</g, \"&lt;\").replace(/>/g, \"&gt;\")));",
+    "replace": "(piece) => piece);",
+    "test": "pnpm vitest run scripts/architecture-docs/page.test.mts -t \"is shown as text when it could run something\""
+  },
+  {
+    "name": "site: a comment is dropped, closed or not",
+    "file": "scripts/architecture-docs/lib/page.mts",
+    "find": "    .replace(/<!--[\\s\\S]*?(?:-->|$)/g, \"\")\n",
+    "replace": "",
+    "test": "pnpm vitest run scripts/architecture-docs/page.test.mts -t \"drops a comment, closed or not\""
+  },
+  {
+    "name": "site: a scheme is read as a browser reads it, without the whitespace",
+    "file": "scripts/architecture-docs/lib/page.mts",
+    "find": ".exec(target.replace(/[\\u0000-\\u0020]/g, \"\"));",
+    "replace": ".exec(target);",
+    "test": "pnpm vitest run scripts/architecture-docs/page.test.mts -t \"is one whose scheme is not the web's or a mailbox's\""
+  },
+  {
+    "name": "site: only the web and a mailbox are schemes a reader may follow",
+    "file": "scripts/architecture-docs/lib/page.mts",
+    "find": "[\"http\", \"https\", \"mailto\"].includes(",
+    "replace": "[\"http\", \"https\", \"mailto\", \"data\"].includes(",
+    "test": "pnpm vitest run scripts/architecture-docs/page.test.mts -t \"is one whose scheme is not the web's or a mailbox's\""
+  },
+  {
+    "name": "site: a link that is not safe leads nowhere",
+    "file": "scripts/architecture-docs/lib/page.mts",
+    "find": "      refused(target);\n\n      return \"#\";",
+    "replace": "      refused(target);\n\n      return target;",
+    "test": "pnpm vitest run scripts/architecture-docs/page.test.mts -t \"leads nowhere in the page, for a link and for a picture\""
+  },
+  {
+    "name": "site: the converter makes hand-written HTML harmless",
+    "file": "scripts/architecture-docs/build-site.mts",
+    "find": "renderer: { html: (token) => safeHtml(token.text) } });",
+    "replace": "renderer: { html: (token) => token.text } });",
+    "test": "pnpm vitest run scripts/architecture-docs/build-site.test.mts -t \"has its hand-written HTML made harmless by the converter\""
+  },
+  {
+    "name": "site: a folder that holds someone's files is never emptied",
+    "file": "scripts/architecture-docs/build-site.mts",
+    "find": "(readdirSync(destination).length > 0 && !existsSync(join(destination, MARKER)))",
+    "replace": "false",
+    "test": "pnpm vitest run scripts/architecture-docs/build-site.test.mts -t \"is emptied only when it is new, empty, or a copy built here\""
+  },
+  {
+    "name": "site: a copy is marked, so that it can be built again",
+    "file": "scripts/architecture-docs/build-site.mts",
+    "find": "  writeFileSync(join(destination, MARKER), \"Built by scripts/architecture-docs/build-site.mts. The next build empties this folder.\\n\");\n",
+    "replace": "",
+    "test": "pnpm vitest run scripts/architecture-docs/build-site.test.mts -t \"may be an empty folder, and may be built into again\""
+  },
+  {
+    "name": "site: the copy is never written through a symbolic link",
+    "file": "scripts/architecture-docs/build-site.mts",
+    "find": "  if (isLink(destination)) {",
+    "replace": "  if (false) {",
+    "test": "pnpm vitest run scripts/architecture-docs/build-site.test.mts -t \"is never a file, and never a symbolic link\""
+  },
+  {
+    "name": "site: a start page that is a symbolic link is refused",
+    "file": "scripts/architecture-docs/build-site.mts",
+    "find": "  if (isLink(start)) {",
+    "replace": "  if (false) {",
+    "test": "pnpm vitest run scripts/architecture-docs/build-site.test.mts -t \"is refused as the start page\""
+  },
+  {
+    "name": "diagrams: Mermaid runs in strict mode where a reader's browser draws them",
+    "file": "scripts/architecture-docs/lib/site-assets.mts",
+    "find": "securityLevel: 'strict' })",
+    "replace": "securityLevel: 'loose' })",
+    "test": "pnpm vitest run scripts/architecture-docs/check-diagrams.test.mts -t \"is drawn with Mermaid in strict mode\""
   }
 ]

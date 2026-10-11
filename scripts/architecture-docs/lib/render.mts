@@ -37,6 +37,14 @@ interface BrowserLibrary {
   launch(options: { executablePath: string; headless: boolean | "shell"; args: string[] }): Promise<Browser>;
 }
 
+/**
+ * How Mermaid is set up in the page. `strict`: a label is text, and a diagram
+ * cannot bind a click to a script. It is Mermaid's default; it is written out
+ * so that it stays, because the diagrams drawn here may be someone else's.
+ * `suppressErrorRendering`: a diagram it cannot read throws.
+ */
+export const MERMAID_SETUP = 'mermaid.initialize({ startOnLoad: false, suppressErrorRendering: true, securityLevel: "strict" })';
+
 /** What the page answers for one diagram. */
 interface Drawn {
   svg?: string;
@@ -97,7 +105,7 @@ export async function createRenderer(keep?: string, toolset: Toolset = ensureToo
 
   await page.setContent("<!doctype html><html><body></body></html>");
   await page.addScriptTag({ path: toolset.mermaidBundle });
-  await page.evaluate("mermaid.initialize({ startOnLoad: false, suppressErrorRendering: true })");
+  await page.evaluate(MERMAID_SETUP);
 
   const out = keep === undefined ? undefined : resolve(keep);
 

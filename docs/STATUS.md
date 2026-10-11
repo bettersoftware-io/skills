@@ -90,6 +90,14 @@ Added on 2026-10-11 ([the record](documenting-architecture-2026-10-11.md)).
   `--except` is the way out, and the skill's own text trips it in this
   repository.
 - **The reading copy was looked at in Chromium only.**
+- **The reading copy has no Content-Security-Policy.** What keeps a hostile
+  document from running script is that its hand-written HTML is shown as text
+  and its unsafe links lead nowhere. A policy would be a second wall, and
+  needs the page's own script moved out of the page first; whether `'self'`
+  holds for a page opened from disk in each browser is not known.
+- **`safeHtml` is a list of tags, kept by hand.** It was tried against one
+  hostile document. It has not been fuzzed, and the converter's own output
+  for markdown syntax is trusted as it is.
 
 ## Dated
 

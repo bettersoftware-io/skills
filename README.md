@@ -134,6 +134,22 @@ Chromium that Puppeteer already put in `~/.cache/puppeteer` if there is one,
 then Chrome, Chromium, Edge or Brave. `ARCHITECTURE_DOCS_BROWSER` names
 another. A machine with none is told so, and the check exits 2.
 
+**The documents may be someone else's.** These scripts are run on
+repositories their user did not write, and what they read is printed, drawn
+and copied into pages that open in the user's own browser. So:
+
+- A symbolic link is never followed. A document that is one is left out and
+  named in the output; one named on the command line is refused.
+- HTML written by hand in a document is shown as text. A few tags that only
+  shape text (`<br>`, `<kbd>`, `<details>`, `<sub>`) are kept, and only bare:
+  with an attribute they are text too.
+- A link whose scheme is not `http`, `https` or `mailto` leads nowhere in the
+  copy, and the build says which.
+- Mermaid runs in its `strict` mode, in the check and in the copy.
+- `build-site.mts` empties the folder it writes to. It writes only into a
+  folder that is new, empty, or a copy it built before (it leaves a marker
+  file), and never into the documents' own folder.
+
 Mermaid's own command line is not used. It starts a browser for each
 diagram: a set of 94 diagrams was 94 browsers and took 67 seconds. One
 browser for the run takes 6.

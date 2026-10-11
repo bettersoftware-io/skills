@@ -1,7 +1,8 @@
+import { symlinkSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
-import { listMarkdown, readDiagrams } from "./lib/blocks.mts";
+import { listMarkdown, notRead, readDiagrams } from "./lib/blocks.mts";
 import { CouldNotRun } from "./lib/outcome.mts";
 import { createFolder, mermaid } from "./support.mts";
 
@@ -63,5 +64,29 @@ describe("the markdown files of a set", () => {
 
   it("refuse a path that is not there: a mistyped folder is not nothing to check", () => {
     expect(() => listMarkdown([join(root, "dcos")])).toThrow(CouldNotRun);
+  });
+});
+
+describe("a symbolic link in a set", () => {
+  const outside = createFolder({ "secret.md": "# Secret\n", "more/deep.md": "" });
+  const root = createFolder({ "docs/a.md": "" });
+
+  symlinkSync(join(outside, "secret.md"), join(root, "docs/linked.md"));
+  symlinkSync(join(outside, "more"), join(root, "docs/linked-folder"));
+  symlinkSync(join(outside, "gone.md"), join(root, "docs/dangling.md"));
+
+  it("is never followed: a linked file is left out and named, and a linked folder is not entered", () => {
+    const links: string[] = [];
+
+    expect(listMarkdown([join(root, "docs")], links)).toEqual([join(root, "docs/a.md")]);
+    expect(links.sort()).toEqual([join(root, "docs/dangling.md"), join(root, "docs/linked.md")]);
+    expect(notRead(root, links.sort())).toBe("\n  not read, because a symbolic link is never followed: docs/dangling.md, docs/linked.md");
+    expect(notRead(root, [])).toBe("");
+  });
+
+  it("is refused when it is named on the command line, as a file or as a folder", () => {
+    expect(() => listMarkdown([join(root, "docs/linked.md")])).toThrow(/is a symbolic link, and a link is never followed/);
+    expect(() => listMarkdown([join(root, "docs/linked-folder")])).toThrow(/is a symbolic link, and a link is never followed/);
+    expect(() => listMarkdown([join(root, "docs/dangling.md")])).toThrow(/is a symbolic link/);
   });
 });

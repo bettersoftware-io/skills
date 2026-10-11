@@ -29,7 +29,7 @@ import { dirname, join, resolve } from "node:path";
 
 import { proseLines } from "../../addons/repo-hygiene/files/tools/repo-hygiene/lib/markdown.mts";
 import { isMainModule } from "../../kit/gates/lib/files.mts";
-import { listMarkdown, shown } from "./lib/blocks.mts";
+import { listMarkdown, notRead, shown } from "./lib/blocks.mts";
 import { CouldNotRun } from "./lib/outcome.mts";
 
 const GATE = "cited-paths";
@@ -52,6 +52,8 @@ export interface CitedPathCheck {
   cited: number;
   /** The `--except` paths that were cited: missing, and said to be. */
   excepted: string[];
+  /** Markdown files that are symbolic links, from the repository root. They were not read. */
+  links: string[];
 }
 
 /** A code span: opened by N backticks, closed by the next run of exactly N. */
@@ -90,7 +92,8 @@ export function citedPaths(line: string, topLevel: Set<string>): string[] {
 }
 
 export function checkCitedPaths(paths: string[], { root, except = [] }: { root?: string; except?: string[] } = {}): CitedPathCheck {
-  const files = listMarkdown(paths);
+  const links: string[] = [];
+  const files = listMarkdown(paths, links);
   const repository = resolve(root ?? repositoryOf(files[0] ?? resolve(paths[0] ?? ".")));
 
   if (!existsSync(repository) || !statSync(repository).isDirectory()) {
@@ -132,6 +135,7 @@ export function checkCitedPaths(paths: string[], { root, except = [] }: { root?:
     files: files.length,
     cited,
     excepted: [...excepted].sort(),
+    links: links.map((link) => shown(repository, link)),
   };
 }
 
@@ -143,8 +147,8 @@ function repositoryOf(path: string): string {
   return asked.status === 0 && asked.stdout.trim() !== "" ? asked.stdout.trim() : folder;
 }
 
-export function formatResult({ gate, skipped, findings, files, cited, excepted }: CitedPathCheck): string {
-  const said = excepted.length === 0 ? "" : `\n  missing, and said to be: ${excepted.join(", ")}`;
+export function formatResult({ gate, skipped, findings, files, cited, excepted, links }: CitedPathCheck): string {
+  const said = `${excepted.length === 0 ? "" : `\n  missing, and said to be: ${excepted.join(", ")}`}${notRead("", links)}`;
 
   if (findings.length > 0) {
     return [
@@ -156,7 +160,7 @@ export function formatResult({ gate, skipped, findings, files, cited, excepted }
   }
 
   // Nothing to judge is reported as such: it is not a pass.
-  return skipped === undefined ? `PASS ${gate} — ${cited} cited path(s) in ${files} markdown file(s) are in the repository${said}` : `SKIP ${gate} — ${skipped}`;
+  return skipped === undefined ? `PASS ${gate} — ${cited} cited path(s) in ${files} markdown file(s) are in the repository${said}` : `SKIP ${gate} — ${skipped}${notRead("", links)}`;
 }
 
 export function parseArguments(argv: string[]): { paths: string[]; root?: string; except: string[] } {

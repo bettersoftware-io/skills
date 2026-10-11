@@ -97,13 +97,22 @@ The second set, 17 markdown files, on macOS (arm64), Node 26.11.1.
 | `check-doc-links.mts` (from `repo-hygiene`) | `PASS doc-links — 307 relative link(s) in 21 markdown file(s) resolve` |
 | `build-site.mts` | 17 pages, 94 diagrams, 2 other files. Opened in Chromium by a script: every diagram on every page drew, a link to a heading in another chapter landed on it after the diagrams above it had drawn, and a clicked diagram opened at full size |
 
+| `build-site.mts`, on a document written to attack its reader | A `<script>`, a picture with `onerror`, a tag with `onmouseover`, an `<iframe srcdoc>`, a `javascript:` link, a `javascript:` autolink, a `data:` picture, and a mermaid label and `click` that carry script. Built with the real converter and opened in Chromium, with every link clicked and every element hovered: nothing ran, the page held no script, frame or handler, the three unsafe links were listed by the build, and `<details>` still worked |
+| `build-site.mts --out`, on a folder that held other files | Exit 2, and the files were still there |
+
 An earlier version of `check-diagrams.mts` ran Mermaid's own command line,
 once per diagram. That starts a browser each time: the same 94 diagrams were
 94 browsers, four at a time, and took 67 seconds. The person at the machine
 saw them. It was replaced the same hour by one browser for the run, and its
 toolset went from 442 MB to 231 MB.
 
-The scripts have 82 tests. 28 mutants were each applied, seen to turn their
+A review of the first commit found two faults, both fixed the same day
+before anything was merged: hand-written HTML and `javascript:` links went
+into the copy as they were, and a document that was a symbolic link was read.
+Looking for the second turned up a third: `--out` emptied any folder it was
+given.
+
+The scripts have 100 tests. 43 mutants were each applied, seen to turn their
 test red, and removed:
 [`scripts/mutants/architecture-docs.json`](../scripts/mutants/architecture-docs.json).
 

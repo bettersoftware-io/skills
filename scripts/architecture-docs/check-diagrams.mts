@@ -23,7 +23,7 @@ import { readFileSync } from "node:fs";
 import { basename } from "node:path";
 
 import { isMainModule } from "../../kit/gates/lib/files.mts";
-import { listMarkdown, readDiagrams, shown } from "./lib/blocks.mts";
+import { listMarkdown, notRead, readDiagrams, shown } from "./lib/blocks.mts";
 import { CouldNotRun } from "./lib/outcome.mts";
 import { createRenderer, type Render } from "./lib/render.mts";
 
@@ -46,6 +46,8 @@ export interface DiagramCheck {
   files: number;
   /** Diagrams rendered, or tried. */
   diagrams: number;
+  /** Markdown files that are symbolic links, as the result names files. They were not read. */
+  links: string[];
 }
 
 const UNCLOSED = "The fence that opens here is never closed, so the rest of the file is read as one diagram. Close it with a line of three backticks.";
@@ -68,7 +70,8 @@ export function inFileTerms(answer: string, fenceLine: number): string {
  * set with none costs no download and starts no browser.
  */
 export async function checkDiagrams(paths: string[], renderer: () => Render | Promise<Render>, from: string = process.cwd()): Promise<DiagramCheck> {
-  const files = listMarkdown(paths);
+  const links: string[] = [];
+  const files = listMarkdown(paths, links);
   const jobs: { file: string; line: number; source: string; name: string }[] = [];
   const findings: BrokenDiagram[] = [];
 
@@ -105,21 +108,24 @@ export async function checkDiagrams(paths: string[], renderer: () => Render | Pr
     findings: findings.sort((a, b) => a.file.localeCompare(b.file) || a.line - b.line),
     files: files.length,
     diagrams,
+    links: links.map((link) => shown(from, link)),
   };
 }
 
-export function formatResult({ gate, skipped, findings, files, diagrams }: DiagramCheck): string {
+export function formatResult({ gate, skipped, findings, files, diagrams, links }: DiagramCheck): string {
+  const unread = notRead("", links);
+
   if (findings.length > 0) {
     return [
       `FAIL ${gate} (${findings.length})`,
       ...findings.flatMap(({ file, line, message }) => [`  ${file}:${line}`, `    ${message}`]),
       "",
-      `${findings.length} of ${diagrams} diagram(s) in ${files} markdown file(s) do not render.`,
+      `${findings.length} of ${diagrams} diagram(s) in ${files} markdown file(s) do not render.${unread}`,
     ].join("\n");
   }
 
   // Nothing to judge is reported as such: it is not a pass.
-  return skipped === undefined ? `PASS ${gate} — ${diagrams} diagram(s) in ${files} markdown file(s) render` : `SKIP ${gate} — ${skipped}`;
+  return `${skipped === undefined ? `PASS ${gate} — ${diagrams} diagram(s) in ${files} markdown file(s) render` : `SKIP ${gate} — ${skipped}`}${unread}`;
 }
 
 export function parseArguments(argv: string[]): { paths: string[]; keep?: string } {
