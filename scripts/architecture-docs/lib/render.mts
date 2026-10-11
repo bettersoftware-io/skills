@@ -13,12 +13,19 @@ import { pathToFileURL } from "node:url";
 import { CouldNotRun } from "./outcome.mts";
 import { NO_BROWSER, browserArguments, ensureToolset, findBrowser, isHeadlessShell, type Toolset } from "./tools.mts";
 
+/** What a diagram measures as it was drawn, in the picture's own units. A page shows one unit as one pixel until it has to shrink the picture. */
+export interface Size {
+  width: number;
+  height: number;
+}
+
 /**
- * Renders one diagram. Resolves to undefined when it rendered, and to what the
- * renderer said when it did not. `name` is unique in a run and safe in a file
- * name. Replaced by a fake in tests.
+ * Renders one diagram. Resolves to what the renderer said when it did not
+ * render. When it did: to the size it was drawn at, or to undefined when that
+ * is not known. `name` is unique in a run and safe in a file name. Replaced by
+ * a fake in tests.
  */
-export type Render = (source: string, name: string) => Promise<string | undefined>;
+export type Render = (source: string, name: string) => Promise<string | Size | undefined>;
 
 // The few things used of the browser library. It is fetched, not installed
 // here, so its own types are not there to import.
@@ -81,6 +88,16 @@ export function shortError(error: string): string {
 }
 
 /**
+ * The size Mermaid drew a diagram at, read from the `viewBox` it gives every
+ * picture: corner, corner, width, height. Undefined when the picture has none.
+ */
+export function sizeOf(svg: string): Size | undefined {
+  const box = /\bviewBox="\s*-?[\d.]+[\s,]+-?[\d.]+[\s,]+([\d.]+)[\s,]+([\d.]+)\s*"/.exec(svg);
+
+  return box === null ? undefined : { width: Math.round(Number(box[1])), height: Math.round(Number(box[2])) };
+}
+
+/**
  * Starts the browser and loads Mermaid into a page. `keep` is a folder the
  * drawn SVG files are written to; without it they are thrown away. `done`
  * closes the browser and must be called.
@@ -128,7 +145,7 @@ export async function createRenderer(keep?: string, toolset: Toolset = ensureToo
       writeFileSync(join(out, `${name}.svg`), answer.svg);
     }
 
-    return undefined;
+    return sizeOf(answer.svg);
   };
 
   return { render, done: () => browser.close() };

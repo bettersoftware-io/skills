@@ -3,9 +3,9 @@ import { symlinkSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
-import { checkDiagrams, formatResult, inFileTerms, parseArguments } from "./check-diagrams.mts";
+import { checkDiagrams, formatResult, inFileTerms, parseArguments, WIDE } from "./check-diagrams.mts";
 import { CouldNotRun } from "./lib/outcome.mts";
-import { drawScript, MERMAID_SETUP, shortError, type Render } from "./lib/render.mts";
+import { drawScript, MERMAID_SETUP, shortError, sizeOf, type Render } from "./lib/render.mts";
 import { SITE_SCRIPT } from "./lib/site-assets.mts";
 import { createFolder, mermaid, SCRIPTS } from "./support.mts";
 
@@ -85,6 +85,69 @@ describe("a diagram that is someone else's", () => {
     expect(MERMAID_SETUP).toContain('securityLevel: "strict"');
     expect(SITE_SCRIPT).toContain("securityLevel: 'strict'");
     expect(`${MERMAID_SETUP}${SITE_SCRIPT}`).not.toMatch(/securityLevel: ["'](?:loose|antiscript|sandbox)/);
+  });
+});
+
+describe("a diagram drawn wider than a page shows without shrinking it", () => {
+  const root = createFolder({
+    "docs/01.md": `# One\n\n${mermaid("flowchart LR\n  narrow")}\n\n${mermaid("flowchart LR\n  wide")}\n`,
+    "docs/02.md": `# Two\n\n${mermaid("flowchart LR\n  wider still")}\n\n${mermaid("flowchart LR\n  at the limit")}\n`,
+  });
+  /** Draws everything, at a width its source decides. */
+  const sized: Render = async (source) => ({ width: source.includes("wider still") ? 3000 : source.includes("wide") ? 2400 : source.includes("limit") ? WIDE : 900, height: 600 });
+
+  it("still passes, and is named by its file, its line and its width, widest first", async () => {
+    const result = await checkDiagrams([join(root, "docs")], () => sized, root);
+
+    expect(result.findings).toEqual([]);
+    expect(result.wide).toEqual([
+      { file: "docs/02.md", line: 3, width: 3000 },
+      { file: "docs/01.md", line: 8, width: 2400 },
+    ]);
+    expect(formatResult(result)).toBe(
+      [
+        "PASS diagrams — 4 diagram(s) in 2 markdown file(s) render",
+        `WIDE diagrams (2) — drawn wider than ${WIDE} px, so a page shows them shrunk, and their text with them`,
+        "  docs/02.md:3 — 3000 px",
+        "  docs/01.md:8 — 2400 px",
+      ].join("\n"),
+    );
+  });
+
+  it("is not named when it is exactly as wide as the limit", async () => {
+    const result = await checkDiagrams([join(root, "docs")], () => sized, root);
+
+    expect(result.wide.map(({ width }) => width)).not.toContain(WIDE);
+  });
+
+  it("is named under a failure too, after the diagrams that do not render", async () => {
+    const mixed = createFolder({ "a.md": `# A\n\n${mermaid("flowchart LR\n  wide")}\n\n${mermaid("flowchart LR\n  broken")}\n` });
+    const result = await checkDiagrams([mixed], () => async (source) => (source.includes("broken") ? "Parse error on line 2" : { width: 2400, height: 600 }), mixed);
+
+    expect(formatResult(result).split("\n").slice(-3)).toEqual([
+      "1 of 2 diagram(s) in 1 markdown file(s) do not render.",
+      `WIDE diagrams (1) — drawn wider than ${WIDE} px, so a page shows them shrunk, and their text with them`,
+      "  a.md:3 — 2400 px",
+    ]);
+  });
+
+  it("is not guessed at when the renderer measured nothing", async () => {
+    const result = await checkDiagrams([join(root, "docs")], () => fake, root);
+
+    expect(result.wide).toEqual([]);
+    expect(formatResult(result)).toBe("PASS diagrams — 4 diagram(s) in 2 markdown file(s) render");
+  });
+});
+
+describe("the size a diagram was drawn at", () => {
+  it("is read from the picture's viewBox, width before height, whatever its corner", () => {
+    expect(sizeOf('<svg id="d" viewBox="0 0 1948.5 1535" class="flowchart"><g/></svg>')).toEqual({ width: 1949, height: 1535 });
+    expect(sizeOf('<svg viewBox="-8 -50 2400 600.25"></svg>')).toEqual({ width: 2400, height: 600 });
+  });
+
+  it("is not known when the picture states none", () => {
+    expect(sizeOf("<svg></svg>")).toBeUndefined();
+    expect(sizeOf('<svg viewBox="0 0 wide tall"></svg>')).toBeUndefined();
   });
 });
 
