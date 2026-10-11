@@ -37,8 +37,14 @@ jobs:
       - name: Typecheck the kit, the scripts and the add-ons' tools
         run: pnpm typecheck
 
+      # Corepack may not fetch here. The pinned pnpm is already provisioned, so
+      # nothing needs it to. A test that runs pnpm in a project with no
+      # `packageManager` field would otherwise fetch the newest pnpm and run
+      # that: unpinned, and slow enough to time a test out.
       - name: Tests
         run: pnpm test
+        env:
+          COREPACK_ENABLE_NETWORK: 0
 
   project:
     # The thing this repository ships is a project. So CI creates one the way

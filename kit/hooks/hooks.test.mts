@@ -769,9 +769,34 @@ function createPatch(): string {
 function createProject(scripts: Record<string, string>): string {
   const root = mkdtempSync(join(tmpdir(), "arch-hooks-"));
 
-  writeFileSync(join(root, "package.json"), JSON.stringify({ name: "p", scripts }));
+  writeFileSync(join(root, "package.json"), JSON.stringify({ name: "p", ...pinnedPackageManager(), scripts }));
 
   return root;
+}
+
+/**
+ * The pnpm this repository pins, as the field a project names it in. Every
+ * project made here carries it. Where pnpm comes from Corepack, as it does in
+ * CI, a project without the field is not run with the pinned pnpm: the first
+ * call fetches the newest pnpm from the network, and runs that. The test then
+ * waits for a download, and judges a pnpm nobody chose.
+ */
+function pinnedPackageManager(): { packageManager?: string } {
+  for (let folder = here; ; folder = dirname(folder)) {
+    const manifest = join(folder, "package.json");
+
+    if (existsSync(manifest)) {
+      const { packageManager } = JSON.parse(readFileSync(manifest, "utf8")) as { packageManager?: string };
+
+      if (packageManager !== undefined) {
+        return { packageManager };
+      }
+    }
+
+    if (dirname(folder) === folder) {
+      return {};
+    }
+  }
 }
 
 /** A project git knows about: one tracked source file, and a build folder it ignores. */
