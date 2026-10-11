@@ -1,0 +1,10 @@
+{
+  "name": "architecture-docs-toolset",
+  "private": true,
+  "description": "What scripts/architecture-docs fetches on first use. Installed with `npm ci --ignore-scripts` into a cache folder, never into the plugin or a project.",
+  "dependencies": {
+    "marked": "15.0.12",
+    "mermaid": "12.1.0",
+    "puppeteer-core": "25.13.0"
+  }
+}
