@@ -155,15 +155,158 @@ The scripts have 118 tests, 5 of them the hostile document. 55 mutants were
 each applied, seen to turn their test red, and removed:
 [`scripts/mutants/architecture-docs.json`](../scripts/mutants/architecture-docs.json).
 
+## A third set, and what it changed in the skill
+
+Later the same day a third set was found to have been written without the
+skill, from the same one-sentence request, by another Claude Code session on
+Claude Opus 5.5. Its author then ran steps 5 to 7 of the skill on it. That is
+the first time any step of the skill was followed, and it was followed by the
+session that wrote the set, not by a fresh one.
+
+| | Third set |
+|---|---|
+| Codebase | A TypeScript application with its API, background workers and a desktop shell, about 790,000 lines outside tests and generated code |
+| Written | An index and 18 chapters, about 5,800 lines, 116 mermaid diagrams |
+| Research | 5 readers in parallel, 265,000 to 361,000 tokens each |
+| Fact-check | Left out, then run about two hours later |
+
+What had passed when it was reported as finished: every diagram rendered in a
+page the author built for the purpose, with Mermaid 11.4; a script of the
+author's found every link, anchor and cited path; the repository's markdown
+lint and its own documentation check passed; the facts behind the diagrams had
+been compared with the source by the writer.
+
+### What the scripts said
+
+| Script | Result |
+|---|---|
+| `check-cited-paths.mts` | `FAIL`: 3 of 400 cited paths were not in the repository. The author's own script had passed all three. One was a real file named without its extension; two were made-up examples of a naming pattern |
+| `check-doc-links.mts` | `PASS doc-links — 245 relative link(s) in 19 markdown file(s) resolve` |
+| `check-diagrams.mts` | `PASS diagrams — 116 diagram(s) in 19 markdown file(s) render` |
+| `build-site.mts` | 19 pages, 116 diagrams |
+
+### What the fact-check found
+
+Two fresh readers, half the set each, with the brief in `briefs.md` unchanged.
+
+| | Third set |
+|---|---|
+| Claims checked | about 650 (330 and 320) |
+| Findings | 47 |
+| Plainly wrong | 15 |
+| Misleading | 24 |
+| True today, phrased to rot | 8 |
+| Tokens | 388,000 and 356,000 |
+
+34 of the findings were compared with the source by the writer before any was
+applied. 33 held as reported. One held in part: a step was reported as drawn
+too early, and the code does it twice, early and late.
+
+The kinds were the kinds of the first two sets:
+
+| Kind | Example |
+|---|---|
+| "Every", "nothing", "never" | "Every server-side LLM call goes through one module": the workers have chains of their own. "Nothing in the repo opens a raw Redis connection": one adapter does. "Health never reads the data": it reads two payloads |
+| A rule stated wider than the code | "Run before every push": only when certain folders changed. "Refuses to start without the secret": a flag turns that off. "Not allowed in the source": the lint keeps a list of the places that still do it |
+| A name built by analogy | A query parameter written `country`; the contract says `country_code`. A stored state written `RETRY`, which is a local variable; the stored value is `ERROR` |
+| The right fact on the wrong thing | Seats for teammates, put on one plan; the catalogue gives them to another |
+| A step number in the prose that is not the diagram's | "Step 8 throws", under a numbered sequence diagram whose step 10 is the read that fails |
+| A figure taken from the repository's own document | A monitor "every 15 minutes", as its architecture file says. The workflow's schedule is every 5 |
+
+Where they were not: the index, with its table of thirteen places where the
+repository's architecture file and the code disagree, was clean after 26
+checked claims. The chapter of task recipes was clean after 36.
+
+### Three things the skill did not say
+
+Each was a cost in this run. Two became sentences in the skill and one became
+a line of output.
+
+**The repository had a check on documents that nobody looked for.** A job
+required to merge refused every hand-written count of the form "37 domains".
+It was run at the end, out of curiosity, and failed twenty lines and three
+headings of the finished set. Step 1 now says to find such checks and read
+their rules before a chapter is written.
+
+**The places where the repository's documents were wrong had no fixed home.**
+This author listed them in the index. Nothing in the skill said to.
+
+**Eight diagrams were wider than a page shows at full size,** and that was
+found by measuring them by hand. `check-diagrams.mts` now names each diagram
+drawn wider than 1,800 px, after its verdict and without failing.
+
+Measuring showed something else. The author had narrowed four diagrams by
+turning them from `TB` to `LR`, judging by Mermaid 11.4 in a page of their
+own. Drawn by `check-diagrams.mts`, with Mermaid 12.1:
+
+| Diagram | `TB`, 11.4 | `LR`, 11.4 | `TB`, 12.1 | `LR`, 12.1 |
+|---|---|---|---|---|
+| Eight boxes, six of them in one group | 2,039 px | 1,442 px | 689 px | 2,315 px |
+| Four groups of platforms | 2,069 px | 1,780 px | 1,183 px | 1,851 px |
+| Three groups of two, and one box | 1,636 px | 991 px | 1,302 px | 438 px |
+| Three groups, twelve boxes | 1,748 px | 1,341 px | 1,055 px | 1,159 px |
+
+The two versions disagree on which way is narrower in three of the four. The
+two measurements also differ in browser and in fonts, so the version is not
+proven to be the cause. `mermaid.md` now says to measure with the one checker
+and to prefer a change that takes boxes out of a rank.
+
+### Whether the new sentences change what an agent does
+
+Fresh single-shot agents were given a copy of the skill, old or new, and a
+written situation, and asked what they would do. They ran nothing. What they
+said was scored on questions fixed before any answer was read. This is stated
+intent, not a run.
+
+Situation one: the set is written, the user says "looks great, wrap it up",
+the repository has a documentation check that runs and a markdown lint that
+cannot, and two errors were noticed in the repository's own architecture file.
+
+| Says it would | Old skill | New skill |
+|---|---|---|
+| Run the repository's documentation check | 3 of 3 | 3 of 3 |
+| Report the lint as not run, by name | 3 of 3 | 3 of 3 |
+| List the two errors in the index | 0 of 3 | 3 of 3 |
+| Start the two readers of step 6, having been told to wrap up | 3 of 3 | 3 of 3 |
+
+Situation two: nothing is done yet, and the agent lists what it opens before
+the first chapter.
+
+| Says it would | Old skill | New skill |
+|---|---|---|
+| Look for the repository's checks on documents, and read their rules | 0 of 2 | 2 of 2 |
+
+Two sentences were written and then taken out, because the first table shows
+no difference for them: a longer version of "run the repository's checks" in
+step 5, and a line in the report listing which of them ran. An agent that
+knows a check exists runs it. The gap was in finding it.
+
+The first table is also the only evidence so far on step 6: six agents out of
+six said they would do it when told to wrap up. None of them was running.
+
+### The scripts after the change
+
+`scripts/architecture-docs` has 124 tests, 6 of them new. 7 mutants were added
+to the 55, each applied, seen to turn its test red, and removed. The line that
+reads a diagram's size from the browser's answer is behind the same fake as
+the rest of the renderer, so no test reaches it. It was run by hand on the
+third set, on one machine.
+
 ## Not done
 
-- **The skill has not been run.** Everything above happened before it was
-  written, or is a script run by hand. Whether an agent with the skill
-  performs step 6 unprompted, and what its set then holds, is not known.
+- **The skill has not been run from its first step.** Steps 5 to 7 were run
+  once, on the third set, by the session that had written it. Steps 1 to 4
+  never were. Whether an agent with the skill performs step 6 unprompted, and
+  what its set then holds, is not known: six agents said they would, and
+  saying is not doing.
+- **The third set does not have the chapters step 4 lists.** It has no
+  decisions chapter and no table of words at the head of each chapter. It was
+  corrected, not rewritten.
 - **Not run in Codex**, and not on Linux or Windows. The list of browser
   paths for those systems is written from what is usually there, not from a
   run.
 - **CI does not fetch the tools or start a browser.** The tests replace both
   with fakes. The real path was run by hand, on one machine.
 - **How GitHub draws these diagrams was not compared** with what the check
-  draws. Neither set was pushed.
+  draws. No set was pushed. The widths `check-diagrams.mts` names are those
+  of one version of Mermaid on one machine, and a second version disagreed.

@@ -35,7 +35,15 @@ called finished. That step is the point of this skill.
   The index names it, and says that where the set and the code disagree the
   code wins.
 - Read what the repository already documents, so the set points to it instead
-  of repeating it.
+  of repeating it. Where a document says what the code no longer does, keep
+  the claim and the file that settles it. The index will list them (step 4).
+- Find what the repository checks its own documents with, and read each rule
+  before a chapter is written: the scripts in its package manifest, its hooks,
+  its CI jobs, a documentation site's ignore file. A rule can settle the
+  folder (which documents are published) and forbid what a set is otherwise
+  full of. One repository's check, required to merge, refused every
+  hand-written count such as "37 domains"; it was found after the set was
+  written, in twenty lines and three headings.
 
 ## 2. Read the spine yourself
 
@@ -81,6 +89,10 @@ take notes with file and line.
 - A count is stamped with the commit it was taken at. It will drift.
 - Mark the decisions chapter as reconstruction: reasons were read off the
   code's shape and its comments, not stated by its authors, unless quoted.
+- The index lists where the repository's own documents and the code disagree:
+  what the document says, what the code does, the file that shows it. In a
+  repository that is not the user's no existing file is edited, so this list
+  is how its owner hears of it.
 
 ## 5. Run the three checks
 
@@ -103,8 +115,12 @@ nothing: it is not a pass.
   browser it says so and stops; report that the diagrams were not checked.
 - `check-cited-paths` fails a path in backticks that is not in the repository.
   When a chapter says a file is missing, name it: `--except docs/old-plan.md`.
-- If the repository's own formatter covers markdown, run it too, then run
+- Run the checks the repository applies to its own documents (step 1), then
   `check-diagrams` again: a formatter rewrites tables and may touch a block.
+- After its verdict `check-diagrams` names each diagram drawn wider than
+  1,800 px. Those have passed. A page shows them at half size or less, so
+  they are the ones to look at first; [`mermaid.md`](mermaid.md) says what
+  narrows one.
 - Render the dense diagrams and look at them (`--keep <dir>`). A diagram that
   parses can still be unreadable.
 
@@ -151,4 +167,6 @@ snapshot: build it again after the documents change.
    "not fact-checked" and why.
 4. What is still unverified: what no reader could confirm, and how the set
    looks on the host that will show it, if it was not pushed.
-5. The page to open.
+5. Where the repository's own documents disagree with the code, if anywhere:
+   how many places, and that the index lists them.
+6. The page to open.
