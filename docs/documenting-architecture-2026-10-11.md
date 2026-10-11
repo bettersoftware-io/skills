@@ -284,6 +284,40 @@ knows a check exists runs it. The gap was in finding it.
 The first table is also the only evidence so far on step 6: six agents out of
 six said they would do it when told to wrap up. None of them was running.
 
+### The chapters step 4 lists, added afterwards
+
+The third set had no decisions chapter and no table of words at the head of
+each chapter. Both were then added: seventeen decisions, each with what it
+buys, what it costs and a reason marked as stated or reconstructed, and 149
+rows of words across eighteen chapters. The skill says that a change to an
+existing set gets steps 5 and 6 on what changed, so two fresh readers took
+the new material, one each.
+
+| | The decisions chapter | The tables of words |
+|---|---|---|
+| Claims checked | about 105 | about 172 |
+| Findings | 6 | 5 |
+| Plainly wrong | 0 | 1 |
+| Misleading | 6 | 4 |
+| Tokens | 173,000 | 174,000 |
+
+The chapter quotes the repository's own documents and comments 25 times. The
+reader's brief had one paragraph more than the one in `briefs.md`: a quotation
+is a claim, to be found word for word in the file named. All 25 were. Three
+had been quoted with the wrong capital letter and were put right by the writer
+before the reader saw them. That paragraph was used once and is not in
+`briefs.md`.
+
+The findings were the same kind again, in fewer words: "Everything about a
+user lives in" one store, when a few per-user results live in the other. A
+word said to have "three unrelated meanings" in the repository, which has
+more. A cost written as "not caught at merge time", of code that has unit
+tests in the merge gate.
+
+The repository's check on documents, run because step 5 now says to, refused
+one row of a new table: "a value two services both hold" reads to it as a
+count of services.
+
 ### The scripts after the change
 
 `scripts/architecture-docs` has 124 tests, 6 of them new. 7 mutants were added
@@ -299,9 +333,10 @@ third set, on one machine.
   never were. Whether an agent with the skill performs step 6 unprompted, and
   what its set then holds, is not known: six agents said they would, and
   saying is not doing.
-- **The third set does not have the chapters step 4 lists.** It has no
-  decisions chapter and no table of words at the head of each chapter. It was
-  corrected, not rewritten.
+- **The third set was not written in the order the skill gives.** Its
+  decisions chapter and its tables of words came after the fact-check, not
+  before the chapters were written. What a set looks like when step 4 is
+  followed from the start is not known.
 - **Not run in Codex**, and not on Linux or Windows. The list of browser
   paths for those systems is written from what is usually there, not from a
   run.
