@@ -326,6 +326,29 @@ The repository's check on documents, run because step 5 now says to, refused
 one row of a new table: "a value two services both hold" reads to it as a
 count of services.
 
+### Three more sentences, tried and not added
+
+Three things had gone wrong in the third set that looked like sentences the
+skill was missing. Each was written, and then tried before it was kept: two
+fresh agents did a small task with the skill as it already was. All six did
+the task right, so none of the three was added.
+
+| The sentence | The task | With the skill as it was |
+|---|---|---|
+| In the fact-check brief: a quotation is a claim, to be found word for word in the file named | Fact-check a short document in which one quotation was given to the wrong file and another had a word added | 2 of 2 reported both, and the wrong number planted beside them |
+| In step 4: a figure found in the repository's own documents is read again in the code before it is written | Write a table of three scheduled monitors, in a repository whose own document gave one schedule wrongly | 2 of 2 read the schedule from the workflow, wrote the right one, and said that the document disagreed |
+| In `mermaid.md`: count the arrows again before writing a step number in the prose | Write the paragraph under a numbered sequence diagram that has an `alt` branch, naming the step that fails | 2 of 2 named it, and the five steps after it, correctly |
+
+These were tasks done, not answers about what an agent would do. They were
+also small. The repository in the second task had three workflows, so opening
+each was cheap; the set the mistake came from was written about a repository
+with fifty. Whether an agent reads fifty files to check fifty
+schedules, with the skill as it is, was not tried.
+
+So the paragraph added to the reader's brief for the decisions chapter, above,
+was not what found the quotations right. The brief in `briefs.md` finds a
+quotation that is wrong without it.
+
 ### The scripts after the change
 
 `scripts/architecture-docs` has 128 tests, 6 of them new. 7 mutants were added
