@@ -14,6 +14,11 @@
 // a diagram parses. It does not say the diagram is legible, and it says
 // nothing about whether what it draws is true.
 //
+// One thing about legibility can be measured: a diagram drawn wider than a
+// page shows it is shrunk to fit, and its text with it. Those are named, with
+// their width, after the verdict. They do not fail the check: whether a wide
+// diagram can still be read is for a person to judge.
+//
 // The tools are fetched on first use (see lib/tools.mts).
 //
 // Exit 0: every diagram renders, or there was none to render (SKIP).
@@ -29,6 +34,18 @@ import { createRenderer, type Render } from "./lib/render.mts";
 
 const GATE = "diagrams";
 
+/**
+ * A diagram drawn wider than this many pixels is named. A column of text on a
+ * page is about half as wide, so such a diagram is shown at half size or less:
+ * Mermaid's 16 px text reads as 8 px.
+ *
+ * The width is what this run's Mermaid and this machine's fonts drew. Another
+ * version lays the same source out differently: one flowchart of eight boxes
+ * was 689 px wide here and 2,039 px in Mermaid 11.4. So the list says where to
+ * look, not what a reader's page will show.
+ */
+export const WIDE = 1800;
+
 export interface BrokenDiagram {
   /** The markdown file, from the folder the check was run in. */
   file: string;
@@ -37,11 +54,22 @@ export interface BrokenDiagram {
   message: string;
 }
 
+export interface WideDiagram {
+  /** The markdown file, from the folder the check was run in. */
+  file: string;
+  /** The line the diagram's fence opens on. */
+  line: number;
+  /** How wide it was drawn, in pixels. */
+  width: number;
+}
+
 export interface DiagramCheck {
   gate: string;
   /** Why nothing was judged. A result with this set has not passed. */
   skipped?: string;
   findings: BrokenDiagram[];
+  /** Diagrams that render and are drawn wider than `WIDE`, widest first. Not findings. */
+  wide: WideDiagram[];
   /** Markdown files read. */
   files: number;
   /** Diagrams rendered, or tried. */
@@ -74,6 +102,7 @@ export async function checkDiagrams(paths: string[], renderer: () => Render | Pr
   const files = listMarkdown(paths, links);
   const jobs: { file: string; line: number; source: string; name: string }[] = [];
   const findings: BrokenDiagram[] = [];
+  const wide: WideDiagram[] = [];
 
   for (const path of files) {
     readDiagrams(readFileSync(path, "utf8")).forEach((diagram, index) => {
@@ -96,8 +125,10 @@ export async function checkDiagrams(paths: string[], renderer: () => Render | Pr
     for (const job of jobs) {
       const answer = await render(job.source, job.name);
 
-      if (answer !== undefined) {
+      if (typeof answer === "string") {
         findings.push({ file: job.file, line: job.line, message: `Mermaid does not render it: ${inFileTerms(answer, job.line)}` });
+      } else if (answer !== undefined && answer.width > WIDE) {
+        wide.push({ file: job.file, line: job.line, width: answer.width });
       }
     }
   }
@@ -106,26 +137,32 @@ export async function checkDiagrams(paths: string[], renderer: () => Render | Pr
     gate: GATE,
     ...(diagrams === 0 ? { skipped: files.length === 0 ? "no markdown file" : `no mermaid diagram in ${files.length} markdown file(s)` } : {}),
     findings: findings.sort((a, b) => a.file.localeCompare(b.file) || a.line - b.line),
+    wide: wide.sort((a, b) => b.width - a.width || a.file.localeCompare(b.file) || a.line - b.line),
     files: files.length,
     diagrams,
     links: links.map((link) => shown(from, link)),
   };
 }
 
-export function formatResult({ gate, skipped, findings, files, diagrams, links }: DiagramCheck): string {
+export function formatResult({ gate, skipped, findings, wide, files, diagrams, links }: DiagramCheck): string {
   const unread = notRead("", links);
+  // After the verdict, and never in place of it: a wide diagram has rendered.
+  const tooWide =
+    wide.length === 0
+      ? ""
+      : ["", `WIDE ${gate} (${wide.length}) — drawn wider than ${WIDE} px, so a page shows them shrunk, and their text with them`, ...wide.map(({ file, line, width }) => `  ${file}:${line} — ${width} px`)].join("\n");
 
   if (findings.length > 0) {
     return [
       `FAIL ${gate} (${findings.length})`,
       ...findings.flatMap(({ file, line, message }) => [`  ${file}:${line}`, `    ${message}`]),
       "",
-      `${findings.length} of ${diagrams} diagram(s) in ${files} markdown file(s) do not render.${unread}`,
+      `${findings.length} of ${diagrams} diagram(s) in ${files} markdown file(s) do not render.${unread}${tooWide}`,
     ].join("\n");
   }
 
   // Nothing to judge is reported as such: it is not a pass.
-  return `${skipped === undefined ? `PASS ${gate} — ${diagrams} diagram(s) in ${files} markdown file(s) render` : `SKIP ${gate} — ${skipped}`}${unread}`;
+  return `${skipped === undefined ? `PASS ${gate} — ${diagrams} diagram(s) in ${files} markdown file(s) render` : `SKIP ${gate} — ${skipped}`}${unread}${tooWide}`;
 }
 
 export function parseArguments(argv: string[]): { paths: string[]; keep?: string } {

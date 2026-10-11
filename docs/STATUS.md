@@ -61,11 +61,21 @@ on 2026-10-05, on pushes to main and on a pull request
 
 Added on 2026-10-11 ([the record](documenting-architecture-2026-10-11.md)).
 
-- **The skill has never been run.** It was written from two runs made without
-  it. Whether an agent that has it does the fact-check of step 6 unprompted,
-  and what is left wrong in the set afterwards, is not known. The test to make
-  is the one the review skill had: the same request, several fresh sessions,
-  with and without.
+- **The skill has never been run from its first step.** It was written from
+  two runs made without it. Steps 5 to 7 were then run once, on a third set
+  written without it, by the session that wrote that set: 47 findings in
+  about 650 checked claims. Whether an agent that has the skill does the
+  fact-check of step 6 unprompted, and what is left wrong in the set
+  afterwards, is not known. The test to make is the one the review skill had:
+  the same request, several fresh sessions, with and without.
+- **What an agent says it would do is the only evidence for two sentences.**
+  The index's list of where a repository's documents are wrong, and looking
+  for a repository's own checks on documents before writing, were each tried
+  on a handful of single-shot agents that ran nothing.
+- **The widths `check-diagrams.mts` names come from one Mermaid on one
+  machine.** Mermaid 11.4 and 12.1 disagreed on which way three of four
+  diagrams were narrower. What the page that shows the set draws is not known
+  until it is looked at there.
 - **Not run in Codex.** The skill starts subagents for the readers of steps 3
   and 6, and says what to do when none can be started; that branch is untried.
 - **The scripts ran on one machine:** macOS arm64, Node 26.11.1, with the

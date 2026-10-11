@@ -36,6 +36,8 @@ the page's own theme; leave them unstyled.
 | A container diagram becomes a tangle | A dozen arrows from one node to every worker and store | Put the targets in subgraphs and draw one arrow between subgraphs: `server --> workers` |
 | The transition labels of a state diagram overlap | `direction LR` with labels of more than a few words | Leave the direction out, and shorten the labels |
 | An "invisible" link `A ~~~ B` is drawn | `linkStyle default stroke:…` applies to it too | Remove the link, or give that one link a transparent stroke by its number |
+| A diagram renders, and on the page its text is too small to read | It is drawn wider than the page, which shrinks it. The width comes from boxes side by side in one rank: a node with an arrow to each of six others, or subgraphs with no arrow between them. A sequence diagram is as wide as its participants | `check-diagrams` names the ones over 1,800 px. Draw one arrow to a subgraph in place of one to each box in it. Merge two participants that always act together. Split the diagram: one per question |
+| A diagram narrowed by turning it (`TB` to `LR`) is wide again | The layout changes with the version of Mermaid and the fonts of the machine. Turning one flowchart took it from 2,039 px to 1,442 px in Mermaid 11.4, and from 689 px to 2,315 px in 12.1 | Measure with `check-diagrams`, every time, and not by eye in another tool. Prefer a change that takes boxes out of a rank to one that turns the diagram |
 | A layout of nested boxes comes out stacked the wrong way | `direction` inside a nested subgraph is not kept | Use a plain code block with box-drawing characters |
 
 ## What works

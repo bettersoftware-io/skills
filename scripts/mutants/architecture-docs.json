@@ -404,5 +404,54 @@
     "find": "    () => false,\n  );",
     "replace": "    () => true,\n  );",
     "test": "pnpm vitest run scripts/architecture-docs/close-browser.test.mts -t \"kills a browser that could not be asked\""
+  },
+  {
+    "name": "diagrams: a diagram exactly as wide as the limit is not named",
+    "file": "scripts/architecture-docs/check-diagrams.mts",
+    "find": "      } else if (answer !== undefined && answer.width > WIDE) {",
+    "replace": "      } else if (answer !== undefined && answer.width >= WIDE) {",
+    "test": "pnpm vitest run scripts/architecture-docs/check-diagrams.test.mts -t \"is not named when it is exactly as wide as the limit\""
+  },
+  {
+    "name": "diagrams: a wide diagram has rendered, so it is not a finding and the check still passes",
+    "file": "scripts/architecture-docs/check-diagrams.mts",
+    "find": "        wide.push({ file: job.file, line: job.line, width: answer.width });",
+    "replace": "        findings.push({ file: job.file, line: job.line, message: `drawn ${answer.width} px wide` });",
+    "test": "pnpm vitest run scripts/architecture-docs/check-diagrams.test.mts -t \"still passes, and is named by its file, its line and its width, widest first\""
+  },
+  {
+    "name": "diagrams: the wide diagrams are listed widest first",
+    "file": "scripts/architecture-docs/check-diagrams.mts",
+    "find": "    wide: wide.sort((a, b) => b.width - a.width || a.file.localeCompare(b.file) || a.line - b.line),",
+    "replace": "    wide: wide.sort((a, b) => a.width - b.width || a.file.localeCompare(b.file) || a.line - b.line),",
+    "test": "pnpm vitest run scripts/architecture-docs/check-diagrams.test.mts -t \"still passes, and is named by its file, its line and its width, widest first\""
+  },
+  {
+    "name": "diagrams: the wide diagrams are named when another diagram fails, too",
+    "file": "scripts/architecture-docs/check-diagrams.mts",
+    "find": "do not render.${unread}${tooWide}`,",
+    "replace": "do not render.${unread}`,",
+    "test": "pnpm vitest run scripts/architecture-docs/check-diagrams.test.mts -t \"is named under a failure too, after the diagrams that do not render\""
+  },
+  {
+    "name": "diagrams: a renderer that measured nothing gets no width invented for it",
+    "file": "scripts/architecture-docs/check-diagrams.mts",
+    "find": "      } else if (answer !== undefined && answer.width > WIDE) {",
+    "replace": "      } else if (answer === undefined || answer.width > WIDE) {",
+    "test": "pnpm vitest run scripts/architecture-docs/check-diagrams.test.mts -t \"is not guessed at when the renderer measured nothing\""
+  },
+  {
+    "name": "diagrams: the width of a drawn diagram is the third number of its viewBox, not the fourth",
+    "file": "scripts/architecture-docs/lib/render.mts",
+    "find": "{ width: Math.round(Number(box[1])), height: Math.round(Number(box[2])) };",
+    "replace": "{ width: Math.round(Number(box[2])), height: Math.round(Number(box[1])) };",
+    "test": "pnpm vitest run scripts/architecture-docs/check-diagrams.test.mts -t \"is read from the picture's viewBox, width before height, whatever its corner\""
+  },
+  {
+    "name": "diagrams: a picture with no viewBox has no size, not a size of nothing",
+    "file": "scripts/architecture-docs/lib/render.mts",
+    "find": "  return box === null ? undefined : {",
+    "replace": "  return box === null ? { width: 0, height: 0 } : {",
+    "test": "pnpm vitest run scripts/architecture-docs/check-diagrams.test.mts -t \"is not known when the picture states none\""
   }
 ]
