@@ -68,6 +68,11 @@ Added on 2026-10-11 ([the record](documenting-architecture-2026-10-11.md)).
   fact-check of step 6 unprompted, and what is left wrong in the set
   afterwards, is not known. The test to make is the one the review skill had:
   the same request, several fresh sessions, with and without.
+- **Three sentences were tried and left out.** A line on quotations in the
+  fact-check brief, a line on re-reading a figure from a repository's own
+  documents, and a line on re-counting step numbers. Agents with the skill as
+  it was did each small task right, two of two. The tasks were small: the
+  record says what was not tried.
 - **What an agent says it would do is the only evidence for two sentences.**
   The index's list of where a repository's documents are wrong, and looking
   for a repository's own checks on documents before writing, were each tried
