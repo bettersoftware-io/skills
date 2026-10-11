@@ -10,6 +10,7 @@ import { mkdirSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 
+import { closeBrowser, type Closable } from "./close-browser.mts";
 import { CouldNotRun } from "./outcome.mts";
 import { NO_BROWSER, browserArguments, ensureToolset, findBrowser, isHeadlessShell, type Toolset } from "./tools.mts";
 
@@ -28,9 +29,8 @@ interface BrowserPage {
   evaluate(script: string): Promise<unknown>;
 }
 
-interface Browser {
+interface Browser extends Closable {
   newPage(): Promise<BrowserPage>;
-  close(): Promise<void>;
 }
 
 interface BrowserLibrary {
@@ -83,7 +83,7 @@ export function shortError(error: string): string {
 /**
  * Starts the browser and loads Mermaid into a page. `keep` is a folder the
  * drawn SVG files are written to; without it they are thrown away. `done`
- * closes the browser and must be called.
+ * closes the browser, or kills it if it will not close, and must be called.
  */
 export async function createRenderer(keep?: string, toolset: Toolset = ensureToolset()): Promise<{ render: Render; done: () => Promise<void> }> {
   const executablePath = findBrowser();
@@ -131,5 +131,5 @@ export async function createRenderer(keep?: string, toolset: Toolset = ensureToo
     return undefined;
   };
 
-  return { render, done: () => browser.close() };
+  return { render, done: () => closeBrowser(browser) };
 }

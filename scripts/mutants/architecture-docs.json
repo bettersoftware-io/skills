@@ -383,5 +383,26 @@
     "find": "withDiagrams(onlyKnownTags(html))",
     "replace": "withDiagrams(html)",
     "test": "pnpm vitest run scripts/architecture-docs/hostile.test.mts -t \"runs nothing the document wrote\""
+  },
+  {
+    "name": "browser: one that does not answer is killed",
+    "file": "scripts/architecture-docs/lib/close-browser.mts",
+    "find": "    browser.process()?.kill(\"SIGKILL\");",
+    "replace": "",
+    "test": "pnpm vitest run scripts/architecture-docs/close-browser.test.mts -t \"kills a browser that does not answer, and does not wait for it\""
+  },
+  {
+    "name": "browser: the wait for it to close has an end",
+    "file": "scripts/architecture-docs/lib/close-browser.mts",
+    "find": "await Promise.race([closed, waited])",
+    "replace": "await closed",
+    "test": "pnpm vitest run scripts/architecture-docs/close-browser.test.mts -t \"kills a browser that does not answer, and does not wait for it\""
+  },
+  {
+    "name": "browser: one that could not be asked to close is killed",
+    "file": "scripts/architecture-docs/lib/close-browser.mts",
+    "find": "    () => false,\n  );",
+    "replace": "    () => true,\n  );",
+    "test": "pnpm vitest run scripts/architecture-docs/close-browser.test.mts -t \"kills a browser that could not be asked\""
   }
 ]
