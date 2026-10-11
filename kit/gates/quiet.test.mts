@@ -913,7 +913,7 @@ async function runWith(table: Record<string, StageRun>, ran: string[] = []): Pro
 function createProject(scripts: Record<string, string>, files: Record<string, string> = {}): string {
   const root = realpathSync(mkdtempSync(join(tmpdir(), "quiet-gate-")));
 
-  writeFileSync(join(root, "package.json"), JSON.stringify({ name: "p", version: "1.2.3", private: true, scripts }));
+  writeFileSync(join(root, "package.json"), JSON.stringify({ name: "p", version: "1.2.3", private: true, ...pinnedPackageManager(), scripts }));
 
   for (const [path, content] of Object.entries(files)) {
     mkdirSync(dirname(join(root, path)), { recursive: true });
@@ -921,6 +921,31 @@ function createProject(scripts: Record<string, string>, files: Record<string, st
   }
 
   return root;
+}
+
+/**
+ * The pnpm this repository pins, as the field a project names it in. Every
+ * project made here carries it. Where pnpm comes from Corepack, as it does in
+ * CI, a project without the field is not run with the pinned pnpm: the first
+ * call fetches the newest pnpm from the network, and runs that. The test then
+ * waits for a download, and judges a pnpm nobody chose.
+ */
+function pinnedPackageManager(): { packageManager?: string } {
+  for (let folder = dirname(RUNNER); ; folder = dirname(folder)) {
+    const manifest = join(folder, "package.json");
+
+    if (existsSync(manifest)) {
+      const { packageManager } = JSON.parse(readFileSync(manifest, "utf8")) as { packageManager?: string };
+
+      if (packageManager !== undefined) {
+        return { packageManager };
+      }
+    }
+
+    if (dirname(folder) === folder) {
+      return {};
+    }
+  }
 }
 
 function runCommand(root: string, script: string): { status: number | null; stdout: string; stderr: string } {

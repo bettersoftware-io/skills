@@ -19,6 +19,7 @@ import { pathToFileURL } from "node:url";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 import { buildSite, createConverter, type Built, type MarkedClass } from "./build-site.mts";
+import { closeBrowser, type Closable } from "./lib/close-browser.mts";
 import { browserArguments, findBrowser, installedToolset, isHeadlessShell } from "./lib/tools.mts";
 import { createFolder, mermaid } from "./support.mts";
 
@@ -126,9 +127,8 @@ interface Answer {
 }
 
 // The few things used of the browser library. It is fetched, so its own types are not there to import.
-interface Browser {
+interface Browser extends Closable {
   newPage(): Promise<{ goto(url: string): Promise<unknown>; waitForSelector(selector: string, options: { timeout: number }): Promise<unknown>; evaluate(script: string): Promise<unknown> }>;
-  close(): Promise<void>;
 }
 
 const toolset = installedToolset();
@@ -161,8 +161,11 @@ describe.skipIf(missing !== undefined)(`a document written to attack its reader$
     answer = (await opened.evaluate(ASK)) as Answer;
   }, 60_000);
 
+  // Not `browser.close()` alone: with the whole suite running it sometimes did not answer for ten seconds.
   afterAll(async () => {
-    await browser?.close();
+    if (browser !== undefined) {
+      await closeBrowser(browser);
+    }
   });
 
   it("runs nothing the document wrote, when everything in the page is hovered over and clicked", () => {

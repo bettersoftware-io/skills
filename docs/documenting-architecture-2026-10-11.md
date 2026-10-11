@@ -151,7 +151,15 @@ nothing, so it was tried with each protection taken out:
 The moi set built before and after the change is the same, byte for byte, in
 all 17 pages.
 
-The scripts have 118 tests, 5 of them the hostile document. 55 mutants were
+Run with the whole suite, the hostile test then failed twice in about
+fifteen runs, with its five tests passing: the browser did not answer the request
+to close within the ten seconds a clean-up step has. Nothing was left
+running. `closeBrowser` now waits five seconds and kills a browser that has
+not closed, in that test and in `check-diagrams.mts`, which would have
+waited for ever. Its use in `check-diagrams.mts` was checked by running it,
+not by a test.
+
+The scripts have 122 tests, 5 of them the hostile document. 58 mutants were
 each applied, seen to turn their test red, and removed:
 [`scripts/mutants/architecture-docs.json`](../scripts/mutants/architecture-docs.json).
 
@@ -320,8 +328,8 @@ count of services.
 
 ### The scripts after the change
 
-`scripts/architecture-docs` has 124 tests, 6 of them new. 7 mutants were added
-to the 55, each applied, seen to turn its test red, and removed. The line that
+`scripts/architecture-docs` has 128 tests, 6 of them new. 7 mutants were added
+to the 58, each applied, seen to turn its test red, and removed. The line that
 reads a diagram's size from the browser's answer is behind the same fake as
 the rest of the renderer, so no test reaches it. It was run by hand on the
 third set, on one machine.
