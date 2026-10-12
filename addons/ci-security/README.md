@@ -4,7 +4,8 @@ Adds supply-chain and workflow checks to a project created from the starter
 and hosted on GitHub: a lint of the workflows themselves, a review of every
 dependency change, an audit of the production dependencies, an OpenSSF
 Scorecard, a check of the project's Dockerfiles, a security policy to start
-from, and the config of one update bot.
+from, the config of one update bot, and a command that reads the
+repository's settings and names the ones that are off.
 
 ```bash
 node scripts/add-to-project.mts <project> ci-security            # with Dependabot
@@ -17,6 +18,7 @@ Every check but one needs the network, so it joins neither `gate:fast` nor
 the gates in a sandbox that may have no network. Those checks run in
 workflows of their own, and the workflow lint also runs by hand before a
 push. The Dockerfile check reads files only, so it is in `gate:fast`.
+`pnpm repo:settings` needs `gh`, a login and the network, and is run by hand.
 
 ## What it adds
 
@@ -28,11 +30,13 @@ push. The Dockerfile check reads files only, so it is in `gate:fast`.
 | Dependency Review | `.github/workflows/dependency-review.yml` | On pull requests: fails one that brings in a known advisory or a strong-copyleft licence |
 | Scorecard | `.github/workflows/scorecard.yml` | Weekly and when `.github/` or branch protection changes: findings to code scanning. Gates nothing |
 | `pnpm check:dockerfiles` | `tools/ci-security/check-dockerfiles.mts` | Reads every Dockerfile the way Docker does: each image the build pulls named by digest, the last stage not run as root, no package installed outside a lockfile. A file it cannot read that way fails. `SKIP` when the project has none. Joins `gate:fast` |
+| `pnpm repo:settings` | `tools/ci-security/check-settings.mts` | Asks GitHub which repository settings are on. `PASS`, `FAIL` or `SKIP` per setting; under a `FAIL`, where the setting is and the command that switches it on. It only reads. Joins no gate |
+| The required checks | `tools/ci-security/lib/required-checks.mts` | Reads `.github/workflows/` for the jobs every pull request runs, which are the status checks a ruleset can require |
 | Security policy | `SECURITY.md` | How to report in private, what to expect, what is in scope. Written once, then the project's own |
 | Dependabot (the default) | `.github/dependabot.yml` | Weekly version updates for npm and for actions, never a release younger than seven days. Written once, then the project's own |
 | Renovate (`ci-security:renovate`) | `.github/renovate.json5` | The same policy for Renovate, in place of the Dependabot file. Written once, then the project's own |
 
-Two scripts are added to the root `package.json`. No package is installed.
+Three scripts are added to the root `package.json`. No package is installed.
 
 ## Why each tool
 
@@ -112,26 +116,96 @@ scanners need an account and a token, and repeat what these layers do.
 ## Settings a person must switch on
 
 The add-on writes files. These are repository settings, and it cannot set
-them. All are under Settings.
+them. All are under Settings. `pnpm repo:settings` reads the ones marked
+"yes" and prints which are off. Run it after the project's first push to
+GitHub.
 
-| Setting | Where | Without it |
-|---|---|---|
-| Dependency graph | Advanced Security | Dependency Review fails every pull request, saying the graph is off. On by default for a public repository |
-| Dependabot alerts and Dependabot security updates | Advanced Security | No pull request is opened when an advisory hits a version already on main |
-| Dependabot version updates | Advanced Security | Usually on once `dependabot.yml` exists; check it |
-| CodeQL default setup, with the `actions` language | Advanced Security → Code scanning | No static analysis of the project's own code. It is also where Scorecard's findings are shown |
-| Private vulnerability reporting | Advanced Security | Nobody can report a flaw in private, and the "Report a vulnerability" button that `SECURITY.md` points to does not exist |
-| The Renovate app, with `ci-security:renovate` only | <https://github.com/apps/renovate>, then the repository | Nothing happens. No pull request, and no error |
-| The three things `SECURITY.md` asks its maintainers for, in the comment at its top | The file itself | The policy promises an answer in 7 days and disclosure within 90, which may not be times you keep |
-| A ruleset on `main` that requires a pull request and these status checks: `workflow lint (actionlint · zizmor)`, `pnpm audit (production dependencies)`, `dependency review (advisories · licences)`, and the starter's `gates · lint · typecheck · test · build` | Rules → Rulesets | The checks run and anyone can merge past a red one |
-| Workflow permissions: read repository contents | Actions → General | A workflow with no `permissions:` block gets a write token |
+| Setting | Where | Without it | Read by `pnpm repo:settings` |
+|---|---|---|---|
+| Dependency graph | Advanced Security | Dependency Review fails every pull request, saying the graph is off. On by default for a public repository | With Dependabot alerts: they need the graph, and switching them on switches it on |
+| Dependabot alerts and Dependabot security updates | Advanced Security | No pull request is opened when an advisory hits a version already on main | yes, one line each |
+| Dependabot version updates | Advanced Security | Usually on once `dependabot.yml` exists; check it | no |
+| CodeQL default setup, with the `actions` language | Advanced Security → Code scanning | No static analysis of the project's own code. It is also where Scorecard's findings are shown | yes |
+| Private vulnerability reporting | Advanced Security | Nobody can report a flaw in private, and the "Report a vulnerability" button that `SECURITY.md` points to does not exist | yes |
+| The Renovate app, with `ci-security:renovate` only | <https://github.com/apps/renovate>, then the repository | Nothing happens. No pull request, and no error | no |
+| The three things `SECURITY.md` asks its maintainers for, in the comment at its top | The file itself | The policy promises an answer in 7 days and disclosure within 90, which may not be times you keep | no |
+| A ruleset on the default branch that requires a pull request, blocks deletion and force pushes, and requires the status check of every job that every pull request runs. With the starter and this add-on those are `gates · lint · typecheck · test · build`, `workflow lint (actionlint · zizmor)`, `pnpm audit (production dependencies)` and `dependency review (advisories · licences)` | Rules → Rulesets | The checks run and anyone can merge past a red one | yes, one line for each of the three |
+| Workflow permissions: read repository contents | Actions → General | A workflow with no `permissions:` block gets a write token | yes |
+| Automatically delete head branches | General → Pull Requests | The branch of every merged pull request stays on GitHub until someone deletes it | yes |
 
 Do not make `scorecard analysis` a required check: it does not run on pull
-requests.
+requests. `pnpm repo:settings` does not ask for it, by the rule below.
 
 In a private repository, Dependency Review and code scanning need GitHub
 Advanced Security. Without it, delete `dependency-review.yml` and
 `scorecard.yml`; the rest works.
+
+## The settings check
+
+```
+PASS Dependabot alerts, and with them the dependency graph
+FAIL Dependabot security updates: off
+  where: Settings → Advanced Security → Dependabot security updates (https://github.com/acme/app/settings/security_analysis)
+  fix:   gh api -X PUT repos/acme/app/automated-security-fixes
+SKIP CodeQL default setup, with the actions language: not read, so this is not a pass and not "off". GitHub answered HTTP 403: You are not authorized to read code scanning default setup.
+```
+
+| Exit | Means |
+|---|---|
+| `0` | Every setting was read and is on |
+| `1` | A setting is off. The lines under its `FAIL` say where it is and give the command that switches it on |
+| `2` | No setting is off, and one or all of them could not be read: no `gh`, no login, no GitHub repository for the folder, no access to a setting. Also a wrong argument. Not a pass |
+
+`--root <dir>` reads another checkout than the one the tool is in.
+
+**It only reads.** Each question is `gh api --method GET`, sent from one
+function. A `fix:` command is printed for a person and never run, and a test
+holds that with every setting off no other call is made. An agent shows the
+command to the user: in a project made from the starter, the agent's host
+refused such a write.
+
+**It joins no gate.** It needs `gh`, a login and the network, and a login may
+not be let to read every setting. A gate that failed for a person with less
+access would fail for a reason they cannot fix. It is run by hand.
+
+**Off and not read are kept apart.** GitHub answers 404 for alerts that are
+off, and the same 404 to a login that may not see the setting. A 404 is read
+as "off" in two cases: the login may administer the repository, or the
+message says "disabled". Any other refusal is a `SKIP` with GitHub's reason.
+An answer in a form the tool does not know is a `SKIP` too.
+
+**The repository** is the one `origin` points at when that is an address on
+github.com. Otherwise it is the one `gh repo view` names. The address is
+never printed: it can hold a token.
+
+**The ruleset** is read from `rules/branches/<default branch>`, which gives
+the rules that hold on the branch: those of active rulesets only, from every
+ruleset that matches it, the organisation's too. The three lines are a
+`pull_request` rule, a `deletion` and a `non_fast_forward` rule, and
+`required_status_checks`. When one fails, the list of rulesets is read to name
+a ruleset that is there and not active, and the branch is read to say when it
+has a classic protection rule, which is not judged. The command printed makes
+one ruleset with all three, for `~DEFAULT_BRANCH`: a pull request with no
+required approval, no deletion, no force push, and the checks named.
+
+**The checks to require come from the project's workflows**, not from a list
+in the tool. A job is named when every pull request runs it:
+
+| A job is left out when | Why |
+|---|---|
+| Its workflow has no `pull_request` under `on:`, or has anything under it (`paths`, `paths-ignore`, `branches`, `branches-ignore`, `types`) | Some pull requests do not start it. A required check that never reports holds the pull request for good |
+| It has an `if:` of its own. A step's `if:` does not count | A pull request can skip it |
+| It has a `strategy:`, calls another workflow with `uses:`, or has an expression in its `name:` | Its check has no one name that the file gives |
+
+The check's name is the job's `name:`, or its id. So the Scorecard job, the
+coverage add-on's job that publishes the report and the weekly tag are not
+asked for, and the coverage gate is. The jobs left out are named on the
+line, and each with its reason above the command.
+
+No YAML package is installed for this. The reader takes the block form
+workflows are written in (`on:` and `jobs:` at the left edge, a job as a key
+under `jobs:`). A workflow in another form is named on the line as not
+judged; it is never taken as having no job.
 
 ## The security policy
 
@@ -277,10 +351,11 @@ it. With no network it fails with a connection error; it does not pass.
 
 ## How it was tested
 
-**The tools.** 356 tests in `tests/`, run with
+**The tools.** 478 tests in `tests/`, run with
 `pnpm vitest run addons/ci-security` from this repository's root. No test
 touches the network: a download is a function that returns bytes, the archive
-extraction and the linter run are stand-ins. `system.test.mts` runs the real
+extraction and the linter run are stand-ins, and GitHub is a function that
+answers `gh` (`tests/github.mts`). `system.test.mts` runs the real
 `tar` on an archive it makes, and the real tool in a folder with no workflow
 (it stops before any download). `check-dockerfiles.test.mts` runs the check
 on Dockerfiles it writes, and the script itself in a folder of its own.
@@ -301,6 +376,34 @@ For the Dockerfile check, the security policy, the two bots' files and the
 manifest (2026-10-06): `tests/mutants.json`, 251 of 251 killed, 231 of them
 for the Dockerfile check. One more test, that the policy is at the root, lists
 files; it was made red by hand with a second policy under `files/docs/`.
+
+**The settings check** (2026-10-12): 122 tests. Most of GitHub's answers in
+them are the ones it gave that day: for a repository with every setting on,
+for one with five settings off and no rule on its branch, and for one the
+login could only read. So is what `gh` prints with no login, a refused token
+and no network. The header of `tests/github.mts` lists the answers that were
+written from GitHub's API description and not seen. Four tests start the
+script itself, with a `git` and a `gh` on the `PATH` that are shell scripts,
+or with none. `tests/mutants.json` has 127 mutants for these tests: 127 of
+127 killed. The mutant an older test was held by was run again under the
+test's new name. Each of the 122 tests also went red under at least one
+mutant when its whole file was run with the mutant in place.
+
+It was run against GitHub, reading only:
+
+| The folder | Result |
+|---|---|
+| A project made from the starter, with six workflows and every setting on | exit 0, nine `PASS`. The five checks read from its workflows are the five its ruleset requires; three jobs were left out |
+| This repository, where only the workflow permissions are as asked | exit 1: one `PASS`, eight `FAIL`, each single setting with its place and its command, and the ruleset command with this repository's one check. Its two matrix jobs were left out, with the reason |
+| A folder whose `origin` names someone else's public repository | exit 1: five `SKIP` with GitHub's reason (two 404, two 403, one field left out), one `PASS`, three `FAIL` for the ruleset, and the line that says the branch has a classic protection rule |
+| A folder with no `origin` | exit 2, one `SKIP` line |
+| The first folder again: with no login, with a token GitHub refuses, through a proxy that takes no connection, with no `gh` on the `PATH` | exit 2 each time, one `SKIP` line that names the reason |
+
+In a project created with every add-on, `pnpm gate:full` exits 0 with these
+files in, and `pnpm repo:settings` exits 2 there: the project has no
+`origin` yet.
+
+No printed command was run: see "Limits".
 
 **The Dockerfile check against Docker's own reader** (2026-10-06). The check
 claims to read a file as Docker does, so it was compared with the program
@@ -395,6 +498,24 @@ On 2026-10-06, in projects with every add-on and the scope
   `Branch-Protection` check may read less than a person can see, because the
   default token cannot read every setting. If it does not work in your
   repository, delete `scorecard.yml`; nothing else depends on it.
+- **The settings check has switched nothing on.** It prints commands and
+  runs none, and none it printed was run while it was written. The six for
+  single settings are the endpoints GitHub documents. The ruleset's body has the fields
+  GitHub's API description requires (2026-10-12); GitHub was not sent it.
+- **It reads rulesets, not classic branch protection.** A branch held by a
+  classic rule alone gets three `FAIL` lines, and a line that says a classic
+  rule is there.
+- **It does not read who may bypass a ruleset**, or whether a required check
+  is tied to GitHub Actions. The ruleset it prints accepts a check of that
+  name from any source.
+- **It reads the workflows in the checkout**, not on GitHub's default
+  branch. A workflow that is not pushed yet is counted.
+- **The dependency graph has no line of its own.** Alerts that are on mean
+  the graph is on. Alerts that are off say nothing about it.
+- **It does not read** Dependabot version updates, whether Dependabot has
+  paused security updates, the Renovate app, or what `SECURITY.md` asks for.
+- **It asks the host `gh` uses by default.** An `origin` on GitHub
+  Enterprise Server is not read as a GitHub address.
 - **The first run of the local lint needs the network.** In a sandbox without
   it the answer is `SKIP`, exit 2. That is correct and it is not a pass.
 - **No Windows build is pinned.** Run the lint under WSL, or leave it to CI.

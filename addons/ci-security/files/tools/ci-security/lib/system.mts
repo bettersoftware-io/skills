@@ -1,6 +1,6 @@
-// The four places the tool touches the machine: the network, tar, a child
-// process and the PATH. Everything that decides something is in install.mts
-// and lint.mts, and takes these as arguments.
+// The places the tools touch the machine: the network, tar, a child process
+// and the PATH. Everything that decides something is in install.mts, lint.mts
+// and settings.mts, and takes these as arguments.
 
 import { execFileSync, spawnSync } from "node:child_process";
 import { accessSync, constants, existsSync, realpathSync, statSync } from "node:fs";
@@ -8,6 +8,7 @@ import { delimiter, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import type { Download, Extract } from "./install.mts";
+import type { Run } from "./settings.mts";
 
 const DOWNLOAD_TIMEOUT_MS = 60_000;
 
@@ -43,6 +44,17 @@ export const extractWithTar: Extract = (archive, directory, member) => {
 export function runInherited(binary: string, runArguments: string[], root: string): number | null {
   return spawnSync(binary, runArguments, { cwd: root, stdio: "inherit" }).status;
 }
+
+/** Runs a program in `root` and keeps what it prints. A program that is not installed is a failed run (127), not a crash. */
+export const runCaptured: Run = (program, runArguments, root) => {
+  const result = spawnSync(program, runArguments, { cwd: root, encoding: "utf8", maxBuffer: 64 * 1024 * 1024 });
+
+  return {
+    status: result.error === undefined ? (result.status ?? 1) : 127,
+    stdout: result.stdout ?? "",
+    stderr: result.error === undefined ? (result.stderr ?? "") : result.error.message,
+  };
+};
 
 /** True when a file of that name in a folder of `path` can be run. */
 export function hasCommand(name: string, path: string | undefined): boolean {

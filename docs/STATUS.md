@@ -158,12 +158,6 @@ Added on 2026-10-11 ([the record](documenting-architecture-2026-10-11.md)).
   stops with `ERR_PNPM_BAD_RUNTIME_VERSION`. Both runs failed in a project
   created on 2026-10-12, and every weekly run will. Renovate as the default,
   a floor the updater is let past, or waiting for Dependabot: not decided.
-- **Nothing reads a repository's settings.** `ci-security` lists the ones a
-  person must switch on, and nothing says which are off. In the same project
-  the dependency graph was off, and Dependency Review failed the first pull
-  request for it. A command that asks GitHub and names each setting that is
-  off, with the command that sets it, is not built. Setting them from a
-  script is a different thing: an agent's host may refuse it, and did.
 
 ## Not tried
 
@@ -186,6 +180,12 @@ Added on 2026-10-11 ([the record](documenting-architecture-2026-10-11.md)).
 
 ## Known limits
 
+- **No command that `pnpm repo:settings` prints has been run.** The
+  `ci-security` add-on's command reads a repository's settings and prints,
+  for each one that is off, the `gh api` command that switches it on. It
+  never runs one, and neither did its tests or its runs against GitHub on
+  2026-10-12. The body of the ruleset it prints holds the fields GitHub's
+  published API description requires; GitHub has not been sent it.
 - **The `agent-workflow` hook has not run in a live session of either host.**
   It refuses a push or pull request step joined to other commands, and
   approves nothing: pre-approval was built, reviewed four times, escaped each

@@ -1302,7 +1302,7 @@
     "test": "pnpm vitest run addons/ci-security/tests/check-dockerfiles.test.mts -t \"fails on RUN npm install --location global\""
   },
   {
-    "name": "dockerfiles: RUN \u2026 && npm install x -g",
+    "name": "dockerfiles: RUN … && npm install x -g",
     "file": "addons/ci-security/files/tools/ci-security/check-dockerfiles.mts",
     "find": "words.slice(words.indexOf(tool) + 1).some(",
     "replace": "words.slice(words.indexOf(tool) + 1, words.indexOf(tool) + 3).some((word) => GLOBAL_FLAG.test(word)) && words.slice(words.indexOf(tool) + 1).some(",
@@ -1621,7 +1621,7 @@
     "file": "addons/ci-security/addon.json",
     "find": "node tools/ci-security/check-dockerfiles.mts",
     "replace": "node tools/ci-security/check-docker.mts",
-    "test": "pnpm vitest run addons/ci-security/tests/addon.test.mts -t \"adds two scripts\""
+    "test": "pnpm vitest run addons/ci-security/tests/addon.test.mts -t \"adds three scripts\""
   },
   {
     "name": "addon: the Dockerfile check is in gate:fast",
@@ -1755,5 +1755,894 @@
     "find": "A person does that",
     "replace": "Do that",
     "test": "pnpm vitest run addons/ci-security/tests/addon.test.mts -t \"nothing happens until a person installs\""
+  },
+  {
+    "name": "settings: every setting on is exit 0",
+    "file": "addons/ci-security/files/tools/ci-security/lib/settings.mts",
+    "find": "return count(\"off\") > 0 ? 1 : count(\"unread\") > 0 ? 2 : 0;",
+    "replace": "return count(\"off\") > 0 ? 1 : count(\"unread\") > 0 ? 2 : 1;",
+    "test": "pnpm vitest run addons/ci-security/tests/settings.test.mts -t \"prints one PASS line for each setting\""
+  },
+  {
+    "name": "settings: a read names its method",
+    "file": "addons/ci-security/files/tools/ci-security/lib/settings.mts",
+    "find": "[\"api\", \"--method\", \"GET\", path]",
+    "replace": "[\"api\", path]",
+    "test": "pnpm vitest run addons/ci-security/tests/settings.test.mts -t \"asks with reads only\""
+  },
+  {
+    "name": "settings: an administrator's 404 on the alerts is off",
+    "file": "addons/ci-security/files/tools/ci-security/lib/settings.mts",
+    "find": "alerts.ok ? ON : meansOff(alerts) ? off(",
+    "replace": "alerts.ok ? ON : false ? off(",
+    "test": "pnpm vitest run addons/ci-security/tests/settings.test.mts -t \"fails Dependabot alerts on an administrator\""
+  },
+  {
+    "name": "settings: security updates not enabled are off",
+    "file": "addons/ci-security/files/tools/ci-security/lib/settings.mts",
+    "find": "updatesOn === false || meansOff(updates)",
+    "replace": "meansOff(updates)",
+    "test": "pnpm vitest run addons/ci-security/tests/settings.test.mts -t \"fails Dependabot security updates that GitHub says are not enabled\""
+  },
+  {
+    "name": "settings: an administrator's 404 on security updates is off",
+    "file": "addons/ci-security/files/tools/ci-security/lib/settings.mts",
+    "find": "updatesOn === false || meansOff(updates)",
+    "replace": "updatesOn === false",
+    "test": "pnpm vitest run addons/ci-security/tests/settings.test.mts -t \"fails Dependabot security updates on an administrator\""
+  },
+  {
+    "name": "settings: private reporting not enabled is off",
+    "file": "addons/ci-security/files/tools/ci-security/lib/settings.mts",
+    "find": ": reportingOn === false",
+    "replace": ": reportingOn === null",
+    "test": "pnpm vitest run addons/ci-security/tests/settings.test.mts -t \"fails private vulnerability reporting that is not enabled\""
+  },
+  {
+    "name": "settings: CodeQL not set up is off",
+    "file": "addons/ci-security/files/tools/ci-security/lib/settings.mts",
+    "find": "if (state === \"not-configured\") {",
+    "replace": "if (state === \"never\") {",
+    "test": "pnpm vitest run addons/ci-security/tests/settings.test.mts -t \"fails CodeQL default setup that is not set up\""
+  },
+  {
+    "name": "settings: CodeQL without actions is off",
+    "file": "addons/ci-security/files/tools/ci-security/lib/settings.mts",
+    "find": "if (languages.includes(\"actions\")) {",
+    "replace": "if (true) {",
+    "test": "pnpm vitest run addons/ci-security/tests/settings.test.mts -t \"fails CodeQL set up without the actions language\""
+  },
+  {
+    "name": "settings: the CodeQL command sends only languages GitHub accepts",
+    "file": "addons/ci-security/files/tools/ci-security/lib/settings.mts",
+    "find": " && CODEQL_LANGUAGES.includes(language))];",
+    "replace": ")];",
+    "test": "pnpm vitest run addons/ci-security/tests/settings.test.mts -t \"fails CodeQL set up without the actions language\""
+  },
+  {
+    "name": "settings: a write token by default is off",
+    "file": "addons/ci-security/files/tools/ci-security/lib/settings.mts",
+    "find": "tokenDefault === \"read\"",
+    "replace": "tokenDefault !== \"\"",
+    "test": "pnpm vitest run addons/ci-security/tests/settings.test.mts -t \"fails workflow permissions that default to a write token\""
+  },
+  {
+    "name": "settings: branches kept after a merge are off",
+    "file": "addons/ci-security/files/tools/ci-security/lib/settings.mts",
+    "find": ": deletes === false",
+    "replace": ": deletes === null",
+    "test": "pnpm vitest run addons/ci-security/tests/settings.test.mts -t \"fails a repository that keeps a branch\""
+  },
+  {
+    "name": "settings: no call is a write",
+    "file": "addons/ci-security/files/tools/ci-security/lib/settings.mts",
+    "find": "[\"api\", \"--method\", \"GET\", path]",
+    "replace": "[\"api\", \"--method\", \"PUT\", path]",
+    "test": "pnpm vitest run addons/ci-security/tests/settings.test.mts -t \"prints the commands and runs none of them\""
+  },
+  {
+    "name": "settings: a 404 is not off for a login that is no administrator",
+    "file": "addons/ci-security/files/tools/ci-security/lib/settings.mts",
+    "find": "(isAdmin || /\\bdisabled\\b/i.test(answer.message))",
+    "replace": "true",
+    "test": "pnpm vitest run addons/ci-security/tests/settings.test.mts -t \"does not call Dependabot alerts off on the 404\""
+  },
+  {
+    "name": "settings: a 404 that says disabled is off",
+    "file": "addons/ci-security/files/tools/ci-security/lib/settings.mts",
+    "find": " || /\\bdisabled\\b/i.test(answer.message)",
+    "replace": "",
+    "test": "pnpm vitest run addons/ci-security/tests/settings.test.mts -t \"calls Dependabot alerts off for any login\""
+  },
+  {
+    "name": "settings: who is an administrator is read from GitHub's answer",
+    "file": "addons/ci-security/files/tools/ci-security/lib/settings.mts",
+    "find": "const isAdmin = field(field(repository.body, \"permissions\"), \"admin\") === true;",
+    "replace": "const isAdmin = true;",
+    "test": "pnpm vitest run addons/ci-security/tests/settings.test.mts -t \"does not call Dependabot security updates off on a 404 either\""
+  },
+  {
+    "name": "settings: a refusal is given with GitHub's status and reason",
+    "file": "addons/ci-security/files/tools/ci-security/lib/settings.mts",
+    "find": "`GitHub answered HTTP ${http}: ${message}`",
+    "replace": "`GitHub refused`",
+    "test": "pnpm vitest run addons/ci-security/tests/settings.test.mts -t \"own reason for a 403 on code scanning\""
+  },
+  {
+    "name": "settings: a refused question about private reporting is not a pass",
+    "file": "addons/ci-security/files/tools/ci-security/lib/settings.mts",
+    "find": ": notRead(reporting),",
+    "replace": ": ON,",
+    "test": "pnpm vitest run addons/ci-security/tests/settings.test.mts -t \"does not call private vulnerability reporting off\""
+  },
+  {
+    "name": "settings: a missing delete_branch_on_merge is not off",
+    "file": "addons/ci-security/files/tools/ci-security/lib/settings.mts",
+    "find": ": deletes === false",
+    "replace": ": deletes !== true",
+    "test": "pnpm vitest run addons/ci-security/tests/settings.test.mts -t \"does not call branch deletion off\""
+  },
+  {
+    "name": "settings: a CodeQL state it does not know is not on",
+    "file": "addons/ci-security/files/tools/ci-security/lib/settings.mts",
+    "find": "if (state !== \"configured\") {",
+    "replace": "if (false) {",
+    "test": "pnpm vitest run addons/ci-security/tests/settings.test.mts -t \"does not guess at an answer it does not know\""
+  },
+  {
+    "name": "settings: off outranks not read",
+    "file": "addons/ci-security/files/tools/ci-security/lib/settings.mts",
+    "find": "return count(\"off\") > 0 ? 1 : count(\"unread\") > 0 ? 2 : 0;",
+    "replace": "return count(\"unread\") > 0 ? 2 : count(\"off\") > 0 ? 1 : 0;",
+    "test": "pnpm vitest run addons/ci-security/tests/settings.test.mts -t \"exits 1, not 2, when one setting is off\""
+  },
+  {
+    "name": "settings: 127 is a gh that is not installed",
+    "file": "addons/ci-security/files/tools/ci-security/lib/settings.mts",
+    "find": "if (exit === 127) {",
+    "replace": "if (exit === 126) {",
+    "test": "pnpm vitest run addons/ci-security/tests/settings.test.mts -t \"says gh is not installed, in one line\""
+  },
+  {
+    "name": "settings: exit 4 is a gh that is not logged in",
+    "file": "addons/ci-security/files/tools/ci-security/lib/settings.mts",
+    "find": "(exit === 4 || /gh auth login/.test(message))",
+    "replace": "(exit === 5)",
+    "test": "pnpm vitest run addons/ci-security/tests/settings.test.mts -t \"says gh is not logged in, and how to log in\""
+  },
+  {
+    "name": "settings: 401 is a refused login",
+    "file": "addons/ci-security/files/tools/ci-security/lib/settings.mts",
+    "find": "if (http === 401) {",
+    "replace": "if (http === 499) {",
+    "test": "pnpm vitest run addons/ci-security/tests/settings.test.mts -t \"says GitHub refused the login when it answers 401\""
+  },
+  {
+    "name": "settings: a 404 for the repository says what it can mean",
+    "file": "addons/ci-security/files/tools/ci-security/lib/settings.mts",
+    "find": "repository.http === 404",
+    "replace": "repository.http === 410",
+    "test": "pnpm vitest run addons/ci-security/tests/settings.test.mts -t \"says so when GitHub knows no such repository\""
+  },
+  {
+    "name": "settings: only the first line of what gh printed",
+    "file": "addons/ci-security/files/tools/ci-security/lib/settings.mts",
+    "find": "return text.trim().split(\"\\n\")[0] ?? \"\";",
+    "replace": "return text.trim();",
+    "test": "pnpm vitest run addons/ci-security/tests/settings.test.mts -t \"first line when there is no network\""
+  },
+  {
+    "name": "settings: no origin is said as no origin",
+    "file": "addons/ci-security/files/tools/ci-security/lib/settings.mts",
+    "find": "const remote = origin.status === 0 ?",
+    "replace": "const remote = origin.status !== 0 ?",
+    "test": "pnpm vitest run addons/ci-security/tests/settings.test.mts -t \"asks GitHub nothing in a folder with no origin\""
+  },
+  {
+    "name": "settings: an origin on another host is not asked about",
+    "file": "addons/ci-security/files/tools/ci-security/lib/settings.mts",
+    "find": "const fromOrigin = origin.status === 0 ? parseRemote(origin.stdout) : undefined;",
+    "replace": "const fromOrigin = origin.status === 0 ? \"acme/app\" : undefined;",
+    "test": "pnpm vitest run addons/ci-security/tests/settings.test.mts -t \"says an origin on another host is not GitHub\""
+  },
+  {
+    "name": "settings: the address of origin is not printed",
+    "file": "addons/ci-security/files/tools/ci-security/lib/settings.mts",
+    "find": "\"its `origin` is not an address on github.com\"",
+    "replace": "`its \\`origin\\` is ${origin.stdout.trim()}`",
+    "test": "pnpm vitest run addons/ci-security/tests/settings.test.mts -t \"says an origin on another host is not GitHub\""
+  },
+  {
+    "name": "settings: a missing gh is the reason given when no repository is found",
+    "file": "addons/ci-security/files/tools/ci-security/lib/settings.mts",
+    "find": "viewed.status === 127 ? ",
+    "replace": "viewed.status === 126 ? ",
+    "test": "pnpm vitest run addons/ci-security/tests/settings.test.mts -t \"says gh is not installed when that is why\""
+  },
+  {
+    "name": "settings: origin in the scp form",
+    "file": "addons/ci-security/files/tools/ci-security/lib/settings.mts",
+    "find": "git@github\\.com[:/]",
+    "replace": "git@github\\.com[/]",
+    "test": "pnpm vitest run addons/ci-security/tests/settings.test.mts -t \"reads owner and name from an origin on github\""
+  },
+  {
+    "name": "settings: origin as ssh://",
+    "file": "addons/ci-security/files/tools/ci-security/lib/settings.mts",
+    "find": "(?:ssh:\\/\\/)?",
+    "replace": "",
+    "test": "pnpm vitest run addons/ci-security/tests/settings.test.mts -t \"reads owner and name from an origin on github\""
+  },
+  {
+    "name": "settings: origin with a user name",
+    "file": "addons/ci-security/files/tools/ci-security/lib/settings.mts",
+    "find": "(?:[^@/]+@)?",
+    "replace": "",
+    "test": "pnpm vitest run addons/ci-security/tests/settings.test.mts -t \"reads owner and name from an origin on github\""
+  },
+  {
+    "name": "settings: origin with a trailing slash",
+    "file": "addons/ci-security/files/tools/ci-security/lib/settings.mts",
+    "find": "(?:\\.git)?\\/?$/",
+    "replace": "(?:\\.git)?$/",
+    "test": "pnpm vitest run addons/ci-security/tests/settings.test.mts -t \"reads owner and name from an origin on github\""
+  },
+  {
+    "name": "settings: origin over http, with a new line after it",
+    "file": "addons/ci-security/files/tools/ci-security/lib/settings.mts",
+    "find": ".exec(url.trim());",
+    "replace": ".exec(url);",
+    "test": "pnpm vitest run addons/ci-security/tests/settings.test.mts -t \"reads owner and name from an origin on github\""
+  },
+  {
+    "name": "settings: origin over https",
+    "file": "addons/ci-security/files/tools/ci-security/lib/settings.mts",
+    "find": "https?:\\/\\/",
+    "replace": "ftp:\\/\\/",
+    "test": "pnpm vitest run addons/ci-security/tests/settings.test.mts -t \"reads owner and name from an origin on github\""
+  },
+  {
+    "name": "settings: a dot in the repository's name",
+    "file": "addons/ci-security/files/tools/ci-security/lib/settings.mts",
+    "find": "([\\w.-]+?)(?:\\.git)?",
+    "replace": "([\\w-]+?)(?:\\.git)?",
+    "test": "pnpm vitest run addons/ci-security/tests/settings.test.mts -t \"keeps a dot and a dash in the name\""
+  },
+  {
+    "name": "settings: an address with more after the name is not a repository",
+    "file": "addons/ci-security/files/tools/ci-security/lib/settings.mts",
+    "find": "(?:\\.git)?\\/?$/",
+    "replace": "(?:\\.git)?\\/?/",
+    "test": "pnpm vitest run addons/ci-security/tests/settings.test.mts -t \"takes no name from an address that is not\""
+  },
+  {
+    "name": "settings: another host is not github.com",
+    "file": "addons/ci-security/files/tools/ci-security/lib/settings.mts",
+    "find": "git@github\\.com[:/]",
+    "replace": "git@[\\w.]+[:/]",
+    "test": "pnpm vitest run addons/ci-security/tests/settings.test.mts -t \"takes no name from an address that is not\""
+  },
+  {
+    "name": "settings: a host that only begins like github.com is another host",
+    "file": "addons/ci-security/files/tools/ci-security/lib/settings.mts",
+    "find": "github\\.com\\/|",
+    "replace": "github\\.com[^/]*\\/|",
+    "test": "pnpm vitest run addons/ci-security/tests/settings.test.mts -t \"takes no name from an address that is not\""
+  },
+  {
+    "name": "settings: github.com in the path is not the host",
+    "file": "addons/ci-security/files/tools/ci-security/lib/settings.mts",
+    "find": "(?:[^@/]+@)?",
+    "replace": "(?:[^@]+[@/])?",
+    "test": "pnpm vitest run addons/ci-security/tests/settings.test.mts -t \"takes no name from an address that is not\""
+  },
+  {
+    "name": "settings: an owner alone is not a repository",
+    "file": "addons/ci-security/files/tools/ci-security/lib/settings.mts",
+    "find": "([\\w.-]+)\\/(",
+    "replace": "([\\w.-]+)\\/?(",
+    "test": "pnpm vitest run addons/ci-security/tests/settings.test.mts -t \"takes no name from an address that is not\""
+  },
+  {
+    "name": "settings: no match is no name",
+    "file": "addons/ci-security/files/tools/ci-security/lib/settings.mts",
+    "find": "return match === null ? undefined : ",
+    "replace": "return match === null ? url : ",
+    "test": "pnpm vitest run addons/ci-security/tests/settings.test.mts -t \"takes no name from an address that is not\""
+  },
+  {
+    "name": "settings: gh is asked when origin is not on github.com",
+    "file": "addons/ci-security/files/tools/ci-security/lib/settings.mts",
+    "find": "if (viewed.status === 0 && /^[\\w.-]+\\/[\\w.-]+$/.test(named)) {",
+    "replace": "if (false) {",
+    "test": "pnpm vitest run addons/ci-security/tests/settings.test.mts -t \"asks gh which repository it is when origin is not\""
+  },
+  {
+    "name": "settings: only owner/name is taken from gh",
+    "file": "addons/ci-security/files/tools/ci-security/lib/settings.mts",
+    "find": "/^[\\w.-]+\\/[\\w.-]+$/.test(named)",
+    "replace": "named !== \"\"",
+    "test": "pnpm vitest run addons/ci-security/tests/settings.test.mts -t \"takes from gh only a plain owner/name\""
+  },
+  {
+    "name": "settings: no pull_request rule fails the line",
+    "file": "addons/ci-security/files/tools/ci-security/lib/settings.mts",
+    "find": "ofType(\"pull_request\").length > 0 ? ON",
+    "replace": "ofType(\"pull_request\").length >= 0 ? ON",
+    "test": "pnpm vitest run addons/ci-security/tests/settings.test.mts -t \"fails all three, each on its own line\""
+  },
+  {
+    "name": "settings: the body printed is JSON alone",
+    "file": "addons/ci-security/files/tools/ci-security/lib/settings.mts",
+    "find": "JSON.stringify(rulesetBody(checks.contexts), null, 2),",
+    "replace": "JSON.stringify(rulesetBody(checks.contexts), null, 2) + \",\",",
+    "test": "pnpm vitest run addons/ci-security/tests/settings.test.mts -t \"as the body of that command, JSON that GitHub can read\""
+  },
+  {
+    "name": "settings: the ruleset is for the default branch",
+    "file": "addons/ci-security/files/tools/ci-security/lib/settings.mts",
+    "find": "include: [\"~DEFAULT_BRANCH\"]",
+    "replace": "include: [\"~ALL\"]",
+    "test": "pnpm vitest run addons/ci-security/tests/settings.test.mts -t \"makes a ruleset that is active on the default branch\""
+  },
+  {
+    "name": "settings: the ruleset is active",
+    "file": "addons/ci-security/files/tools/ci-security/lib/settings.mts",
+    "find": "enforcement: \"active\",",
+    "replace": "enforcement: \"disabled\",",
+    "test": "pnpm vitest run addons/ci-security/tests/settings.test.mts -t \"makes a ruleset that is active on the default branch\""
+  },
+  {
+    "name": "settings: the ruleset asks for no approval",
+    "file": "addons/ci-security/files/tools/ci-security/lib/settings.mts",
+    "find": "required_approving_review_count: 0,",
+    "replace": "required_approving_review_count: 1,",
+    "test": "pnpm vitest run addons/ci-security/tests/settings.test.mts -t \"makes a ruleset that is active on the default branch\""
+  },
+  {
+    "name": "settings: the ruleset does not ask for a branch that is up to date",
+    "file": "addons/ci-security/files/tools/ci-security/lib/settings.mts",
+    "find": "strict_required_status_checks_policy: false,",
+    "replace": "strict_required_status_checks_policy: true,",
+    "test": "pnpm vitest run addons/ci-security/tests/settings.test.mts -t \"makes a ruleset that is active on the default branch\""
+  },
+  {
+    "name": "settings: a ruleset in evaluate mode is not active",
+    "file": "addons/ci-security/files/tools/ci-security/lib/settings.mts",
+    "find": "field(ruleset, \"enforcement\") !== \"active\");",
+    "replace": "field(ruleset, \"enforcement\") === \"disabled\");",
+    "test": "pnpm vitest run addons/ci-security/tests/settings.test.mts -t \"names a ruleset that is there and not active\""
+  },
+  {
+    "name": "settings: a ruleset for tags is not named",
+    "file": "addons/ci-security/files/tools/ci-security/lib/settings.mts",
+    "find": "field(ruleset, \"target\") === \"branch\" && ",
+    "replace": "",
+    "test": "pnpm vitest run addons/ci-security/tests/settings.test.mts -t \"names a ruleset that is there and not active\""
+  },
+  {
+    "name": "settings: a list of rulesets that cannot be read names none",
+    "file": "addons/ci-security/files/tools/ci-security/lib/settings.mts",
+    "find": "(listed.ok ? listed.body : [])",
+    "replace": "(listed.ok ? listed.body : [{ target: \"branch\" }])",
+    "test": "pnpm vitest run addons/ci-security/tests/settings.test.mts -t \"still prints the command when the list of rulesets cannot be read\""
+  },
+  {
+    "name": "settings: a classic protection rule is said",
+    "file": "addons/ci-security/files/tools/ci-security/lib/settings.mts",
+    "find": "\"enabled\") === true;",
+    "replace": "\"enabled\") === 1;",
+    "test": "pnpm vitest run addons/ci-security/tests/settings.test.mts -t \"says the branch has a classic protection rule\""
+  },
+  {
+    "name": "settings: a rule counts for its own type only",
+    "file": "addons/ci-security/files/tools/ci-security/lib/settings.mts",
+    "find": "field(rule, \"type\") === type",
+    "replace": "field(rule, \"type\") !== \"\"",
+    "test": "pnpm vitest run addons/ci-security/tests/settings.test.mts -t \"fails only the pull request line\""
+  },
+  {
+    "name": "settings: deletion that is not blocked is named",
+    "file": "addons/ci-security/files/tools/ci-security/lib/settings.mts",
+    "find": "ofType(\"deletion\").length === 0 ?",
+    "replace": "ofType(\"deletion\").length < 0 ?",
+    "test": "pnpm vitest run addons/ci-security/tests/settings.test.mts -t \"names deletion alone\""
+  },
+  {
+    "name": "settings: a force push that is blocked is not named",
+    "file": "addons/ci-security/files/tools/ci-security/lib/settings.mts",
+    "find": "ofType(\"non_fast_forward\").length === 0 ?",
+    "replace": "ofType(\"non_fast_forward\").length >= 0 ?",
+    "test": "pnpm vitest run addons/ci-security/tests/settings.test.mts -t \"names deletion alone\""
+  },
+  {
+    "name": "settings: a force push that is not blocked is named",
+    "file": "addons/ci-security/files/tools/ci-security/lib/settings.mts",
+    "find": "ofType(\"non_fast_forward\").length === 0 ?",
+    "replace": "ofType(\"non_fast_forward\").length < 0 ?",
+    "test": "pnpm vitest run addons/ci-security/tests/settings.test.mts -t \"names the force push alone\""
+  },
+  {
+    "name": "settings: deletion that is blocked is not named",
+    "file": "addons/ci-security/files/tools/ci-security/lib/settings.mts",
+    "find": "ofType(\"deletion\").length === 0 ?",
+    "replace": "ofType(\"deletion\").length >= 0 ?",
+    "test": "pnpm vitest run addons/ci-security/tests/settings.test.mts -t \"names the force push alone\""
+  },
+  {
+    "name": "settings: each check is looked for by name",
+    "file": "addons/ci-security/files/tools/ci-security/lib/settings.mts",
+    "find": "const missing = checks.contexts.filter((context) => !asked.includes(context));",
+    "replace": "const missing = checks.contexts.filter(() => asked.length === 0);",
+    "test": "pnpm vitest run addons/ci-security/tests/settings.test.mts -t \"names each check a pull request runs that the ruleset does not require\""
+  },
+  {
+    "name": "settings: every required_status_checks rule counts",
+    "file": "addons/ci-security/files/tools/ci-security/lib/settings.mts",
+    "find": "ofType(\"required_status_checks\").flatMap(",
+    "replace": "ofType(\"required_status_checks\").slice(0, 1).flatMap(",
+    "test": "pnpm vitest run addons/ci-security/tests/settings.test.mts -t \"counts the checks of every rule together\""
+  },
+  {
+    "name": "settings: a full page is followed by another",
+    "file": "addons/ci-security/files/tools/ci-security/lib/settings.mts",
+    "find": "if (answer.body.length < PAGE) {",
+    "replace": "if (answer.body.length <= PAGE) {",
+    "test": "pnpm vitest run addons/ci-security/tests/settings.test.mts -t \"reads every page of the rules\""
+  },
+  {
+    "name": "settings: a page that fails is the answer",
+    "file": "addons/ci-security/files/tools/ci-security/lib/settings.mts",
+    "find": "if (!answer.ok) {\n      return answer;",
+    "replace": "if (!answer.ok) {\n      return { ok: true, body: all };",
+    "test": "pnpm vitest run addons/ci-security/tests/settings.test.mts -t \"does not judge half a list\""
+  },
+  {
+    "name": "settings: an answer that is no list is not an empty list",
+    "file": "addons/ci-security/files/tools/ci-security/lib/settings.mts",
+    "find": "return { ok: false, exit: 1, http: 200, message: \"the answer is not a list\" };",
+    "replace": "return { ok: true, body: all };",
+    "test": "pnpm vitest run addons/ci-security/tests/settings.test.mts -t \"does not read an answer that is not a list of rules\""
+  },
+  {
+    "name": "settings: the branch is written as a path",
+    "file": "addons/ci-security/files/tools/ci-security/lib/settings.mts",
+    "find": "(name ?? \"\").split(\"/\").map(encodeURIComponent).join(\"/\")",
+    "replace": "(name ?? \"\")",
+    "test": "pnpm vitest run addons/ci-security/tests/settings.test.mts -t \"asks about the branch GitHub names as the default\""
+  },
+  {
+    "name": "settings: a slash in the branch stays a slash",
+    "file": "addons/ci-security/files/tools/ci-security/lib/settings.mts",
+    "find": "(name ?? \"\").split(\"/\").map(encodeURIComponent).join(\"/\")",
+    "replace": "encodeURIComponent(name ?? \"\")",
+    "test": "pnpm vitest run addons/ci-security/tests/settings.test.mts -t \"asks about the branch GitHub names as the default\""
+  },
+  {
+    "name": "settings: no default branch is not main",
+    "file": "addons/ci-security/files/tools/ci-security/lib/settings.mts",
+    "find": "const name = typeof branch === \"string\" && branch !== \"\" ? branch : undefined;",
+    "replace": "const name = typeof branch === \"string\" && branch !== \"\" ? branch : \"main\";",
+    "test": "pnpm vitest run addons/ci-security/tests/settings.test.mts -t \"reads no rule when GitHub\""
+  },
+  {
+    "name": "settings: no check to ask for is not a pass",
+    "file": "addons/ci-security/files/tools/ci-security/lib/settings.mts",
+    "find": "checks.contexts.length === 0\n            ?",
+    "replace": "checks.contexts.length < 0\n            ?",
+    "test": "pnpm vitest run addons/ci-security/tests/settings.test.mts -t \"does not pass the status checks of a project whose workflows name none\""
+  },
+  {
+    "name": "settings: no check, no rule for checks in the body",
+    "file": "addons/ci-security/files/tools/ci-security/lib/settings.mts",
+    "find": "...(contexts.length === 0\n        ? []",
+    "replace": "...(contexts.length < 0\n        ? []",
+    "test": "pnpm vitest run addons/ci-security/tests/settings.test.mts -t \"leaves the status checks out of the command\""
+  },
+  {
+    "name": "settings: the jobs left out are named on the line",
+    "file": "addons/ci-security/files/tools/ci-security/lib/settings.mts",
+    "find": "checks.leftOut.length > 0 ? [",
+    "replace": "checks.leftOut.length > 99 ? [",
+    "test": "pnpm vitest run addons/ci-security/tests/settings.test.mts -t \"says which jobs it does not ask for\""
+  },
+  {
+    "name": "settings: a job with an if is left out of the command",
+    "file": "addons/ci-security/files/tools/ci-security/lib/required-checks.mts",
+    "find": "if (keys.has(\"if\")) {",
+    "replace": "if (keys.has(\"never\")) {",
+    "test": "pnpm vitest run addons/ci-security/tests/settings.test.mts -t \"says which jobs it does not ask for\""
+  },
+  {
+    "name": "settings: a workflow that was not read is named",
+    "file": "addons/ci-security/files/tools/ci-security/lib/settings.mts",
+    "find": "...checks.unread.map(({ file, reason }) => `not judged: ${file}, because ${reason}`),",
+    "replace": "",
+    "test": "pnpm vitest run addons/ci-security/tests/settings.test.mts -t \"names a workflow it could not read on the line\""
+  },
+  {
+    "name": "settings: --root takes one folder and nothing after it",
+    "file": "addons/ci-security/files/tools/ci-security/check-settings.mts",
+    "find": "argv.length === 2 && argv[0] === \"--root\" && argv[1] !== \"\"",
+    "replace": "argv.length >= 2 && argv[0] === \"--root\" && argv[1] !== \"\"",
+    "test": "pnpm vitest run addons/ci-security/tests/settings.test.mts -t \"reads the project it is installed in\""
+  },
+  {
+    "name": "settings: --root is made a full path",
+    "file": "addons/ci-security/files/tools/ci-security/check-settings.mts",
+    "find": "resolve(argv[1] as string)",
+    "replace": "(argv[1] as string)",
+    "test": "pnpm vitest run addons/ci-security/tests/settings.test.mts -t \"reads the project it is installed in\""
+  },
+  {
+    "name": "settings: the script exits with what the check returns",
+    "file": "addons/ci-security/files/tools/ci-security/check-settings.mts",
+    "find": "process.exitCode = checkSettings({",
+    "replace": "process.exitCode = 0;\n    checkSettings({",
+    "test": "pnpm vitest run addons/ci-security/tests/settings.test.mts -t \"exits 2 with one SKIP line on a machine with no gh and no git\""
+  },
+  {
+    "name": "settings: a wrong argument is exit 2",
+    "file": "addons/ci-security/files/tools/ci-security/check-settings.mts",
+    "find": "    process.exitCode = 2;\n  } else {",
+    "replace": "    process.exitCode = 0;\n  } else {",
+    "test": "pnpm vitest run addons/ci-security/tests/settings.test.mts -t \"exits 2 on an argument it does not know, and asks nothing\""
+  },
+  {
+    "name": "settings: the script reads the folder --root names",
+    "file": "addons/ci-security/files/tools/ci-security/check-settings.mts",
+    "find": "checkSettings({ root, run: runCaptured",
+    "replace": "checkSettings({ root: process.cwd(), run: runCaptured",
+    "test": "pnpm vitest run addons/ci-security/tests/settings.test.mts -t \"exits 0 with every line when the programs it starts\""
+  },
+  {
+    "name": "settings: the script exits 1 on a setting that is off",
+    "file": "addons/ci-security/files/tools/ci-security/check-settings.mts",
+    "find": "process.exitCode = checkSettings({",
+    "replace": "process.exitCode = 2 * checkSettings({",
+    "test": "pnpm vitest run addons/ci-security/tests/settings.test.mts -t \"exits 1 when a setting is off\""
+  },
+  {
+    "name": "system: a captured run is in the folder given",
+    "file": "addons/ci-security/files/tools/ci-security/lib/system.mts",
+    "find": "{ cwd: root, encoding: \"utf8\", maxBuffer: 64 * 1024 * 1024 }",
+    "replace": "{ encoding: \"utf8\", maxBuffer: 64 * 1024 * 1024 }",
+    "test": "pnpm vitest run addons/ci-security/tests/system.test.mts -t \"returns the exit status and what the program printed\""
+  },
+  {
+    "name": "system: a program that is not installed is 127",
+    "file": "addons/ci-security/files/tools/ci-security/lib/system.mts",
+    "find": "status: result.error === undefined ? (result.status ?? 1) : 127,",
+    "replace": "status: result.error === undefined ? (result.status ?? 1) : 1,",
+    "test": "pnpm vitest run addons/ci-security/tests/system.test.mts -t \"returns 127 and the reason for a program that is not installed\""
+  },
+  {
+    "name": "addon: the settings script runs a tool it ships",
+    "file": "addons/ci-security/addon.json",
+    "find": "node tools/ci-security/check-settings.mts",
+    "replace": "node tools/ci-security/read-settings.mts",
+    "test": "pnpm vitest run addons/ci-security/tests/addon.test.mts -t \"adds three scripts\""
+  },
+  {
+    "name": "addon: the settings check is in no gate",
+    "file": "addons/ci-security/addon.json",
+    "find": "\"pnpm check:dockerfiles\"\n    ],",
+    "replace": "\"pnpm check:dockerfiles\",\n      \"pnpm repo:settings\"\n    ],",
+    "test": "pnpm vitest run addons/ci-security/tests/addon.test.mts -t \"keeps the settings check out of both gates\""
+  },
+  {
+    "name": "addon: the settings check is not the proof",
+    "file": "addons/ci-security/addon.json",
+    "find": "\"verify\": \"pnpm lint:workflows\"",
+    "replace": "\"verify\": \"pnpm repo:settings\"",
+    "test": "pnpm vitest run addons/ci-security/tests/addon.test.mts -t \"keeps the settings check out of both gates\""
+  },
+  {
+    "name": "addon: the README counts the scripts",
+    "file": "addons/ci-security/README.md",
+    "find": "Three scripts are added to the root",
+    "replace": "Two scripts are added to the root",
+    "test": "pnpm vitest run addons/ci-security/tests/addon.test.mts -t \"names every script it adds\""
+  },
+  {
+    "name": "addon: the section names a script that exists",
+    "file": "addons/ci-security/AGENTS.section.md",
+    "find": "pnpm repo:settings               # which",
+    "replace": "pnpm repo:setings               # which",
+    "test": "pnpm vitest run addons/ci-security/tests/addon.test.mts -t \"names no script that neither it nor the starter has\""
+  },
+  {
+    "name": "addon: an agent does not run the command",
+    "file": "addons/ci-security/AGENTS.section.md",
+    "find": "it prints, and do not run it.",
+    "replace": "it prints, and run it.",
+    "test": "pnpm vitest run addons/ci-security/tests/addon.test.mts -t \"tells an agent when to read the settings\""
+  },
+  {
+    "name": "addon: the section says the command only reads",
+    "file": "addons/ci-security/AGENTS.section.md",
+    "find": "Skip it otherwise. It only reads.",
+    "replace": "Skip it otherwise.",
+    "test": "pnpm vitest run addons/ci-security/tests/addon.test.mts -t \"tells an agent when to read the settings\""
+  },
+  {
+    "name": "addon: the README marks branch deletion as read",
+    "file": "addons/ci-security/README.md",
+    "find": "stays on GitHub until someone deletes it | yes |",
+    "replace": "stays on GitHub until someone deletes it | no |",
+    "test": "pnpm vitest run addons/ci-security/tests/addon.test.mts -t \"lists, among the settings a person switches on\""
+  },
+  {
+    "name": "required checks: a job with an if is not required, in the shipped workflows",
+    "file": "addons/ci-security/files/tools/ci-security/lib/required-checks.mts",
+    "find": "if (keys.has(\"if\")) {",
+    "replace": "if (false) {",
+    "test": "pnpm vitest run addons/ci-security/tests/required-checks.test.mts -t \"the five jobs every pull request runs\""
+  },
+  {
+    "name": "required checks: no workflow folder is no check",
+    "file": "addons/ci-security/files/tools/ci-security/lib/lint.mts",
+    "find": "if (!existsSync(directory)) {",
+    "replace": "if (false) {",
+    "test": "pnpm vitest run addons/ci-security/tests/required-checks.test.mts -t \"are none in a project with no workflow folder\""
+  },
+  {
+    "name": "required checks: a name is listed once",
+    "file": "addons/ci-security/files/tools/ci-security/lib/required-checks.mts",
+    "find": "if (!result.contexts.includes(context)) {",
+    "replace": "if (true) {",
+    "test": "pnpm vitest run addons/ci-security/tests/required-checks.test.mts -t \"each name once, and from no other file\""
+  },
+  {
+    "name": "required checks: a workflow that was not read is kept",
+    "file": "addons/ci-security/files/tools/ci-security/lib/required-checks.mts",
+    "find": "result.unread.push({ file, reason: unread });",
+    "replace": "",
+    "test": "pnpm vitest run addons/ci-security/tests/required-checks.test.mts -t \"name a workflow that could not be read\""
+  },
+  {
+    "name": "required checks: one event on the line of on",
+    "file": "addons/ci-security/files/tools/ci-security/lib/required-checks.mts",
+    "find": ": [inline];",
+    "replace": ": [];",
+    "test": "pnpm vitest run addons/ci-security/tests/required-checks.test.mts -t \"has .pull_request. as\""
+  },
+  {
+    "name": "required checks: a list of events in brackets",
+    "file": "addons/ci-security/files/tools/ci-security/lib/required-checks.mts",
+    "find": ".split(\",\") : [inline];",
+    "replace": ".split(\";\") : [inline];",
+    "test": "pnpm vitest run addons/ci-security/tests/required-checks.test.mts -t \"has .pull_request. as\""
+  },
+  {
+    "name": "required checks: a list of events as lines",
+    "file": "addons/ci-security/files/tools/ci-security/lib/required-checks.mts",
+    "find": "if (first.text.startsWith(\"-\")) {",
+    "replace": "if (false) {",
+    "test": "pnpm vitest run addons/ci-security/tests/required-checks.test.mts -t \"has .pull_request. as\""
+  },
+  {
+    "name": "required checks: a list that is not indented belongs to its key",
+    "file": "addons/ci-security/files/tools/ci-security/lib/required-checks.mts",
+    "find": " || (line.indent === indent && !line.text.startsWith(\"-\"))",
+    "replace": " || line.indent === indent",
+    "test": "pnpm vitest run addons/ci-security/tests/required-checks.test.mts -t \"has .pull_request. as\""
+  },
+  {
+    "name": "required checks: on in quotes",
+    "file": "addons/ci-security/files/tools/ci-security/lib/required-checks.mts",
+    "find": "/^(on|\"on\"|'on')\\s*:/",
+    "replace": "/^(on)\\s*:/",
+    "test": "pnpm vitest run addons/ci-security/tests/required-checks.test.mts -t \"has .pull_request. as\""
+  },
+  {
+    "name": "required checks: empty braces are no filter",
+    "file": "addons/ci-security/files/tools/ci-security/lib/required-checks.mts",
+    "find": "value === \"{}\"",
+    "replace": "value === \"[]\"",
+    "test": "pnpm vitest run addons/ci-security/tests/required-checks.test.mts -t \"has .pull_request. as\""
+  },
+  {
+    "name": "required checks: a null is no filter",
+    "file": "addons/ci-security/files/tools/ci-security/lib/required-checks.mts",
+    "find": "value === \"~\"",
+    "replace": "value === \"-\"",
+    "test": "pnpm vitest run addons/ci-security/tests/required-checks.test.mts -t \"has .pull_request. as\""
+  },
+  {
+    "name": "required checks: nothing after pull_request is no filter",
+    "file": "addons/ci-security/files/tools/ci-security/lib/required-checks.mts",
+    "find": "return value === \"\" || value === \"~\"",
+    "replace": "return value === \"?\" || value === \"~\"",
+    "test": "pnpm vitest run addons/ci-security/tests/required-checks.test.mts -t \"has .pull_request. as\""
+  },
+  {
+    "name": "required checks: a comment is no filter",
+    "file": "addons/ci-security/files/tools/ci-security/lib/required-checks.mts",
+    "find": "} else if (character === \"#\" && /\\s/.test(before)) {",
+    "replace": "} else if (false) {",
+    "test": "pnpm vitest run addons/ci-security/tests/required-checks.test.mts -t \"has .pull_request. as\""
+  },
+  {
+    "name": "required checks: a comment after a key is not its value",
+    "file": "addons/ci-security/files/tools/ci-security/lib/required-checks.mts",
+    "find": "return line.slice(0, index);",
+    "replace": "return line;",
+    "test": "pnpm vitest run addons/ci-security/tests/required-checks.test.mts -t \"is read past its comments\""
+  },
+  {
+    "name": "required checks: a line end of Windows is not part of a key",
+    "file": "addons/ci-security/files/tools/ci-security/lib/required-checks.mts",
+    "find": "text: line.trim() }",
+    "replace": "text: line.trimStart() }",
+    "test": "pnpm vitest run addons/ci-security/tests/required-checks.test.mts -t \"is read the same with the line ends of Windows\""
+  },
+  {
+    "name": "required checks: a workflow with no pull_request gives a reason",
+    "file": "addons/ci-security/files/tools/ci-security/lib/required-checks.mts",
+    "find": "const notOnPullRequests = { skips: \"its workflow does not run on pull requests\" };",
+    "replace": "const notOnPullRequests = {};",
+    "test": "pnpm vitest run addons/ci-security/tests/required-checks.test.mts -t \"is left out, with the reason\""
+  },
+  {
+    "name": "required checks: pull_request_target is another event",
+    "file": "addons/ci-security/files/tools/ci-security/lib/required-checks.mts",
+    "find": "unquote(KEY.exec(text)?.[1] ?? \"\") === \"pull_request\");",
+    "replace": "(KEY.exec(text)?.[1] ?? \"\").startsWith(\"pull_request\"));",
+    "test": "pnpm vitest run addons/ci-security/tests/required-checks.test.mts -t \"is left out, with the reason\""
+  },
+  {
+    "name": "required checks: a filter under pull_request leaves the workflow out",
+    "file": "addons/ci-security/files/tools/ci-security/lib/required-checks.mts",
+    "find": "if (filters.length > 0) {",
+    "replace": "if (false) {",
+    "test": "pnpm vitest run addons/ci-security/tests/required-checks.test.mts -t \"is left out, with the reason\""
+  },
+  {
+    "name": "required checks: a filter in braces leaves the workflow out",
+    "file": "addons/ci-security/files/tools/ci-security/lib/required-checks.mts",
+    "find": ": { skips: \"its workflow runs on some pull requests only\" };",
+    "replace": ": {};",
+    "test": "pnpm vitest run addons/ci-security/tests/required-checks.test.mts -t \"is left out, with the reason\""
+  },
+  {
+    "name": "required checks: a list item under another event is not an event",
+    "file": "addons/ci-security/files/tools/ci-security/lib/required-checks.mts",
+    "find": "if (first.text.startsWith(\"-\")) {",
+    "replace": "if (block.some(({ text }) => text.startsWith(\"-\"))) {",
+    "test": "pnpm vitest run addons/ci-security/tests/required-checks.test.mts -t \"is left out, with the reason\""
+  },
+  {
+    "name": "required checks: a job with no name is named by its id",
+    "file": "addons/ci-security/files/tools/ci-security/lib/required-checks.mts",
+    "find": "const name = keys.has(\"name\") ? unquote(keys.get(\"name\") ?? \"\") : id;",
+    "replace": "const name = keys.has(\"name\") ? unquote(keys.get(\"name\") ?? \"\") : undefined;",
+    "test": "pnpm vitest run addons/ci-security/tests/required-checks.test.mts -t \"and by its id when it has none\""
+  },
+  {
+    "name": "required checks: a quote opens a quoted value",
+    "file": "addons/ci-security/files/tools/ci-security/lib/required-checks.mts",
+    "find": "} else if ((character === '\"' || character === \"'\") && /[\\s:[,{-]/.test(before)) {",
+    "replace": "} else if (false) {",
+    "test": "pnpm vitest run addons/ci-security/tests/required-checks.test.mts -t \"has the name GitHub gives its check\""
+  },
+  {
+    "name": "required checks: an escape in double quotes",
+    "file": "addons/ci-security/files/tools/ci-security/lib/required-checks.mts",
+    "find": "const parsed: unknown = JSON.parse(value);",
+    "replace": "const parsed: unknown = value.slice(1, -1);",
+    "test": "pnpm vitest run addons/ci-security/tests/required-checks.test.mts -t \"has the name GitHub gives its check\""
+  },
+  {
+    "name": "required checks: a doubled quote in single quotes",
+    "file": "addons/ci-security/files/tools/ci-security/lib/required-checks.mts",
+    "find": ".replaceAll(\"''\", \"'\")",
+    "replace": "",
+    "test": "pnpm vitest run addons/ci-security/tests/required-checks.test.mts -t \"has the name GitHub gives its check\""
+  },
+  {
+    "name": "required checks: an apostrophe inside a word opens nothing",
+    "file": "addons/ci-security/files/tools/ci-security/lib/required-checks.mts",
+    "find": " && /[\\s:[,{-]/.test(before)) {",
+    "replace": ") {",
+    "test": "pnpm vitest run addons/ci-security/tests/required-checks.test.mts -t \"has the name GitHub gives its check\""
+  },
+  {
+    "name": "required checks: a trailing comment is not part of the name",
+    "file": "addons/ci-security/files/tools/ci-security/lib/required-checks.mts",
+    "find": "return line.slice(0, index);",
+    "replace": "return line;",
+    "test": "pnpm vitest run addons/ci-security/tests/required-checks.test.mts -t \"has the name GitHub gives its check\""
+  },
+  {
+    "name": "required checks: only the job's own keys are its keys",
+    "file": "addons/ci-security/files/tools/ci-security/lib/required-checks.mts",
+    "find": "const key = line.indent === own[0]?.indent ? KEY.exec(line.text) : null;",
+    "replace": "const key = KEY.exec(line.text);",
+    "test": "pnpm vitest run addons/ci-security/tests/required-checks.test.mts -t \"and kept when only a step has one\""
+  },
+  {
+    "name": "required checks: a list item is not a key of the job",
+    "file": "addons/ci-security/files/tools/ci-security/lib/required-checks.mts",
+    "find": "const KEY = /^(",
+    "replace": "const KEY = /^(?:- )?(",
+    "test": "pnpm vitest run addons/ci-security/tests/required-checks.test.mts -t \"is kept when its steps are a list that is not indented\""
+  },
+  {
+    "name": "required checks: a matrix leaves the job out",
+    "file": "addons/ci-security/files/tools/ci-security/lib/required-checks.mts",
+    "find": "if (keys.has(\"strategy\")) {",
+    "replace": "if (false) {",
+    "test": "pnpm vitest run addons/ci-security/tests/required-checks.test.mts -t \"is left out when a matrix gives it one check\""
+  },
+  {
+    "name": "required checks: a called workflow leaves the job out",
+    "file": "addons/ci-security/files/tools/ci-security/lib/required-checks.mts",
+    "find": "if (keys.has(\"uses\")) {",
+    "replace": "if (false) {",
+    "test": "pnpm vitest run addons/ci-security/tests/required-checks.test.mts -t \"is left out when it calls another workflow\""
+  },
+  {
+    "name": "required checks: an expression in the name leaves the job out",
+    "file": "addons/ci-security/files/tools/ci-security/lib/required-checks.mts",
+    "find": "name?.includes(\"${{\") === true ?",
+    "replace": "false ?",
+    "test": "pnpm vitest run addons/ci-security/tests/required-checks.test.mts -t \"is left out when its name holds an expression\""
+  },
+  {
+    "name": "required checks: a name over several lines is not a name",
+    "file": "addons/ci-security/files/tools/ci-security/lib/required-checks.mts",
+    "find": "/^[|>&*![{]/.test(value)",
+    "replace": "false",
+    "test": "pnpm vitest run addons/ci-security/tests/required-checks.test.mts -t \"is left out under its id when its name runs over several lines\""
+  },
+  {
+    "name": "required checks: a job is a key right under jobs",
+    "file": "addons/ci-security/files/tools/ci-security/lib/required-checks.mts",
+    "find": "if (indent !== first.indent) {",
+    "replace": "if (indent < first.indent) {",
+    "test": "pnpm vitest run addons/ci-security/tests/required-checks.test.mts -t \"is not made of a line inside a script\""
+  },
+  {
+    "name": "required checks: no on is not read",
+    "file": "addons/ci-security/files/tools/ci-security/lib/required-checks.mts",
+    "find": "return \"it has no `on:` at the left edge\";",
+    "replace": "return {};",
+    "test": "pnpm vitest run addons/ci-security/tests/required-checks.test.mts -t \"is named as not read, never taken as having no job\""
+  },
+  {
+    "name": "required checks: on in braces is not read",
+    "file": "addons/ci-security/files/tools/ci-security/lib/required-checks.mts",
+    "find": "if (inline.startsWith(\"{\")) {",
+    "replace": "if (false) {",
+    "test": "pnpm vitest run addons/ci-security/tests/required-checks.test.mts -t \"is named as not read, never taken as having no job\""
+  },
+  {
+    "name": "required checks: an empty on is not read",
+    "file": "addons/ci-security/files/tools/ci-security/lib/required-checks.mts",
+    "find": "return \"its `on:` is empty\";",
+    "replace": "return {};",
+    "test": "pnpm vitest run addons/ci-security/tests/required-checks.test.mts -t \"is named as not read, never taken as having no job\""
+  },
+  {
+    "name": "required checks: no jobs is not read",
+    "file": "addons/ci-security/files/tools/ci-security/lib/required-checks.mts",
+    "find": "return \"it has no `jobs:` at the left edge\";",
+    "replace": "return [];",
+    "test": "pnpm vitest run addons/ci-security/tests/required-checks.test.mts -t \"is named as not read, never taken as having no job\""
+  },
+  {
+    "name": "required checks: jobs in braces is not read",
+    "file": "addons/ci-security/files/tools/ci-security/lib/required-checks.mts",
+    "find": "return \"its `jobs:` is not written as a block\";",
+    "replace": "return [];",
+    "test": "pnpm vitest run addons/ci-security/tests/required-checks.test.mts -t \"is named as not read, never taken as having no job\""
+  },
+  {
+    "name": "required checks: a job in braces is not read",
+    "file": "addons/ci-security/files/tools/ci-security/lib/required-checks.mts",
+    "find": "if (id === undefined) {",
+    "replace": "if (false) {",
+    "test": "pnpm vitest run addons/ci-security/tests/required-checks.test.mts -t \"is named as not read, never taken as having no job\""
   }
 ]

@@ -9,6 +9,7 @@ needs none and is in `gate:fast`. This section is what they cannot decide.
 pnpm lint:workflows              # actionlint (valid?) then zizmor (safe?)
 pnpm lint:workflows zizmor       # one of them
 pnpm check:dockerfiles           # images by digest, no root, no package outside a lockfile
+pnpm repo:settings               # which repository settings on GitHub are off; it only reads
 ```
 
 Exit 0 is a pass. Exit 1 is a finding, named in the linter's output above the
@@ -16,6 +17,16 @@ Exit 0 is a pass. Exit 1 is a finding, named in the linter's output above the
 network on the first run, no build for this machine, a wrong checksum). Report
 a `SKIP` as "not run". Never report it as a pass, and do not retry in a loop: a
 sandbox with no network will not get one.
+
+### The repository's settings
+
+`pnpm repo:settings` asks GitHub which of the settings these checks depend on
+are on. Run it after the project's first push to GitHub, and when a check
+fails for a reason the diff cannot have caused, such as Dependency Review
+saying the dependency graph is off. Skip it otherwise. It only reads.
+Switching a setting on is a person's step: show the user the `fix:` command
+it prints, and do not run it. Report a `SKIP` line as "not read", never as on
+or as off.
 
 ### When you add or change a workflow
 

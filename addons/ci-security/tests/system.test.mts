@@ -3,7 +3,7 @@ import { chmodSync, cpSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
-import { createDownload, extractWithTar, hasCommand, runInherited } from "../files/tools/ci-security/lib/system.mts";
+import { createDownload, extractWithTar, hasCommand, runCaptured, runInherited } from "../files/tools/ci-security/lib/system.mts";
 import { ADDON, createFolder } from "./support.mts";
 
 describe("createDownload", () => {
@@ -69,6 +69,24 @@ describe("runInherited", () => {
 
   it("returns null for a program that does not start", () => {
     expect(runInherited(join(createFolder(), "not-there"), [], createFolder())).toBeNull();
+  });
+});
+
+describe("runCaptured", () => {
+  it("returns the exit status and what the program printed, run in the folder given", () => {
+    const folder = createFolder({ "marker.txt": "" });
+    const script = 'process.stdout.write("out"); process.stderr.write("err"); process.exit(require("node:fs").existsSync("marker.txt") ? 14 : 99)';
+
+    expect(runCaptured(process.execPath, ["-e", script], folder)).toEqual({ status: 14, stdout: "out", stderr: "err" });
+  });
+
+  it("returns 127 and the reason for a program that is not installed, and does not throw", () => {
+    const missing = join(createFolder(), "not-there");
+    const result = runCaptured(missing, [], createFolder());
+
+    expect(result.status).toBe(127);
+    expect(result.stdout).toBe("");
+    expect(result.stderr).toContain("ENOENT");
   });
 });
 
