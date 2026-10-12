@@ -39,7 +39,7 @@ that shows each pattern.
 
 Packages export their TypeScript source. Nothing is compiled except the client,
 which Vite bundles; the server and the tooling are run by Node directly. This
-needs Node 24 or later.
+needs Node 26 or later.
 
 ## The checks
 
