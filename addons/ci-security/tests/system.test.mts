@@ -117,6 +117,23 @@ describe("runCaptured, for a program that is in the folder it runs in", () => {
   });
 });
 
+describe("runCaptured, and the PATH of the program it starts", () => {
+  it("gives the program only the folders no project fills, so that what it starts by name is not the project's either", () => {
+    const project = createFolder({ "node_modules/.bin/.keep": "", "bin/.keep": "" });
+    const programs = createFolder({ "say-path": '#!/bin/sh\nprintf %s "$PATH"\n' });
+    const before = process.env.PATH;
+
+    chmodSync(join(programs, "say-path"), 0o755);
+    process.env.PATH = [join(project, "node_modules/.bin"), join(project, "bin"), ".", programs, "/usr/bin"].join(":");
+
+    try {
+      expect(runCaptured("say-path", [], project).stdout).toBe(`${programs}:/usr/bin`);
+    } finally {
+      process.env.PATH = before;
+    }
+  });
+});
+
 describe("findCommand", () => {
   /** A folder holding one program, `gh`, at `at`. */
   const withProgram = (at: string): string => {

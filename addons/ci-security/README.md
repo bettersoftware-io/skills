@@ -228,13 +228,24 @@ Two things about text and programs that are not the project's own:
   puts first on the PATH of a script and where a dependency may ship a file
   of any name; and one inside the project, or inside the checkout `--root`
   names, reached by a link too. So a file called `gh` that a checkout or a
-  dependency brought is not started in place of GitHub's.
+  dependency brought is not started in place of GitHub's. The program that
+  is started gets the same folders as its own PATH, since `gh` starts `git`
+  by its name.
 
-Two security reviews of these commits named both. The first also named a
-third thing with no detail, which is not followed up. What neither fix
-covers: a character that looks like another (a Cyrillic `а` in a job's
-name) is printed as it is, and a program is only as trusted as the folders
-of the PATH that are left.
+Three security reviews of these commits named these two things, each time
+with no more than a file and a few words. The first also named a third
+thing, which is not followed up. What the fixes do not cover, and nobody
+should read them as covering:
+
+- a character that looks like another (a Cyrillic `а` in a job's name) is
+  printed as it is;
+- a program is only as trusted as the folders of the PATH that are left. A
+  folder outside the project that anyone may write to is still searched;
+- git reads the checkout's own configuration when it is asked for `origin`.
+  The check is for a project a person works in, not for a checkout they do
+  not trust;
+- the other tools of this add-on (`lint-workflows.mts`) start their
+  programs as they did before.
 
 ## The security policy
 

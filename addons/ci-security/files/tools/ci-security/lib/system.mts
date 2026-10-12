@@ -47,13 +47,15 @@ export function runInherited(binary: string, runArguments: string[], root: strin
 
 /** Runs a program in `root` and keeps what it prints. A program that is not installed is a failed run (127), not a crash. */
 export const runCaptured: Run = (program, runArguments, root) => {
-  const binary = findCommand(program, process.env.PATH, root);
+  // The program gets the same folders as its own PATH: `gh` starts `git` by its name, and would find one a project brought.
+  const path = trustedFolders(process.env.PATH, root).join(delimiter);
+  const binary = findCommand(program, path);
 
   if (binary === undefined) {
     return { status: 127, stdout: "", stderr: `${program} is in no folder of the PATH` };
   }
 
-  const result = spawnSync(binary, runArguments, { cwd: root, encoding: "utf8", maxBuffer: 64 * 1024 * 1024 });
+  const result = spawnSync(binary, runArguments, { cwd: root, env: { ...process.env, PATH: path }, encoding: "utf8", maxBuffer: 64 * 1024 * 1024 });
 
   return {
     status: result.error === undefined ? (result.status ?? 1) : 127,
@@ -91,11 +93,14 @@ export function findCommand(name: string, path: string | undefined, project?: st
   // Windows finds `gh` as gh.exe. A .cmd or .bat is not started without a shell, so it is not looked for.
   const names = process.platform === "win32" ? [`${name}.exe`, name] : [name];
 
-  return (path ?? "")
-    .split(delimiter)
-    .filter((folder) => isAbsolute(folder) && !isFilledByAProject(folder, project))
+  return trustedFolders(path, project)
     .flatMap((folder) => names.map((file) => join(folder, file)))
     .find((file) => isExecutable(file));
+}
+
+/** The folders of `path` that no project fills, in their order: see `findCommand`. */
+export function trustedFolders(path: string | undefined, project?: string): string[] {
+  return (path ?? "").split(delimiter).filter((folder) => isAbsolute(folder) && !isFilledByAProject(folder, project));
 }
 
 function isFilledByAProject(folder: string, project: string | undefined): boolean {

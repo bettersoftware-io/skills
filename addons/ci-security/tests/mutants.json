@@ -2305,8 +2305,8 @@
   {
     "name": "system: a captured run is in the folder given",
     "file": "addons/ci-security/files/tools/ci-security/lib/system.mts",
-    "find": "{ cwd: root, encoding: \"utf8\", maxBuffer: 64 * 1024 * 1024 }",
-    "replace": "{ encoding: \"utf8\", maxBuffer: 64 * 1024 * 1024 }",
+    "find": "{ cwd: root, env: { ...process.env, PATH: path }, encoding: \"utf8\", maxBuffer: 64 * 1024 * 1024 }",
+    "replace": "{ env: { ...process.env, PATH: path }, encoding: \"utf8\", maxBuffer: 64 * 1024 * 1024 }",
     "test": "pnpm vitest run addons/ci-security/tests/system.test.mts -t \"returns the exit status and what the program printed\""
   },
   {
@@ -2704,8 +2704,8 @@
   {
     "name": "system: a program by its name is found on the PATH",
     "file": "addons/ci-security/files/tools/ci-security/lib/system.mts",
-    "find": "const binary = findCommand(program, process.env.PATH, root);",
-    "replace": "const binary = findCommand(program, undefined, root);",
+    "find": "const path = trustedFolders(process.env.PATH, root).join(delimiter);",
+    "replace": "const path = trustedFolders(undefined, root).join(delimiter);",
     "test": "pnpm vitest run addons/ci-security/tests/system.test.mts -t \"starts the one in a folder of the PATH\""
   },
   {
@@ -2774,8 +2774,15 @@
   {
     "name": "system: the project is given to the search",
     "file": "addons/ci-security/files/tools/ci-security/lib/system.mts",
-    "find": "const binary = findCommand(program, process.env.PATH, root);",
-    "replace": "const binary = findCommand(program, process.env.PATH);",
+    "find": "const path = trustedFolders(process.env.PATH, root).join(delimiter);",
+    "replace": "const path = trustedFolders(process.env.PATH).join(delimiter);",
     "test": "pnpm vitest run addons/ci-security/tests/system.test.mts -t \"does not start a program of that name that is inside the folder it runs in\""
+  },
+  {
+    "name": "system: the program started gets the folders no project fills as its PATH",
+    "file": "addons/ci-security/files/tools/ci-security/lib/system.mts",
+    "find": "env: { ...process.env, PATH: path }, ",
+    "replace": "",
+    "test": "pnpm vitest run addons/ci-security/tests/system.test.mts -t \"gives the program only the folders no project fills\""
   }
 ]
