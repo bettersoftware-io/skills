@@ -46,8 +46,8 @@ const SPAWNS_TIMEOUT = 120_000;
 const OLD_CLAUDE_HOOK = `${CLAUDE_HOOK} ${RETIRED_ARGUMENT}`;
 
 describe("the add-on's manifest", () => {
-  it("is offered, not recommended", () => {
-    expect(MANIFEST.recommended).toBe(false);
+  it("is recommended: a new project ships its work this way unless it has a reason not to", () => {
+    expect(MANIFEST.recommended).toBe(true);
   });
 
   it("adds scripts that each run a tool it ships, and proves itself with one of them", () => {
@@ -327,6 +327,13 @@ describe("the section for AGENTS.md", () => {
   it("says every outward step asks, and names no setting, no argument and no pattern rule that would let one run", () => {
     expect(SECTION).toContain("The hook never lets a command run without a prompt.");
     expect(SECTION).not.toMatch(/agent-workflow\.config|--host=|worktree-\*|pr merge \*|pr create \*/);
+  });
+
+  it("takes a green pull request to main: a merge commit, found on main before the worktree goes, and main watched after", () => {
+    expect(SECTION).toContain("gh pr merge <number> --merge");
+    expect(SECTION).toContain("git merge-base --is-ancestor <commit> origin/main");
+    expect(SECTION).toContain("gh run list --branch main --commit <merge commit>");
+    expect(SECTION).not.toMatch(/gh pr merge [^\n]*--(squash|rebase|auto|admin)/);
   });
 });
 

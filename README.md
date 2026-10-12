@@ -78,8 +78,9 @@ node scripts/add-to-project.mts <project> coverage
 | [`agent-workflow`](addons/agent-workflow/README.md) | A hook that keeps each push and pull request step in a tool call of its own, a worktree script, a weekly tag, and a changelog whose completeness is checked |
 | `kit` | The same command brings a project's copy of the gates up to date, or sets them up in a project that did not start here |
 
-`coverage`, `format-lint`, `ci-security` and `strict-lint` are marked recommended: a new
-project should take them unless it has a reason not to. The creation skill
+`coverage`, `format-lint`, `ci-security`, `strict-lint` and `agent-workflow` are
+marked recommended: a new project should take them unless it has a reason
+not to. The creation skill
 offers the list with those selected, and `create-project.mts --with
 recommended` takes them where nobody can be asked.
 

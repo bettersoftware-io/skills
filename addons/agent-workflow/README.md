@@ -1,9 +1,9 @@
 # Add-on: agent-workflow
 
-How an agent ships work from a project created from the starter: each push
-and pull request step in a tool call of its own, every change started in a
-fresh worktree, each finished week tagged, and a changelog whose
-completeness is checked. The hook refuses and never says yes: every push and
+How an agent ships work from a project created from the starter: every
+change started in a fresh worktree, each push and pull request step in a
+tool call of its own, a green pull request merged and followed onto main,
+each finished week tagged, and a changelog whose completeness is checked. The hook refuses and never says yes: every push and
 pull request step still asks a person.
 
 ```bash
@@ -11,8 +11,9 @@ node scripts/add-to-project.mts <project> agent-workflow
 cd <project> && pnpm install && pnpm agent-workflow:check
 ```
 
-It is not recommended by default: it assumes the project is on GitHub, uses
-pull requests, and lets an agent push.
+It is recommended: `create-project.mts --with recommended` adds it. It
+assumes the project is on GitHub, uses pull requests, and lets an agent push.
+Leave it out of a project where one of the three is not so.
 
 ## What it adds
 
@@ -33,6 +34,38 @@ pull requests, and lets an agent push.
 Nothing joins `gate:fast` or `gate:full`. A host's settings file is the
 project's to change: a gate that failed when someone removed a permission
 rule would fight the owner of the file. The check is run by hand.
+
+## The shipping rules
+
+The hook decides one thing: an outward step is a call of its own. The rest is
+judgement, so it is text: the add-on's section of `AGENTS.md` tells an agent
+how a change gets from the first edit to main, in this order.
+
+| Step | The rule | Why |
+|---|---|---|
+| Isolate | `pnpm worktree <name> --ready` before the first edit | Several sessions work on one project at once, and a local main is stale by default |
+| One pull request | What a reviewer accepts or rejects together | Each split costs a run of the checks and a merge |
+| Wait for green | Every run whose `headSha` is the pushed commit is `completed` with `success` | A green run of an earlier push proves nothing about this one |
+| Read main | Compare what landed with what the branch changed; bring main in only on an overlap | Green is against the main the branch was cut from; catching up every time costs a run each |
+| Merge | `gh pr merge <number> --merge`, at once, without asking whether to | A person's say is the host's prompt. A squash or a rebase puts other commits on main than the ones that were checked |
+| Clean up | Only after `git merge-base --is-ancestor` finds the commit on main | Removing a worktree deletes its ignored files too, with no warning |
+| Watch main | The runs for the merge commit, until each is `completed`; a failure the change caused is fixed forward unasked | Some workflows run only after the merge |
+
+Each step says what to do when it goes wrong (a red run, no run at all, a run
+that hangs, a check that fails for a reason outside the diff), and when to
+skip it.
+
+Differences from the source:
+
+- **Nothing is approved in advance.** The source lets a push of a work
+  branch, `gh pr create` and `gh pr merge` run with no prompt, by `allow`
+  rules in its settings. Here each one asks ([why](#why-the-hook-does-not-approve-anything)).
+  The rule "merge at once" is about the agent not stopping to ask in words;
+  the prompt stays.
+- **No numbers of one project.** The source gives its own run times and
+  counts of merges. The section says "twice its usual time".
+- **A branch left on `origin` is reported, not removed.** The source relies
+  on the repository setting that deletes a merged branch.
 
 ## The hook
 
@@ -349,6 +382,11 @@ thousand commands.
 
 ## Not verified
 
+- **The shipping rules, read cold.** The steps were followed by hand once, in
+  a project created from the starter: a worktree, a pull request, a check
+  that was red because the dependency graph was off, green, a merge commit,
+  the clean-up, the runs on main. That was before the section said them. No
+  session has been run that had only the section to go on.
 - **The hook in a live session of either host.** It was run by hand with
   both hosts' payloads. Codex's side rests on its documentation and on the
   schemas in the 0.160.0 binary (`PreToolUse`, tool name `Bash`,

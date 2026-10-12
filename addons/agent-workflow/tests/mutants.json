@@ -882,11 +882,11 @@
     "test": "pnpm vitest run addons/agent-workflow/tests/new-worktree.test.mts --testNamePattern=\"which names no worktree\""
   },
   {
-    "name": "is offered, not recommended",
+    "name": "is recommended: a new project ships its work this way",
     "file": "addons/agent-workflow/addon.json",
-    "find": "\"recommended\": false",
-    "replace": "\"recommended\": true",
-    "test": "pnpm vitest run addons/agent-workflow/tests/addon.test.mts --testNamePattern=\"is offered, not recommended\""
+    "find": "\"recommended\": true",
+    "replace": "\"recommended\": false",
+    "test": "pnpm vitest run addons/agent-workflow/tests/addon.test.mts --testNamePattern=\"is recommended: a new project ships its work this way\""
   },
   {
     "name": "adds scripts that each run a tool it ships",
@@ -3269,5 +3269,26 @@
     "find": "    const named = JSON.stringify(groups).includes(HOOK_SCRIPT);",
     "replace": "    const named = groups.length > 0;",
     "test": "pnpm vitest run addons/agent-workflow/tests/check.test.mts --testNamePattern=\"does not take another command before a tool call for the hook\""
+  },
+  {
+    "name": "takes a green pull request to main: a merge commit",
+    "file": "addons/agent-workflow/AGENTS.section.md",
+    "find": "gh pr merge <number> --merge",
+    "replace": "gh pr merge <number> --squash",
+    "test": "pnpm vitest run addons/agent-workflow/tests/addon.test.mts --testNamePattern=\"takes a green pull request to main\""
+  },
+  {
+    "name": "takes a green pull request to main: found on main before the worktree goes",
+    "file": "addons/agent-workflow/AGENTS.section.md",
+    "find": "git merge-base --is-ancestor <commit> origin/main ",
+    "replace": "git log origin/main ",
+    "test": "pnpm vitest run addons/agent-workflow/tests/addon.test.mts --testNamePattern=\"takes a green pull request to main\""
+  },
+  {
+    "name": "takes a green pull request to main: main watched after",
+    "file": "addons/agent-workflow/AGENTS.section.md",
+    "find": "gh run list --branch main --commit <merge commit>",
+    "replace": "gh run list --branch main",
+    "test": "pnpm vitest run addons/agent-workflow/tests/addon.test.mts --testNamePattern=\"takes a green pull request to main\""
   }
 ]

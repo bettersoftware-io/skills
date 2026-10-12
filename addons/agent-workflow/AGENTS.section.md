@@ -35,8 +35,9 @@ Plan a piece of work in three parts:
 2. **Local work:** the worktree, edits, tests, gates, commits. Nothing here
    asks for permission. For several pull requests, do the local work of all
    of them here.
-3. **End:** push, open the pull request, watch its checks, merge, clean up.
-   One call each, one after the other.
+3. **End:** push, open the pull request, wait for green, merge, clean up,
+   watch main. One call each, one after the other. The sections from "Wait
+   for green on your commit" on say how.
 
 A person may be away while you work, and each permission prompt stops the
 session until they return. Prompts at the two ends cost two waits; prompts
@@ -44,8 +45,9 @@ spread through the work cost one wait each.
 
 - Waiting for checks is not a reason to start local work that will need a
   second push. Use the wait to read and to write the report.
-- A decision the user must make (whether to merge, whether to delete) goes at
-  the same end, not in the middle.
+- A decision the user must make (whether to delete, whether to force) goes at
+  the same end, not in the middle. Whether to merge a green pull request is
+  not one: see "Merge when it is green".
 - If you pushed and then found one more edit, fold it into the next closing
   batch. Do not push after every edit.
 
@@ -82,6 +84,129 @@ the branch from `origin`'s main by name, so the work does not start from a
 stale local branch. `--ready` installs and runs `pnpm gate:fast` there; hand
 a worktree to another agent only when the last line says `READY`. Skip the
 worktree for a question that changes no file.
+
+Several sessions can work on one project at the same time this way: each has
+its own folder and its own branch, and none edits the project's own checkout.
+
+In the commands below, `main` stands for the branch `origin/HEAD` points at.
+
+### One pull request for what is reviewed together
+
+Put in one pull request what a reviewer would accept or reject together: the
+change, its tests, the document it makes wrong, the entry it closes. Open a
+second one only when a reviewer could accept one part and reject the other,
+or when one part is wrong until the other is on main. "After this one lands"
+is not a reason by itself: each split costs a run of the checks and a merge.
+
+### Wait for green on your commit
+
+After the push and `gh pr create`, wait for the checks of the commit you
+pushed, not for any green run:
+
+```bash
+git rev-parse HEAD        # the commit to match
+gh run list --branch worktree-<name> --json workflowName,status,conclusion,headSha
+```
+
+The pull request is green when every run whose `headSha` is that commit is
+`completed` with `success`. `gh pr checks <number> --watch` waits for them.
+Read the list afterwards all the same: a run of an earlier push can still be
+shown as the latest.
+
+- **A run failed:** read it with `gh run view <id> --log-failed`, fix it in
+  the worktree, commit, push, and wait again. Never merge past a red check,
+  and never weaken a check to pass it.
+- **No run appears:** ask `gh pr view <number> --json mergeable`. A pull
+  request that conflicts with main gets no run, however long you wait. Run
+  `git merge origin/main` in the worktree, resolve, push.
+- **A run takes twice its usual time:** stop waiting and look, with
+  `gh run view <id> --json jobs`. A step that hangs before the project's own
+  commands start (the checkout, a cache, the install) is the runner: start it
+  again with `gh run rerun <id> --failed`. A second hang at the same step is
+  an outage: say so and stop.
+- **A check fails for a reason the diff cannot have caused** (a repository
+  setting that is off, a service that is down): say what it is. Do not change
+  the workflow to get past it.
+
+### Read what landed on main before the merge
+
+Green proves the branch against the main it was cut from. Others merge while
+you work, so compare the two sides first:
+
+```bash
+git fetch origin
+git diff --name-only HEAD...origin/main     # what landed since the branch was cut
+git diff --name-only origin/main...HEAD     # what the branch changed
+```
+
+- **Nothing landed, or what landed is plainly apart from your change**
+  (another package, prose only): merge as it is. Behind is not the same as
+  at risk.
+- **What landed touches what you touched, or a file every package depends
+  on** (the lockfile, a config, a workflow, an exported name): run
+  `git merge origin/main` in the worktree, push, and wait for green again.
+- **What landed is too much to judge quickly:** do the same.
+
+Bring main in with a merge. Never rebase a pushed branch: that needs a forced
+push, and the runs of the checks are lost with the old commits.
+
+### Merge when it is green
+
+Merge a green pull request you opened in this session at once. Do not ask
+whether to merge it, and do not wait to be told: the host's prompt for the
+command is where a person says no.
+
+```bash
+gh pr merge <number> --merge
+```
+
+Always `--merge`. A squash or a rebase puts other commits on main than the
+ones the checks ran on, and the next step could not find yours there. Never
+`--auto`: read the checks yourself, then merge.
+
+Skip the merge when the user asked for a pull request only, or said that a
+person reviews it first. Say then that it is open and green.
+
+### Clean up when the commit is on main
+
+From the project's own folder, not from inside the worktree:
+
+```bash
+git fetch origin
+git merge-base --is-ancestor <commit> origin/main    # exit 0: it is on main
+git worktree remove ../<project>-worktrees/<name>
+git branch -D worktree-<name>
+```
+
+Remove the worktree only after the second line exits 0. Removing it deletes
+every file in it, the ones git ignores too: notes or reports to keep are
+committed, or written outside the worktree, before this. Remove only the
+worktree you made: another one belongs to another session. A merged pull
+request whose worktree is still on disk is not finished.
+
+If the branch is still on `origin` after the merge, say so and leave it:
+removing it is `git push --delete`, which is the user's to ask for.
+
+### After the merge, watch main
+
+Some workflows run only on main, after the merge: a slow visual or end-to-end
+tier, a published report, a scan. The work is not done until they are.
+`gh pr view <number> --json mergeCommit` gives the commit to ask about:
+
+```bash
+gh run list --branch main --commit <merge commit> --json workflowName,status,conclusion
+```
+
+Wait until each run for that commit is `completed`.
+
+- **One fails because of your change:** fix it forward at once, without
+  being asked: a new worktree, a new pull request, the same steps. Say in the
+  report what broke and what fixed it.
+- **One fails for another reason** (it was red before the merge, a setting,
+  an outage): say which, and why it is not the change.
+
+Never report the work as done while a run for the merge commit is in
+progress.
 
 ### The changelog
 
