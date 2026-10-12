@@ -167,10 +167,11 @@ Added on 2026-10-11 ([the record](documenting-architecture-2026-10-11.md)).
 
 ## Not tried
 
-- **The shipping rules of `agent-workflow`, read cold.** The steps were
-  followed by hand once, before the section said them ([the add-on's
-  README](../addons/agent-workflow/README.md#not-verified)). No session has
-  had only the section to go on.
+- **The shipping rules of `agent-workflow`, when something goes wrong.** One
+  session read them cold and followed every step on a one-word change ([the
+  add-on's README](../addons/agent-workflow/README.md#not-verified)). Two
+  sessions merging at the same time, a red check, a conflict and a failure
+  on main after the merge have not been watched.
 
 - **A feature that touches more of the app:** sign-in, routing. The hardest
   test so far (users and categories with create, edit and delete, over REST)

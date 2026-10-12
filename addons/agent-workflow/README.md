@@ -398,11 +398,19 @@ thousand commands.
 
 ## Not verified
 
-- **The shipping rules, read cold.** The steps were followed by hand once, in
-  a project created from the starter: a worktree, a pull request, a check
-  that was red because the dependency graph was off, green, a merge commit,
-  the clean-up, the runs on main. That was before the section said them. No
-  session has been run that had only the section to go on.
+- **The shipping rules, more than once.** They were read cold by one session
+  (2026-10-12), in a project created from the starter. It was given a
+  one-word change and nothing about shipping but the section, and went from
+  the worktree to the runs on main with no step missed and nothing refused:
+  `READY`, the gate, one pull request, green for the pushed commit, nothing
+  landed on main, a merge commit, the clean-up after the ancestor test, the
+  runs for the merge commit. It reported twelve things it had to guess. Six
+  are in the section now: ask for runs by the commit, name the place in an
+  outward command, look at main before the first edit, a run not yet listed,
+  the name of a removed branch, and the project's own checkout after the
+  merge. One session on one change is not the next one. Not watched: two
+  sessions merging at the same time, a red check, a conflict, and a failure
+  on main after the merge.
 - **The hook in a live session of either host.** It was run by hand with
   both hosts' payloads. Codex's side rests on its documentation and on the
   schemas in the 0.160.0 binary (`PreToolUse`, tool name `Bash`,
