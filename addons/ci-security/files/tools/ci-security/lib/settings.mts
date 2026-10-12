@@ -54,7 +54,28 @@ const WORKFLOWS_NAME_NONE = "no job in .github/workflows runs on every pull requ
 /** The languages GitHub accepts when CodeQL default setup is changed. It reports two more (`javascript`, `typescript`) and refuses them. */
 const CODEQL_LANGUAGES = ["actions", "c-cpp", "csharp", "go", "java-kotlin", "javascript-typescript", "python", "ruby", "swift"];
 
-export function checkSettings({ root, run, report }: SettingsOptions): ExitCode {
+/**
+ * What a terminal acts on and does not show: the control characters, and the
+ * marks that set the direction of text or stand for nothing.
+ */
+const NOT_SHOWN = /[\u0000-\u001f\u007f-\u009f\u061c\u200b-\u200f\u2028-\u202e\u2060-\u2069\ufeff]/g;
+
+/**
+ * A line as it may be printed. Much of what a line shows comes from outside:
+ * a job's name and a file's name from the checkout, a ruleset's name and a
+ * refusal from GitHub. A control character there can clear the line above
+ * and write a PASS that no check gave, and a mark that turns the text round
+ * can show a command other than the one that is pasted. Each is written out
+ * as its escape. Inside the JSON of the command that is the same character,
+ * so the ruleset asks for the same check.
+ */
+export function shown(line: string): string {
+  return line.replace(NOT_SHOWN, (character) => `\\u${character.charCodeAt(0).toString(16).padStart(4, "0")}`);
+}
+
+export function checkSettings({ root, run, report: print }: SettingsOptions): ExitCode {
+  // Every line goes out through this, whatever it was put together from.
+  const report = (line: string): void => print(shown(line));
   const found = findRepository(run, root);
 
   if (found.name === undefined) {
@@ -157,9 +178,15 @@ export function checkSettings({ root, run, report }: SettingsOptions): ExitCode 
   results.push(...ruleset.results);
 
   if (ruleset.results.some(({ verdict }) => verdict.state === "off")) {
-    for (const line of rulesetFix({ ask, api, web, branch: ruleset.branch, checks: ruleset.checks })) {
+    const fix = rulesetFix({ ask, api, web, branch: ruleset.branch, checks: ruleset.checks });
+
+    for (const line of fix.lines) {
       report(line);
     }
+
+    // The body is many lines, and its line ends are its own: each line goes through `shown`, and they stay lines.
+    print(fix.body.split("\n").map(shown).join("\n"));
+    report("JSON");
   }
 
   const count = (state: Verdict["state"]): number => results.filter(({ verdict }) => verdict.state === state).length;
@@ -309,15 +336,22 @@ export function rulesetBody(contexts: string[]): Record<string, unknown> {
   };
 }
 
+interface RulesetFix {
+  /** Where a ruleset is made, what stands in the way, and the first line of the command. */
+  lines: string[];
+  /** What the command reads: the ruleset as JSON, on as many lines as it takes. */
+  body: string;
+}
+
 /** What a person does about a ruleset that lacks something: where it is, and a command that makes one. */
-function rulesetFix({ ask, api, web, branch, checks }: { ask: (path: string) => Answer; api: string; web: string; branch: string; checks: RequiredChecks }): string[] {
+function rulesetFix({ ask, api, web, branch, checks }: { ask: (path: string) => Answer; api: string; web: string; branch: string; checks: RequiredChecks }): RulesetFix {
   const listed = askAll(ask, `${api}/rulesets`);
   const inactive = (listed.ok ? listed.body : []).filter((ruleset) => field(ruleset, "target") === "branch" && field(ruleset, "enforcement") !== "active");
   // GitHub marks a branch `protected` for a ruleset too. `protection.enabled` is the older kind alone.
   const classic = ask(`${api}/branches/${branch}`);
   const hasClassic = classic.ok && field(field(classic.body, "protection"), "enabled") === true;
 
-  return [
+  const lines = [
     `  where: Settings → Rules → Rulesets (${web}/rules). A ruleset is made there, and changed there`,
     ...inactive.map(
       (ruleset) =>
@@ -330,9 +364,12 @@ function rulesetFix({ ask, api, web, branch, checks }: { ask: (path: string) => 
     ...(checks.contexts.length === 0 ? [`  no status check is in the command below: ${WORKFLOWS_NAME_NONE}`] : []),
     "  fix:   this makes one ruleset that has all three. Rulesets add up, so it can stand beside one that is there:",
     `gh api -X POST ${api}/rulesets --input - <<'JSON'`,
-    JSON.stringify(rulesetBody(checks.contexts), null, 2),
-    "JSON",
   ];
+
+  return {
+    lines,
+    body: JSON.stringify(rulesetBody(checks.contexts), null, 2),
+  };
 }
 
 function printResult({ setting, verdict }: Result, report: (line: string) => void): void {

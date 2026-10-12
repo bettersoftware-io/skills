@@ -156,8 +156,13 @@ Added on 2026-10-11 ([the record](documenting-architecture-2026-10-11.md)).
   Node 24. The starter's root asks for `>=26` in `devEngines.runtime` with
   `"onFail": "error"`, and the `node-floor` gate holds it there, so pnpm
   stops with `ERR_PNPM_BAD_RUNTIME_VERSION`. Both runs failed in a project
-  created on 2026-10-12, and every weekly run will. Renovate as the default,
-  a floor the updater is let past, or waiting for Dependabot: not decided.
+  created on 2026-10-12, and every weekly run will. That project moved to
+  `ci-security:renovate`. Dependabot security updates fail the same way, so
+  it also switched Renovate's `vulnerabilityAlerts` on in its own file: the
+  add-on's row "Security fixes: still Dependabot security updates" is not
+  true under this floor. For the add-on, Renovate as the default with its
+  fixes on, a floor the updater is let past, or waiting for Dependabot: not
+  decided.
 
 ## Not tried
 

@@ -4,7 +4,7 @@
 
 import { execFileSync, spawnSync } from "node:child_process";
 import { accessSync, constants, existsSync, realpathSync, statSync } from "node:fs";
-import { delimiter, join } from "node:path";
+import { delimiter, isAbsolute, join, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import type { Download, Extract } from "./install.mts";
@@ -47,7 +47,13 @@ export function runInherited(binary: string, runArguments: string[], root: strin
 
 /** Runs a program in `root` and keeps what it prints. A program that is not installed is a failed run (127), not a crash. */
 export const runCaptured: Run = (program, runArguments, root) => {
-  const result = spawnSync(program, runArguments, { cwd: root, encoding: "utf8", maxBuffer: 64 * 1024 * 1024 });
+  const binary = findCommand(program, process.env.PATH);
+
+  if (binary === undefined) {
+    return { status: 127, stdout: "", stderr: `${program} is in no folder of the PATH` };
+  }
+
+  const result = spawnSync(binary, runArguments, { cwd: root, encoding: "utf8", maxBuffer: 64 * 1024 * 1024 });
 
   return {
     status: result.error === undefined ? (result.status ?? 1) : 127,
@@ -55,6 +61,35 @@ export const runCaptured: Run = (program, runArguments, root) => {
     stderr: result.error === undefined ? (result.stderr ?? "") : result.error.message,
   };
 };
+
+/**
+ * The full path of a program: the one given when it is a full path, the
+ * first of that name in a folder of `path` otherwise. Undefined: it is in
+ * none.
+ *
+ * Only a folder written in full counts. `.` and an empty entry of the PATH
+ * mean the folder a program is started in, and these tools start `gh` and
+ * `git` in the project: a file named `gh` in a checkout would be started in
+ * place of GitHub's. Started by its full path, it cannot be.
+ */
+export function findCommand(name: string, path: string | undefined): string | undefined {
+  if (isAbsolute(name)) {
+    return name;
+  }
+
+  if (name.includes("/") || name.includes(sep)) {
+    return undefined;
+  }
+
+  // Windows finds `gh` as gh.exe. A .cmd or .bat is not started without a shell, so it is not looked for.
+  const names = process.platform === "win32" ? [`${name}.exe`, name] : [name];
+
+  return (path ?? "")
+    .split(delimiter)
+    .filter((folder) => isAbsolute(folder))
+    .flatMap((folder) => names.map((file) => join(folder, file)))
+    .find((file) => isExecutable(file));
+}
 
 /** True when a file of that name in a folder of `path` can be run. */
 export function hasCommand(name: string, path: string | undefined): boolean {

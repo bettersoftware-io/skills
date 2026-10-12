@@ -2644,5 +2644,75 @@
     "find": "if (id === undefined) {",
     "replace": "if (false) {",
     "test": "pnpm vitest run addons/ci-security/tests/required-checks.test.mts -t \"is named as not read, never taken as having no job\""
+  },
+  {
+    "name": "settings: every line is printed through shown",
+    "file": "addons/ci-security/files/tools/ci-security/lib/settings.mts",
+    "find": "const report = (line: string): void => print(shown(line));",
+    "replace": "const report = (line: string): void => print(line);",
+    "test": "pnpm vitest run addons/ci-security/tests/settings.test.mts -t \"writes out a control character in a ruleset's name\""
+  },
+  {
+    "name": "settings: a control character of the second block is written out",
+    "file": "addons/ci-security/files/tools/ci-security/lib/settings.mts",
+    "find": "\\u007f-\\u009f",
+    "replace": "\\u007f-\\u007f",
+    "test": "pnpm vitest run addons/ci-security/tests/settings.test.mts -t \"writes each character a terminal acts on as its escape\""
+  },
+  {
+    "name": "settings: a mark that turns the text round is written out",
+    "file": "addons/ci-security/files/tools/ci-security/lib/settings.mts",
+    "find": "\\u2028-\\u202e",
+    "replace": "\\u2028-\\u2029",
+    "test": "pnpm vitest run addons/ci-security/tests/settings.test.mts -t \"writes out a mark that turns the text round\""
+  },
+  {
+    "name": "settings: the lines of the body are printed through shown",
+    "file": "addons/ci-security/files/tools/ci-security/lib/settings.mts",
+    "find": "print(fix.body.split(\"\\n\").map(shown).join(\"\\n\"));",
+    "replace": "print(fix.body);",
+    "test": "pnpm vitest run addons/ci-security/tests/settings.test.mts -t \"writes out a mark that turns the text round\""
+  },
+  {
+    "name": "settings: a line end of the body stays a line end",
+    "file": "addons/ci-security/files/tools/ci-security/lib/settings.mts",
+    "find": "map(shown).join(\"\\n\")",
+    "replace": "map(shown).join(\" \")",
+    "test": "pnpm vitest run addons/ci-security/tests/settings.test.mts -t \"writes out a mark that turns the text round\""
+  },
+  {
+    "name": "system: a folder of the PATH not written in full is passed over",
+    "file": "addons/ci-security/files/tools/ci-security/lib/system.mts",
+    "find": ".filter((folder) => isAbsolute(folder))",
+    "replace": "",
+    "test": "pnpm vitest run addons/ci-security/tests/system.test.mts -t \"passes over a folder of the PATH that is not written in full\""
+  },
+  {
+    "name": "system: a name with a folder in it is not looked for",
+    "file": "addons/ci-security/files/tools/ci-security/lib/system.mts",
+    "find": "name.includes(\"/\") || name.includes(sep)",
+    "replace": "name.includes(delimiter)",
+    "test": "pnpm vitest run addons/ci-security/tests/system.test.mts -t \"does not look on the PATH for a name with a folder in it\""
+  },
+  {
+    "name": "system: a full path is taken as it was given",
+    "file": "addons/ci-security/files/tools/ci-security/lib/system.mts",
+    "find": "if (isAbsolute(name)) {",
+    "replace": "if (name === delimiter) {",
+    "test": "pnpm vitest run addons/ci-security/tests/system.test.mts -t \"gives the full path of a program in a folder of the PATH\""
+  },
+  {
+    "name": "system: a program by its name is found on the PATH",
+    "file": "addons/ci-security/files/tools/ci-security/lib/system.mts",
+    "find": "const binary = findCommand(program, process.env.PATH);",
+    "replace": "const binary = findCommand(program, undefined);",
+    "test": "pnpm vitest run addons/ci-security/tests/system.test.mts -t \"starts the one in a folder of the PATH\""
+  },
+  {
+    "name": "system: a name in no folder of the PATH is 127",
+    "file": "addons/ci-security/files/tools/ci-security/lib/system.mts",
+    "find": "return { status: 127, stdout: \"\", stderr: `${program} is in no folder of the PATH` };",
+    "replace": "return { status: 1, stdout: \"\", stderr: `${program} is in no folder of the PATH` };",
+    "test": "pnpm vitest run addons/ci-security/tests/system.test.mts -t \"returns 127 and says so for a name that is in no folder\""
   }
 ]

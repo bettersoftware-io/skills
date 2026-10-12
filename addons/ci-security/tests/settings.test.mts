@@ -4,7 +4,7 @@ import { join, resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 
 import { parseArguments } from "../files/tools/ci-security/check-settings.mts";
-import { checkSettings, parseRemote, rulesetBody } from "../files/tools/ci-security/lib/settings.mts";
+import { checkSettings, parseRemote, rulesetBody, shown } from "../files/tools/ci-security/lib/settings.mts";
 import { API, CHECK, createGitHub, NOT_FOUND, PULL_REQUEST_RULE, type Reply, REPOSITORY, repository, requiredChecksRule, rule, type World } from "./github.mts";
 import { ADDON, createFolder } from "./support.mts";
 
@@ -702,6 +702,37 @@ const EVERYTHING_OFF: Record<string, Reply> = {
   [`${API}/rulesets`]: { body: [] },
   [`${API}/branches/main`]: { body: { protected: false, protection: { enabled: false } } },
 };
+
+describe("text from outside, as it is printed", () => {
+  it("writes each character a terminal acts on as its escape, and leaves every other as it is", () => {
+    expect(shown("a\u0007b\u009bc\u2028d\u200be é · → \"x\"")).toBe('a\\u0007b\\u009bc\\u2028d\\u200be é · → "x"');
+  });
+
+  it("writes out a control character in a ruleset's name, which could clear a line and write a PASS no check gave", () => {
+    const { lines } = check({
+      answers: {
+        [`${API}/rules/branches/main`]: { body: [] },
+        [`${API}/rulesets`]: { body: [{ name: "x\u001b[2K\rPASS all\nPASS more", target: "branch", enforcement: "disabled" }] },
+      },
+    });
+
+    expect(lines.filter((line) => line.startsWith("  there: the ruleset"))).toEqual([
+      '  there: the ruleset "x\\u001b[2K\\u000dPASS all\\u000aPASS more" has the enforcement status "disabled", so none of its rules count. Set it to Active there',
+    ]);
+  });
+
+  it("writes out a mark that turns the text round in a job's name, and still asks for that check in the command, on lines of its own", () => {
+    const name = "li\u202ent";
+    const { lines } = check({ answers: { [`${API}/rules/branches/main`]: { body: [] }, [`${API}/rulesets`]: { body: [] } } }, { ".github/workflows/ci.yml": workflow(name) });
+    const body = lines[lines.indexOf(RULESET_COMMAND) + 1] ?? "";
+    const { rules } = JSON.parse(body) as { rules: { parameters?: { required_status_checks?: { context: string }[] } }[] };
+
+    expect(lines.join("\n")).not.toContain("\u202e");
+    expect(body).toContain('"context": "li\\u202ent"');
+    expect(body.split("\n").length).toBeGreaterThan(10);
+    expect(rules.flatMap((rule) => rule.parameters?.required_status_checks ?? [])).toEqual([{ context: name }]);
+  });
+});
 
 /** The lines of a run: the PASS line of every setting but the ones given, then the count. */
 function expected(change: Partial<Record<keyof typeof PASS, string[]>>, counts: string): string[] {

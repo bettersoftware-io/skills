@@ -207,6 +207,25 @@ workflows are written in (`on:` and `jobs:` at the left edge, a job as a key
 under `jobs:`). A workflow in another form is named on the line as not
 judged; it is never taken as having no job.
 
+Two things about text and programs that are not the project's own:
+
+- **Every printed line is written out plain.** A job's name and a file's
+  name come from the checkout, a ruleset's name and a refusal from GitHub. A
+  control character there could clear a line and write a PASS no check gave,
+  and a mark that turns the text round could show a command other than the
+  one that is pasted. Each is printed as its escape (`\u001b`). In the JSON
+  of the ruleset command that is the same character, so the command asks for
+  the same check. What goes into a command as a word is held to a pattern:
+  the repository's name to letters, digits, `.`, `_` and `-`, a CodeQL
+  language to GitHub's own list.
+- **`gh` and `git` are started by their full path**, found in the folders
+  of the PATH that are written in full. A PATH with `.` or an empty entry in
+  it means the folder a program is started in, which here is the project, or
+  the checkout `--root` names: a file called `gh` there is not started.
+
+A security review of this add-on's commit named the first two of these, and
+a third with no detail that is not followed up.
+
 ## The security policy
 
 `SECURITY.md` at the root is a file to start from. GitHub shows it under the

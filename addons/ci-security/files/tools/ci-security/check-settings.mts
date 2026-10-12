@@ -25,7 +25,7 @@
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { checkSettings } from "./lib/settings.mts";
+import { checkSettings, shown } from "./lib/settings.mts";
 import { isMainModule, runCaptured } from "./lib/system.mts";
 
 /** The project root to read: the one this tool is installed in, unless `--root <dir>` names another. Undefined: the arguments are wrong. */
@@ -41,7 +41,7 @@ if (isMainModule(import.meta.url)) {
   const root = parseArguments(process.argv.slice(2), dirname(dirname(dirname(fileURLToPath(import.meta.url)))));
 
   if (root === undefined) {
-    console.error(`repo:settings could not run: unknown arguments "${process.argv.slice(2).join(" ")}" (use --root <dir>)`);
+    console.error(shown(`repo:settings could not run: unknown arguments "${process.argv.slice(2).join(" ")}" (use --root <dir>)`));
     process.exitCode = 2;
   } else {
     // Set, not process.exit(): the lines printed above still reach a pipe that is slow to read.

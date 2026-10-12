@@ -1,9 +1,9 @@
 import { execFileSync, spawnSync } from "node:child_process";
 import { chmodSync, cpSync, readFileSync } from "node:fs";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 
-import { createDownload, extractWithTar, hasCommand, runCaptured, runInherited } from "../files/tools/ci-security/lib/system.mts";
+import { createDownload, extractWithTar, findCommand, hasCommand, runCaptured, runInherited } from "../files/tools/ci-security/lib/system.mts";
 import { ADDON, createFolder } from "./support.mts";
 
 describe("createDownload", () => {
@@ -87,6 +87,37 @@ describe("runCaptured", () => {
     expect(result.status).toBe(127);
     expect(result.stdout).toBe("");
     expect(result.stderr).toContain("ENOENT");
+  });
+});
+
+describe("runCaptured, for a program given by its name", () => {
+  it("starts the one in a folder of the PATH", () => {
+    expect(runCaptured("node", ["-e", "process.exit(3)"], createFolder()).status).toBe(3);
+  });
+
+  it("returns 127 and says so for a name that is in no folder of the PATH, and starts nothing", () => {
+    expect(runCaptured("no-program-has-this-name", [], createFolder())).toEqual({ status: 127, stdout: "", stderr: "no-program-has-this-name is in no folder of the PATH" });
+  });
+});
+
+describe("findCommand", () => {
+  // The tests run in the repository's root, where node_modules/.bin/vitest is a program.
+  const bin = resolve("node_modules/.bin");
+
+  it("gives the full path of a program in a folder of the PATH, and a full path as it was given", () => {
+    expect(findCommand("vitest", `/nowhere:${bin}`)).toBe(join(bin, "vitest"));
+    expect(findCommand("/nowhere/gh", bin)).toBe("/nowhere/gh");
+    expect(findCommand("vitest", "/nowhere")).toBeUndefined();
+    expect(findCommand("vitest", undefined)).toBeUndefined();
+  });
+
+  it("passes over a folder of the PATH that is not written in full, so a file in the folder a program is started in is not found", () => {
+    expect(findCommand("vitest", "node_modules/.bin")).toBeUndefined();
+    expect(findCommand("vitest", `.:${join("node_modules", ".bin")}:`)).toBeUndefined();
+  });
+
+  it("does not look on the PATH for a name with a folder in it", () => {
+    expect(findCommand("node_modules/.bin/vitest", resolve("."))).toBeUndefined();
   });
 });
 
