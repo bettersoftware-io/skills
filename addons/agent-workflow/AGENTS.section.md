@@ -4,6 +4,14 @@ How a change leaves this machine. A hook refuses a shell command that joins
 an outward step to anything else; this section is what the hook cannot
 decide: when the outward steps run.
 
+The rules serve three aims, in this order when they pull apart:
+
+1. **Main is never red.** A red main stops every session at once.
+2. **Many sessions work on the project at the same time.** None waits for
+   another, and none edits what another is editing.
+3. **A green change is on main within minutes.** Nothing waits for a person
+   who was not asked to review it.
+
 ```bash
 pnpm worktree <name> [--ready]     # a worktree beside the project, on worktree-<name>, cut from origin's main
 pnpm changelog weeks               # the weeks CHANGELOG.md has no entry for
@@ -63,6 +71,11 @@ person, under the host's own rules. Do not add an `allow` rule for one to
 `tools/agent-workflow/`, unless the user asks: that is the user's decision,
 not a step of the work.
 
+A session often does not stand in the worktree when it runs an outward step.
+Name the place in the command: `git -C <worktree> push`, and
+`--repo <owner>/<name>` for `gh`. `cd <worktree> && git push` is a chain,
+and the hook refuses it.
+
 Give a title or a body as one quoted word, with the new lines inside the
 quotes, so that the prompt shows the whole text as it will be sent:
 
@@ -85,8 +98,23 @@ stale local branch. `--ready` installs and runs `pnpm gate:fast` there; hand
 a worktree to another agent only when the last line says `READY`. Skip the
 worktree for a question that changes no file.
 
+Look at main first, with `gh run list --branch main --limit 5`. If its
+latest runs are red, say so before the first edit: see "After the merge,
+watch main".
+
 Several sessions can work on one project at the same time this way: each has
 its own folder and its own branch, and none edits the project's own checkout.
+
+- **Never edit or commit in the project's own checkout**, however small the
+  change. Another session may be reading it, and main takes changes only
+  through a pull request. Files someone left uncommitted there stay as they
+  are.
+- **Never make the worktree by hand** with `git worktree add -b`. That cuts
+  the branch from where the checkout stands, and a local main is behind
+  `origin` whenever another session has merged since the last fetch.
+- **Several changes in one session get a worktree each**, and each its own
+  pull request. Do the local work of all of them first, then their outward
+  steps.
 
 In the commands below, `main` stands for the branch `origin/HEAD` points at.
 
@@ -105,13 +133,14 @@ pushed, not for any green run:
 
 ```bash
 git rev-parse HEAD        # the commit to match
-gh run list --branch worktree-<name> --json workflowName,status,conclusion,headSha
+gh run list --commit <commit> --json workflowName,status,conclusion,headSha
 ```
 
-The pull request is green when every run whose `headSha` is that commit is
-`completed` with `success`. `gh pr checks <number> --watch` waits for them.
-Read the list afterwards all the same: a run of an earlier push can still be
-shown as the latest.
+The pull request is green when every run for that commit is `completed` with
+`success`. Ask by the commit, not by the branch: a scan can run for the same
+commit under the pull request's own ref, and the branch's list does not show
+it. `gh pr checks <number> --watch` waits for them. Read the list afterwards
+all the same: a run of an earlier push can still be shown as the latest.
 
 - **A run failed:** read it with `gh run view <id> --log-failed`, fix it in
   the worktree, commit, push, and wait again. Never merge past a red check,
@@ -139,16 +168,35 @@ git diff --name-only HEAD...origin/main     # what landed since the branch was c
 git diff --name-only origin/main...HEAD     # what the branch changed
 ```
 
+The question is one: can the two changes break each other? Git refuses a
+merge when the same lines changed, so what is left is the break git cannot
+see: a name one side renamed and the other still uses, a rule one side
+tightened, a fixture both rely on.
+
 - **Nothing landed, or what landed is plainly apart from your change**
-  (another package, prose only): merge as it is. Behind is not the same as
-  at risk.
-- **What landed touches what you touched, or a file every package depends
-  on** (the lockfile, a config, a workflow, an exported name): run
-  `git merge origin/main` in the worktree, push, and wait for green again.
-- **What landed is too much to judge quickly:** do the same.
+  (another package, documents while you changed code): merge as it is. Behind
+  is not the same as at risk.
+- **Both sides changed the same file, and it is prose** (a `.md` file a
+  person wrote): merge as it is. Git still stops on the same lines. Not prose
+  in this sense: a generated or checked document, a renamed heading that
+  something links to, and any settings file.
+- **What landed touches code you touched, or a file every package depends
+  on** (the lockfile above all; a config, a lint rule, a workflow, a fixture,
+  an exported name): run `git merge origin/main` in the worktree, push, and
+  wait for green again.
+- **What landed is too much to judge quickly:** do the same. Do not spend
+  longer on judging than a run of the checks takes.
+
+Do not bring main in every time it moves. Each time costs a run of the
+checks, and on a busy project main moves again before that run ends.
 
 Bring main in with a merge. Never rebase a pushed branch: that needs a forced
 push, and the runs of the checks are lost with the old commits.
+
+When git stops on a conflict, resolve only what conflicts. If the other side
+changed the body of something you renamed, read the merged body against the
+name before you commit: no check sees a name that no longer says what the
+code does.
 
 ### Merge when it is green
 
@@ -172,10 +220,11 @@ person reviews it first. Say then that it is open and green.
 From the project's own folder, not from inside the worktree:
 
 ```bash
-git fetch origin
+git fetch --prune origin
 git merge-base --is-ancestor <commit> origin/main    # exit 0: it is on main
 git worktree remove ../<project>-worktrees/<name>
 git branch -D worktree-<name>
+git merge --ff-only origin/main                      # see below
 ```
 
 Remove the worktree only after the second line exits 0. Removing it deletes
@@ -187,6 +236,13 @@ request whose worktree is still on disk is not finished.
 If the branch is still on `origin` after the merge, say so and leave it:
 removing it is `git push --delete`, which is the user's to ask for.
 
+The last line brings the project's own checkout up to main. It is not an edit
+of that checkout: it moves main to what `origin` has, and refuses to do
+anything else. A session reads this file and starts the hooks from that
+checkout, so one left behind works by the rules of an earlier day. Run it
+only when the checkout stands on main with nothing uncommitted; otherwise
+leave it and say so.
+
 ### After the merge, watch main
 
 Some workflows run only on main, after the merge: a slow visual or end-to-end
@@ -197,7 +253,10 @@ tier, a published report, a scan. The work is not done until they are.
 gh run list --branch main --commit <merge commit> --json workflowName,status,conclusion
 ```
 
-Wait until each run for that commit is `completed`.
+Wait until each run for that commit is `completed`. A run can take a minute
+to be listed, so list again before you call the list whole. Not every
+workflow runs for every commit: one with a `paths` filter runs only when
+those files changed.
 
 - **One fails because of your change:** fix it forward at once, without
   being asked: a new worktree, a new pull request, the same steps. Say in the
@@ -207,6 +266,23 @@ Wait until each run for that commit is `completed`.
 
 Never report the work as done while a run for the merge commit is in
 progress.
+
+A red main comes before any other work, yours or not: every session cuts its
+next branch from it. If it was red before your merge, say so before you
+start, and do not add a change to it that is not its fix.
+
+### Stop when you are about to
+
+- edit a file while the session stands in the project's own checkout;
+- make a worktree with anything but `pnpm worktree`;
+- put off a test, a document or an entry to "a follow-up pull request" that
+  nothing forces to be separate;
+- merge without a `completed`, `success` run for the commit you pushed;
+- merge without having read what landed on main since the branch was cut;
+- bring main in "to be safe" when what landed is plainly apart;
+- type `gh pr merge` with `--squash`, `--rebase`, `--auto` or `--admin`;
+- wait on a run past twice its usual time without having looked at its jobs;
+- say "done" with the worktree still on disk, or a run on main in progress.
 
 ### The changelog
 

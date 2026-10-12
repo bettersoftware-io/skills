@@ -55,6 +55,22 @@ Each step says what to do when it goes wrong (a red run, no run at all, a run
 that hangs, a check that fails for a reason outside the diff), and when to
 skip it.
 
+The section opens with what the rules are for, in the order that decides when
+two of them pull apart: main is never red, many sessions work at the same
+time, and a green change is on main within minutes. "Read main" is where the
+first and the third meet. Bringing main in before every merge keeps main
+green and costs a run of the checks each time, and on a busy project main has
+moved again before that run ends. Never bringing it in is fast and lets
+through the break git cannot see. So the section asks one question (can the
+two changes break each other?) and names the cases: plainly apart and prose
+merge as they are; the lockfile, a config, a fixture or an exported name
+bring main in first. It ends with a list of moments to stop at, each of them
+a way the source project saw one of the rules skipped.
+
+What makes "merge at once" safe is in the repository, not in the section: a
+ruleset on main that requires the checks. `ci-security` lists it among the
+settings a person switches on.
+
 Differences from the source:
 
 - **Nothing is approved in advance.** The source lets a push of a work
@@ -382,11 +398,19 @@ thousand commands.
 
 ## Not verified
 
-- **The shipping rules, read cold.** The steps were followed by hand once, in
-  a project created from the starter: a worktree, a pull request, a check
-  that was red because the dependency graph was off, green, a merge commit,
-  the clean-up, the runs on main. That was before the section said them. No
-  session has been run that had only the section to go on.
+- **The shipping rules, more than once.** They were read cold by one session
+  (2026-10-12), in a project created from the starter. It was given a
+  one-word change and nothing about shipping but the section, and went from
+  the worktree to the runs on main with no step missed and nothing refused:
+  `READY`, the gate, one pull request, green for the pushed commit, nothing
+  landed on main, a merge commit, the clean-up after the ancestor test, the
+  runs for the merge commit. It reported twelve things it had to guess. Six
+  are in the section now: ask for runs by the commit, name the place in an
+  outward command, look at main before the first edit, a run not yet listed,
+  the name of a removed branch, and the project's own checkout after the
+  merge. One session on one change is not the next one. Not watched: two
+  sessions merging at the same time, a red check, a conflict, and a failure
+  on main after the merge.
 - **The hook in a live session of either host.** It was run by hand with
   both hosts' payloads. Codex's side rests on its documentation and on the
   schemas in the 0.160.0 binary (`PreToolUse`, tool name `Bash`,
