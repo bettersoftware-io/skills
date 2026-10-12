@@ -1,12 +1,13 @@
 {
   "name": "ci-security",
-  "summary": "Supply-chain checks for a project on GitHub: workflow lint (actionlint, zizmor), Dependency Review, pnpm audit, OpenSSF Scorecard, a Dockerfile check, a security policy, and Dependabot or Renovate.",
+  "summary": "Supply-chain checks for a project on GitHub: workflow lint (actionlint, zizmor), Dependency Review, pnpm audit, OpenSSF Scorecard, a Dockerfile check, a security policy, Dependabot or Renovate, and a command that names the repository settings that are off.",
   "recommended": true,
   "packageJson": {
     ".": {
       "scripts": {
         "lint:workflows": "node tools/ci-security/lint-workflows.mts",
-        "check:dockerfiles": "node tools/ci-security/check-dockerfiles.mts"
+        "check:dockerfiles": "node tools/ci-security/check-dockerfiles.mts",
+        "repo:settings": "node tools/ci-security/check-settings.mts"
       }
     }
   },

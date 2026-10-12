@@ -24,18 +24,26 @@ const DEPENDABOT = "choice/dependabot/files/.github/dependabot.yml";
 const RENOVATE = "choice/renovate/files/.github/renovate.json5";
 
 describe("the add-on in a project created from the starter", () => {
-  it("adds two scripts, each of which runs a tool it ships, and proves itself with the workflow lint", () => {
+  it("adds three scripts, each of which runs a tool it ships, and proves itself with the workflow lint", () => {
     const scripts = MANIFEST.packageJson["."]?.scripts ?? {};
     const tools = Object.values(scripts).map((script) => /^node (tools\/ci-security\/[\w-]+\.mts)$/.exec(script)?.[1]);
 
-    expect(Object.keys(scripts)).toEqual(["lint:workflows", "check:dockerfiles"]);
-    expect(tools.map((tool) => tool !== undefined && existsSync(join(ADDON, "files", tool)))).toEqual([true, true]);
+    expect(Object.keys(scripts)).toEqual(["lint:workflows", "check:dockerfiles", "repo:settings"]);
+    expect(tools.map((tool) => tool !== undefined && existsSync(join(ADDON, "files", tool)))).toEqual([true, true, true]);
     expect(MANIFEST.verify).toBe("pnpm lint:workflows");
   });
 
   it("joins gate:fast with the one check that needs no network, and with no check that needs it", () => {
     expect(MANIFEST.gates).toEqual({ fast: ["pnpm check:dockerfiles"], full: [] });
     expect(readFileSync(join(ADDON, "files/tools/ci-security/check-dockerfiles.mts"), "utf8")).not.toMatch(/\bfetch\(|node:https?|createDownload|child_process/);
+  });
+
+  it("keeps the settings check out of both gates and out of the proof: it needs gh, a login and the network", () => {
+    const run = [...MANIFEST.gates.fast, ...MANIFEST.gates.full, MANIFEST.verify];
+
+    expect(MANIFEST.packageJson["."]?.scripts?.["repo:settings"]).toBe("node tools/ci-security/check-settings.mts");
+    expect(run.filter((command) => /repo:settings|check-settings/.test(command))).toEqual([]);
+    expect(ALL.filter(({ text }) => /repo:settings|check-settings/.test(text))).toEqual([]);
   });
 
   it("installs no package", () => {
@@ -74,6 +82,53 @@ describe("the add-on in a project created from the starter", () => {
 
   it("says in the list of options that Renovate needs a person to install its app", () => {
     expect(MANIFEST.choice.options.renovate).toContain("A person installs its GitHub App on the repository first");
+  });
+});
+
+describe("what the add-on says of itself", () => {
+  const readme = readFileSync(join(ADDON, "README.md"), "utf8");
+  const section = readFileSync(join(ADDON, "AGENTS.section.md"), "utf8");
+  const added = Object.keys(MANIFEST.packageJson["."]?.scripts ?? {});
+
+  it("names every script it adds, in the README and in the section for AGENTS.md", () => {
+    expect(added.filter((script) => !readme.includes(`\`pnpm ${script}`))).toEqual([]);
+    expect(added.filter((script) => !section.includes(`pnpm ${script}`))).toEqual([]);
+    expect(readme).toContain("Three scripts are added to the root `package.json`.");
+  });
+
+  it("names no script that neither it nor the starter has", () => {
+    const starter = Object.keys((JSON.parse(readFileSync(join(STARTER, "package.json"), "utf8")) as { scripts: Record<string, string> }).scripts);
+    const named = [...`${readme}\n${section}`.matchAll(/pnpm ([a-z][\w-]*:[\w:-]+)/g)].map((match) => match[1] ?? "");
+    expect(named).toContain("repo:settings");
+    expect([...new Set(named)].filter((script) => ![...added, ...starter].includes(script))).toEqual([]);
+  });
+
+  it("tells an agent when to read the settings, that the command only reads, and that switching one on is a person's step", () => {
+    const [, paragraph = ""] = /\n### The repository's settings\n\n([\s\S]*?)\n\n###/.exec(section) ?? [];
+    const text = paragraph.replaceAll("\n", " ");
+
+    expect(text).toContain("Run it after the project's first push to GitHub");
+    expect(text).toContain("when a check fails for a reason the diff cannot have caused");
+    expect(text).toContain("It only reads.");
+    expect(text).toContain("Switching a setting on is a person's step: show the user the `fix:` command it prints, and do not run it.");
+    expect(text).toContain('Report a `SKIP` line as "not read", never as on or as off.');
+    expect(section).not.toMatch(/gh api -X|--method (PUT|PATCH|POST)/);
+  });
+
+  it("lists, among the settings a person switches on, each one the command reads", () => {
+    const [, table = ""] = /\n## Settings a person must switch on\n([\s\S]*?)\n## /.exec(readme) ?? [];
+    const read = table.split("\n").filter((row) => /\| (yes|With Dependabot alerts)[^|]*\|$/.test(row));
+
+    expect(table).toContain("`pnpm repo:settings` reads the ones marked\n\"yes\" and prints which are off.");
+    expect(read.map((row) => row.split(" | ")[0]?.replace(/^\| /, "").split(/[.,:]| that /)[0])).toEqual([
+      "Dependency graph",
+      "Dependabot alerts and Dependabot security updates",
+      "CodeQL default setup",
+      "Private vulnerability reporting",
+      "A ruleset on the default branch",
+      "Workflow permissions",
+      "Automatically delete head branches",
+    ]);
   });
 });
 
