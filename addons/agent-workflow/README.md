@@ -55,6 +55,22 @@ Each step says what to do when it goes wrong (a red run, no run at all, a run
 that hangs, a check that fails for a reason outside the diff), and when to
 skip it.
 
+The section opens with what the rules are for, in the order that decides when
+two of them pull apart: main is never red, many sessions work at the same
+time, and a green change is on main within minutes. "Read main" is where the
+first and the third meet. Bringing main in before every merge keeps main
+green and costs a run of the checks each time, and on a busy project main has
+moved again before that run ends. Never bringing it in is fast and lets
+through the break git cannot see. So the section asks one question (can the
+two changes break each other?) and names the cases: plainly apart and prose
+merge as they are; the lockfile, a config, a fixture or an exported name
+bring main in first. It ends with a list of moments to stop at, each of them
+a way the source project saw one of the rules skipped.
+
+What makes "merge at once" safe is in the repository, not in the section: a
+ruleset on main that requires the checks. `ci-security` lists it among the
+settings a person switches on.
+
 Differences from the source:
 
 - **Nothing is approved in advance.** The source lets a push of a work
