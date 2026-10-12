@@ -55,10 +55,14 @@ const WORKFLOWS_NAME_NONE = "no job in .github/workflows runs on every pull requ
 const CODEQL_LANGUAGES = ["actions", "c-cpp", "csharp", "go", "java-kotlin", "javascript-typescript", "python", "ruby", "swift"];
 
 /**
- * What a terminal acts on and does not show: the control characters, and the
- * marks that set the direction of text or stand for nothing.
+ * What a terminal acts on or does not show, by Unicode's own classes and not
+ * by a list of ranges, which a new character would not be in: a control
+ * character (Cc); a format mark, such as one that turns the text round, has
+ * no width, or is a tag (Cf); half a pair, a private character and one that
+ * is not assigned (Cs, Co, Cn); a line or paragraph end (Zl, Zp); and a
+ * space that is not the space.
  */
-const NOT_SHOWN = /[\u0000-\u001f\u007f-\u009f\u061c\u200b-\u200f\u2028-\u202e\u2060-\u2069\ufeff]/g;
+const NOT_SHOWN = /[\p{Cc}\p{Cf}\p{Cs}\p{Co}\p{Cn}\p{Zl}\p{Zp}]|(?! )\p{Zs}/gu;
 
 /**
  * A line as it may be printed. Much of what a line shows comes from outside:
@@ -70,7 +74,8 @@ const NOT_SHOWN = /[\u0000-\u001f\u007f-\u009f\u061c\u200b-\u200f\u2028-\u202e\u
  * so the ruleset asks for the same check.
  */
 export function shown(line: string): string {
-  return line.replace(NOT_SHOWN, (character) => `\\u${character.charCodeAt(0).toString(16).padStart(4, "0")}`);
+  // One escape for each of its two halves, when the character has two: that is how JSON writes it.
+  return line.replace(NOT_SHOWN, (character) => Array.from({ length: character.length }, (_, half) => `\\u${character.charCodeAt(half).toString(16).padStart(4, "0")}`).join(""));
 }
 
 export function checkSettings({ root, run, report: print }: SettingsOptions): ExitCode {

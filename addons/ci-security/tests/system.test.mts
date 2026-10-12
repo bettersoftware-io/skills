@@ -1,6 +1,6 @@
 import { execFileSync, spawnSync } from "node:child_process";
-import { chmodSync, cpSync, readFileSync } from "node:fs";
-import { join, resolve } from "node:path";
+import { chmodSync, cpSync, mkdirSync, readFileSync, symlinkSync, writeFileSync } from "node:fs";
+import { join, relative, resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 
 import { createDownload, extractWithTar, findCommand, hasCommand, runCaptured, runInherited } from "../files/tools/ci-security/lib/system.mts";
@@ -100,24 +100,81 @@ describe("runCaptured, for a program given by its name", () => {
   });
 });
 
+describe("runCaptured, for a program that is in the folder it runs in", () => {
+  it("does not start a program of that name that is inside the folder it runs in, and starts it for another folder", () => {
+    const project = createFolder({ "program-of-the-project": "#!/bin/sh\nexit 5\n" });
+    const before = process.env.PATH;
+
+    chmodSync(join(project, "program-of-the-project"), 0o755);
+    process.env.PATH = project;
+
+    try {
+      expect(runCaptured("program-of-the-project", [], project).status).toBe(127);
+      expect(runCaptured("program-of-the-project", [], createFolder()).status).toBe(5);
+    } finally {
+      process.env.PATH = before;
+    }
+  });
+});
+
 describe("findCommand", () => {
-  // The tests run in the repository's root, where node_modules/.bin/vitest is a program.
-  const bin = resolve("node_modules/.bin");
+  /** A folder holding one program, `gh`, at `at`. */
+  const withProgram = (at: string): string => {
+    const folder = createFolder({ [`${at}/gh`]: "#!/bin/sh\n" });
+
+    chmodSync(join(folder, at, "gh"), 0o755);
+
+    return folder;
+  };
 
   it("gives the full path of a program in a folder of the PATH, and a full path as it was given", () => {
-    expect(findCommand("vitest", `/nowhere:${bin}`)).toBe(join(bin, "vitest"));
+    const bin = join(withProgram("bin"), "bin");
+
+    expect(findCommand("gh", `/nowhere:${bin}`)).toBe(join(bin, "gh"));
     expect(findCommand("/nowhere/gh", bin)).toBe("/nowhere/gh");
-    expect(findCommand("vitest", "/nowhere")).toBeUndefined();
-    expect(findCommand("vitest", undefined)).toBeUndefined();
+    expect(findCommand("gh", "/nowhere")).toBeUndefined();
+    expect(findCommand("gh", undefined)).toBeUndefined();
   });
 
   it("passes over a folder of the PATH that is not written in full, so a file in the folder a program is started in is not found", () => {
-    expect(findCommand("vitest", "node_modules/.bin")).toBeUndefined();
-    expect(findCommand("vitest", `.:${join("node_modules", ".bin")}:`)).toBeUndefined();
+    const bin = relative(process.cwd(), join(withProgram("bin"), "bin"));
+
+    expect(findCommand("gh", bin)).toBeUndefined();
+    expect(findCommand("gh", `.:${bin}:`)).toBeUndefined();
+    expect(findCommand("gh", resolve(bin))).toBe(resolve(bin, "gh"));
   });
 
   it("does not look on the PATH for a name with a folder in it", () => {
-    expect(findCommand("node_modules/.bin/vitest", resolve("."))).toBeUndefined();
+    expect(findCommand("bin/gh", withProgram("bin"))).toBeUndefined();
+  });
+
+  it("passes over node_modules/.bin, where pnpm puts first what a dependency ships", () => {
+    const folder = withProgram("node_modules/.bin");
+
+    expect(findCommand("gh", join(folder, "node_modules/.bin"))).toBeUndefined();
+    expect(findCommand("gh", `${join(folder, "node_modules/.bin")}/`)).toBeUndefined();
+  });
+
+  it("passes over a folder inside the project the program is started for, reached by a link too, and takes it for another project", () => {
+    const project = withProgram("tools/bin");
+    const link = join(createFolder(), "link");
+
+    symlinkSync(join(project, "tools/bin"), link);
+
+    expect(findCommand("gh", join(project, "tools/bin"), project)).toBeUndefined();
+    expect(findCommand("gh", link, project)).toBeUndefined();
+    expect(findCommand("gh", join(project, "tools/bin"), join(project, "tools/bin"))).toBeUndefined();
+    expect(findCommand("gh", join(project, "tools/bin"), createFolder())).toBe(join(project, "tools/bin/gh"));
+  });
+
+  it("takes a folder beside the project, though its name begins with the project's", () => {
+    const project = createFolder();
+    const beside = `${project}-tools`;
+
+    mkdirSync(beside);
+    writeFileSync(join(beside, "gh"), "#!/bin/sh\n", { mode: 0o755 });
+
+    expect(findCommand("gh", beside, project)).toBe(join(beside, "gh"));
   });
 });
 

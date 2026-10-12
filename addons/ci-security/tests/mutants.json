@@ -2655,15 +2655,15 @@
   {
     "name": "settings: a control character of the second block is written out",
     "file": "addons/ci-security/files/tools/ci-security/lib/settings.mts",
-    "find": "\\u007f-\\u009f",
-    "replace": "\\u007f-\\u007f",
+    "find": "[\\p{Cc}\\p{Cf}",
+    "replace": "[\\p{Cf}",
     "test": "pnpm vitest run addons/ci-security/tests/settings.test.mts -t \"writes each character a terminal acts on as its escape\""
   },
   {
     "name": "settings: a mark that turns the text round is written out",
     "file": "addons/ci-security/files/tools/ci-security/lib/settings.mts",
-    "find": "\\u2028-\\u202e",
-    "replace": "\\u2028-\\u2029",
+    "find": "\\p{Cf}\\p{Cs}",
+    "replace": "\\p{Cs}",
     "test": "pnpm vitest run addons/ci-security/tests/settings.test.mts -t \"writes out a mark that turns the text round\""
   },
   {
@@ -2683,8 +2683,8 @@
   {
     "name": "system: a folder of the PATH not written in full is passed over",
     "file": "addons/ci-security/files/tools/ci-security/lib/system.mts",
-    "find": ".filter((folder) => isAbsolute(folder))",
-    "replace": "",
+    "find": "isAbsolute(folder) && !isFilledByAProject(folder, project)",
+    "replace": "!isFilledByAProject(folder, project)",
     "test": "pnpm vitest run addons/ci-security/tests/system.test.mts -t \"passes over a folder of the PATH that is not written in full\""
   },
   {
@@ -2704,8 +2704,8 @@
   {
     "name": "system: a program by its name is found on the PATH",
     "file": "addons/ci-security/files/tools/ci-security/lib/system.mts",
-    "find": "const binary = findCommand(program, process.env.PATH);",
-    "replace": "const binary = findCommand(program, undefined);",
+    "find": "const binary = findCommand(program, process.env.PATH, root);",
+    "replace": "const binary = findCommand(program, undefined, root);",
     "test": "pnpm vitest run addons/ci-security/tests/system.test.mts -t \"starts the one in a folder of the PATH\""
   },
   {
@@ -2714,5 +2714,68 @@
     "find": "return { status: 127, stdout: \"\", stderr: `${program} is in no folder of the PATH` };",
     "replace": "return { status: 1, stdout: \"\", stderr: `${program} is in no folder of the PATH` };",
     "test": "pnpm vitest run addons/ci-security/tests/system.test.mts -t \"returns 127 and says so for a name that is in no folder\""
+  },
+  {
+    "name": "settings: a space that is not the space is written out",
+    "file": "addons/ci-security/files/tools/ci-security/lib/settings.mts",
+    "find": "|(?! )\\p{Zs}",
+    "replace": "",
+    "test": "pnpm vitest run addons/ci-security/tests/settings.test.mts -t \"writes out a space that is not the space\""
+  },
+  {
+    "name": "settings: the space is left as it is",
+    "file": "addons/ci-security/files/tools/ci-security/lib/settings.mts",
+    "find": "(?! )\\p{Zs}",
+    "replace": "\\p{Zs}",
+    "test": "pnpm vitest run addons/ci-security/tests/settings.test.mts -t \"writes each character a terminal acts on as its escape\""
+  },
+  {
+    "name": "settings: a character of two halves is written as two escapes",
+    "file": "addons/ci-security/files/tools/ci-security/lib/settings.mts",
+    "find": "Array.from({ length: character.length },",
+    "replace": "Array.from({ length: 1 },",
+    "test": "pnpm vitest run addons/ci-security/tests/settings.test.mts -t \"writes out a space that is not the space\""
+  },
+  {
+    "name": "system: node_modules/.bin is passed over",
+    "file": "addons/ci-security/files/tools/ci-security/lib/system.mts",
+    "find": "parts.at(-1) === \".bin\" && parts.at(-2) === \"node_modules\"",
+    "replace": "false",
+    "test": "pnpm vitest run addons/ci-security/tests/system.test.mts -t \"passes over node_modules/.bin\""
+  },
+  {
+    "name": "system: a folder inside the project is passed over",
+    "file": "addons/ci-security/files/tools/ci-security/lib/system.mts",
+    "find": "return real === root || real.startsWith(`${root}${sep}`);",
+    "replace": "return real === root;",
+    "test": "pnpm vitest run addons/ci-security/tests/system.test.mts -t \"passes over a folder inside the project\""
+  },
+  {
+    "name": "system: the project's own folder is passed over",
+    "file": "addons/ci-security/files/tools/ci-security/lib/system.mts",
+    "find": "return real === root || real.startsWith(`${root}${sep}`);",
+    "replace": "return real.startsWith(`${root}${sep}`);",
+    "test": "pnpm vitest run addons/ci-security/tests/system.test.mts -t \"passes over a folder inside the project\""
+  },
+  {
+    "name": "system: a folder beside the project, with a longer name, is not inside it",
+    "file": "addons/ci-security/files/tools/ci-security/lib/system.mts",
+    "find": "real.startsWith(`${root}${sep}`)",
+    "replace": "real.startsWith(root)",
+    "test": "pnpm vitest run addons/ci-security/tests/system.test.mts -t \"takes a folder beside the project\""
+  },
+  {
+    "name": "system: a link into the project is in the project",
+    "file": "addons/ci-security/files/tools/ci-security/lib/system.mts",
+    "find": "    return realpathSync(folder);\n  } catch {\n    return resolve(folder);",
+    "replace": "    return resolve(folder);\n  } catch {\n    return resolve(folder);",
+    "test": "pnpm vitest run addons/ci-security/tests/system.test.mts -t \"passes over a folder inside the project\""
+  },
+  {
+    "name": "system: the project is given to the search",
+    "file": "addons/ci-security/files/tools/ci-security/lib/system.mts",
+    "find": "const binary = findCommand(program, process.env.PATH, root);",
+    "replace": "const binary = findCommand(program, process.env.PATH);",
+    "test": "pnpm vitest run addons/ci-security/tests/system.test.mts -t \"does not start a program of that name that is inside the folder it runs in\""
   }
 ]

@@ -708,6 +708,11 @@ describe("text from outside, as it is printed", () => {
     expect(shown("a\u0007b\u009bc\u2028d\u200be é · → \"x\"")).toBe('a\\u0007b\\u009bc\\u2028d\\u200be é · → "x"');
   });
 
+  it("writes out a space that is not the space, a soft hyphen, and a tag, which has two halves", () => {
+    expect(shown("a\u00a0b\u00adc\u{e0041}d")).toBe("a\\u00a0b\\u00adc\\udb40\\udc41d");
+    expect(JSON.parse(`"${shown("\u{e0041}")}"`)).toBe("\u{e0041}");
+  });
+
   it("writes out a control character in a ruleset's name, which could clear a line and write a PASS no check gave", () => {
     const { lines } = check({
       answers: {

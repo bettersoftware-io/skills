@@ -213,18 +213,28 @@ Two things about text and programs that are not the project's own:
   name come from the checkout, a ruleset's name and a refusal from GitHub. A
   control character there could clear a line and write a PASS no check gave,
   and a mark that turns the text round could show a command other than the
-  one that is pasted. Each is printed as its escape (`\u001b`). In the JSON
-  of the ruleset command that is the same character, so the command asks for
-  the same check. What goes into a command as a word is held to a pattern:
+  one that is pasted. Each is printed as its escape (`\u001b`). Which
+  characters is decided by Unicode's classes and not by a list of ranges:
+  the control characters, the format marks (direction, no width, tags), a
+  line or paragraph end, a space that is not the space, and what is private
+  or not assigned. In the JSON of the ruleset command the escape is the same
+  character, so the command asks for the same check. What goes into a command as a word is held to a pattern:
   the repository's name to letters, digits, `.`, `_` and `-`, a CodeQL
   language to GitHub's own list.
-- **`gh` and `git` are started by their full path**, found in the folders
-  of the PATH that are written in full. A PATH with `.` or an empty entry in
-  it means the folder a program is started in, which here is the project, or
-  the checkout `--root` names: a file called `gh` there is not started.
+- **`gh` and `git` are started by their full path**, found in a folder of
+  the PATH that no project fills. Three kinds of folder are passed over: one
+  not written in full (`.` or an empty entry is the folder a program is
+  started in, which here is the project); a `node_modules/.bin`, which pnpm
+  puts first on the PATH of a script and where a dependency may ship a file
+  of any name; and one inside the project, or inside the checkout `--root`
+  names, reached by a link too. So a file called `gh` that a checkout or a
+  dependency brought is not started in place of GitHub's.
 
-A security review of this add-on's commit named the first two of these, and
-a third with no detail that is not followed up.
+Two security reviews of these commits named both. The first also named a
+third thing with no detail, which is not followed up. What neither fix
+covers: a character that looks like another (a Cyrillic `а` in a job's
+name) is printed as it is, and a program is only as trusted as the folders
+of the PATH that are left.
 
 ## The security policy
 

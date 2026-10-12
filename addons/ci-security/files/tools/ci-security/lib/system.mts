@@ -4,7 +4,7 @@
 
 import { execFileSync, spawnSync } from "node:child_process";
 import { accessSync, constants, existsSync, realpathSync, statSync } from "node:fs";
-import { delimiter, isAbsolute, join, sep } from "node:path";
+import { delimiter, isAbsolute, join, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import type { Download, Extract } from "./install.mts";
@@ -47,7 +47,7 @@ export function runInherited(binary: string, runArguments: string[], root: strin
 
 /** Runs a program in `root` and keeps what it prints. A program that is not installed is a failed run (127), not a crash. */
 export const runCaptured: Run = (program, runArguments, root) => {
-  const binary = findCommand(program, process.env.PATH);
+  const binary = findCommand(program, process.env.PATH, root);
 
   if (binary === undefined) {
     return { status: 127, stdout: "", stderr: `${program} is in no folder of the PATH` };
@@ -67,12 +67,19 @@ export const runCaptured: Run = (program, runArguments, root) => {
  * first of that name in a folder of `path` otherwise. Undefined: it is in
  * none.
  *
- * Only a folder written in full counts. `.` and an empty entry of the PATH
- * mean the folder a program is started in, and these tools start `gh` and
- * `git` in the project: a file named `gh` in a checkout would be started in
- * place of GitHub's. Started by its full path, it cannot be.
+ * A folder of the PATH counts only when no project fills it:
+ *
+ *   - it is written in full. `.` and an empty entry mean the folder a program
+ *     is started in, and these tools start `gh` and `git` in the project;
+ *   - it is not a `node_modules/.bin`. pnpm puts those first on the PATH of a
+ *     script, and a dependency may ship a file of any name there;
+ *   - it is not inside `project`, the checkout the program is started for.
+ *
+ * So a file named `gh` that a checkout or a dependency brought is not
+ * started in place of GitHub's. Folders are compared by where they really
+ * are: a link into the project is in the project.
  */
-export function findCommand(name: string, path: string | undefined): string | undefined {
+export function findCommand(name: string, path: string | undefined, project?: string): string | undefined {
   if (isAbsolute(name)) {
     return name;
   }
@@ -86,9 +93,35 @@ export function findCommand(name: string, path: string | undefined): string | un
 
   return (path ?? "")
     .split(delimiter)
-    .filter((folder) => isAbsolute(folder))
+    .filter((folder) => isAbsolute(folder) && !isFilledByAProject(folder, project))
     .flatMap((folder) => names.map((file) => join(folder, file)))
     .find((file) => isExecutable(file));
+}
+
+function isFilledByAProject(folder: string, project: string | undefined): boolean {
+  const real = realPath(folder);
+  const parts = real.split(sep);
+
+  if (parts.at(-1) === ".bin" && parts.at(-2) === "node_modules") {
+    return true;
+  }
+
+  if (project === undefined) {
+    return false;
+  }
+
+  const root = realPath(project);
+
+  return real === root || real.startsWith(`${root}${sep}`);
+}
+
+/** Where a folder really is. One that is not there is taken as written: nothing is found in it either way. */
+function realPath(folder: string): string {
+  try {
+    return realpathSync(folder);
+  } catch {
+    return resolve(folder);
+  }
 }
 
 /** True when a file of that name in a folder of `path` can be run. */
