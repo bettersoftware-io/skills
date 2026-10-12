@@ -154,7 +154,9 @@ export function resolveSubpathImport(root: string, packagePath: string, specifie
     } else if (specifier.startsWith(before) && specifier.endsWith(after) && specifier.length >= key.length) {
       const matched = specifier.slice(before.length, specifier.length - after.length);
 
-      return normalize(join(packagePath, target.replace("*", matched)));
+      // Node puts the match in place of every `*` in the target, not the first.
+      // As a function, so that `$&` in a file name is not read as a pattern.
+      return normalize(join(packagePath, target.replaceAll("*", () => matched)));
     }
   }
 
