@@ -3,7 +3,7 @@
 What is not done yet. Finished work is removed from this page, not archived;
 the test records in this folder and the git log say what was done.
 
-**Last updated: 2026-10-11**
+**Last updated: 2026-10-12**
 
 ## Waiting on something outside this repository
 
@@ -152,8 +152,25 @@ Added on 2026-10-11 ([the record](documenting-architecture-2026-10-11.md)).
 - **Nothing checks that the core reaches the clock through a port.** In the
   Codex run a presenter read `new Date()` directly. A check for `Date` in the
   domain and the core is decidable from source, and does not exist.
+- **Dependabot cannot update a project's npm packages.** Its updater runs
+  Node 24. The starter's root asks for `>=26` in `devEngines.runtime` with
+  `"onFail": "error"`, and the `node-floor` gate holds it there, so pnpm
+  stops with `ERR_PNPM_BAD_RUNTIME_VERSION`. Both runs failed in a project
+  created on 2026-10-12, and every weekly run will. Renovate as the default,
+  a floor the updater is let past, or waiting for Dependabot: not decided.
+- **Nothing reads a repository's settings.** `ci-security` lists the ones a
+  person must switch on, and nothing says which are off. In the same project
+  the dependency graph was off, and Dependency Review failed the first pull
+  request for it. A command that asks GitHub and names each setting that is
+  off, with the command that sets it, is not built. Setting them from a
+  script is a different thing: an agent's host may refuse it, and did.
 
 ## Not tried
+
+- **The shipping rules of `agent-workflow`, read cold.** The steps were
+  followed by hand once, before the section said them ([the add-on's
+  README](../addons/agent-workflow/README.md#not-verified)). No session has
+  had only the section to go on.
 
 - **A feature that touches more of the app:** sign-in, routing. The hardest
   test so far (users and categories with create, edit and delete, over REST)
@@ -175,6 +192,11 @@ Added on 2026-10-11 ([the record](documenting-architecture-2026-10-11.md)).
   time, and removed (the add-on's README says how). What it relies on is from
   the documentation: the reply a host reads, how a host matches a hook to the
   shell tool, and that a hook that crashes or times out does not block.
+- **A second review named the hook's reading of a command.** A security
+  review of the add-on as a project got it (2026-10-12) named `outward.mts`,
+  `shell.mts` and the hook for letting through a command they cannot read
+  and for ways past the chain detection, with no detail. The first is the
+  choice the add-on's README states; the second is not followed up.
 - **Whether that hook is registered is judged by a reading of each host's
   matcher rules** (`hook-registration.mts`, in the installer and in the
   add-on's check). A security review of the last commit named that file for a

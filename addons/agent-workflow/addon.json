@@ -1,7 +1,7 @@
 {
   "name": "agent-workflow",
   "summary": "How an agent ships work: a hook that keeps each push and pull request step in a call of its own, a worktree script, a weekly tag and a changelog.",
-  "recommended": false,
+  "recommended": true,
   "packageJson": {
     ".": {
       "scripts": {
