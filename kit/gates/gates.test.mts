@@ -633,6 +633,13 @@ describe("a #… import, read from the package's own package.json", () => {
     expect(resolveSubpathImport(root, "packages/domain", "#/a.ts")).toBe("packages/domain/src/a.ts");
   });
 
+  it("puts the match in place of every star in the target, as Node does, and takes it letter for letter", () => {
+    const root = imports({ "#features/*": "./src/*/*.ts" });
+
+    expect(resolveSubpathImport(root, "packages/domain", "#features/prices")).toBe("packages/domain/src/prices/prices.ts");
+    expect(resolveSubpathImport(root, "packages/domain", "#features/$&")).toBe("packages/domain/src/$&/$&.ts");
+  });
+
   it("matches a pattern only by both of its ends, with something in between", () => {
     const root = imports({ "#tests/*.ts": "./tests/*.mts" });
 
