@@ -127,14 +127,15 @@ An outward step sends something off the machine or changes shared state.
 A command is refused when it holds an outward step and anything else beside
 it: joined by `&&`, `;`, `||`, `&` or a new line, in a subshell or a `{ }`
 group, in an `if` or a loop, inside `$(…)` or backticks of another command
-(`git commit -m "$(git push)"`), behind a pipe from another command
+(`git commit -m "$(git push)"`) or beside another `$(…)` that runs
+something (`A=$(git add -A) B=$(git push)`), behind a pipe from another command
 (`git commit -qam wip | git push`), or as the text given to `bash -c` or
 `eval`. Two outward steps in one command are refused however they are
 joined.
 
 A step is read behind a program that only runs it: `time`, `command`,
 `exec`, `nohup`, `env`, `timeout`, `nice`, `stdbuf`, `builtin`, `noglob` and
-`xargs`, each with its own options (`nice -n 5`, `timeout 30s`). Claude Code
+`xargs`, each with its own options (`nice -n 5`, `timeout -s KILL 30s`). Claude Code
 looks past the same words when it matches a permission rule to a command, so
 `nice git push` runs under an `allow` rule for `git push`.
 

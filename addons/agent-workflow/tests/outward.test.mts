@@ -97,6 +97,9 @@ describe("what counts as an outward step", () => {
     "nice -5 git push origin worktree-a",
     "timeout 30 git push origin worktree-a",
     "timeout -k 5 30s git push origin worktree-a",
+    "timeout -s KILL 30 git push origin worktree-a",
+    "timeout --signal KILL --kill-after 5s 30 git push origin worktree-a",
+    "env -u GIT_DIR git push origin worktree-a",
     "stdbuf -oL git push origin worktree-a",
     "nohup -- git push origin worktree-a",
     "command -p git push origin worktree-a",
@@ -114,6 +117,7 @@ describe("what counts as an outward step", () => {
     expect(judgeCommand("-n git push")?.outward).toEqual([]);
     expect(judgeCommand("30 git push")?.outward).toEqual([]);
     expect(judgeCommand("command -v git")?.outward).toEqual([]);
+    expect(judgeCommand("-s KILL git push")?.outward).toEqual([]);
     expect(judgeCommand("env GH_TOKEN=abc gh pr merge 1")?.outward).toHaveLength(1);
   });
 });
@@ -152,6 +156,14 @@ describe("how the steps are joined", () => {
 
   it("refuses two outward steps joined by a pipe", () => {
     expect(judgeCommand("git push | gh pr create --fill")).toMatchObject({ chained: true });
+  });
+
+  it("refuses an outward step that fills a variable beside another command that fills one", () => {
+    expect(judgeCommand("ADDED=$(git add -A) PUSHED=$(git push origin worktree-a)")).toMatchObject({ outward: ["git push origin"], chained: true });
+    expect(judgeCommand("ADDED=$(git add -A $(ls)) PUSHED=$(git push origin worktree-a)")?.chained).toBe(true);
+    expect(judgeCommand("ADDED=$(INNER=$(git add -A)) PUSHED=$(git push origin worktree-a)")?.chained).toBe(true);
+    expect(judgeCommand("EMPTY=$() PUSHED=$(git push origin worktree-a)")?.chained).toBe(false);
+    expect(judgeCommand('gh pr create --title "$(cat title.txt)" --body "$(cat body.md)"')?.chained).toBe(false);
   });
 
   it("refuses two outward steps that each only fill a variable", () => {

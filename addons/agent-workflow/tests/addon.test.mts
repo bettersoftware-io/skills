@@ -651,7 +651,7 @@ describe("the add-on in a project that has the kit", () => {
     addToProject({ project, unit: "agent-workflow", repository: REPOSITORY, scope: "@acme" });
 
     expect(spawnSync(process.execPath, ["tools/agent-workflow/check.mts"], { cwd: project, encoding: "utf8" }).status).toBe(0);
-  });
+  }, SPAWNS_TIMEOUT);
 
   it("answers as it should when started by the old registration, in that project, with the old setting on", () => {
     const project = createProjectAsBefore();
@@ -705,7 +705,7 @@ describe("the add-on in a project that has the kit", () => {
     expect(updated.settingsChanges).toEqual([`${CLAUDE_SETTINGS}: hooks.PreToolUse: ${CLAUDE_HOOK}`, `${CLAUDE_SETTINGS}: hooks.PreToolUse: ${CLAUDE_HOOK}`]);
     expect(readJson<HostSettings>(project, CLAUDE_SETTINGS).hooks?.PreToolUse).toEqual([...moved, ...(MANIFEST.hostSettings[CLAUDE_SETTINGS]?.hooks?.PreToolUse ?? [])]);
     expect(spawnSync(process.execPath, ["tools/agent-workflow/check.mts"], { cwd: project, encoding: "utf8" }).status).toBe(0);
-  });
+  }, SPAWNS_TIMEOUT);
 
   it("says a setting file is left on each update until it is deleted, and changes the settings once", () => {
     const project = createProjectAsBefore();
@@ -747,7 +747,7 @@ describe("the add-on in a project that has the kit", () => {
     writeFile(project, CLAUDE_SETTINGS, JSON.stringify({ ...readJson<HostSettings>(project, CLAUDE_SETTINGS), permissions: { ask: "Bash(x)", allow: ["Bash(git push *)"] } }));
 
     expect(spawnSync(process.execPath, ["tools/agent-workflow/check.mts"], { cwd: project, encoding: "utf8" }).status).toBe(1);
-  });
+  }, SPAWNS_TIMEOUT);
 
   it("exits 0 when everything went in", () => {
     const project = createProjectWithKit();

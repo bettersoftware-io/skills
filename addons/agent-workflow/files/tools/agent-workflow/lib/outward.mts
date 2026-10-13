@@ -35,6 +35,8 @@ const LEADING_WORDS = [
 ];
 /** What such a program takes before the command it runs, beside its options: a number (`nice -n 5`) or a time (`timeout 30s`). */
 const LEADING_VALUE = /^\d+(?:\.\d+)?[smhd]?$/;
+/** Options of such a program that take their value as the next word, whatever it is: `timeout -s KILL`, `env -u NAME`. */
+const LEADING_OPTIONS_WITH_VALUE = ["-s", "--signal", "-k", "--kill-after", "-n", "-u"];
 const SHELLS = ["bash", "sh", "zsh", "dash", "ksh"];
 /**
  * A word nothing hides in: letters, digits and `. _ - /`. Any other
@@ -64,9 +66,10 @@ export interface Verdict {
   redirected: boolean;
 }
 
-/** A verdict, and whether a `git push` is among the outward steps. */
+/** A verdict, whether a `git push` is among the outward steps, and whether the script runs any command at all. */
 interface Reading extends Verdict {
   pushed: boolean;
+  runs: boolean;
 }
 
 /**
@@ -137,6 +140,9 @@ function judgeScript(script: Script, depth = 0): Reading {
     }
   }
 
+  let beside = 0;
+  let within = false;
+
   for (const nested of script.nested) {
     const inner = judgeScript(nested, depth + 1);
 
@@ -145,12 +151,17 @@ function judgeScript(script: Script, depth = 0): Reading {
     chained ||= inner.chained || (inner.outward.length > 0 && steps > 0);
     redirected ||= inner.redirected;
     pushed ||= inner.pushed;
+    beside += inner.runs ? 1 : 0;
+    within ||= inner.outward.length > 0;
   }
+
+  // Two `$(…)` side by side, one of them outward: `A=$(git add -A) B=$(git push)` runs both.
+  chained ||= within && beside > 1;
 
   // One outward step with a filter behind a pipe, or with a `$(cat …)` that
   // only feeds it, is still one step. Two of them, or one beside any other
   // step, is a chain.
-  return { outward, chained: chained || (outward.length > 0 && (steps > 1 || outward.length > 1)), redirected, pushed };
+  return { outward, chained: chained || (outward.length > 0 && (steps > 1 || outward.length > 1)), redirected, pushed, runs: steps > 0 || beside > 0 };
 }
 
 /**
@@ -177,6 +188,8 @@ export function commandWords(stage: Stage): string[] {
 
     if (LEADING_WORDS.includes(word)) {
       led = true;
+    } else if (led && LEADING_OPTIONS_WITH_VALUE.includes(word)) {
+      start += 1;
     } else if (!(/^[A-Za-z_][A-Za-z0-9_]*=/.test(word) || (led && (word.startsWith("-") || LEADING_VALUE.test(word))))) {
       break;
     }
