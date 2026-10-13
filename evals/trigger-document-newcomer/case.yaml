@@ -1,0 +1,15 @@
+schema_version: "1.1"
+name: trigger-document-newcomer
+description: "The same need in a newcomer's words: no C4, no mention of architecture."
+tags: [trigger, documenting-architecture]
+context:
+  scaffold_script: fixture.sh
+execution:
+  prompt: "A new engineer joins next week. Write them a guide to how this repository works, with diagrams, so they can find their way around."
+  max_turns: 8
+  allowed_tools: [Read, Glob, Grep, Skill]
+graders:
+  - type: tool_used
+    name: loads-documenting-architecture
+    tool: Skill
+    input_match: '"skill"\s*:\s*"(?:[\w-]+:)?documenting-architecture"'

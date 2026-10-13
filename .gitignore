@@ -2,3 +2,6 @@
 .idea/
 node_modules/
 .turbo/
+
+# Written by each run of the evals (pnpm evals:trigger).
+evals/results/
