@@ -70,7 +70,7 @@ describe("the add-on's manifest", () => {
   });
 
   it("leaves CHANGELOG.md to the project once it is written, and ships no setting", () => {
-    expect(MANIFEST.startingFiles).toEqual(["CHANGELOG.md"]);
+    expect(MANIFEST.startingFiles).toEqual(["CHANGELOG.md", "docs/STATUS.md", "docs/IDEAS.md"]);
     expect(FILES.filter((file) => /config/.test(file))).toEqual([]);
   });
 
@@ -334,6 +334,36 @@ describe("the section for AGENTS.md", () => {
     expect(SECTION).toContain("git merge-base --is-ancestor <commit> origin/main");
     expect(SECTION).toContain("gh run list --branch main --commit <merge commit>");
     expect(SECTION).not.toMatch(/gh pr merge [^\n]*--(squash|rebase|auto|admin)/);
+  });
+});
+
+describe("the page of what is left that it starts a project with", () => {
+  const status = readFileSync(join(ADDON, "files/docs/STATUS.md"), "utf8");
+  const ideas = readFileSync(join(ADDON, "files/docs/IDEAS.md"), "utf8");
+  const headings = [...status.matchAll(/^## (.+)$/gm)].map((match) => match[1] ?? "");
+
+  it("has the sections the section of AGENTS.md names, in its order, and no entry", () => {
+    const rows = [...SECTION.matchAll(/^\| ([A-Z][^|]+?) \| [^|]+ \|$/gm)].map((match) => match[1] ?? "");
+
+    expect(headings).toEqual(["In progress", "Designed, not built", "Planned, and held by something", "Next, with no plan yet", "Waiting on a person", "Known limits"]);
+    expect(rows.filter((row) => row !== "Section")).toEqual(headings);
+    expect(status).not.toMatch(/^- /m);
+  });
+
+  it("has a line for the date of its last edit, which the section tells an agent to set", () => {
+    expect(status).toContain("**Last updated: no entry yet**");
+    expect(SECTION).toContain("Every edit sets `Last updated` to today's date.");
+  });
+
+  it("points at the page of ideas, which points back, and at the changelog beside the project's root", () => {
+    expect(status).toContain("[IDEAS.md](IDEAS.md)");
+    expect(status).toContain("(../CHANGELOG.md)");
+    expect(ideas).toContain("[STATUS.md](STATUS.md)");
+  });
+
+  it("tells an agent to write what a piece of work leaves into the page, in that work's pull request", () => {
+    expect(SECTION).toContain("Write each one into `docs/STATUS.md`, in the pull request of\nthe work that left it.");
+    expect(SECTION).toContain("remove the entry, in that pull request");
   });
 });
 
@@ -620,7 +650,7 @@ describe("the add-on in a project that has the kit", () => {
     const project = createProjectWithKit();
     const result = addToProject({ project, unit: "agent-workflow", repository: REPOSITORY, scope: "@acme" });
 
-    expect(result.created).toEqual(["CHANGELOG.md"]);
+    expect([...result.created].sort()).toEqual(["CHANGELOG.md", "docs/IDEAS.md", "docs/STATUS.md"]);
     expect(result.files.written).toEqual(expect.arrayContaining([".github/workflows/weekly-tag.yml", ".claude/commands/workflow/changelog.md", ".agents/skills/workflow-changelog/SKILL.md", HOOK_SCRIPT]));
 
     writeFile(project, "CHANGELOG.md", "# Changelog\n\n## 2026-W40 — the project's own entry\n");
