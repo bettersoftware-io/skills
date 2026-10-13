@@ -6,6 +6,7 @@
     ".": {
       "scripts": {
         "worktree": "node tools/agent-workflow/new-worktree.mts",
+        "worktree:audit": "node tools/agent-workflow/audit-worktrees.mts",
         "changelog": "node tools/agent-workflow/changelog.mts",
         "agent-workflow:check": "node tools/agent-workflow/check.mts"
       }

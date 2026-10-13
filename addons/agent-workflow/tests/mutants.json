@@ -3598,5 +3598,1006 @@
     "find": "\"nohup\", \"env\", \"xargs\"];",
     "replace": "\"nohup\", \"env\"];",
     "test": "pnpm vitest run addons/agent-workflow/tests/outward.test.mts --testNamePattern=\"is an outward step behind xargs as well\""
+  },
+  {
+    "name": "audit: a project with no linked worktree says so",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/worktree-audit.mts",
+    "find": "report(\"no linked worktree: this project has only its own checkout\");",
+    "replace": "report(\"\");",
+    "test": "pnpm vitest run addons/agent-workflow/tests/audit-worktrees.test.mts --testNamePattern=\"says there is none, names nothing to remove\""
+  },
+  {
+    "name": "audit: a worktree folder that is not there is not one that could not be read",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/worktree-audit.mts",
+    "find": "(error as NodeJS.ErrnoException).code === \"ENOENT\" ? \"absent\" : \"unread\"",
+    "replace": "\"unread\"",
+    "test": "pnpm vitest run addons/agent-workflow/tests/audit-worktrees.test.mts --testNamePattern=\"says there is none, names nothing to remove\""
+  },
+  {
+    "name": "audit: nothing to remove means no next step",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/worktree-audit.mts",
+    "find": "if (verdicts.includes(MERGED) || leftovers > 0) {",
+    "replace": "if (verdicts.includes(MERGED) || leftovers >= 0) {",
+    "test": "pnpm vitest run addons/agent-workflow/tests/audit-worktrees.test.mts --testNamePattern=\"says there is none, names nothing to remove\""
+  },
+  {
+    "name": "audit: a commit that is an ancestor of main is merged",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/worktree-audit.mts",
+    "find": "return status === 0 ? true : status === 1 ? false : undefined;",
+    "replace": "return status === 0 ? false : status === 1 ? false : undefined;",
+    "test": "pnpm vitest run addons/agent-workflow/tests/audit-worktrees.test.mts --testNamePattern=\"is MERGED when its branch reached main by a merge commit\""
+  },
+  {
+    "name": "audit: a merged worktree gets the command that deletes its branch",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/worktree-audit.mts",
+    "find": "...(name === undefined ? [] : [`           git branch -D ${name}`])",
+    "replace": "...[]",
+    "test": "pnpm vitest run addons/agent-workflow/tests/audit-worktrees.test.mts --testNamePattern=\"is MERGED when its branch reached main by a merge commit\""
+  },
+  {
+    "name": "audit: a merged worktree gets the command that removes it, with its path",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/worktree-audit.mts",
+    "find": "`  remove:  git worktree remove ${folder}`",
+    "replace": "`  remove:  git worktree remove`",
+    "test": "pnpm vitest run addons/agent-workflow/tests/audit-worktrees.test.mts --testNamePattern=\"is MERGED when its branch reached main by a merge commit\""
+  },
+  {
+    "name": "audit: a branch merged by a merge commit is not on main's own line",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/worktree-audit.mts",
+    "find": "git(\"rev-list\", \"--first-parent\", main, \"--not\", `${tip}^@`)",
+    "replace": "git(\"rev-list\", main, \"--not\", `${tip}^@`)",
+    "test": "pnpm vitest run addons/agent-workflow/tests/audit-worktrees.test.mts --testNamePattern=\"is MERGED when its branch reached main by a merge commit\""
+  },
+  {
+    "name": "audit: a tree with files not committed is not clean",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/worktree-audit.mts",
+    "find": "return changed.length === 0 ? { state: \"clean\" } : { state: \"not clean\", changed };",
+    "replace": "return { state: \"clean\" };",
+    "test": "pnpm vitest run addons/agent-workflow/tests/audit-worktrees.test.mts --testNamePattern=\"is MERGED, NOT CLEAN when its commit is on main\""
+  },
+  {
+    "name": "audit: an untracked file is told from a changed one",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/worktree-audit.mts",
+    "find": "untracked: code === \"??\"",
+    "replace": "untracked: false",
+    "test": "pnpm vitest run addons/agent-workflow/tests/audit-worktrees.test.mts --testNamePattern=\"is MERGED, NOT CLEAN when its commit is on main\""
+  },
+  {
+    "name": "audit: a merged worktree that is not clean gets no command",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/worktree-audit.mts",
+    "find": "if (tree.state === \"not clean\") {",
+    "replace": "if (tree.state === \"never\") {",
+    "test": "pnpm vitest run addons/agent-workflow/tests/audit-worktrees.test.mts --testNamePattern=\"is MERGED, NOT CLEAN when its commit is on main\""
+  },
+  {
+    "name": "audit: merged and not clean has its own next step",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/worktree-audit.mts",
+    "find": "if (verdicts.includes(NOT_CLEAN)) {",
+    "replace": "if (verdicts.includes(NOT_JUDGED)) {",
+    "test": "pnpm vitest run addons/agent-workflow/tests/audit-worktrees.test.mts --testNamePattern=\"is MERGED, NOT CLEAN when its commit is on main\""
+  },
+  {
+    "name": "audit: five paths are named, then a count",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/worktree-audit.mts",
+    "find": "const FIRST_FEW = 5;",
+    "replace": "const FIRST_FEW = 6;",
+    "test": "pnpm vitest run addons/agent-workflow/tests/audit-worktrees.test.mts --testNamePattern=\"names the first five paths that are not committed\""
+  },
+  {
+    "name": "audit: the paths past the first five are counted",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/worktree-audit.mts",
+    "find": ".join(\", \")}${more(tree.changed.length)}`;",
+    "replace": ".join(\", \")}`;",
+    "test": "pnpm vitest run addons/agent-workflow/tests/audit-worktrees.test.mts --testNamePattern=\"names the first five paths that are not committed\""
+  },
+  {
+    "name": "audit: the old name of a renamed file is not a second path",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/worktree-audit.mts",
+    "find": "if (code.includes(\"R\") || code.includes(\"C\")) {",
+    "replace": "if (code.includes(\"never\")) {",
+    "test": "pnpm vitest run addons/agent-workflow/tests/audit-worktrees.test.mts --testNamePattern=\"counts a file that was renamed once\""
+  },
+  {
+    "name": "audit: a commit that is not an ancestor of main is not merged",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/worktree-audit.mts",
+    "find": "return status === 0 ? true : status === 1 ? false : undefined;",
+    "replace": "return status === 0 || status === 1 ? true : undefined;",
+    "test": "pnpm vitest run addons/agent-workflow/tests/audit-worktrees.test.mts --testNamePattern=\"is UNMERGED when it has commits main does not have\""
+  },
+  {
+    "name": "audit: the commits are listed newest first",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/worktree-audit.mts",
+    "find": "`--max-count=${FIRST_FEW}`, \"--format=%h %ct %s\"",
+    "replace": "`--max-count=${FIRST_FEW}`, \"--reverse\", \"--format=%h %ct %s\"",
+    "test": "pnpm vitest run addons/agent-workflow/tests/audit-worktrees.test.mts --testNamePattern=\"is UNMERGED when it has commits main does not have\""
+  },
+  {
+    "name": "audit: the commits counted are the ones main does not have",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/worktree-audit.mts",
+    "find": "git(\"rev-list\", \"--count\", `${main}..${tip}`)",
+    "replace": "git(\"rev-list\", \"--count\", `${tip}..${main}`)",
+    "test": "pnpm vitest run addons/agent-workflow/tests/audit-worktrees.test.mts --testNamePattern=\"is UNMERGED when it has commits main does not have\""
+  },
+  {
+    "name": "audit: the age is counted back from now",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/worktree-audit.mts",
+    "find": "the newest ${ago(now.getTime() / 1000 - newest)}`",
+    "replace": "the newest ${ago(newest)}`",
+    "test": "pnpm vitest run addons/agent-workflow/tests/audit-worktrees.test.mts --testNamePattern=\"is UNMERGED when it has commits main does not have\""
+  },
+  {
+    "name": "audit: unmerged work has its own next step",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/worktree-audit.mts",
+    "find": "if (verdicts.includes(UNMERGED)) {",
+    "replace": "if (verdicts.includes(NOT_JUDGED) && false) {",
+    "test": "pnpm vitest run addons/agent-workflow/tests/audit-worktrees.test.mts --testNamePattern=\"is UNMERGED when it has commits main does not have\""
+  },
+  {
+    "name": "audit: a minute is sixty seconds",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/worktree-audit.mts",
+    "find": "if (seconds < 60) {",
+    "replace": "if (seconds < 61) {",
+    "test": "pnpm vitest run addons/agent-workflow/tests/audit-worktrees.test.mts --testNamePattern=\"gives the age of a commit made\""
+  },
+  {
+    "name": "audit: an hour is sixty minutes",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/worktree-audit.mts",
+    "find": "if (seconds < 3600) {",
+    "replace": "if (seconds < 3601) {",
+    "test": "pnpm vitest run addons/agent-workflow/tests/audit-worktrees.test.mts --testNamePattern=\"gives the age of a commit made\""
+  },
+  {
+    "name": "audit: a day is twenty-four hours",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/worktree-audit.mts",
+    "find": "return seconds < 86_400 ?",
+    "replace": "return seconds < 86_401 ?",
+    "test": "pnpm vitest run addons/agent-workflow/tests/audit-worktrees.test.mts --testNamePattern=\"gives the age of a commit made\""
+  },
+  {
+    "name": "audit: one of a thing is not written as many",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/worktree-audit.mts",
+    "find": "return `${number} ${number === 1 ? one : many}`;",
+    "replace": "return `${number} ${many}`;",
+    "test": "pnpm vitest run addons/agent-workflow/tests/audit-worktrees.test.mts --testNamePattern=\"gives the age of a commit made\""
+  },
+  {
+    "name": "audit: an age is whole minutes, counted down",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/worktree-audit.mts",
+    "find": "Math.floor(seconds / 3600)",
+    "replace": "Math.round(seconds / 3600 + 0.5)",
+    "test": "pnpm vitest run addons/agent-workflow/tests/audit-worktrees.test.mts --testNamePattern=\"gives the age of a commit made\""
+  },
+  {
+    "name": "audit: the commits past the first five are counted",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/worktree-audit.mts",
+    "find": "...(total > commits.length ? [",
+    "replace": "...(total < commits.length ? [",
+    "test": "pnpm vitest run addons/agent-workflow/tests/audit-worktrees.test.mts --testNamePattern=\"names the first five commits main does not have\""
+  },
+  {
+    "name": "audit: five commits are named, not all of them",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/worktree-audit.mts",
+    "find": "`--max-count=${FIRST_FEW}`, \"--format=%h %ct %s\"",
+    "replace": "\"--format=%h %ct %s\"",
+    "test": "pnpm vitest run addons/agent-workflow/tests/audit-worktrees.test.mts --testNamePattern=\"names the first five commits main does not have\""
+  },
+  {
+    "name": "audit: an unmerged worktree's tree is described too",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/worktree-audit.mts",
+    "find": "        ...commitsAhead(bench, head as string),\n        `  tree:    ${describeTree(tree)}`,",
+    "replace": "        ...commitsAhead(bench, head as string),",
+    "test": "pnpm vitest run addons/agent-workflow/tests/audit-worktrees.test.mts --testNamePattern=\"says so when an unmerged worktree's tree is not clean as well\""
+  },
+  {
+    "name": "audit: the report says once that a squash reads as unmerged",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/worktree-audit.mts",
+    "find": "A branch that reached main by a squash or a rebase reads as",
+    "replace": "A branch that reached main by a rebase reads as",
+    "test": "pnpm vitest run addons/agent-workflow/tests/audit-worktrees.test.mts --testNamePattern=\"reads a branch whose changes reached main by a squash\""
+  },
+  {
+    "name": "audit: on main means the commit is on main, not that its changes are",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/worktree-audit.mts",
+    "find": "git(\"merge-base\", \"--is-ancestor\", commit, main)",
+    "replace": "git(\"merge-base\", \"--is-ancestor\", main, main)",
+    "test": "pnpm vitest run addons/agent-workflow/tests/audit-worktrees.test.mts --testNamePattern=\"reads a branch whose changes reached main by a squash\""
+  },
+  {
+    "name": "audit: a worktree on main's own line is noted",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/worktree-audit.mts",
+    "find": "return line.status !== 0 || line.stdout.split(\"\\n\").includes(tip);",
+    "replace": "return line.status !== 0;",
+    "test": "pnpm vitest run addons/agent-workflow/tests/audit-worktrees.test.mts --testNamePattern=\"notes a merged worktree that never had a commit of its own\""
+  },
+  {
+    "name": "audit: a worktree whose work was merged is not noted",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/worktree-audit.mts",
+    "find": "git(\"rev-list\", \"--first-parent\", main, \"--not\", `${tip}^@`)",
+    "replace": "git(\"rev-list\", main, \"--not\", `${tip}^@`)",
+    "test": "pnpm vitest run addons/agent-workflow/tests/audit-worktrees.test.mts --testNamePattern=\"notes a merged worktree that never had a commit of its own\""
+  },
+  {
+    "name": "audit: a detached worktree still gets the command that removes it",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/worktree-audit.mts",
+    "find": "if (folder === undefined || (branch !== undefined && name === undefined)) {",
+    "replace": "if (folder === undefined || name === undefined) {",
+    "test": "pnpm vitest run addons/agent-workflow/tests/audit-worktrees.test.mts --testNamePattern=\"says a worktree is detached\""
+  },
+  {
+    "name": "audit: a worktree with no branch is said to be detached",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/worktree-audit.mts",
+    "find": "ref?.startsWith(\"refs/heads/\") === true ? ref.slice(\"refs/heads/\".length) : undefined",
+    "replace": "ref?.startsWith(\"refs/heads/\") === true ? ref.slice(\"refs/heads/\".length) : \"HEAD\"",
+    "test": "pnpm vitest run addons/agent-workflow/tests/audit-worktrees.test.mts --testNamePattern=\"says a worktree is detached\""
+  },
+  {
+    "name": "audit: a locked worktree is said to be locked",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/worktree-audit.mts",
+    "find": "locked: fields.get(\"locked\"),",
+    "replace": "locked: undefined,",
+    "test": "pnpm vitest run addons/agent-workflow/tests/audit-worktrees.test.mts --testNamePattern=\"says a worktree is locked\""
+  },
+  {
+    "name": "audit: a lock with no reason says so",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/worktree-audit.mts",
+    "find": "locked === \"\" ? \"no reason was given\" : cut(locked)",
+    "replace": "locked === \"never\" ? \"no reason was given\" : cut(locked)",
+    "test": "pnpm vitest run addons/agent-workflow/tests/audit-worktrees.test.mts --testNamePattern=\"says a worktree is locked\""
+  },
+  {
+    "name": "audit: a locked worktree gets no command",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/worktree-audit.mts",
+    "find": "if (locked !== undefined) {",
+    "replace": "if (locked === \"never\") {",
+    "test": "pnpm vitest run addons/agent-workflow/tests/audit-worktrees.test.mts --testNamePattern=\"says a worktree is locked\""
+  },
+  {
+    "name": "audit: a worktree whose folder is gone is said to be prunable",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/worktree-audit.mts",
+    "find": "prunable: fields.get(\"prunable\"),",
+    "replace": "prunable: undefined,",
+    "test": "pnpm vitest run addons/agent-workflow/tests/audit-worktrees.test.mts --testNamePattern=\"says a worktree is prunable\""
+  },
+  {
+    "name": "audit: the tree of a worktree whose folder is gone is not asked for",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/worktree-audit.mts",
+    "find": "if (prunable !== undefined) {",
+    "replace": "if (prunable === \"never\") {",
+    "test": "pnpm vitest run addons/agent-workflow/tests/audit-worktrees.test.mts --testNamePattern=\"says a worktree is prunable\""
+  },
+  {
+    "name": "audit: unmerged work whose folder is gone is said to be still in the repository",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/worktree-audit.mts",
+    "find": "prunable === undefined ? \"\" : \", and its folder is gone",
+    "replace": "prunable !== undefined ? \"\" : \", and its folder is gone",
+    "test": "pnpm vitest run addons/agent-workflow/tests/audit-worktrees.test.mts --testNamePattern=\"says a worktree is prunable\""
+  },
+  {
+    "name": "audit: a failed ancestor test is not read as not merged",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/worktree-audit.mts",
+    "find": "return status === 0 ? true : status === 1 ? false : undefined;",
+    "replace": "return status === 0;",
+    "test": "pnpm vitest run addons/agent-workflow/tests/audit-worktrees.test.mts --testNamePattern=\"is NOT JUDGED, and the run exits 2\""
+  },
+  {
+    "name": "audit: a worktree that could not be judged makes the run exit 2",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/worktree-audit.mts",
+    "find": "if (unjudged > 0) {",
+    "replace": "if (unjudged > 99) {",
+    "test": "pnpm vitest run addons/agent-workflow/tests/audit-worktrees.test.mts --testNamePattern=\"is NOT JUDGED, and the run exits 2\""
+  },
+  {
+    "name": "audit: an orphan branch that could not be judged makes the run exit 2",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/worktree-audit.mts",
+    "find": "gaps: unjudged === 0 ? [] :",
+    "replace": "gaps: unjudged !== 0 ? [] :",
+    "test": "pnpm vitest run addons/agent-workflow/tests/audit-worktrees.test.mts --testNamePattern=\"is NOT JUDGED, and the run exits 2\""
+  },
+  {
+    "name": "audit: a status that failed is not a clean tree",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/worktree-audit.mts",
+    "find": "if (status.status !== 0) {",
+    "replace": "if (status.status === 99) {",
+    "test": "pnpm vitest run addons/agent-workflow/tests/audit-worktrees.test.mts --testNamePattern=\"is NOT JUDGED when its commit is on main and its tree cannot be read\""
+  },
+  {
+    "name": "audit: merged with a tree that could not be read is not merged and clean",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/worktree-audit.mts",
+    "find": "if (tree.state === \"unread\") {",
+    "replace": "if (tree.state === \"never\") {",
+    "test": "pnpm vitest run addons/agent-workflow/tests/audit-worktrees.test.mts --testNamePattern=\"is NOT JUDGED when its commit is on main and its tree cannot be read\""
+  },
+  {
+    "name": "audit: commits that could not be listed are said, not shown as none",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/worktree-audit.mts",
+    "find": "if (counted.status !== 0 || logged.status !== 0 || !Number.isInteger(total)) {",
+    "replace": "if (logged.status !== 0 || !Number.isInteger(total)) {",
+    "test": "pnpm vitest run addons/agent-workflow/tests/audit-worktrees.test.mts --testNamePattern=\"when git cannot list the commits main does not have\""
+  },
+  {
+    "name": "audit: commits that could not be listed make the run exit 2",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/worktree-audit.mts",
+    "find": "missed.push(`the commits of ${tip.slice(0, 7)} that are not on ${mainName} could not be listed`);",
+    "replace": "",
+    "test": "pnpm vitest run addons/agent-workflow/tests/audit-worktrees.test.mts --testNamePattern=\"when git cannot list the commits main does not have\""
+  },
+  {
+    "name": "audit: the note is given when git cannot rule it out",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/worktree-audit.mts",
+    "find": "return line.status !== 0 || line.stdout.split(\"\\n\").includes(tip);",
+    "replace": "return line.status === 0 && line.stdout.split(\"\\n\").includes(tip);",
+    "test": "pnpm vitest run addons/agent-workflow/tests/audit-worktrees.test.mts --testNamePattern=\"when git cannot list the commits main does not have\""
+  },
+  {
+    "name": "audit: a commit git cannot describe is given by its hash",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/worktree-audit.mts",
+    "find": "return logged.status === 0 ? cut(logged.stdout.trim()) : commit.slice(0, 9);",
+    "replace": "return cut(logged.stdout.trim());",
+    "test": "pnpm vitest run addons/agent-workflow/tests/audit-worktrees.test.mts --testNamePattern=\"gives a commit by the start of its hash\""
+  },
+  {
+    "name": "audit: a word that is not a full hash is never handed to git as a commit",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/worktree-audit.mts",
+    "find": "if (commit === undefined || !COMMIT.test(commit)) {",
+    "replace": "if (commit === undefined) {",
+    "test": "pnpm vitest run addons/agent-workflow/tests/audit-worktrees.test.mts --testNamePattern=\"hands git nothing as a commit that is not a full hash\""
+  },
+  {
+    "name": "audit: untracked files are asked for by name, whatever git is set to",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/worktree-audit.mts",
+    "find": "\"-z\", \"--untracked-files=normal\"]",
+    "replace": "\"-z\"]",
+    "test": "pnpm vitest run addons/agent-workflow/tests/audit-worktrees.test.mts --testNamePattern=\"counts an untracked file though git is set to hide them\""
+  },
+  {
+    "name": "audit: status takes no lock in a worktree it reads",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/worktree-audit.mts",
+    "find": "[\"--no-optional-locks\", \"status\",",
+    "replace": "[\"status\",",
+    "test": "pnpm vitest run addons/agent-workflow/tests/audit-worktrees.test.mts --testNamePattern=\"does not rewrite the index of a worktree it reads\""
+  },
+  {
+    "name": "audit: main is the branch origin calls its default",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/worktree-audit.mts",
+    "find": "const base = defaultBranch(git);",
+    "replace": "const base = \"main\";",
+    "test": "pnpm vitest run addons/agent-workflow/tests/audit-worktrees.test.mts --testNamePattern=\"judges against the branch origin calls its default\""
+  },
+  {
+    "name": "audit: the project is the first checkout git lists, not where it was run",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/worktree-audit.mts",
+    "find": "report(`${TOOL} of ${own.path}`);",
+    "replace": "report(`${TOOL} of ${cwd}`);",
+    "test": "pnpm vitest run addons/agent-workflow/tests/audit-worktrees.test.mts --testNamePattern=\"judges the same from inside a linked worktree\""
+  },
+  {
+    "name": "audit: the worktree folder is beside the project, not beside where it was run",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/worktree-audit.mts",
+    "find": "const folder = join(dirname(own.path), `${basename(own.path)}-worktrees`);",
+    "replace": "const folder = join(dirname(cwd), `${basename(cwd)}-worktrees`);",
+    "test": "pnpm vitest run addons/agent-workflow/tests/audit-worktrees.test.mts --testNamePattern=\"judges the same from inside a linked worktree\""
+  },
+  {
+    "name": "audit: main is fetched before anything is judged",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/worktree-audit.mts",
+    "find": "const fetched = git(\"fetch\", REMOTE, \"--end-of-options\", base);",
+    "replace": "const fetched = git(\"rev-parse\", \"HEAD\");",
+    "test": "pnpm vitest run addons/agent-workflow/tests/audit-worktrees.test.mts --testNamePattern=\"fetches origin's main first\""
+  },
+  {
+    "name": "audit: the branch is named to git after --end-of-options",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/worktree-audit.mts",
+    "find": "const fetched = git(\"fetch\", REMOTE, \"--end-of-options\", base);",
+    "replace": "const fetched = git(\"fetch\", REMOTE, base);",
+    "test": "pnpm vitest run addons/agent-workflow/tests/audit-worktrees.test.mts --testNamePattern=\"names the branch to git after --end-of-options\""
+  },
+  {
+    "name": "audit: a failed fetch is not said to be a fetch",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/worktree-audit.mts",
+    "find": "if (fetched.status === 0) {",
+    "replace": "if (fetched.status !== 99) {",
+    "test": "pnpm vitest run addons/agent-workflow/tests/audit-worktrees.test.mts --testNamePattern=\"still reports when the fetch fails\""
+  },
+  {
+    "name": "audit: a failed fetch makes the run exit 2",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/worktree-audit.mts",
+    "find": "gaps.push(`${base} could not be fetched from ${REMOTE}",
+    "replace": "void (`${base} could not be fetched from ${REMOTE}",
+    "test": "pnpm vitest run addons/agent-workflow/tests/audit-worktrees.test.mts --testNamePattern=\"still reports when the fetch fails\""
+  },
+  {
+    "name": "audit: when main last moved is counted back from now",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/worktree-audit.mts",
+    "find": "`which last moved ${ago(now.getTime() / 1000 - Number(at))}`",
+    "replace": "`which last moved ${ago(0)}`",
+    "test": "pnpm vitest run addons/agent-workflow/tests/audit-worktrees.test.mts --testNamePattern=\"still reports when the fetch fails\""
+  },
+  {
+    "name": "audit: no log of origin's main is said, not counted",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/worktree-audit.mts",
+    "find": "return entry.status === 0 && at !== undefined ?",
+    "replace": "return entry.status === 0 ?",
+    "test": "pnpm vitest run addons/agent-workflow/tests/audit-worktrees.test.mts --testNamePattern=\"says git has no record of when\""
+  },
+  {
+    "name": "audit: with no origin/main nothing is judged",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/worktree-audit.mts",
+    "find": "if (!COMMIT.test(mainTip)) {",
+    "replace": "if (mainTip === \"never\") {",
+    "test": "pnpm vitest run addons/agent-workflow/tests/audit-worktrees.test.mts --testNamePattern=\"judges nothing in a clone that has no origin\""
+  },
+  {
+    "name": "audit: with no origin/main the failed fetch is given as the reason",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/worktree-audit.mts",
+    "find": "${fetched.status === 0 ? \"\" : `, and could not fetch",
+    "replace": "${fetched.status !== 0 ? \"\" : `, and could not fetch",
+    "test": "pnpm vitest run addons/agent-workflow/tests/audit-worktrees.test.mts --testNamePattern=\"judges nothing in a clone that has no origin\""
+  },
+  {
+    "name": "audit: a main branch that is not a plain name is not handed to git",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/worktree-audit.mts",
+    "find": "if (!isBase(base)) {",
+    "replace": "if (base === \"\") {",
+    "test": "pnpm vitest run addons/agent-workflow/tests/audit-worktrees.test.mts --testNamePattern=\"judges nothing when origin's recorded main branch\""
+  },
+  {
+    "name": "audit: a folder that is no repository is not reported on",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/worktree-audit.mts",
+    "find": "const [own, ...linked] = listed.status === 0 ? parseWorktrees(listed.stdout) : [];",
+    "replace": "const [own, ...linked] = parseWorktrees(`worktree ${cwd}\\0\\0`);",
+    "test": "pnpm vitest run addons/agent-workflow/tests/audit-worktrees.test.mts --testNamePattern=\"judges nothing outside a git repository\""
+  },
+  {
+    "name": "audit: a merged orphan branch gets the command that deletes it",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/worktree-audit.mts",
+    "find": "`    remove:  git branch -D ${word}`",
+    "replace": "`    remove:  git branch -d ${word}`",
+    "test": "pnpm vitest run addons/agent-workflow/tests/audit-worktrees.test.mts --testNamePattern=\"branch no worktree has checked out as MERGED\""
+  },
+  {
+    "name": "audit: an orphan branch is one named worktree-",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/worktree-audit.mts",
+    "find": "name.startsWith(BRANCH_PREFIX) && !checkedOut.has(name)",
+    "replace": "name.startsWith(\"never\") && !checkedOut.has(name)",
+    "test": "pnpm vitest run addons/agent-workflow/tests/audit-worktrees.test.mts --testNamePattern=\"branch no worktree has checked out as MERGED\""
+  },
+  {
+    "name": "audit: orphan branches are counted",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/worktree-audit.mts",
+    "find": "found: orphans.length,",
+    "replace": "found: 0,",
+    "test": "pnpm vitest run addons/agent-workflow/tests/audit-worktrees.test.mts --testNamePattern=\"branch no worktree has checked out as MERGED\""
+  },
+  {
+    "name": "audit: an orphan branch to delete has the ask-first step",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/worktree-audit.mts",
+    "find": "orphans.found + strays.found, own.path",
+    "replace": "strays.found, own.path",
+    "test": "pnpm vitest run addons/agent-workflow/tests/audit-worktrees.test.mts --testNamePattern=\"branch no worktree has checked out as MERGED\""
+  },
+  {
+    "name": "audit: an unmerged orphan branch is not called merged",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/worktree-audit.mts",
+    "find": "`  ${onMain ? MERGED : UNMERGED}  ${name}`",
+    "replace": "`  ${onMain ? MERGED : MERGED}  ${name}`",
+    "test": "pnpm vitest run addons/agent-workflow/tests/audit-worktrees.test.mts --testNamePattern=\"lists one with commits main does not have as UNMERGED\""
+  },
+  {
+    "name": "audit: an unmerged orphan branch has its commits under it",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/worktree-audit.mts",
+    "find": "...commitsAhead(bench, tip).map((line) => `  ${line}`)",
+    "replace": "...commitsAhead(bench, tip).slice(0, 1)",
+    "test": "pnpm vitest run addons/agent-workflow/tests/audit-worktrees.test.mts --testNamePattern=\"lists one with commits main does not have as UNMERGED\""
+  },
+  {
+    "name": "audit: a branch checked out in a worktree the filter left out is no orphan",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/worktree-audit.mts",
+    "find": "orphanBranches(bench, [own, ...linked])",
+    "replace": "orphanBranches(bench, chosen)",
+    "test": "pnpm vitest run addons/agent-workflow/tests/audit-worktrees.test.mts --testNamePattern=\"leaves out a branch that is checked out\""
+  },
+  {
+    "name": "audit: a branch that is checked out is no orphan",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/worktree-audit.mts",
+    "find": "name.startsWith(BRANCH_PREFIX) && !checkedOut.has(name)",
+    "replace": "name.startsWith(BRANCH_PREFIX)",
+    "test": "pnpm vitest run addons/agent-workflow/tests/audit-worktrees.test.mts --testNamePattern=\"leaves out a branch that is checked out\""
+  },
+  {
+    "name": "audit: a branch with a slash in its name is found",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/worktree-audit.mts",
+    "find": "\"--format=%(objectname) %(refname)\", \"refs/heads/\"",
+    "replace": "\"--format=%(objectname) %(refname)\", \"refs/heads/worktree-*\"",
+    "test": "pnpm vitest run addons/agent-workflow/tests/audit-worktrees.test.mts --testNamePattern=\"leaves out a branch that is checked out\""
+  },
+  {
+    "name": "audit: branches that could not be listed are not read as none",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/worktree-audit.mts",
+    "find": "if (refs.status !== 0) {",
+    "replace": "if (refs.status === 99) {",
+    "test": "pnpm vitest run addons/agent-workflow/tests/audit-worktrees.test.mts --testNamePattern=\"when the branches cannot be listed\""
+  },
+  {
+    "name": "audit: a folder git does not know is a stray",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/worktree-audit.mts",
+    "find": "return !known.includes(at) && !known.some(",
+    "replace": "return known.includes(at) && !known.some(",
+    "test": "pnpm vitest run addons/agent-workflow/tests/audit-worktrees.test.mts --testNamePattern=\"lists a folder in the worktree folder that git does not know\""
+  },
+  {
+    "name": "audit: stray folders are counted",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/worktree-audit.mts",
+    "find": "found: strays.length,",
+    "replace": "found: 0,",
+    "test": "pnpm vitest run addons/agent-workflow/tests/audit-worktrees.test.mts --testNamePattern=\"lists a folder in the worktree folder that git does not know\""
+  },
+  {
+    "name": "audit: a folder inside a stray is marked as one",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/worktree-audit.mts",
+    "find": "`${cut(item.name)}${item.isDirectory() ? \"/\" : \"\"}`",
+    "replace": "`${cut(item.name)}`",
+    "test": "pnpm vitest run addons/agent-workflow/tests/audit-worktrees.test.mts --testNamePattern=\"lists a folder in the worktree folder that git does not know\""
+  },
+  {
+    "name": "audit: a link is named and not followed",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/worktree-audit.mts",
+    "find": "if (entry.isSymbolicLink()) {",
+    "replace": "if (entry.name === \"never\") {",
+    "test": "pnpm vitest run addons/agent-workflow/tests/audit-worktrees.test.mts --testNamePattern=\"names the first five entries and counts the rest\""
+  },
+  {
+    "name": "audit: a file is not read as a folder",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/worktree-audit.mts",
+    "find": "if (!entry.isDirectory()) {",
+    "replace": "if (entry.name === \"never\") {",
+    "test": "pnpm vitest run addons/agent-workflow/tests/audit-worktrees.test.mts --testNamePattern=\"names the first five entries and counts the rest\""
+  },
+  {
+    "name": "audit: an empty folder is said to be empty",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/worktree-audit.mts",
+    "find": "return inside.length === 0 ? \"an empty folder\" :",
+    "replace": "return inside.length === 99 ? \"an empty folder\" :",
+    "test": "pnpm vitest run addons/agent-workflow/tests/audit-worktrees.test.mts --testNamePattern=\"names the first five entries and counts the rest\""
+  },
+  {
+    "name": "audit: the entries past the first five are counted",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/worktree-audit.mts",
+    "find": "${named.join(\", \")}${more(inside.length)}`;",
+    "replace": "${named.join(\", \")}`;",
+    "test": "pnpm vitest run addons/agent-workflow/tests/audit-worktrees.test.mts --testNamePattern=\"names the first five entries and counts the rest\""
+  },
+  {
+    "name": "audit: a worktree is not a stray",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/worktree-audit.mts",
+    "find": "return !known.includes(at) && !known.some(",
+    "replace": "return !known.some(",
+    "test": "pnpm vitest run addons/agent-workflow/tests/audit-worktrees.test.mts --testNamePattern=\"does not call a worktree a stray\""
+  },
+  {
+    "name": "audit: a folder on the way to a worktree is not a stray",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/worktree-audit.mts",
+    "find": " && !known.some((path) => path.startsWith(`${at}${sep}`))",
+    "replace": "",
+    "test": "pnpm vitest run addons/agent-workflow/tests/audit-worktrees.test.mts --testNamePattern=\"does not call a worktree a stray\""
+  },
+  {
+    "name": "audit: a stray folder's name comes after a word of the tool's own",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/worktree-audit.mts",
+    "find": "`  STRAY  ${entry.name}: ${describeStray(folder, entry)}`",
+    "replace": "`  ${entry.name}: ${describeStray(folder, entry)}`",
+    "test": "pnpm vitest run addons/agent-workflow/tests/audit-worktrees.test.mts --testNamePattern=\"starts no line with a folder's name\""
+  },
+  {
+    "name": "audit: the step about a remove command is given only when one was printed",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/worktree-audit.mts",
+    "find": "  if (removable) {",
+    "replace": "  if (removable || leftovers > 0) {",
+    "test": "pnpm vitest run addons/agent-workflow/tests/audit-worktrees.test.mts --testNamePattern=\"starts no line with a folder's name\""
+  },
+  {
+    "name": "audit: a worktree folder that could not be read makes the run exit 2",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/worktree-audit.mts",
+    "find": "gaps: [`${folder} could not be read`]",
+    "replace": "gaps: []",
+    "test": "pnpm vitest run addons/agent-workflow/tests/audit-worktrees.test.mts --testNamePattern=\"when the worktree folder cannot be read\""
+  },
+  {
+    "name": "audit: the filter keeps the worktrees whose name holds it",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/worktree-audit.mts",
+    "find": "linked.filter((worktree) => basename(worktree.path).includes(filter))",
+    "replace": "linked.filter(() => true)",
+    "test": "pnpm vitest run addons/agent-workflow/tests/audit-worktrees.test.mts --testNamePattern=\"keeps the worktrees whose name holds it\""
+  },
+  {
+    "name": "audit: the filter is said in the report",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/worktree-audit.mts",
+    "find": "if (filter !== undefined) {",
+    "replace": "if (filter === \"never\") {",
+    "test": "pnpm vitest run addons/agent-workflow/tests/audit-worktrees.test.mts --testNamePattern=\"keeps the worktrees whose name holds it\""
+  },
+  {
+    "name": "audit: the filter does not hide a stray folder",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/worktree-audit.mts",
+    "find": "const strays = strayFolders(folder, linked);",
+    "replace": "const strays = strayFolders(folder, filter === undefined ? linked : []);",
+    "test": "pnpm vitest run addons/agent-workflow/tests/audit-worktrees.test.mts --testNamePattern=\"keeps the worktrees whose name holds it\""
+  },
+  {
+    "name": "audit: a filter that matched nothing makes the run exit 2",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/worktree-audit.mts",
+    "find": "} else if (chosen.length === 0) {",
+    "replace": "} else if (chosen.length === 99) {",
+    "test": "pnpm vitest run addons/agent-workflow/tests/audit-worktrees.test.mts --testNamePattern=\"exits 2 when no worktree's name holds it\""
+  },
+  {
+    "name": "audit: a filter that is not a plain word is refused",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/worktree-audit.mts",
+    "find": "(filter !== undefined && !NAME.test(filter))",
+    "replace": "(filter !== undefined && filter === \"never\")",
+    "test": "pnpm vitest run addons/agent-workflow/tests/audit-worktrees.test.mts --testNamePattern=\"is refused as\""
+  },
+  {
+    "name": "audit: a filter that starts with a dash is refused",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/new-worktree.mts",
+    "find": "/^[A-Za-z0-9][A-Za-z0-9._-]*$/",
+    "replace": "/^[A-Za-z0-9-][A-Za-z0-9._-]*$/",
+    "test": "pnpm vitest run addons/agent-workflow/tests/audit-worktrees.test.mts --testNamePattern=\"is refused as\""
+  },
+  {
+    "name": "audit: a filter with a slash is refused",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/new-worktree.mts",
+    "find": "/^[A-Za-z0-9][A-Za-z0-9._-]*$/",
+    "replace": "/^[A-Za-z0-9.][A-Za-z0-9._/-]*$/",
+    "test": "pnpm vitest run addons/agent-workflow/tests/audit-worktrees.test.mts --testNamePattern=\"is refused as\""
+  },
+  {
+    "name": "audit: an empty filter is refused",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/new-worktree.mts",
+    "find": "/^[A-Za-z0-9][A-Za-z0-9._-]*$/",
+    "replace": "/^[A-Za-z0-9]?[A-Za-z0-9._-]*$/",
+    "test": "pnpm vitest run addons/agent-workflow/tests/audit-worktrees.test.mts --testNamePattern=\"is refused as\""
+  },
+  {
+    "name": "audit: two filters are refused",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/worktree-audit.mts",
+    "find": "if (argv.length > 1 || ",
+    "replace": "if (",
+    "test": "pnpm vitest run addons/agent-workflow/tests/audit-worktrees.test.mts --testNamePattern=\"is one word, not two\""
+  },
+  {
+    "name": "audit: the filter is a part of the name, not the whole of it",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/worktree-audit.mts",
+    "find": "basename(worktree.path).includes(filter)",
+    "replace": "basename(worktree.path) === filter",
+    "test": "pnpm vitest run addons/agent-workflow/tests/audit-worktrees.test.mts --testNamePattern=\"takes a dot, a dash and an underscore, as a worktree\""
+  },
+  {
+    "name": "audit: every line of the report is written out plain (a subject)",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/worktree-audit.mts",
+    "find": "const report = (line: string): void => print(shown(line));",
+    "replace": "const report = (line: string): void => print(line);",
+    "test": "pnpm vitest run addons/agent-workflow/tests/audit-worktrees.test.mts --testNamePattern=\"in a commit's subject\""
+  },
+  {
+    "name": "audit: a mark that turns the text round is written out",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/shown.mts",
+    "find": "const NOT_SHOWN = /[\\p{Cc}\\p{Cf}\\p{Cs}",
+    "replace": "const NOT_SHOWN = /[\\p{Cc}\\p{Cs}",
+    "test": "pnpm vitest run addons/agent-workflow/tests/audit-worktrees.test.mts --testNamePattern=\"in a commit's subject\""
+  },
+  {
+    "name": "audit: every line of the report is written out plain (a branch)",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/worktree-audit.mts",
+    "find": "const report = (line: string): void => print(shown(line));",
+    "replace": "const report = (line: string): void => print(line);",
+    "test": "pnpm vitest run addons/agent-workflow/tests/audit-worktrees.test.mts --testNamePattern=\"in a branch's name\""
+  },
+  {
+    "name": "audit: no command for a branch whose name is written out",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/shown.mts",
+    "find": " || shown(text) !== text) {",
+    "replace": ") {",
+    "test": "pnpm vitest run addons/agent-workflow/tests/audit-worktrees.test.mts --testNamePattern=\"in a branch's name\""
+  },
+  {
+    "name": "audit: no command for an orphan branch whose name is written out",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/worktree-audit.mts",
+    "find": "const word = shellWord(name);",
+    "replace": "const word = name as string | undefined;",
+    "test": "pnpm vitest run addons/agent-workflow/tests/audit-worktrees.test.mts --testNamePattern=\"in a branch's name\""
+  },
+  {
+    "name": "audit: every line of the report is written out plain (a file)",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/worktree-audit.mts",
+    "find": "const report = (line: string): void => print(shown(line));",
+    "replace": "const report = (line: string): void => print(line);",
+    "test": "pnpm vitest run addons/agent-workflow/tests/audit-worktrees.test.mts --testNamePattern=\"in a file's name\""
+  },
+  {
+    "name": "audit: a file's name is read as git has it, not as git quotes it",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/worktree-audit.mts",
+    "find": "\"--porcelain=v1\", \"-z\",",
+    "replace": "\"--porcelain=v1\",",
+    "test": "pnpm vitest run addons/agent-workflow/tests/audit-worktrees.test.mts --testNamePattern=\"in a file's name\""
+  },
+  {
+    "name": "audit: every line of the report is written out plain (stderr)",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/worktree-audit.mts",
+    "find": "const report = (line: string): void => print(shown(line));",
+    "replace": "const report = (line: string): void => print(line);",
+    "test": "pnpm vitest run addons/agent-workflow/tests/audit-worktrees.test.mts --testNamePattern=\"writes out what git said when it failed\""
+  },
+  {
+    "name": "audit: what git said is one line",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/worktree-audit.mts",
+    "find": "return lines.length === 0 ? `exit ${status}` : cut(lines.join(\"; \"));",
+    "replace": "return lines.length === 0 ? `exit ${status}` : cut(stderr);",
+    "test": "pnpm vitest run addons/agent-workflow/tests/audit-worktrees.test.mts --testNamePattern=\"writes out what git said when it failed\""
+  },
+  {
+    "name": "audit: a long subject is cut",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/worktree-audit.mts",
+    "find": "const LONGEST_TEXT = 120;",
+    "replace": "const LONGEST_TEXT = 500;",
+    "test": "pnpm vitest run addons/agent-workflow/tests/audit-worktrees.test.mts --testNamePattern=\"cuts a subject that goes on\""
+  },
+  {
+    "name": "audit: a quote inside a quoted word is written so that a shell reads it",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/shown.mts",
+    "find": "text.replaceAll(\"'\", \"'\\\\''\")",
+    "replace": "text",
+    "test": "pnpm vitest run addons/agent-workflow/tests/audit-worktrees.test.mts --testNamePattern=\"quotes a path with a space and a quote in it\""
+  },
+  {
+    "name": "audit: a word with a space or a quote is quoted",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/shown.mts",
+    "find": "/^[A-Za-z0-9_@%+=:,./][A-Za-z0-9_@%+=:,./-]*$/",
+    "replace": "/^[A-Za-z0-9_@%+=:,./'][A-Za-z0-9_@%+=:,./' -]*$/",
+    "test": "pnpm vitest run addons/agent-workflow/tests/audit-worktrees.test.mts --testNamePattern=\"quotes a path with a space and a quote in it\""
+  },
+  {
+    "name": "audit: no command for a path that is written out",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/worktree-audit.mts",
+    "find": "if (folder === undefined || (branch !== undefined && name === undefined)) {",
+    "replace": "if (branch !== undefined && name === undefined) {",
+    "test": "pnpm vitest run addons/agent-workflow/tests/audit-worktrees.test.mts --testNamePattern=\"prints no command for a path that holds a character it wrote out\""
+  },
+  {
+    "name": "audit: the reason names the path when the path is what cannot be written",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/worktree-audit.mts",
+    "find": "noCommand(shellWord(path) === undefined ? \"path\" : \"branch\")",
+    "replace": "noCommand(\"branch\")",
+    "test": "pnpm vitest run addons/agent-workflow/tests/audit-worktrees.test.mts --testNamePattern=\"prints no command for a path that holds a character it wrote out\""
+  },
+  {
+    "name": "shown: a control character is written out",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/shown.mts",
+    "find": "const NOT_SHOWN = /[\\p{Cc}\\p{Cf}",
+    "replace": "const NOT_SHOWN = /[\\p{Cf}",
+    "test": "pnpm vitest run addons/agent-workflow/tests/audit-worktrees.test.mts --testNamePattern=\" out as \""
+  },
+  {
+    "name": "shown: a format mark is written out",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/shown.mts",
+    "find": "const NOT_SHOWN = /[\\p{Cc}\\p{Cf}\\p{Cs}",
+    "replace": "const NOT_SHOWN = /[\\p{Cc}\\p{Cs}",
+    "test": "pnpm vitest run addons/agent-workflow/tests/audit-worktrees.test.mts --testNamePattern=\" out as \""
+  },
+  {
+    "name": "shown: half a pair is written out",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/shown.mts",
+    "find": "\\p{Cf}\\p{Cs}\\p{Co}",
+    "replace": "\\p{Cf}\\p{Co}",
+    "test": "pnpm vitest run addons/agent-workflow/tests/audit-worktrees.test.mts --testNamePattern=\" out as \""
+  },
+  {
+    "name": "shown: a private character is written out",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/shown.mts",
+    "find": "\\p{Cs}\\p{Co}\\p{Cn}",
+    "replace": "\\p{Cs}\\p{Cn}",
+    "test": "pnpm vitest run addons/agent-workflow/tests/audit-worktrees.test.mts --testNamePattern=\" out as \""
+  },
+  {
+    "name": "shown: a character that is not assigned is written out",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/shown.mts",
+    "find": "\\p{Co}\\p{Cn}\\p{Zl}",
+    "replace": "\\p{Co}\\p{Zl}",
+    "test": "pnpm vitest run addons/agent-workflow/tests/audit-worktrees.test.mts --testNamePattern=\" out as \""
+  },
+  {
+    "name": "shown: a line end of Unicode's is written out",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/shown.mts",
+    "find": "\\p{Cn}\\p{Zl}\\p{Zp}]",
+    "replace": "\\p{Cn}\\p{Zp}]",
+    "test": "pnpm vitest run addons/agent-workflow/tests/audit-worktrees.test.mts --testNamePattern=\" out as \""
+  },
+  {
+    "name": "shown: a paragraph end is written out",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/shown.mts",
+    "find": "\\p{Zl}\\p{Zp}]",
+    "replace": "\\p{Zl}]",
+    "test": "pnpm vitest run addons/agent-workflow/tests/audit-worktrees.test.mts --testNamePattern=\" out as \""
+  },
+  {
+    "name": "shown: a space that is not the space is written out",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/shown.mts",
+    "find": "]|(?! )\\p{Zs}/gu",
+    "replace": "]/gu",
+    "test": "pnpm vitest run addons/agent-workflow/tests/audit-worktrees.test.mts --testNamePattern=\" out as \""
+  },
+  {
+    "name": "shown: an escape has four digits",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/shown.mts",
+    "find": ".toString(16).padStart(4, \"0\")",
+    "replace": ".toString(16)",
+    "test": "pnpm vitest run addons/agent-workflow/tests/audit-worktrees.test.mts --testNamePattern=\" out as \""
+  },
+  {
+    "name": "shown: a character of two halves is two escapes",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/shown.mts",
+    "find": "Array.from({ length: character.length }, (_, half) =>",
+    "replace": "Array.from({ length: 1 }, (_, half) =>",
+    "test": "pnpm vitest run addons/agent-workflow/tests/audit-worktrees.test.mts --testNamePattern=\" out as \""
+  },
+  {
+    "name": "shown: the space stays a space",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/shown.mts",
+    "find": "]|(?! )\\p{Zs}/gu",
+    "replace": "]|\\p{Zs}/gu",
+    "test": "pnpm vitest run addons/agent-workflow/tests/audit-worktrees.test.mts --testNamePattern=\"leaves a space, a letter of any alphabet\""
+  },
+  {
+    "name": "shellWord: a plain word is printed as it is",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/shown.mts",
+    "find": "return PLAIN_WORD.test(text) ? text :",
+    "replace": "return text === \"\" ? text :",
+    "test": "pnpm vitest run addons/agent-workflow/tests/audit-worktrees.test.mts --testNamePattern=\"nothing in it is read by a shell\""
+  },
+  {
+    "name": "shellWord: a word a shell would read is quoted",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/shown.mts",
+    "find": "/^[A-Za-z0-9_@%+=:,./][A-Za-z0-9_@%+=:,./-]*$/",
+    "replace": "/^[^']*$/",
+    "test": "pnpm vitest run addons/agent-workflow/tests/audit-worktrees.test.mts --testNamePattern=\"a shell reads that text back from it\""
+  },
+  {
+    "name": "shellWord: a quote inside a quoted word is closed, escaped and opened again",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/shown.mts",
+    "find": "text.replaceAll(\"'\", \"'\\\\''\")",
+    "replace": "text",
+    "test": "pnpm vitest run addons/agent-workflow/tests/audit-worktrees.test.mts --testNamePattern=\"a shell reads that text back from it\""
+  },
+  {
+    "name": "shellWord: an empty word is not printed",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/shown.mts",
+    "find": "if (text === \"\" || ",
+    "replace": "if (",
+    "test": "pnpm vitest run addons/agent-workflow/tests/audit-worktrees.test.mts --testNamePattern=\"is not printed for\""
+  },
+  {
+    "name": "shellWord: a word that starts with a dash is not printed",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/shown.mts",
+    "find": "text.startsWith(\"-\") || ",
+    "replace": "",
+    "test": "pnpm vitest run addons/agent-workflow/tests/audit-worktrees.test.mts --testNamePattern=\"is not printed for\""
+  },
+  {
+    "name": "shellWord: a word with the mark of bytes that were not text is not printed",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/shown.mts",
+    "find": "text.includes(NOT_READ) || ",
+    "replace": "",
+    "test": "pnpm vitest run addons/agent-workflow/tests/audit-worktrees.test.mts --testNamePattern=\"is not printed for\""
+  },
+  {
+    "name": "shellWord: a word that is written out is not printed",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/shown.mts",
+    "find": " || shown(text) !== text) {",
+    "replace": ") {",
+    "test": "pnpm vitest run addons/agent-workflow/tests/audit-worktrees.test.mts --testNamePattern=\"is not printed for\""
+  },
+  {
+    "name": "audit: a run that prunes is seen",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/worktree-audit.mts",
+    "find": "bench.git(\"for-each-ref\", \"--format=%(objectname) %(refname)\", \"refs/heads/\")",
+    "replace": "bench.git(\"worktree\", \"prune\")",
+    "test": "pnpm vitest run addons/agent-workflow/tests/audit-worktrees.test.mts --testNamePattern=\"removes nothing: every worktree, branch and stray folder\""
+  },
+  {
+    "name": "audit: work left behind does not fail the run",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/worktree-audit.mts",
+    "find": "if (unjudged > 0) {",
+    "replace": "if (verdicts.length > 0) {",
+    "test": "pnpm vitest run addons/agent-workflow/tests/audit-worktrees.test.mts --testNamePattern=\"exits 0 whatever the verdicts are\""
+  },
+  {
+    "name": "audit: each verdict is counted under its own name",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/worktree-audit.mts",
+    "find": "verdicts.filter((given) => given === verdict).length",
+    "replace": "verdicts.filter((given) => given !== verdict).length",
+    "test": "pnpm vitest run addons/agent-workflow/tests/audit-worktrees.test.mts --testNamePattern=\"exits 0 whatever the verdicts are\""
+  },
+  {
+    "name": "audit: the last line of a whole report says so",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/worktree-audit.mts",
+    "find": "if (gaps.length > 0) {",
+    "replace": "if (gaps.length >= 0) {",
+    "test": "pnpm vitest run addons/agent-workflow/tests/audit-worktrees.test.mts --testNamePattern=\"exits 0 whatever the verdicts are\""
+  },
+  {
+    "name": "audit: a git command that is not a question is seen",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/worktree-audit.mts",
+    "find": "\"status\", \"--porcelain=v1\"",
+    "replace": "\"stash\", \"--porcelain=v1\"",
+    "test": "pnpm vitest run addons/agent-workflow/tests/audit-worktrees.test.mts --testNamePattern=\"asks git nothing but questions\""
+  },
+  {
+    "name": "audit: the worktrees are listed with one command, by field",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/worktree-audit.mts",
+    "find": "git(\"worktree\", \"list\", \"--porcelain\", \"-z\")",
+    "replace": "git(\"worktree\", \"list\", \"--porcelain\", \"-z\", \"-v\")",
+    "test": "pnpm vitest run addons/agent-workflow/tests/audit-worktrees.test.mts --testNamePattern=\"asks git nothing but questions\""
+  },
+  {
+    "name": "audit: no printed command forces",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/worktree-audit.mts",
+    "find": "`  remove:  git worktree remove ${folder}`",
+    "replace": "`  remove:  git worktree remove --force ${folder}`",
+    "test": "pnpm vitest run addons/agent-workflow/tests/audit-worktrees.test.mts --testNamePattern=\"prints no command with --force in it\""
+  },
+  {
+    "name": "audit: unmerged work gets no command",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/worktree-audit.mts",
+    "find": "  if (!onMain) {",
+    "replace": "  if (onMain === undefined) {",
+    "test": "pnpm vitest run addons/agent-workflow/tests/audit-worktrees.test.mts --testNamePattern=\"prints no command with --force in it\""
+  },
+  {
+    "name": "audit: the program hands the tool its arguments",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/audit-worktrees.mts",
+    "find": "argv: process.argv.slice(2)",
+    "replace": "argv: []",
+    "test": "pnpm vitest run addons/agent-workflow/tests/audit-worktrees.test.mts --testNamePattern=\"runs as a program, from anywhere in the project\""
+  },
+  {
+    "name": "audit: the program exits with what the tool returned",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/audit-worktrees.mts",
+    "find": "process.exitCode = auditWorktrees(",
+    "replace": "void auditWorktrees(",
+    "test": "pnpm vitest run addons/agent-workflow/tests/audit-worktrees.test.mts --testNamePattern=\"runs as a program, from anywhere in the project\""
+  },
+  {
+    "name": "audit: the program reads the project it was started in",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/audit-worktrees.mts",
+    "find": "cwd: process.cwd()",
+    "replace": "cwd: import.meta.dirname",
+    "test": "pnpm vitest run addons/agent-workflow/tests/audit-worktrees.test.mts --testNamePattern=\"runs as a program, from anywhere in the project\""
+  },
+  {
+    "name": "audit: a field is split at its first space",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/worktree-audit.mts",
+    "find": "const space = field.indexOf(\" \");",
+    "replace": "const space = field.lastIndexOf(\" \");",
+    "test": "pnpm vitest run addons/agent-workflow/tests/audit-worktrees.test.mts --testNamePattern=\"is read field by field\""
+  },
+  {
+    "name": "audit: a lock with no reason is still a lock",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/worktree-audit.mts",
+    "find": "return space === -1 ? [field, \"\"] :",
+    "replace": "return space === -1 ? [\"\", \"\"] :",
+    "test": "pnpm vitest run addons/agent-workflow/tests/audit-worktrees.test.mts --testNamePattern=\"is read field by field\""
+  },
+  {
+    "name": "audit: an entry ends at an empty field, not at a line end",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/worktree-audit.mts",
+    "find": ".split(\"\\0\\0\")",
+    "replace": ".split(\"\\n\")",
+    "test": "pnpm vitest run addons/agent-workflow/tests/audit-worktrees.test.mts --testNamePattern=\"is read field by field\""
+  },
+  {
+    "name": "audit: the script the manifest adds runs a tool that is shipped",
+    "file": "addons/agent-workflow/addon.json",
+    "find": "\"worktree:audit\": \"node tools/agent-workflow/audit-worktrees.mts\"",
+    "replace": "\"worktree:audit\": \"node tools/agent-workflow/audit-worktree.mts\"",
+    "test": "pnpm vitest run addons/agent-workflow/tests/addon.test.mts --testNamePattern=\"adds scripts that each run a tool it ships\""
   }
 ]

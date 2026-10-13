@@ -54,7 +54,7 @@ describe("the add-on's manifest", () => {
   it("adds scripts that each run a tool it ships, and proves itself with one of them", () => {
     const scripts = MANIFEST.packageJson["."]?.scripts ?? {};
 
-    expect(Object.keys(scripts)).toEqual(["worktree", "changelog", "agent-workflow:check"]);
+    expect(Object.keys(scripts)).toEqual(["worktree", "worktree:audit", "changelog", "agent-workflow:check"]);
 
     for (const script of Object.values(scripts)) {
       const tool = /^node (tools\/agent-workflow\/[\w-]+\.mts)$/.exec(script)?.[1];
