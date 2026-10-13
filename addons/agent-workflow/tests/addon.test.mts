@@ -7,6 +7,7 @@ import { addToProject } from "../../../scripts/add-to-project.mts";
 import { changelog } from "../files/tools/agent-workflow/changelog.mts";
 import { judgeCall } from "../files/tools/agent-workflow/hooks/split-outward-commands.mts";
 import { groupRuns, hostOf } from "../files/tools/agent-workflow/lib/hook-registration.mts";
+import { isOutward } from "../files/tools/agent-workflow/lib/outward.mts";
 import { ASK_RULES, CLAUDE_SETTINGS, CODEX_HOOKS, COMMAND_NEEDS, EDIT_ASK_RULES, HOOK_COMMANDS, HOOK_SCRIPT, RETIRED_ARGUMENT, RETIRED_ASK_RULES, RETIRED_FILES } from "../files/tools/agent-workflow/lib/host.mts";
 import { ONCE_ALLOWED, OLD_SETTING_ON } from "./shapes.mts";
 import { ADDON, createFolder, git, readJson, REPOSITORY, writeFile } from "./support.mts";
@@ -253,8 +254,20 @@ describe("the weekly-tag workflow", () => {
   });
 });
 
+describe("the mutants of this add-on", () => {
+  // `mutation-check.mts` runs each `test` in a shell. Between backticks, or after
+  // a dollar sign and a bracket, a shell runs what is written: a filter that
+  // quoted the name of a test as a command between backticks once ran it.
+  it("have no test command that a shell would read a second command out of", () => {
+    const mutants = readJson<{ name?: string; test: string }[]>(ADDON, "tests/mutants.json");
+
+    expect(mutants.length).toBeGreaterThan(100);
+    expect(mutants.filter(({ test }) => /\x60|\$[({]/.test(test)).map(({ name, test }) => name ?? test)).toEqual([]);
+  });
+});
+
 describe("the commands", () => {
-  it("are the three the check knows about", () => {
+  it("are the six the check knows about", () => {
     expect(readdirSync(join(ADDON, "files/.claude/commands/workflow")).sort()).toEqual(COMMANDS.map((name) => `${name}.md`).sort());
   });
 
@@ -263,6 +276,35 @@ describe("the commands", () => {
 
     expect(frontmatter).toMatch(/^description: \S.{20,}$/m);
     expect(frontmatter).toMatch(/^allowed-tools: /m);
+  });
+
+  // `allowed-tools` is what a command may run with no prompt while it is the
+  // one running. The add-on's rule is that every outward step asks, so a
+  // command is let run only what it names, and none of that leaves the
+  // machine: by a closed list here, and by the hook's own reading of a step.
+  it.each(COMMANDS)("%s may run unasked only what it names, each by its first words, and nothing that leaves the machine", (name) => {
+    const { frontmatter, body } = readCommand(name);
+    const needs = COMMAND_NEEDS[name];
+    const scripts = new Set([
+      ...scriptsOf(join(ADDON, "addon.json")),
+      ...Object.keys(readJson<{ scripts: Record<string, string> }>(REPOSITORY, "starter/package.json").scripts),
+      ...(needs === undefined ? [] : scriptsOf(join(REPOSITORY, "addons", needs, "addon.json"))),
+    ]);
+    const tools = (/^allowed-tools: (.+)$/m.exec(frontmatter)?.[1] ?? "").split(", ");
+    const programs = tools.filter((tool) => tool.startsWith("Bash")).map((tool) => /^Bash\((.+):\*\)$/.exec(tool)?.[1] ?? `not a grant by first words: ${tool}`);
+    const reads = /^(?:git (?:rev-parse|status|worktree list|rev-list|ls-files|log)|gh (?:pr (?:list|view)|run (?:list|download)|issue list|repo view)|grep|ls|node tools\/agent-workflow\/requires\.mts)$/;
+
+    expect(tools.filter((tool) => !tool.startsWith("Bash") && !["Read", "Write", "Edit"].includes(tool))).toEqual([]);
+    expect(programs.length).toBeGreaterThan(0);
+    expect(programs.filter((program) => !reads.test(program) && !(program.startsWith("pnpm ") && scripts.has(program.slice(5))))).toEqual([]);
+    expect(programs.filter((program) => isOutward(program.split(" ")))).toEqual([]);
+    expect(programs.filter((program) => !body.includes(program))).toEqual([]);
+  });
+
+  it.each(["git push", "gh pr create", "gh pr merge", "gh workflow run", "gh api", "git fetch", "git grep"])("no command may run %s unasked", (step) => {
+    const granted = COMMANDS.flatMap((name) => (/^allowed-tools: (.+)$/m.exec(readCommand(name).frontmatter)?.[1] ?? "").split(", ").map((tool) => `${name}: ${tool}`));
+
+    expect(granted.filter((grant) => grant.includes(`(${step}`) || /\((?:git|gh|pnpm|node|sh|bash|find):\*\)/.test(grant))).toEqual([]);
   });
 
   // A block run before the command is read is parsed by the host and matched
@@ -296,6 +338,46 @@ describe("the commands", () => {
   it("needs no other add-on for the changelog", () => {
     expect(COMMAND_NEEDS.changelog).toBeUndefined();
     expect(readCommand("changelog").text).not.toContain("requires.mts");
+  });
+
+  it.each(["status", "docs"])("needs no other add-on for %s, which every project with this add-on can run", (name) => {
+    expect(Object.hasOwn(COMMAND_NEEDS, name)).toBe(true);
+    expect(COMMAND_NEEDS[name]).toBeUndefined();
+    expect(readCommand(name).text).not.toContain("requires.mts");
+  });
+
+  it("has a command for the status that reads the page of what is left and changes nothing", () => {
+    const { frontmatter, body } = readCommand("status");
+
+    expect(body).toContain('grep -E "^## |^- \\*\\*" docs/STATUS.md');
+    expect(body).toContain("gh run list --branch main");
+    expect(frontmatter).toMatch(/^allowed-tools: (?:Bash\([^)]+\), )+Read$/m);
+    expect(body).toContain("If the newest finished run of a\n   workflow on main failed, that is the first line");
+  });
+
+  it("has a command for the documents that sends each kind of finding to its place, and stops before it writes", () => {
+    const { body } = readCommand("docs");
+    const steps = [...body.matchAll(/^## (\d+\. .+)$/gm)].map((match) => match[1] ?? "");
+
+    expect(body).toContain("| Work that is not done, or the end of work that was pending | `docs/STATUS.md`");
+    expect(body).toContain("| An idea nobody has committed to | `docs/IDEAS.md` |");
+    expect(steps).toEqual([
+      "1. See what documents there are",
+      "2. Decide where it belongs",
+      "3. Read the nearest document in full",
+      "4. Propose, then stop",
+      "5. Write it, in a worktree",
+      "6. Ship it",
+    ]);
+    expect(body).toContain("Wait for a yes.");
+  });
+
+  it("has a command for the motion audit that never calls a run that did not happen a pass", () => {
+    const { body } = readCommand("perf-audit");
+
+    expect(body).toContain("pnpm perf:motion-audit --assert-still");
+    expect(body).toContain('Report exit 2 as "not run", never as a pass.');
+    expect(body).toContain("Wait for a yes before you change anything.");
   });
 
   it.each(COMMANDS)("%s names only scripts that this add-on, the one it needs, or the starter has", (name) => {
@@ -339,7 +421,7 @@ describe("the section for AGENTS.md", () => {
   it("points at command files that are shipped", () => {
     const paths = [...SECTION.matchAll(/`(\.claude\/commands\/workflow\/[\w-]+\.md)`/g)].map((match) => match[1] ?? "");
 
-    expect(paths).toHaveLength(3);
+    expect(paths.map((path) => path.replace(/^.*\/|\.md$/g, "")).sort()).toEqual([...COMMANDS].sort());
 
     for (const path of paths) {
       expect(existsSync(join(ADDON, "files", path)), path).toBe(true);
