@@ -162,9 +162,6 @@ Found while a project was set up with the plugin, on 2026-10-12 and 13.
   repository's two matrix jobs make twelve checks, and the ruleset the
   command printed asked for one. A matrix whose values are written out in
   the file could be read. The twelve names were added by hand.
-- **No command reports where a project stands.** The source of
-  `agent-workflow` has one: the branch, the open pull requests and the last
-  run on main, beside the headings of `docs/STATUS.md`. Not brought over.
 - **Nothing checks `docs/STATUS.md`.** That the page has its six sections,
   that its date moved with an edit, that an entry links a file that exists:
   each is decidable, and `repo-hygiene` already checks the links.
@@ -208,6 +205,11 @@ Found while a project was set up with the plugin, on 2026-10-12 and 13.
   decided.
 
 ## Not tried
+
+- **The commands `/workflow:status`, `/workflow:docs` and
+  `/workflow:perf-audit`, in a session.** They are text, and tests hold their
+  form: a description, the tools they may use, step 0 where an add-on is
+  needed, scripts that exist. No session has been run with any of the three.
 
 - **The shipping rules of `agent-workflow`, when something goes wrong.** One
   session read them cold and followed every step on a one-word change ([the

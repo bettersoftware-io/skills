@@ -70,7 +70,10 @@ export const WIDE_ALLOW = /^Bash\((?:git push|gh pr create|gh pr merge)\b.*\*.*\
 
 /** Slash commands that work only with another add-on in the project. */
 export const COMMAND_NEEDS: Record<string, string | undefined> = {
+  status: undefined,
+  docs: undefined,
   changelog: undefined,
   "coverage-backfill": "coverage",
   "visual-tolerance-audit": "visual",
+  "perf-audit": "performance",
 };
