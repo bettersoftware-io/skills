@@ -3,7 +3,7 @@
 What is not done yet. Finished work is removed from this page, not archived;
 the test records in this folder and the git log say what was done.
 
-**Last updated: 2026-10-12**
+**Last updated: 2026-10-13**
 
 ## Waiting on something outside this repository
 
@@ -137,6 +137,49 @@ Added on 2026-10-11 ([the record](documenting-architecture-2026-10-11.md)).
   Either way, re-run this repository's CI once the change lands. The visual
   and end-to-end tests are the least exposed, since they run inside a pinned
   Playwright container.
+
+## Next, with no plan yet
+
+Found while a project was set up with the plugin, on 2026-10-12 and 13.
+
+- **Five CodeQL alerts nobody has read.** CodeQL default setup was switched
+  on for this repository on 2026-10-13 and found them at once. Three of
+  "incomplete multi-character sanitization", rated high:
+  `scripts/architecture-docs/lib/page.mts:34`,
+  `addons/repo-hygiene/files/tools/repo-hygiene/lib/markdown.mts:100` and
+  `addons/ci-security/tests/addon.test.mts:138` (a test). Two of "shell
+  command built from the environment", rated medium:
+  `kit/gates/quiet.mts:213` and
+  `addons/coverage/files/tools/coverage/mutation-check.mts:285`. Which are
+  true is not known.
+- **`pnpm repo:settings` prints a wrong fix while CodeQL is being set up.**
+  For the minute GitHub takes to find the languages, the state is
+  `configured` and the list is empty. The check says "set up without the
+  `actions` language (it has: none)" and prints a command that would set the
+  list to `actions` alone. Seen on this repository; the list filled in by
+  itself. It should say that the setup is running, and print nothing to run.
+- **`pnpm repo:settings` names no check of a job with a `strategy:`.** This
+  repository's two matrix jobs make twelve checks, and the ruleset the
+  command printed asked for one. A matrix whose values are written out in
+  the file could be read. The twelve names were added by hand.
+- **No command reports where a project stands.** The source of
+  `agent-workflow` has one: the branch, the open pull requests and the last
+  run on main, beside the headings of `docs/STATUS.md`. Not brought over.
+- **Nothing checks `docs/STATUS.md`.** That the page has its six sections,
+  that its date moved with an edit, that an entry links a file that exists:
+  each is decidable, and `repo-hygiene` already checks the links.
+- **Six mutants of `agent-workflow` no longer apply.** The text each one
+  looks for is not in its file once, so `mutation-check.mts` cannot run
+  them: "creates a host's settings file that is not there", "never merges
+  into a settings file that is a link out of the project", "counts a file
+  that is not JSON as unmerged", "does not write over the file that took its
+  place", and the two that begin "says nothing once". They went stale when
+  the installer changed. Nothing fails when a mutant goes stale.
+- **Renovate runs here with the default config.** Its "Configure Renovate"
+  pull request was merged on 2026-10-13. It has opened two for actions.
+  Nothing tells it to leave `starter/` alone, whose versions are tested
+  together and held by one lockfile, or to wait a week for a release as the
+  add-on's own `renovate.json5` does.
 
 ## Open decisions
 

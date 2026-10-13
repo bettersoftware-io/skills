@@ -284,6 +284,47 @@ start, and do not add a change to it that is not its fix.
 - wait on a run past twice its usual time without having looked at its jobs;
 - say "done" with the worktree still on disk, or a run on main in progress.
 
+### What is left
+
+`docs/STATUS.md` is the one answer to "what is still to do?". It holds only
+what is not done: an entry is removed when its work is on main, and the page
+shrinks. `docs/IDEAS.md` comes before it: what nobody has committed to.
+
+A piece of work ends with something left more often than not: a follow-up
+nobody asked for, a step only a person can take, a decision that is the
+user's, a thing that was not verified. The closing report is not the place
+that keeps it: the report is gone when the session ends, and another session
+never saw it. Write each one into `docs/STATUS.md`, in the pull request of
+the work that left it.
+
+| Section | What goes in it |
+|---|---|
+| In progress | Work that has started and is not finished |
+| Designed, not built | A plan or a design is on main, and nothing of it is built |
+| Planned, and held by something | It waits on a release, a decision or other work. Say on what |
+| Next, with no plan yet | The next step is known, and nobody has written a plan |
+| Waiting on a person | A step or a decision an agent cannot take. Say who, and give the command or the question |
+| Known limits | What will not be fixed soon: a thing not verified, a case not covered |
+
+One bullet for each: the name in bold, what is left, and a link to its plan
+when it has one. Link only a file that is on main.
+
+- **Work is planned, or something is left over:** add its entry.
+- **Its pull request merges:** remove the entry, in that pull request. There
+  is no section for what is done.
+- **Its state changes:** move it, and say what is left now.
+- **Someone asks what is pending:** read the page. Where it differs from the
+  project, correct it as part of the answer.
+- **An idea with no plan:** `docs/IDEAS.md`, not this page. When it gets a
+  plan, move it. Never keep it in both.
+
+Every edit sets `Last updated` to today's date.
+
+Skip the page for work that leaves nothing: say so in the report, and add no
+entry to say so. Do not keep what is left in the host's own memory in place
+of this page. A memory belongs to one person on one machine, and the page is
+the project's.
+
 ### The changelog
 
 `CHANGELOG.md` has one entry per ISO week. The `Weekly tag` workflow tags

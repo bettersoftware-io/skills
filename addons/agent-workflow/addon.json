@@ -1,6 +1,6 @@
 {
   "name": "agent-workflow",
-  "summary": "How an agent ships work: a hook that keeps each push and pull request step in a call of its own, a worktree script, a weekly tag and a changelog.",
+  "summary": "How an agent ships work: a hook that keeps each push and pull request step in a call of its own, a worktree script, a page of what is left, a weekly tag and a changelog.",
   "recommended": true,
   "packageJson": {
     ".": {
@@ -16,7 +16,9 @@
     "full": []
   },
   "startingFiles": [
-    "CHANGELOG.md"
+    "CHANGELOG.md",
+    "docs/STATUS.md",
+    "docs/IDEAS.md"
   ],
   "retiredFiles": {
     "tools/agent-workflow.config.json": {

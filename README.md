@@ -75,7 +75,7 @@ node scripts/add-to-project.mts <project> coverage
 | [`ci-security`](addons/ci-security/README.md) | Workflow lint and workflow security lint, Dependency Review on pull requests, `pnpm audit`, an OpenSSF Scorecard report, a Dockerfile check, a security policy to start from, a Dependabot config (or Renovate's, as `ci-security:renovate`), and a command that reads the repository's settings and names the ones that are off |
 | [`repo-hygiene`](addons/repo-hygiene/README.md) | One version of each dependency across the workspace, every markdown link and heading anchor resolving, and CSS lint with names checked and every colour taken from a token |
 | [`strict-lint`](addons/strict-lint/README.md) | The ESLint rules that need types (a promise nothing waits for, a `switch` that misses a case), and knip for unused files, exports and dependencies |
-| [`agent-workflow`](addons/agent-workflow/README.md) | A hook that keeps each push and pull request step in a tool call of its own, a worktree script, a weekly tag, and a changelog whose completeness is checked |
+| [`agent-workflow`](addons/agent-workflow/README.md) | A hook that keeps each push and pull request step in a tool call of its own, a worktree script, a page of what is left, a weekly tag, and a changelog whose completeness is checked |
 | `kit` | The same command brings a project's copy of the gates up to date, or sets them up in a project that did not start here |
 
 `coverage`, `format-lint`, `ci-security`, `strict-lint` and `agent-workflow` are

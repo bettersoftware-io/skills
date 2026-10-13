@@ -1957,15 +1957,15 @@
   {
     "name": "ships no setting",
     "file": "addons/agent-workflow/addon.json",
-    "find": "  \"startingFiles\": [\n    \"CHANGELOG.md\"\n  ],",
-    "replace": "  \"startingFiles\": [\n    \"CHANGELOG.md\",\n    \"tools/agent-workflow.config.json\"\n  ],",
+    "find": "  \"startingFiles\": [\n    \"CHANGELOG.md\",\n    \"docs/STATUS.md\",\n    \"docs/IDEAS.md\"\n  ],",
+    "replace": "  \"startingFiles\": [\n    \"CHANGELOG.md\",\n    \"docs/STATUS.md\",\n    \"docs/IDEAS.md\",\n    \"tools/agent-workflow.config.json\"\n  ],",
     "test": "pnpm vitest run addons/agent-workflow/tests/addon.test.mts --testNamePattern=\"leaves CHANGELOG.md to the project once it is written, and ships no setting\""
   },
   {
     "name": "writes the changelog once",
     "file": "addons/agent-workflow/addon.json",
-    "find": "  \"startingFiles\": [\n    \"CHANGELOG.md\"\n  ],",
-    "replace": "  \"startingFiles\": [\n    \"CHANGELOG\"\n  ],",
+    "find": "  \"startingFiles\": [\n    \"CHANGELOG.md\",\n    \"docs/STATUS.md\",\n    \"docs/IDEAS.md\"\n  ],",
+    "replace": "  \"startingFiles\": [\n    \"CHANGELOG\",\n    \"docs/STATUS.md\",\n    \"docs/IDEAS.md\"\n  ],",
     "test": "pnpm vitest run addons/agent-workflow/tests/addon.test.mts --testNamePattern=\"writes the changelog once, the commands, the skills for Codex and the workflow\""
   },
   {
@@ -3290,5 +3290,89 @@
     "find": "gh run list --branch main --commit <merge commit>",
     "replace": "gh run list --branch main",
     "test": "pnpm vitest run addons/agent-workflow/tests/addon.test.mts --testNamePattern=\"takes a green pull request to main\""
+  },
+  {
+    "name": "what is left: the page is a starting file",
+    "file": "addons/agent-workflow/addon.json",
+    "find": "    \"docs/STATUS.md\",\n",
+    "replace": "",
+    "test": "pnpm vitest run addons/agent-workflow/tests/addon.test.mts --testNamePattern=\"leaves CHANGELOG.md to the project once it is written, and ships no setting\""
+  },
+  {
+    "name": "what is left: the page is written once, with the changelog",
+    "file": "addons/agent-workflow/addon.json",
+    "find": "    \"docs/STATUS.md\",\n    \"docs/IDEAS.md\"\n",
+    "replace": "    \"docs/IDEAS.md\"\n",
+    "test": "pnpm vitest run addons/agent-workflow/tests/addon.test.mts --testNamePattern=\"writes the changelog once, the commands, the skills for Codex and the workflow\""
+  },
+  {
+    "name": "what is left: the page has each section the section names",
+    "file": "addons/agent-workflow/files/docs/STATUS.md",
+    "find": "## Waiting on a person\n",
+    "replace": "## Waiting\n",
+    "test": "pnpm vitest run addons/agent-workflow/tests/addon.test.mts --testNamePattern=\"has the sections the section of AGENTS.md names\""
+  },
+  {
+    "name": "what is left: the section names each section of the page",
+    "file": "addons/agent-workflow/AGENTS.section.md",
+    "find": "| Known limits | What will not be fixed soon",
+    "replace": "| Limits | What will not be fixed soon",
+    "test": "pnpm vitest run addons/agent-workflow/tests/addon.test.mts --testNamePattern=\"has the sections the section of AGENTS.md names\""
+  },
+  {
+    "name": "what is left: the page starts with no entry",
+    "file": "addons/agent-workflow/files/docs/STATUS.md",
+    "find": "Work that has started and is not finished.\n",
+    "replace": "- **An entry.** Left by the template.\n",
+    "test": "pnpm vitest run addons/agent-workflow/tests/addon.test.mts --testNamePattern=\"has the sections the section of AGENTS.md names\""
+  },
+  {
+    "name": "what is left: the page has a line for its date",
+    "file": "addons/agent-workflow/files/docs/STATUS.md",
+    "find": "**Last updated: no entry yet**",
+    "replace": "",
+    "test": "pnpm vitest run addons/agent-workflow/tests/addon.test.mts --testNamePattern=\"has a line for the date of its last edit\""
+  },
+  {
+    "name": "what is left: the section says to set the date",
+    "file": "addons/agent-workflow/AGENTS.section.md",
+    "find": "Every edit sets `Last updated` to today's date.",
+    "replace": "",
+    "test": "pnpm vitest run addons/agent-workflow/tests/addon.test.mts --testNamePattern=\"has a line for the date of its last edit\""
+  },
+  {
+    "name": "what is left: the page points at the ideas",
+    "file": "addons/agent-workflow/files/docs/STATUS.md",
+    "find": "[IDEAS.md](IDEAS.md)",
+    "replace": "IDEAS.md",
+    "test": "pnpm vitest run addons/agent-workflow/tests/addon.test.mts --testNamePattern=\"points at the page of ideas, which points back\""
+  },
+  {
+    "name": "what is left: the ideas point back",
+    "file": "addons/agent-workflow/files/docs/IDEAS.md",
+    "find": "[STATUS.md](STATUS.md)",
+    "replace": "STATUS.md",
+    "test": "pnpm vitest run addons/agent-workflow/tests/addon.test.mts --testNamePattern=\"points at the page of ideas, which points back\""
+  },
+  {
+    "name": "what is left: the changelog is one folder up",
+    "file": "addons/agent-workflow/files/docs/STATUS.md",
+    "find": "(../CHANGELOG.md)",
+    "replace": "(CHANGELOG.md)",
+    "test": "pnpm vitest run addons/agent-workflow/tests/addon.test.mts --testNamePattern=\"points at the page of ideas, which points back\""
+  },
+  {
+    "name": "what is left: written in the pull request of the work",
+    "file": "addons/agent-workflow/AGENTS.section.md",
+    "find": "Write each one into `docs/STATUS.md`, in the pull request of\nthe work that left it.",
+    "replace": "Say each one in the report.",
+    "test": "pnpm vitest run addons/agent-workflow/tests/addon.test.mts --testNamePattern=\"tells an agent to write what a piece of work leaves into the page\""
+  },
+  {
+    "name": "what is left: an entry goes in the pull request that finishes it",
+    "file": "addons/agent-workflow/AGENTS.section.md",
+    "find": "remove the entry, in that pull request",
+    "replace": "remove the entry later",
+    "test": "pnpm vitest run addons/agent-workflow/tests/addon.test.mts --testNamePattern=\"tells an agent to write what a piece of work leaves into the page\""
   }
 ]

@@ -26,6 +26,8 @@ Leave it out of a project where one of the three is not so.
 | `pnpm changelog weeks\|prs\|check` | `tools/agent-workflow/changelog.mts` | The weeks with no entry, a week's merged pull requests, and the proof that each is cited |
 | Weekly tag | `.github/workflows/weekly-tag.yml`, `tools/agent-workflow/close-week.mts` | Monday 00:05 UTC: tags the finished ISO week, opens "Changelog: write `<week>`" |
 | `CHANGELOG.md` | project root | A starting file: the format, no week yet. The project owns it |
+| `docs/STATUS.md` | `docs/` | A starting file: the six sections of what is left, no entry yet. The project owns it |
+| `docs/IDEAS.md` | `docs/` | A starting file: what nobody has committed to. The project owns it |
 | Three commands | `.claude/commands/workflow/*.md` | `/workflow:changelog`, `/workflow:coverage-backfill`, `/workflow:visual-tolerance-audit` |
 | The same for Codex | `.agents/skills/workflow-*/SKILL.md` | One small skill per command, which points at the command file |
 | `node tools/agent-workflow/requires.mts <add-on>` | same | Exit 0 when the add-on is installed, exit 2 with what to do when not |
@@ -82,6 +84,33 @@ Differences from the source:
   counts of merges. The section says "twice its usual time".
 - **A branch left on `origin` is reported, not removed.** The source relies
   on the repository setting that deletes a merged branch.
+
+## What is left
+
+The steps above end at main. What a piece of work leaves behind had no place:
+it was said in a session's closing report, and gone with the session. In the
+project these rules were first followed in, one day's work left a setting
+only a person could switch on, five alerts nobody had read, two open
+decisions and three things not verified, and all of it lived in one
+conversation.
+
+`docs/STATUS.md` is that place. It holds only what is not done; an entry is
+removed in the pull request that finishes it, so the page shrinks.
+`docs/IDEAS.md` comes before it and holds what nobody has committed to. The
+section of `AGENTS.md` says when an entry is added, moved and removed, and
+that what is left is written there in the pull request of the work that left
+it.
+
+From the source, with three differences:
+
+- **Two more sections.** The source's page has four, by how far a planned
+  piece of work has come. "Waiting on a person" and "Known limits" are added,
+  for what is left that is not a piece of work.
+- **Plain headings.** The source marks each with a coloured sign.
+- **No command and no check yet.** The source has a command that reports the
+  live position (branch, open pull requests, the last run on main) beside the
+  page's headings. Nothing here checks that the page has its sections or
+  that its date moved. Both are in this repository's `docs/STATUS.md`.
 
 ## The hook
 
