@@ -239,24 +239,32 @@ Found while a project was set up with the plugin, on 2026-10-12 and 13.
   never runs one, and neither did its tests or its runs against GitHub on
   2026-10-12. The body of the ruleset it prints holds the fields GitHub's
   published API description requires; GitHub has not been sent it.
-- **The `agent-workflow` hook has not run in a live session of either host.**
-  It refuses a push or pull request step joined to other commands, and
-  approves nothing: pre-approval was built, reviewed four times, escaped each
-  time, and removed (the add-on's README says how). What it relies on is from
-  the documentation: the reply a host reads, how a host matches a hook to the
-  shell tool, and that a hook that crashes or times out does not block.
-- **The hook's question about a push with a colon was not seen in a
-  session.** It answers `ask` for `git push origin a:b`, to Claude Code
-  only, in place of a rule the host read as a prefix. That Claude Code then
-  asks a person where an `allow` rule matches is read from the code of
-  2.1.296, and that Codex calls `ask` unsupported from its 0.162.1 binary
-  ([the add-on's README](../addons/agent-workflow/README.md#not-verified)).
-  The hosts are told apart by `turn_id`, which only Codex sends. If Claude
-  Code comes to send one, the hook goes silent there and nothing fails.
+- **The `agent-workflow` hook has not run in a live session of Codex, nor
+  in front of a person.** Under Claude Code 2.1.296 it ran headless on
+  2026-10-13: it refused a chain, and its question stopped a push with a
+  colon that an `allow` rule let through without it ([the add-on's
+  README](../addons/agent-workflow/README.md#in-a-live-session-of-claude-code)).
+  Still from the documentation: the reply Codex reads, how each host matches
+  a hook to the shell tool, and that a hook that crashes or times out does
+  not block.
+- **The hook tells Claude Code from Codex by `turn_id`**, which only Codex
+  sends, and gives its question to Claude Code only: Codex 0.162.1 calls
+  `ask` unsupported. If Claude Code comes to send a `turn_id`, the hook goes
+  silent there and nothing fails.
 - **A project that had `Bash(git push *:*)` keeps it after an update.** The
   merge removes no rule, so Claude Code goes on warning about it at each
   start until a person deletes it. `pnpm agent-workflow:check` names it. The
   installer can retire a hook's command line and a file, and not a rule.
+- **The `agent-workflow` hook and the host can still read a command
+  differently.** A review on 2026-10-13 ran Claude Code 2.1.296's own
+  matching against the hook and found five ways past it; all five are closed
+  and tested ([the add-on's
+  README](../addons/agent-workflow/README.md#a-review-against-the-hosts-own-matching)).
+  What the hook looks past (`nice`, `timeout`, `xargs` and the rest) is a
+  copy, by hand, of what that version of the host looks past, and so is the
+  list of tools that run a shell command (`Bash`, `Monitor`). A later version
+  that looks past another word, or gains another such tool, opens the gap
+  again, and nothing here fails when it does.
 - **A second review named the hook's reading of a command.** A security
   review of the add-on as a project got it (2026-10-12) named `outward.mts`,
   `shell.mts` and the hook for letting through a command they cannot read
