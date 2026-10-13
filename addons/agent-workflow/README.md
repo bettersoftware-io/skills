@@ -735,7 +735,27 @@ the folder is trusted.
 So in that version a hook's `ask` and an `ask` rule each win over an `allow`
 rule, the hook's refusal is read, and an `allow` rule for `Bash` lets the
 Monitor tool run the same command. Not seen: the prompt a person gets in an
-interactive session, any other version, and Codex.
+interactive session, and any other version.
+
+### In a live session of Codex
+
+Run on 2026-10-13 with Codex 0.162.1, headless (`codex exec`, sandbox
+`workspace-write`), in a scratch repository with a folder as `origin` and
+the add-on's `.codex/hooks.json`. The hook is one no person had trusted
+there, so the run was started with `--dangerously-bypass-hook-trust`; a
+project's own first run asks a person to trust it instead.
+
+| Command | What happened |
+|---|---|
+| `git status --short && git push origin main` | Not run. Codex reported the hook's refusal, word for word |
+| `git push origin main:other` | The hook answered nothing, Codex reported no hook error, and its own approval let the command run |
+
+The payload Codex sent for the second was recorded: tool name `Bash`, the
+command as text, and a `turn_id`, with `cwd`, `hook_event_name`, `model`,
+`permission_mode`, `session_id`, `tool_use_id` and `transcript_path` beside
+them. So the field the hook tells Codex by is there, and the refusal is read.
+Not seen: a hook that a person trusts in the usual way, and a command sent as
+a list of words.
 
 ### A review against the host's own matching
 
@@ -756,8 +776,46 @@ against each candidate. Five kinds were found, and each is a test now:
 Two more, of the refusal and not of the question: an outward step inside
 `$(…)` of another command or behind a pipe from one was not a chain, and
 hundreds of thousands of words in front of a command took the hook past its
-five seconds. Both are fixed and tested. The review also lists what it tried
-and found closed; it is not a proof that nothing is left.
+five seconds. Both are fixed and tested.
+
+What it tried and found closed, so that the next review need not start from
+nothing. The hook does not read these, and the host asks about them itself
+or matches no rule for a push to them:
+
+- A quote the hook loses track of (`echo $'\'' ; git push … #'`,
+  `${x:-"}"}`): the host refuses `$'…'` and `${…}` as too complex to judge.
+- A push inside `${x:-$(…)}`, in the body of an unquoted heredoc, in a
+  function defined and called on one line, in a `case`, in zsh's `=(…)`:
+  the host asks.
+- `git --attr-source HEAD push`, `git --config-env=… push`,
+  `git -c alias.x=push x`, `git $'pu\x73h'`: the text no longer begins
+  `git push`, so no `allow` rule for a push matches it.
+- `env -u X`, `exec -a x`, `xargs -n1`, `coproc`, `repeat 2`, `nocorrect`:
+  the host does not look past them either.
+- `bash -c -- '…'`, `bash -Cc '…'`, `bash <<EOF`: needs an `allow` rule for
+  `bash`.
+- `HOME=/tmp/x; git push …`, `git push origin =main`: the host refuses the
+  assignment and the `=cmd` form.
+- A line continued with a backslash, `&|`, `|&`, a tab, a carriage return, a
+  no-break space, and `"git"`, `\git`, `/usr/bin/git`: the hook asks or
+  refuses as it should.
+
+A second review, the same day, was given the hook as the first one left it.
+It found no command that gets past, and none of 23 everyday commands around
+a push or a pull request wrongly refused. It named one candidate, a command
+used as a file beside a plain push (`git push origin b > >(curl …)`, and the
+same with `< <(…)`): the hook says nothing about it, and from the host's
+code the reviewer read that an `allow` rule lets it run. A live run said
+otherwise. Claude Code 2.1.296, with `Bash(git push *)` allowed and no hook,
+refused both forms ("A command used as a file in this command can't be
+checked before it runs") and ran a plain push. So what a reviewer reads in
+the host's code is a lead, and a run decides. Also tried and closed:
+`coproc git push` (the host matches no rule to it), `;;`, `&!`, `&` (refused
+as chains), and `git push origin tag v1.0`, which is plain words: one tag,
+for the project's own rule to decide.
+
+Those lists are what two reviews tried. They are not a proof that nothing is
+left.
 
 ## Not verified
 
@@ -791,12 +849,11 @@ and found closed; it is not a proof that nothing is left.
   repository and not with an old git. The quoting of a printed command was
   tested with `sh`, and never on Windows. macOS refuses a file name that is
   not UTF-8, so such a path was tested as a word only, not through git.
-- **The hook in a live session of Codex.** It was run by hand with Codex's
-  payload. That side rests on its documentation and on the schemas in the
-  0.160.0 binary (`PreToolUse`, tool name `Bash`, `tool_input.command` as
-  text, `permissionDecision: "deny"`). Under Claude Code it ran in a headless
-  session ([above](#in-a-live-session-of-claude-code)); the prompt of an
-  interactive one was not watched.
+- **The hook in front of a person.** It ran in a headless session of each
+  host ([Claude Code](#in-a-live-session-of-claude-code),
+  [Codex](#in-a-live-session-of-codex)). The prompt of an interactive
+  session was not watched in either, nor Codex asking a person to trust the
+  hook.
 - **Codex finding the skills** in `.agents/skills`. That is the documented
   place for a repository's skills; no session was run.
 - **What a host does with a hook that times out or crashes.** That the call

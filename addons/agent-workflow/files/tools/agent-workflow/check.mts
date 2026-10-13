@@ -103,7 +103,7 @@ export function check({ root, runHook, report }: CheckOptions): number {
   }
 
   if (wrong.length === 0) {
-    report("PASS hook: refuses an outward step joined to others, asks about a push with a colon, and says nothing about a push alone, whatever it is started with");
+    report("PASS hook: refuses an outward step joined to others, asks about a push that is not written plainly, and says nothing about a plain push alone, whatever it is started with");
   }
 
   for (const path of RETIRED_FILES.filter((file) => existsSync(join(root, file)))) {

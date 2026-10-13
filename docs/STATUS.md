@@ -239,14 +239,15 @@ Found while a project was set up with the plugin, on 2026-10-12 and 13.
   never runs one, and neither did its tests or its runs against GitHub on
   2026-10-12. The body of the ruleset it prints holds the fields GitHub's
   published API description requires; GitHub has not been sent it.
-- **The `agent-workflow` hook has not run in a live session of Codex, nor
-  in front of a person.** Under Claude Code 2.1.296 it ran headless on
-  2026-10-13: it refused a chain, and its question stopped a push with a
-  colon that an `allow` rule let through without it ([the add-on's
+- **The `agent-workflow` hook has not run in front of a person.** It ran
+  headless on 2026-10-13 under Claude Code 2.1.296 and under Codex 0.162.1:
+  each read its refusal of a chain, and under Claude Code its question
+  stopped a push with a colon that an `allow` rule let through without it
+  ([the add-on's
   README](../addons/agent-workflow/README.md#in-a-live-session-of-claude-code)).
-  Still from the documentation: the reply Codex reads, how each host matches
-  a hook to the shell tool, and that a hook that crashes or times out does
-  not block.
+  Not watched: the prompt of an interactive session, and Codex asking a
+  person to trust the hook. Still from the documentation: that a hook that
+  crashes or times out does not block.
 - **The hook tells Claude Code from Codex by `turn_id`**, which only Codex
   sends, and gives its question to Claude Code only: Codex 0.162.1 calls
   `ask` unsupported. If Claude Code comes to send a `turn_id`, the hook goes
@@ -264,7 +265,10 @@ Found while a project was set up with the plugin, on 2026-10-12 and 13.
   copy, by hand, of what that version of the host looks past, and so is the
   list of tools that run a shell command (`Bash`, `Monitor`). A later version
   that looks past another word, or gains another such tool, opens the gap
-  again, and nothing here fails when it does.
+  again, and nothing here fails when it does. What would close it is a check
+  that reads those two lists out of the installed host and compares them with
+  the hook's. Not built: the host is one minified program, and the lists
+  would have to be found in it by their shape.
 - **A second review named the hook's reading of a command.** A security
   review of the add-on as a project got it (2026-10-12) named `outward.mts`,
   `shell.mts` and the hook for letting through a command they cannot read

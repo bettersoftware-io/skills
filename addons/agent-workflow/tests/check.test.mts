@@ -29,7 +29,7 @@ describe("the add-on's check", () => {
 
     expect(status).toBe(0);
     expect(lines).toEqual([
-      "PASS hook: refuses an outward step joined to others, asks about a push with a colon, and says nothing about a push alone, whatever it is started with",
+      "PASS hook: refuses an outward step joined to others, asks about a push that is not written plainly, and says nothing about a plain push alone, whatever it is started with",
       "PASS Claude Code: .claude/settings.json runs the hook before each shell command",
       EDIT_PASS,
       "PASS Claude Code: all 12 ask rules are in, so a forced or destructive push and an --admin merge ask whatever else allows them",
