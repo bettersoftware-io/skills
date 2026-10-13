@@ -250,7 +250,7 @@ describe("the weekly-tag workflow", () => {
 });
 
 describe("the commands", () => {
-  it("are the three the check knows about", () => {
+  it("are the six the check knows about", () => {
     expect(readdirSync(join(ADDON, "files/.claude/commands/workflow")).sort()).toEqual(COMMANDS.map((name) => `${name}.md`).sort());
   });
 
@@ -294,6 +294,46 @@ describe("the commands", () => {
     expect(readCommand("changelog").text).not.toContain("requires.mts");
   });
 
+  it.each(["status", "docs"])("needs no other add-on for %s, which every project with this add-on can run", (name) => {
+    expect(Object.hasOwn(COMMAND_NEEDS, name)).toBe(true);
+    expect(COMMAND_NEEDS[name]).toBeUndefined();
+    expect(readCommand(name).text).not.toContain("requires.mts");
+  });
+
+  it("has a command for the status that reads the page of what is left and changes nothing", () => {
+    const { frontmatter, body } = readCommand("status");
+
+    expect(body).toContain('grep -E "^## |^- \\*\\*" docs/STATUS.md');
+    expect(body).toContain("gh run list --branch main");
+    expect(frontmatter).toMatch(/^allowed-tools: Bash\(git:\*\), Bash\(gh:\*\), Bash\(grep:\*\), Read$/m);
+    expect(body).toContain("If the newest finished run of a\n   workflow on main failed, that is the first line");
+  });
+
+  it("has a command for the documents that sends each kind of finding to its place, and stops before it writes", () => {
+    const { body } = readCommand("docs");
+    const steps = [...body.matchAll(/^## (\d+\. .+)$/gm)].map((match) => match[1] ?? "");
+
+    expect(body).toContain("| Work that is not done, or the end of work that was pending | `docs/STATUS.md`");
+    expect(body).toContain("| An idea nobody has committed to | `docs/IDEAS.md` |");
+    expect(steps).toEqual([
+      "1. See what documents there are",
+      "2. Decide where it belongs",
+      "3. Read the nearest document in full",
+      "4. Propose, then stop",
+      "5. Write it, in a worktree",
+      "6. Ship it",
+    ]);
+    expect(body).toContain("Wait for a yes.");
+  });
+
+  it("has a command for the motion audit that never calls a run that did not happen a pass", () => {
+    const { body } = readCommand("perf-audit");
+
+    expect(body).toContain("pnpm perf:motion-audit --assert-still");
+    expect(body).toContain('Report exit 2 as "not run", never as a pass.');
+    expect(body).toContain("Wait for a yes before you change anything.");
+  });
+
   it.each(COMMANDS)("%s names only scripts that this add-on, the one it needs, or the starter has", (name) => {
     const known = new Set([...scriptsOf(join(ADDON, "addon.json")), ...Object.keys(readJson<{ scripts: Record<string, string> }>(REPOSITORY, "starter/package.json").scripts)]);
     const needs = COMMAND_NEEDS[name];
@@ -335,7 +375,7 @@ describe("the section for AGENTS.md", () => {
   it("points at command files that are shipped", () => {
     const paths = [...SECTION.matchAll(/`(\.claude\/commands\/workflow\/[\w-]+\.md)`/g)].map((match) => match[1] ?? "");
 
-    expect(paths).toHaveLength(3);
+    expect(paths.map((path) => path.replace(/^.*\/|\.md$/g, "")).sort()).toEqual([...COMMANDS].sort());
 
     for (const path of paths) {
       expect(existsSync(join(ADDON, "files", path)), path).toBe(true);

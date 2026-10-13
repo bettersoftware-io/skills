@@ -998,7 +998,7 @@
     "file": "addons/agent-workflow/files/tools/agent-workflow/lib/host.mts",
     "find": "  changelog: undefined,\n",
     "replace": "",
-    "test": "pnpm vitest run addons/agent-workflow/tests/addon.test.mts --testNamePattern=\"are the three the check knows about\""
+    "test": "pnpm vitest run addons/agent-workflow/tests/addon.test.mts --testNamePattern=\"are the six the check knows about\""
   },
   {
     "name": "changelog says what it does, and what it may run",
@@ -3598,5 +3598,117 @@
     "find": "\"nohup\", \"env\", \"xargs\"];",
     "replace": "\"nohup\", \"env\"];",
     "test": "pnpm vitest run addons/agent-workflow/tests/outward.test.mts --testNamePattern=\"is an outward step behind xargs as well\""
+  },
+  {
+    "name": "commands: status needs no other add-on",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/host.mts",
+    "find": "  status: undefined,\n",
+    "replace": "  status: \"coverage\",\n",
+    "test": "pnpm vitest run addons/agent-workflow/tests/addon.test.mts --testNamePattern=\"needs no other add-on for status\""
+  },
+  {
+    "name": "commands: docs needs no other add-on",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/host.mts",
+    "find": "  docs: undefined,\n",
+    "replace": "  docs: \"coverage\",\n",
+    "test": "pnpm vitest run addons/agent-workflow/tests/addon.test.mts --testNamePattern=\"needs no other add-on for docs\""
+  },
+  {
+    "name": "commands: the check knows the status command",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/host.mts",
+    "find": "  status: undefined,\n",
+    "replace": "",
+    "test": "pnpm vitest run addons/agent-workflow/tests/addon.test.mts --testNamePattern=\"are the six the check knows about\""
+  },
+  {
+    "name": "commands: the check says the motion audit needs the performance add-on",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/host.mts",
+    "find": "  \"perf-audit\": \"performance\",\n",
+    "replace": "  \"perf-audit\": undefined,\n",
+    "test": "pnpm vitest run addons/agent-workflow/tests/check.test.mts --testNamePattern=\"passes a project as the add-on leaves it\""
+  },
+  {
+    "name": "commands: the motion audit asks for its add-on first",
+    "file": "addons/agent-workflow/files/.claude/commands/workflow/perf-audit.md",
+    "find": "node tools/agent-workflow/requires.mts performance",
+    "replace": "node tools/agent-workflow/requires.mts",
+    "test": "pnpm vitest run addons/agent-workflow/tests/addon.test.mts --testNamePattern=\"perf-audit first asks whether the performance add-on is there\""
+  },
+  {
+    "name": "commands: status reads the headings of what is left",
+    "file": "addons/agent-workflow/files/.claude/commands/workflow/status.md",
+    "find": "grep -E \"^## |^- \\*\\*\" docs/STATUS.md",
+    "replace": "cat docs/STATUS.md",
+    "test": "pnpm vitest run addons/agent-workflow/tests/addon.test.mts --testNamePattern=\"has a command for the status that reads the page\""
+  },
+  {
+    "name": "commands: status may use no tool that writes",
+    "file": "addons/agent-workflow/files/.claude/commands/workflow/status.md",
+    "find": "allowed-tools: Bash(git:*), Bash(gh:*), Bash(grep:*), Read",
+    "replace": "allowed-tools: Bash(git:*), Bash(gh:*), Bash(grep:*), Read, Write",
+    "test": "pnpm vitest run addons/agent-workflow/tests/addon.test.mts --testNamePattern=\"has a command for the status that reads the page\""
+  },
+  {
+    "name": "commands: status puts a red main first",
+    "file": "addons/agent-workflow/files/.claude/commands/workflow/status.md",
+    "find": "that is the first line, before anything else",
+    "replace": "say so",
+    "test": "pnpm vitest run addons/agent-workflow/tests/addon.test.mts --testNamePattern=\"has a command for the status that reads the page\""
+  },
+  {
+    "name": "commands: docs sends pending work to the page of what is left",
+    "file": "addons/agent-workflow/files/.claude/commands/workflow/docs.md",
+    "find": "| Work that is not done, or the end of work that was pending | `docs/STATUS.md`",
+    "replace": "| Work that is not done, or the end of work that was pending | `README.md`",
+    "test": "pnpm vitest run addons/agent-workflow/tests/addon.test.mts --testNamePattern=\"has a command for the documents that sends each kind of finding\""
+  },
+  {
+    "name": "commands: docs sends an idea to the page of ideas",
+    "file": "addons/agent-workflow/files/.claude/commands/workflow/docs.md",
+    "find": "| An idea nobody has committed to | `docs/IDEAS.md` |",
+    "replace": "| An idea nobody has committed to | `docs/STATUS.md` |",
+    "test": "pnpm vitest run addons/agent-workflow/tests/addon.test.mts --testNamePattern=\"has a command for the documents that sends each kind of finding\""
+  },
+  {
+    "name": "commands: docs stops for a yes",
+    "file": "addons/agent-workflow/files/.claude/commands/workflow/docs.md",
+    "find": "Wait for a yes. When",
+    "replace": "When",
+    "test": "pnpm vitest run addons/agent-workflow/tests/addon.test.mts --testNamePattern=\"has a command for the documents that sends each kind of finding\""
+  },
+  {
+    "name": "commands: docs proposes before it writes",
+    "file": "addons/agent-workflow/files/.claude/commands/workflow/docs.md",
+    "find": "## 4. Propose, then stop",
+    "replace": "## 7. Propose, then stop",
+    "test": "pnpm vitest run addons/agent-workflow/tests/addon.test.mts --testNamePattern=\"has a command for the documents that sends each kind of finding\""
+  },
+  {
+    "name": "commands: a motion audit that did not run is not a pass",
+    "file": "addons/agent-workflow/files/.claude/commands/workflow/perf-audit.md",
+    "find": "Report exit 2 as \"not run\", never as a pass.",
+    "replace": "",
+    "test": "pnpm vitest run addons/agent-workflow/tests/addon.test.mts --testNamePattern=\"has a command for the motion audit that never calls\""
+  },
+  {
+    "name": "commands: the motion audit stops before it changes anything",
+    "file": "addons/agent-workflow/files/.claude/commands/workflow/perf-audit.md",
+    "find": "Wait for a yes before you change anything.",
+    "replace": "",
+    "test": "pnpm vitest run addons/agent-workflow/tests/addon.test.mts --testNamePattern=\"has a command for the motion audit that never calls\""
+  },
+  {
+    "name": "commands: the motion audit can demand stillness",
+    "file": "addons/agent-workflow/files/.claude/commands/workflow/perf-audit.md",
+    "find": "pnpm perf:motion-audit --assert-still\n",
+    "replace": "",
+    "test": "pnpm vitest run addons/agent-workflow/tests/addon.test.mts --testNamePattern=\"has a command for the motion audit that never calls\""
+  },
+  {
+    "name": "commands: the section points at each command",
+    "file": "addons/agent-workflow/AGENTS.section.md",
+    "find": "- `.claude/commands/workflow/status.md`: where the project stands.",
+    "replace": "- The status: where the project stands.",
+    "test": "pnpm vitest run addons/agent-workflow/tests/addon.test.mts --testNamePattern=\"points at command files that are shipped\""
   }
 ]
