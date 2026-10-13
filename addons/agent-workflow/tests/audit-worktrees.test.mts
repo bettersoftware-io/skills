@@ -826,7 +826,7 @@ describe("text that comes from outside", () => {
     const block = blockOf(audit(remote.clone), "it's here");
     const commands = block.slice(-2).map((line) => line.replace(/^ +(?:remove: +)?/, ""));
 
-    expect(commands).toEqual([`git worktree remove '${path.replace("'", "'\\''")}'`, "git branch -D 'worktree-it'\\''s'"]);
+    expect(commands).toEqual([`git worktree remove '${path.replaceAll("'", "'\\''")}'`, "git branch -D 'worktree-it'\\''s'"]);
     // The tool removed nothing: both are there until a person runs what it printed.
     expect(existsSync(path)).toBe(true);
 
