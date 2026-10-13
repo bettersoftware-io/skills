@@ -11,6 +11,7 @@ const CODEX_HOOK = "node tools/agent-workflow/hooks/split-outward-commands.mts";
 const COMMANDS = {
   ".claude/commands/workflow/status.md": "status\n",
   ".claude/commands/workflow/docs.md": "docs\n",
+  ".claude/commands/workflow/worktrees.md": "worktrees\n",
   ".claude/commands/workflow/changelog.md": "changelog\n",
   ".claude/commands/workflow/coverage-backfill.md": "coverage\n",
   ".claude/commands/workflow/visual-tolerance-audit.md": "visual\n",
@@ -35,6 +36,7 @@ describe("the add-on's check", () => {
       "PASS Codex: .codex/hooks.json runs the hook before each shell command",
       "PASS command /workflow:status",
       "PASS command /workflow:docs",
+      "PASS command /workflow:worktrees",
       "PASS command /workflow:changelog",
       'NOTE command /workflow:coverage-backfill: needs the "coverage" add-on, which this project does not have. It stops and says so when run',
       'NOTE command /workflow:visual-tolerance-audit: needs the "visual" add-on, which this project does not have. It stops and says so when run',

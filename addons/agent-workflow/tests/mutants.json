@@ -998,7 +998,7 @@
     "file": "addons/agent-workflow/files/tools/agent-workflow/lib/host.mts",
     "find": "  changelog: undefined,\n",
     "replace": "",
-    "test": "pnpm vitest run addons/agent-workflow/tests/addon.test.mts --testNamePattern=\"are the six the check knows about\""
+    "test": "pnpm vitest run addons/agent-workflow/tests/addon.test.mts --testNamePattern=\"are the seven the check knows about\""
   },
   {
     "name": "changelog says what it does, and what it may run",
@@ -3618,7 +3618,7 @@
     "file": "addons/agent-workflow/files/tools/agent-workflow/lib/host.mts",
     "find": "  status: undefined,\n",
     "replace": "",
-    "test": "pnpm vitest run addons/agent-workflow/tests/addon.test.mts --testNamePattern=\"are the six the check knows about\""
+    "test": "pnpm vitest run addons/agent-workflow/tests/addon.test.mts --testNamePattern=\"are the seven the check knows about\""
   },
   {
     "name": "commands: the check says the motion audit needs the performance add-on",
@@ -3714,8 +3714,8 @@
   {
     "name": "grants: no command is given all of git",
     "file": "addons/agent-workflow/files/.claude/commands/workflow/changelog.md",
-    "find": "Bash(git log:*)",
-    "replace": "Bash(git:*)",
+    "find": "Bash(gh pr view:*)",
+    "replace": "Bash(gh:*)",
     "test": "pnpm vitest run addons/agent-workflow/tests/addon.test.mts --testNamePattern=\"changelog may run unasked only what it names\""
   },
   {
@@ -3770,8 +3770,8 @@
   {
     "name": "grants: a tool that is not for files is not granted",
     "file": "addons/agent-workflow/files/.claude/commands/workflow/visual-tolerance-audit.md",
-    "find": "Bash(gh run download:*), Read",
-    "replace": "Bash(gh run download:*), Read, WebFetch",
+    "find": "Bash(pnpm visual:jitter:*), Read",
+    "replace": "Bash(pnpm visual:jitter:*), Read, WebFetch",
     "test": "pnpm vitest run addons/agent-workflow/tests/addon.test.mts --testNamePattern=\"visual-tolerance-audit may run unasked only what it names\""
   },
   {
@@ -4872,5 +4872,75 @@
     "find": "if (standsWhereMainStood(bench, head as string)) {",
     "replace": "if (standsWhereMainStood(bench, head as string) && path === \"\") {",
     "test": "pnpm vitest run addons/agent-workflow/tests/audit-worktrees.test.mts --testNamePattern=\"prints no command with --force in it\""
+  },
+  {
+    "name": "commands: worktrees needs no other add-on",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/host.mts",
+    "find": "  worktrees: undefined,\n",
+    "replace": "  worktrees: \"coverage\",\n",
+    "test": "pnpm vitest run addons/agent-workflow/tests/addon.test.mts --testNamePattern=\"needs no other add-on for worktrees\""
+  },
+  {
+    "name": "commands: the worktrees command may run the audit and nothing that removes",
+    "file": "addons/agent-workflow/files/.claude/commands/workflow/worktrees.md",
+    "find": "allowed-tools: Bash(pnpm worktree:audit:*), Read",
+    "replace": "allowed-tools: Bash(pnpm worktree:audit:*), Bash(git worktree remove:*), Read",
+    "test": "pnpm vitest run addons/agent-workflow/tests/addon.test.mts --testNamePattern=\"has a command for the worktrees that may run the audit\""
+  },
+  {
+    "name": "commands: no worktree goes without a yes",
+    "file": "addons/agent-workflow/files/.claude/commands/workflow/worktrees.md",
+    "find": "Never remove a worktree or delete a branch without a yes from the user",
+    "replace": "Remove a worktree or delete a branch when it is merged",
+    "test": "pnpm vitest run addons/agent-workflow/tests/addon.test.mts --testNamePattern=\"has a command for the worktrees that may run the audit\""
+  },
+  {
+    "name": "commands: a worktree is never forced away",
+    "file": "addons/agent-workflow/files/.claude/commands/workflow/worktrees.md",
+    "find": "- **Never `--force`.**",
+    "replace": "- **Rarely `--force`.**",
+    "test": "pnpm vitest run addons/agent-workflow/tests/addon.test.mts --testNamePattern=\"has a command for the worktrees that may run the audit\""
+  },
+  {
+    "name": "commands: only what the audit printed a command for goes",
+    "file": "addons/agent-workflow/files/.claude/commands/workflow/worktrees.md",
+    "find": "- **Only what the audit printed a command for.**",
+    "replace": "- **What looks finished.**",
+    "test": "pnpm vitest run addons/agent-workflow/tests/addon.test.mts --testNamePattern=\"has a command for the worktrees that may run the audit\""
+  },
+  {
+    "name": "commands: an audit that did not read everything is said first",
+    "file": "addons/agent-workflow/files/.claude/commands/workflow/worktrees.md",
+    "find": "2: something was not read or not judged",
+    "replace": "2: there is something to remove",
+    "test": "pnpm vitest run addons/agent-workflow/tests/addon.test.mts --testNamePattern=\"has a command for the worktrees that may run the audit\""
+  },
+  {
+    "name": "grants: no command removes a worktree unasked",
+    "file": "addons/agent-workflow/files/.claude/commands/workflow/worktrees.md",
+    "find": "Bash(pnpm worktree:audit:*), Read",
+    "replace": "Bash(pnpm worktree:audit:*), Bash(git worktree remove:*), Read",
+    "test": "pnpm vitest run addons/agent-workflow/tests/addon.test.mts --testNamePattern=\"no command may run git worktree remove unasked\""
+  },
+  {
+    "name": "grants: no command is given git log",
+    "file": "addons/agent-workflow/files/.claude/commands/workflow/changelog.md",
+    "find": "Bash(gh pr view:*)",
+    "replace": "Bash(gh pr view:*), Bash(git log:*)",
+    "test": "pnpm vitest run addons/agent-workflow/tests/addon.test.mts --testNamePattern=\"no command may run git log unasked\""
+  },
+  {
+    "name": "grants: no command is given a download",
+    "file": "addons/agent-workflow/files/.claude/commands/workflow/visual-tolerance-audit.md",
+    "find": "Bash(pnpm visual:jitter:*), Read",
+    "replace": "Bash(pnpm visual:jitter:*), Bash(gh run download:*), Read",
+    "test": "pnpm vitest run addons/agent-workflow/tests/addon.test.mts --testNamePattern=\"no command may run gh run download unasked\""
+  },
+  {
+    "name": "commands: the section points at the worktrees command",
+    "file": "addons/agent-workflow/AGENTS.section.md",
+    "find": "- `.claude/commands/workflow/worktrees.md`: which worktrees are finished and",
+    "replace": "- The worktrees: which worktrees are finished and",
+    "test": "pnpm vitest run addons/agent-workflow/tests/addon.test.mts --testNamePattern=\"points at command files that are shipped\""
   }
 ]

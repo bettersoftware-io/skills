@@ -29,7 +29,7 @@ Leave it out of a project where one of the three is not so.
 | `CHANGELOG.md` | project root | A starting file: the format, no week yet. The project owns it |
 | `docs/STATUS.md` | `docs/` | A starting file: the six sections of what is left, no entry yet. The project owns it |
 | `docs/IDEAS.md` | `docs/` | A starting file: what nobody has committed to. The project owns it |
-| Six commands | `.claude/commands/workflow/*.md` | `/workflow:status`, `/workflow:docs`, `/workflow:changelog`, `/workflow:coverage-backfill`, `/workflow:visual-tolerance-audit`, `/workflow:perf-audit` |
+| Seven commands | `.claude/commands/workflow/*.md` | `/workflow:status`, `/workflow:docs`, `/workflow:worktrees`, `/workflow:changelog`, `/workflow:coverage-backfill`, `/workflow:visual-tolerance-audit`, `/workflow:perf-audit` |
 | The same for Codex | `.agents/skills/workflow-*/SKILL.md` | One small skill per command, which points at the command file |
 | `node tools/agent-workflow/requires.mts <add-on>` | same | Exit 0 when the add-on is installed, exit 2 with what to do when not |
 | `pnpm agent-workflow:check` | `tools/agent-workflow/check.mts` | The add-on's `verify`: runs the hook on three commands as each host starts it, and reads both settings files |
@@ -550,7 +550,7 @@ pull requests and keeps those merged inside the week to the second.
 
 ## Commands, and the three that need another add-on
 
-All six commands are always installed. The three that need another add-on
+All seven commands are always installed. The three that need another add-on
 start with step 0, `node tools/agent-workflow/requires.mts coverage` (or
 `visual`, or `performance`), and tell the agent to stop if it does not exit
 0. The script
@@ -571,7 +571,7 @@ command is the reading of the report and the verdict on each finding. The
 source's own audit command was for its levels of power saving and its two
 clients, and none of that is here.
 
-Two commands need nothing else:
+Three commands need nothing else:
 
 - **`/workflow:status`** reports where the project stands: the checkout, the
   open pull requests, the last runs on main, and the headings of
@@ -587,6 +587,12 @@ Two commands need nothing else:
   The source's table names its own folders; this one names the two pages the
   add-on gives a project and describes the rest.
 
+- **`/workflow:worktrees`** is the reading of `pnpm worktree:audit`
+  ([above](#the-worktree-audit)): what to say about each verdict, and the
+  rule from the source that nothing is removed before a yes that names what
+  goes. It is granted the audit and nothing else, so each `git worktree
+  remove` it is told to run asks.
+
 ### What a command may run unasked
 
 A command's `allowed-tools` line is a grant: in Claude Code, what it lists
@@ -600,8 +606,17 @@ held to the add-on's own rule, that every outward step asks:
   the command's text.
 - No command is granted a push, a pull request step, a merge, a workflow
   run or `gh api`. Nor `git fetch` and `git grep`, which read and can also
-  be told to start a program (`--upload-pack`, `--open-files-in-pager`):
-  each asks, as it would with no command running.
+  be told to start a program (`--upload-pack`, `--open-files-in-pager`), nor
+  `git log` and `gh run download`, which can be told to write a file where
+  they are told. Each asks, as it would with no command running.
+
+What this does not hold: a grant is by a program's first words, and the
+words after them are the agent's. `git status` cannot be turned into a push,
+but a project's own script that is granted (`pnpm worktree`,
+`pnpm coverage:gaps`) is run with whatever arguments follow, and does what
+that script does with them. A second security review named the list as one
+that can be got round, with no detail; `git log` and `gh run download` went
+from it for that reason, and what is left is this.
 
 Until 2026-10-13 it was not so. The three commands the add-on began with
 granted all of `git` and `gh`, as the source's do, so while one of them ran
@@ -652,7 +667,7 @@ against real repositories made in a temporary folder, with another folder as
   stderr with a control character or a text-direction mark in them; a path
   with a space and a quote in it, whose printed commands are then run in a
   real shell and remove that worktree and no other; and the state of the
-  repository before and after a run, which is the same. Its 143 mutants are
+  repository before and after a run, which is the same. Its 155 mutants are
   at the end of `tests/mutants.json`; they were run on 2026-10-13 and all
   killed.
 - `tests/week.test.mts`, `tests/changelog.test.mts`,

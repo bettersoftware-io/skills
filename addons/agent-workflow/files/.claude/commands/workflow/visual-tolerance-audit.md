@@ -1,7 +1,7 @@
 ---
 description: Measure how much the visual tier's screenshots differ when nothing changed, and judge the tolerance against that number
 argument-hint: [number of captures, default 5] [--ci]
-allowed-tools: Bash(node tools/agent-workflow/requires.mts:*), Bash(pnpm visual:jitter:*), Bash(gh run download:*), Read
+allowed-tools: Bash(node tools/agent-workflow/requires.mts:*), Bash(pnpm visual:jitter:*), Read
 ---
 
 Measure the visual tier's noise floor and judge its tolerance. Arguments:
