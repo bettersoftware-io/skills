@@ -9,7 +9,8 @@
 // linked worktree gets one verdict, judged against `origin/<main>`:
 //
 //   MERGED             its commit is on main and its tree is clean. The
-//                      commands that remove it are printed
+//                      commands that remove it are printed, unless it may
+//                      hold no work of its own: a worktree just made does
 //   MERGED, NOT CLEAN  its commit is on main, and the tree holds files that
 //                      are changed or untracked. No command is printed
 //   UNMERGED           it has commits main does not have. No command is

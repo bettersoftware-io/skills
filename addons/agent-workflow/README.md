@@ -388,7 +388,7 @@ UNMERGED  login
 
 | Verdict | When | A command that removes it |
 |---|---|---|
-| `MERGED` | The commit it stands on is an ancestor of `origin/<main>` (`git merge-base --is-ancestor`), and `git status` names no changed and no untracked file | `git worktree remove <path>`, then `git branch -D <branch>`. Never `--force` |
+| `MERGED` | The commit it stands on is an ancestor of `origin/<main>` (`git merge-base --is-ancestor`), and `git status` names no changed and no untracked file | `git worktree remove <path>`, then `git branch -D <branch>`. Never `--force`. None when it may hold no work of its own, when it is locked, or when its path or branch cannot be printed as one word; the lines under the verdict say which |
 | `MERGED, NOT CLEAN` | The commit is on main, and the tree holds changed or untracked files: how many, and the first five | None |
 | `UNMERGED` | It has commits main does not have: how many, the first five subjects, how old the newest is, and what the tree holds | None, ever |
 | `NOT JUDGED` | git could not say whether the commit is on main, or it is on main and the tree could not be read | None |
@@ -411,7 +411,10 @@ After the worktrees:
   knows, each with the first five entries of its top level. A link is named
   and not followed. They are listed and left where they are.
 - A `count:` line, a `next:` line for each kind of thing the report holds,
-  and a last line that is `OK` or `SKIP`.
+  and a last line that is `OK` or `SKIP`. `MERGED` does not mean that a
+  command was printed. When a `MERGED` worktree has none, the count says for
+  how many there is one (`MERGED 3 (a command for 1)`), and a `next:` line
+  says not to write the missing command by hand.
 
 `[filter]` keeps the worktrees whose name holds it. It is one plain word, as
 a worktree's name is, and is refused before git is asked anything. Orphan
@@ -448,14 +451,30 @@ on main. After a squash or a rebase main holds other commits, and the
 branch's own are on no other branch. The report says so once, with the rule:
 a merge commit.
 
-**A worktree just made reads as `MERGED`.** It stands on a commit of main and
-its tree is clean, which is also what `pnpm worktree` leaves. The tool cannot
-see a session, so it notes what it can see: the commit is on main's own line
-(a merge's first parent each time), where a branch merged by a merge commit
-is not. The note says a session may be about to work there. The commands are
-still printed, and the first `next:` line says to ask a person before
-anything is removed. `git worktree remove` refuses a tree that has gained a
-file since.
+**A worktree just made reads as `MERGED`, and gets no command.** It stands
+on a commit of main and its tree is clean, which is also what
+`pnpm worktree` leaves. The tool cannot see a session, so it reads what it
+can: the commit is on main's own line (a merge's first parent each time),
+where the tip of a branch merged by a merge commit is not. For a worktree on
+that line the verdict stays `MERGED`, and under it stand two lines and no
+`remove:`:
+
+```
+  note:    its commit is one main itself once stood at, so it may hold no work of its own. A worktree just made looks like this: a session may be about to work in it
+  No command is printed for it. Ask whose it is first: it is finished only if nobody is about to use it
+```
+
+Several sessions work on one project at once, and a worktree another
+session made a minute ago is exactly this case: a pasted removal takes the
+ground from under that session. In two runs against real checkouts
+(2026-10-13) two of four worktrees were this case, and both belonged to
+sessions that were still running. Three things follow:
+
+- A worktree that was made and never used gets no command either. A person
+  who knows it is nobody's removes it by hand.
+- A branch that was fast-forwarded onto main stands on that line too, and
+  reads the same. The rule here is a merge commit.
+- When git cannot say which line the commit is on, it is taken as this case.
 
 **Printed text is written out, and a printed command is safe to paste.** A
 branch's name, a path, a file's name, a commit's subject and what git said
@@ -500,8 +519,10 @@ Differences from the source:
 - **One worktree folder.** The source also looks for strays under
   `.claude/worktrees` inside the project. This add-on makes none there.
 - **No size on disk.** The source runs `du` on every worktree.
-- **`NOT JUDGED`, the note on a worktree with no commit of its own, locked
-  and prunable** are added. The source reads git's failure as `UNMERGED`.
+- **`NOT JUDGED`, locked and prunable** are added, and so is the worktree
+  with no commit of its own, which gets a note and no command. The source
+  reads git's failure as `UNMERGED`, and prints the commands for every
+  worktree that is merged and clean.
 
 ## The weekly tag and the changelog
 

@@ -153,7 +153,8 @@ export function auditWorktrees({ cwd, argv, now, run: runProgram, report: print 
 
   const chosen = filter === undefined ? linked : linked.filter((worktree) => basename(worktree.path).includes(filter));
   const verdicts: Verdict[] = [];
-  let removable = false;
+  /** How many of the MERGED worktrees had a command printed. The others say why not under their verdict. */
+  let commands = 0;
 
   if (filter !== undefined) {
     report(`filter: worktrees whose name holds "${filter}" (${chosen.length} of ${linked.length}). Orphan branches and stray folders are all listed`);
@@ -172,7 +173,7 @@ export function auditWorktrees({ cwd, argv, now, run: runProgram, report: print 
     const { verdict, lines, removable: withCommand } = judgeWorktree(bench, runProgram, worktree);
 
     verdicts.push(verdict);
-    removable = removable || withCommand;
+    commands += withCommand ? 1 : 0;
     report(`${verdict}  ${basename(worktree.path)}`);
     lines.forEach(report);
     report("");
@@ -200,10 +201,16 @@ export function auditWorktrees({ cwd, argv, now, run: runProgram, report: print 
   gaps.push(...strays.gaps, ...bench.missed);
 
   const tally = [MERGED, NOT_CLEAN, UNMERGED, NOT_JUDGED].map((verdict) => `${verdict} ${verdicts.filter((given) => given === verdict).length}`);
+  const mergedWithoutCommand = verdicts.filter((verdict) => verdict === MERGED).length - commands;
+
+  // MERGED is not "a command was printed": when the two numbers differ, the count gives both.
+  if (mergedWithoutCommand > 0) {
+    tally[0] = `${tally[0]} (a command for ${commands})`;
+  }
 
   report(`count: ${count(verdicts.length, "worktree")} | ${tally.join(" | ")} | orphan branches ${orphans.found} | stray folders ${strays.found}`);
 
-  for (const step of nextSteps(verdicts, removable || orphans.removable, orphans.found + strays.found, own.path)) {
+  for (const step of nextSteps(verdicts, commands > 0 || orphans.removable, mergedWithoutCommand, orphans.found + strays.found, own.path)) {
     report(`next: ${step}`);
   }
 
@@ -299,8 +306,17 @@ function judgeWorktree(bench: Bench, runProgram: Run, worktree: Listed): Judged 
     };
   }
 
+  // What `pnpm worktree` has just made for another session is exactly this, and a pasted removal would take the ground from under that session.
   if (standsWhereMainStood(bench, head as string)) {
-    lines.push("  note:    its commit is one main itself once stood at, so it may hold no work of its own. A worktree just made looks like this: a session may be about to work in it");
+    return {
+      verdict: MERGED,
+      lines: [
+        ...lines,
+        "  note:    its commit is one main itself once stood at, so it may hold no work of its own. A worktree just made looks like this: a session may be about to work in it",
+        "  No command is printed for it. Ask whose it is first: it is finished only if nobody is about to use it",
+      ],
+      removable: false,
+    };
   }
 
   if (locked !== undefined) {
@@ -364,7 +380,7 @@ function standsWhereMainStood({ git, main }: Bench, tip: string): boolean {
   // Main's own line, down to the tip's parents: short for a new worktree, and never main's whole history for an old one.
   const line = git("rev-list", "--first-parent", main, "--not", `${tip}^@`);
 
-  // When git does not say, the note is given: it asks for a look, and a look costs less than a session's worktree.
+  // When git does not say, it is taken as one: the note is given and no command is printed. A look costs less than a session's worktree.
   return line.status !== 0 || line.stdout.split("\n").includes(tip);
 }
 
@@ -558,7 +574,7 @@ function describeStray(folder: string, entry: Dirent): string {
 }
 
 /** What to do with the report. Each line is there only when the report holds what it is about. */
-function nextSteps(verdicts: Verdict[], removable: boolean, leftovers: number, project: string): string[] {
+function nextSteps(verdicts: Verdict[], removable: boolean, withoutCommand: number, leftovers: number, project: string): string[] {
   const steps: string[] = [];
 
   if (verdicts.includes(MERGED) || leftovers > 0) {
@@ -569,6 +585,10 @@ function nextSteps(verdicts: Verdict[], removable: boolean, leftovers: number, p
     steps.push(
       `run a "remove:" command from ${project}, not from inside the worktree it names. Removing a worktree deletes the files git ignores in it too. If git refuses, that is its answer: never add --force`,
     );
+  }
+
+  if (withoutCommand > 0) {
+    steps.push(`${MERGED} with no "remove:" line under it: what stands there says why. Do not write the command by hand`);
   }
 
   if (verdicts.includes(NOT_CLEAN)) {

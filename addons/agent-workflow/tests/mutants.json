@@ -4788,5 +4788,89 @@
     "find": "\"worktree:audit\": \"node tools/agent-workflow/audit-worktrees.mts\"",
     "replace": "\"worktree:audit\": \"node tools/agent-workflow/audit-worktree.mts\"",
     "test": "pnpm vitest run addons/agent-workflow/tests/addon.test.mts --testNamePattern=\"adds scripts that each run a tool it ships\""
+  },
+  {
+    "name": "audit: no command for a worktree that may hold no work of its own",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/worktree-audit.mts",
+    "find": "if (standsWhereMainStood(bench, head as string)) {",
+    "replace": "if (standsWhereMainStood(bench, head as string) && path === \"\") {",
+    "test": "pnpm vitest run addons/agent-workflow/tests/audit-worktrees.test.mts --testNamePattern=\"notes a merged worktree that never had a commit of its own\""
+  },
+  {
+    "name": "audit: a worktree with no work of its own is told to ask whose it is",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/worktree-audit.mts",
+    "find": "        \"  No command is printed for it. Ask whose it is first: it is finished only if nobody is about to use it\",\n",
+    "replace": "",
+    "test": "pnpm vitest run addons/agent-workflow/tests/audit-worktrees.test.mts --testNamePattern=\"notes a merged worktree that never had a commit of its own\""
+  },
+  {
+    "name": "audit: no work of its own is said before the lock",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/worktree-audit.mts",
+    "find": "if (standsWhereMainStood(bench, head as string)) {",
+    "replace": "if (standsWhereMainStood(bench, head as string) && locked === undefined) {",
+    "test": "pnpm vitest run addons/agent-workflow/tests/audit-worktrees.test.mts --testNamePattern=\"says a worktree is locked\""
+  },
+  {
+    "name": "audit: the count says for how many merged worktrees a command was printed",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/worktree-audit.mts",
+    "find": "if (mergedWithoutCommand > 0) {",
+    "replace": "if (mergedWithoutCommand > 99) {",
+    "test": "pnpm vitest run addons/agent-workflow/tests/audit-worktrees.test.mts --testNamePattern=\"gives in the count for how many MERGED worktrees\""
+  },
+  {
+    "name": "audit: the count gives the commands printed, not the commands missing",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/worktree-audit.mts",
+    "find": "(a command for ${commands})",
+    "replace": "(a command for ${mergedWithoutCommand})",
+    "test": "pnpm vitest run addons/agent-workflow/tests/audit-worktrees.test.mts --testNamePattern=\"gives in the count for how many MERGED worktrees\""
+  },
+  {
+    "name": "audit: a merged worktree with no command is not counted as having one",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/worktree-audit.mts",
+    "find": "commands += withCommand ? 1 : 0;",
+    "replace": "commands += 1;",
+    "test": "pnpm vitest run addons/agent-workflow/tests/audit-worktrees.test.mts --testNamePattern=\"gives in the count for how many MERGED worktrees\""
+  },
+  {
+    "name": "audit: a merged worktree with no command has its own next step",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/worktree-audit.mts",
+    "find": "if (withoutCommand > 0) {",
+    "replace": "if (withoutCommand > 99) {",
+    "test": "pnpm vitest run addons/agent-workflow/tests/audit-worktrees.test.mts --testNamePattern=\"gives in the count for how many MERGED worktrees\""
+  },
+  {
+    "name": "audit: one printed command is enough for the step that says where to run it",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/worktree-audit.mts",
+    "find": "commands > 0 || orphans.removable",
+    "replace": "orphans.removable",
+    "test": "pnpm vitest run addons/agent-workflow/tests/audit-worktrees.test.mts --testNamePattern=\"gives in the count for how many MERGED worktrees\""
+  },
+  {
+    "name": "audit: the count is plain when every merged worktree has a command",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/worktree-audit.mts",
+    "find": "if (mergedWithoutCommand > 0) {",
+    "replace": "if (mergedWithoutCommand >= 0) {",
+    "test": "pnpm vitest run addons/agent-workflow/tests/audit-worktrees.test.mts --testNamePattern=\"leaves the count as it is\""
+  },
+  {
+    "name": "audit: nothing is said of a missing command when none is missing",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/worktree-audit.mts",
+    "find": "if (withoutCommand > 0) {",
+    "replace": "if (withoutCommand >= 0) {",
+    "test": "pnpm vitest run addons/agent-workflow/tests/audit-worktrees.test.mts --testNamePattern=\"leaves the count as it is\""
+  },
+  {
+    "name": "audit: the count of a crowd says one merged worktree has no command",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/worktree-audit.mts",
+    "find": "if (mergedWithoutCommand > 0) {",
+    "replace": "if (mergedWithoutCommand > 99) {",
+    "test": "pnpm vitest run addons/agent-workflow/tests/audit-worktrees.test.mts --testNamePattern=\"exits 0 whatever the verdicts are\""
+  },
+  {
+    "name": "audit: a worktree whose folder is gone and never held work gets no command",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/worktree-audit.mts",
+    "find": "if (standsWhereMainStood(bench, head as string)) {",
+    "replace": "if (standsWhereMainStood(bench, head as string) && path === \"\") {",
+    "test": "pnpm vitest run addons/agent-workflow/tests/audit-worktrees.test.mts --testNamePattern=\"prints no command with --force in it\""
   }
 ]

@@ -11,6 +11,8 @@ import { commit, createFolder, createRemote, git, type Remote, TOOLS, writeFile 
 /** A character a terminal acts on or turns the text round with: none may reach a line of the report as it is. */
 const RAW = /[\u0000-\u001f\u007f-\u009f\u200e\u200f\u202a-\u202e\u2066-\u2069]/;
 const DAY = 86_400_000;
+/** Said under a MERGED worktree that may hold no work of its own, in place of the commands. */
+const NO_COMMAND_YET = "  No command is printed for it. Ask whose it is first: it is finished only if nobody is about to use it";
 
 describe("a project with no linked worktree", () => {
   it("says there is none, names nothing to remove, and exits 0", () => {
@@ -65,7 +67,7 @@ describe("a worktree's verdict", () => {
     expect(block[0]).toBe("MERGED, NOT CLEAN  half");
     expect(block).toContain("  tree:    2 paths not committed: package.json (changed), notes.txt (untracked)");
     expect(block.at(-1)).toBe("  Not safe to remove without a look: removing the worktree deletes these files. No command is printed for it");
-    expect(result.text).not.toContain("remove:");
+    expect(commandsOf(result)).toEqual([]);
     expect(result.lines).toContain("next: MERGED, NOT CLEAN: read the files it names, and commit or discard them with their owner, before it is removed");
   });
 
@@ -108,7 +110,7 @@ describe("a worktree's verdict", () => {
       "  tree:    clean: no file is changed or untracked. Files git ignores are not looked at",
       "  Live work. No removal command is printed for it",
     ]);
-    expect(result.text).not.toContain("remove:");
+    expect(commandsOf(result)).toEqual([]);
     expect(result.text).not.toContain("git worktree remove");
     expect(result.text).not.toContain("git branch -D");
     expect(result.lines).toContain("next: UNMERGED: work someone stopped in. Finish it through a pull request, or ask its owner; the branch is whole and can be picked up");
@@ -179,7 +181,7 @@ describe("a worktree's verdict", () => {
     ]);
   });
 
-  it("notes a merged worktree that never had a commit of its own, which one just made is, and not one whose work was merged", () => {
+  it("notes a merged worktree that never had a commit of its own, which one just made is, and prints no command for it; one whose work was merged keeps its commands", () => {
     const remote = createRemote();
     const merged = addWorktree(remote, "done");
 
@@ -191,15 +193,61 @@ describe("a worktree's verdict", () => {
     const note = "  note:    its commit is one main itself once stood at, so it may hold no work of its own. A worktree just made looks like this: a session may be about to work in it";
 
     expect(blockOf(result, "new")[0]).toBe("MERGED  new");
-    expect(blockOf(result, "new")).toContain(note);
+    expect(blockOf(result, "new").slice(-2)).toEqual([note, NO_COMMAND_YET]);
+    expect(blockOf(result, "new").filter((line) => line.startsWith("  remove:"))).toEqual([]);
+    expect(commandsOf(result)).toEqual([`git worktree remove ${merged}`, "git branch -D worktree-done"]);
     expect(blockOf(result, "done")).not.toContain(note);
+    expect(blockOf(result, "done")).not.toContain(NO_COMMAND_YET);
+    expect(blockOf(result, "done").slice(-2)).toEqual([`  remove:  git worktree remove ${merged}`, "           git branch -D worktree-done"]);
+  });
+
+  it("gives in the count for how many MERGED worktrees a command was printed, when it is not for all of them, and says not to write the missing one", () => {
+    const remote = createRemote();
+
+    addWorktree(remote, "new");
+    addWorktree(remote, "newer");
+
+    const none = audit(remote.clone);
+    const missing = 'next: MERGED with no "remove:" line under it: what stands there says why. Do not write the command by hand';
+
+    expect(none.status).toBe(0);
+    expect(none.lines).toContain("count: 2 worktrees | MERGED 2 (a command for 0) | MERGED, NOT CLEAN 0 | UNMERGED 0 | NOT JUDGED 0 | orphan branches 0 | stray folders 0");
+    expect(none.lines.filter((line) => line.startsWith("next: "))).toEqual([
+      "next: ask a person before anything is removed, and name what will go. A worktree may belong to a session that is still running, which this tool cannot see",
+      missing,
+    ]);
+    expect(commandsOf(none)).toEqual([]);
+
+    finishWork(remote, addWorktree(remote, "done"), "worktree-done");
+
+    const one = audit(remote.clone);
+
+    expect(one.lines).toContain("count: 3 worktrees | MERGED 3 (a command for 1) | MERGED, NOT CLEAN 0 | UNMERGED 0 | NOT JUDGED 0 | orphan branches 0 | stray folders 0");
+    expect(one.lines).toContain(missing);
+    expect(one.lines.filter((line) => line.startsWith('next: run a "remove:" command from '))).toHaveLength(1);
+  });
+
+  it("leaves the count as it is, and says nothing of a missing command, when every MERGED worktree has one", () => {
+    const remote = createRemote();
+
+    finishWork(remote, addWorktree(remote, "done"), "worktree-done");
+
+    const result = audit(remote.clone);
+
+    expect(result.lines).toContain("count: 1 worktree | MERGED 1 | MERGED, NOT CLEAN 0 | UNMERGED 0 | NOT JUDGED 0 | orphan branches 0 | stray folders 0");
+    expect(result.lines.filter((line) => line.startsWith("next: "))).toEqual([
+      "next: ask a person before anything is removed, and name what will go. A worktree may belong to a session that is still running, which this tool cannot see",
+      `next: run a "remove:" command from ${remote.clone}, not from inside the worktree it names. Removing a worktree deletes the files git ignores in it too. If git refuses, that is its answer: never add --force`,
+    ]);
   });
 
   it("says a worktree is detached, and prints no command for a branch it does not have", () => {
     const remote = createRemote();
     const path = join(worktreesOf(remote), "look");
 
-    git(remote.clone, "worktree", "add", "--quiet", "--detach", path, "origin/main");
+    // It stands on a commit of work that was merged: only such a worktree is given a command.
+    finishWork(remote, addWorktree(remote, "done"), "worktree-done");
+    git(remote.clone, "worktree", "add", "--quiet", "--detach", path, "worktree-done");
 
     const block = blockOf(audit(remote.clone), "look");
 
@@ -214,6 +262,8 @@ describe("a worktree's verdict", () => {
     const kept = addWorktree(remote, "kept");
     const held = addWorktree(remote, "held");
 
+    // The work of `kept` was merged, so the lock is all that stands between it and a command.
+    finishWork(remote, kept, "worktree-kept");
     git(remote.clone, "worktree", "lock", "--reason", "kept for the demo", kept);
     git(remote.clone, "worktree", "lock", held);
 
@@ -223,17 +273,20 @@ describe("a worktree's verdict", () => {
     expect(blockOf(result, "kept")).toContain("  locked:  kept for the demo");
     expect(blockOf(result, "held")).toContain("  locked:  no reason was given");
     expect(blockOf(result, "kept").at(-1)).toBe("  It is locked, so git refuses to remove it, and no command is printed. Unlocking is for whoever locked it");
-    expect(result.text).not.toContain("remove:");
+    // `held` has no work of its own either, and that is said first: it holds whoever locked it or not.
+    expect(blockOf(result, "held").at(-1)).toBe(NO_COMMAND_YET);
+    expect(commandsOf(result)).toEqual([]);
   });
 
   it("says a worktree is prunable when its folder is gone, and still judges the commit it stood on", () => {
     const remote = createRemote();
     const lost = addWorktree(remote, "lost");
-    const empty = addWorktree(remote, "empty");
+    const gone = addWorktree(remote, "gone");
 
     commit(lost, "never pushed", { "work.txt": "1\n" });
+    finishWork(remote, gone, "worktree-gone");
     rmSync(lost, { recursive: true });
-    rmSync(empty, { recursive: true });
+    rmSync(gone, { recursive: true });
 
     const result = audit(remote.clone);
 
@@ -242,8 +295,9 @@ describe("a worktree's verdict", () => {
     expect(blockOf(result, "lost")).toContain("  prunable: gitdir file points to non-existent location");
     expect(blockOf(result, "lost")).toContain("  tree:    its folder is gone");
     expect(blockOf(result, "lost").at(-1)).toBe("  Live work, and its folder is gone: the commits are still in the repository. No removal command is printed for it");
-    expect(blockOf(result, "empty")[0]).toBe("MERGED  empty");
-    expect(blockOf(result, "empty").slice(-2)).toEqual([`  remove:  git worktree remove ${empty}`, "           git branch -D worktree-empty"]);
+    expect(blockOf(result, "gone")[0]).toBe("MERGED  gone");
+    expect(blockOf(result, "gone")).toContain("  tree:    its folder is gone");
+    expect(blockOf(result, "gone").slice(-2)).toEqual([`  remove:  git worktree remove ${gone}`, "           git branch -D worktree-gone"]);
   });
 
   it("is NOT JUDGED, and the run exits 2, when git cannot say whether its commit is on main", () => {
@@ -258,7 +312,7 @@ describe("a worktree's verdict", () => {
     expect(blockOf(result, "odd")[0]).toBe("NOT JUDGED  odd");
     expect(blockOf(result, "odd").at(-1)).toMatch(/^ {2}git could not say whether its commit \([0-9a-f]{40}\) is on origin\/main\. No command is printed for it$/);
     expect(result.lines).toContain("  NOT JUDGED  worktree-left");
-    expect(result.text).not.toContain("remove:");
+    expect(commandsOf(result)).toEqual([]);
     expect(result.lines.at(-1)).toBe(
       "SKIP worktree:audit: 1 worktree could not be judged; 1 orphan branch could not be judged. This report is not whole, and is not to be read as one. Nothing was removed",
     );
@@ -280,7 +334,7 @@ describe("a worktree's verdict", () => {
       "  Its commit is on origin/main, but whether the tree is clean is not known. No command is printed for it",
     ]);
     expect(blockOf(result, "wip")[0]).toBe("UNMERGED  wip");
-    expect(result.text).not.toContain("remove:");
+    expect(commandsOf(result)).toEqual([]);
     expect(result.lines.at(-1)).toMatch(/^SKIP worktree:audit: 1 worktree could not be judged\./);
   });
 
@@ -522,7 +576,7 @@ describe("orphan branches", () => {
       `             ${tip.slice(0, 7)} work nobody merged`,
       "    Work that is on no worktree and not on main. No removal command is printed for it",
     ]);
-    expect(result.text).not.toContain("remove:");
+    expect(commandsOf(result)).toEqual([]);
   });
 
   it("leaves out a branch that is checked out, in the project's own checkout too, and a branch of another name", () => {
@@ -537,7 +591,7 @@ describe("orphan branches", () => {
     // The filter leaves `other` out of the verdicts. Its branch is checked out all the same.
     const result = audit(remote.clone, ["live"]);
 
-    expect(result.lines.filter((line) => /^ {2}[A-Z]/.test(line))).toEqual(["  MERGED  worktree-group/deep"]);
+    expect(result.lines.filter((line) => /^ {2}(?:MERGED|UNMERGED|NOT JUDGED) {2}/.test(line))).toEqual(["  MERGED  worktree-group/deep"]);
   });
 
   it("says so, and exits 2, when the branches cannot be listed", () => {
@@ -712,6 +766,8 @@ describe("text that comes from outside", () => {
     const path = join(worktreesOf(remote), "turned");
 
     git(remote.clone, "worktree", "add", "--quiet", "--no-track", "-b", "worktree-\u202egnp", path, "origin/main");
+    // Its work was merged, so its name is the one reason no command is printed.
+    finishWork(remote, path, "worktree-\u202egnp");
     git(remote.clone, "branch", "worktree-old\u200b", "origin/main");
 
     const result = audit(remote.clone);
@@ -725,7 +781,7 @@ describe("text that comes from outside", () => {
     );
     expect(result.lines).toContain("  MERGED  worktree-old\\u200b");
     expect(result.lines).toContain("    No command is printed: its name cannot be written as a word that names it when pasted");
-    expect(result.text).not.toContain("remove:");
+    expect(commandsOf(result)).toEqual([]);
   });
 
   it("writes out a line end and an escape in a file's name: the file is one name on one line", () => {
@@ -765,6 +821,7 @@ describe("text that comes from outside", () => {
     const other = addWorktree(remote, "here");
 
     git(remote.clone, "worktree", "add", "--quiet", "--no-track", "-b", "worktree-it's", path, "origin/main");
+    finishWork(remote, path, "worktree-it's");
 
     const block = blockOf(audit(remote.clone), "it's here");
     const commands = block.slice(-2).map((line) => line.replace(/^ +(?:remove: +)?/, ""));
@@ -788,6 +845,8 @@ describe("text that comes from outside", () => {
     const path = join(worktreesOf(remote), "a\u202eb");
 
     git(remote.clone, "worktree", "add", "--quiet", "--no-track", "-b", "worktree-ab", path, "origin/main");
+    // Its work was merged, so its path is the one reason no command is printed.
+    finishWork(remote, path, "worktree-ab");
 
     const result = audit(remote.clone);
     const block = blockOf(result, "a\\u202eb");
@@ -797,7 +856,7 @@ describe("text that comes from outside", () => {
     expect(block.at(-1)).toBe(
       "  No command is printed: its path cannot be written as a word that names it when pasted. It holds a character that is written out above, or starts with a dash",
     );
-    expect(result.text).not.toContain("remove:");
+    expect(commandsOf(result)).toEqual([]);
   });
 });
 
@@ -878,7 +937,8 @@ describe("it only reads", () => {
 
     expect(result.status).toBe(0);
     expect(result.lines.filter((line) => /^[A-Z][A-Z, ]+ {2}\S/.test(line))).toEqual(["MERGED  done", "MERGED, NOT CLEAN  half", "MERGED  vanished", "UNMERGED  wip"]);
-    expect(result.lines).toContain("count: 4 worktrees | MERGED 2 | MERGED, NOT CLEAN 1 | UNMERGED 1 | NOT JUDGED 0 | orphan branches 2 | stray folders 1");
+    // `vanished` never had a commit of its own: it is MERGED, and no command was printed for it.
+    expect(result.lines).toContain("count: 4 worktrees | MERGED 2 (a command for 1) | MERGED, NOT CLEAN 1 | UNMERGED 1 | NOT JUDGED 0 | orphan branches 2 | stray folders 1");
     expect(result.lines).toContain(
       `next: run a "remove:" command from ${remote.clone}, not from inside the worktree it names. Removing a worktree deletes the files git ignores in it too. If git refuses, that is its answer: never add --force`,
     );
@@ -914,16 +974,10 @@ describe("it only reads", () => {
 
     createCrowd(remote);
 
-    const result = audit(remote.clone);
-    const commands = result.lines.filter((line) => /^ +(?:remove: +)?git /.test(line)).map((line) => line.replace(/^ +(?:remove: +)?/, ""));
+    const commands = commandsOf(audit(remote.clone));
 
-    expect(commands).toEqual([
-      `git worktree remove ${join(worktreesOf(remote), "done")}`,
-      "git branch -D worktree-done",
-      `git worktree remove ${join(worktreesOf(remote), "vanished")}`,
-      "git branch -D worktree-vanished",
-      "git branch -D worktree-old",
-    ]);
+    // One worktree's work was merged, and one orphan branch is on main. Nothing else is given a command.
+    expect(commands).toEqual([`git worktree remove ${join(worktreesOf(remote), "done")}`, "git branch -D worktree-done", "git branch -D worktree-old"]);
     expect(commands.join("\n")).not.toContain("--force");
   });
 
@@ -1008,6 +1062,11 @@ function blockOf({ lines }: Audit, name: string): string[] {
   return start === -1 ? [] : lines.slice(start, lines.indexOf("", start));
 }
 
+/** The commands the report prints for someone to run: what stands on a "remove:" line, and on the line under it, which starts where that command does. */
+function commandsOf({ lines }: Audit): string[] {
+  return lines.filter((line) => /^(?: +remove: {2}| {11})git /.test(line)).map((line) => line.replace(/^ +(?:remove: +)?/, ""));
+}
+
 function worktreesOf(remote: Remote): string {
   return join(dirname(remote.clone), "project-worktrees");
 }
@@ -1035,6 +1094,13 @@ function mergeOnOrigin(remote: Remote, worktree: string, branch: string, how: "m
   }
 
   git(remote.other, "push", "--quiet", "origin", "main");
+}
+
+/** Work that is done: one commit in the worktree, merged on origin with a merge commit. Only such a worktree is given a command that removes it. */
+function finishWork(remote: Remote, worktree: string, branch: string): void {
+  // A file of its own, so that two branches merged in one test do not meet.
+  commit(worktree, "the work", { [`${branch.replace(/[^A-Za-z0-9]/g, "")}.txt`]: "1\n" });
+  mergeOnOrigin(remote, worktree, branch);
 }
 
 /** One of everything: a merged worktree, one that is merged and not clean, live work, one whose folder is gone, two orphan branches and a stray folder. */
