@@ -72,6 +72,7 @@ export const WIDE_ALLOW = /^Bash\((?:git push|gh pr create|gh pr merge)\b.*\*.*\
 export const COMMAND_NEEDS: Record<string, string | undefined> = {
   status: undefined,
   docs: undefined,
+  worktrees: undefined,
   changelog: undefined,
   "coverage-backfill": "coverage",
   "visual-tolerance-audit": "visual",

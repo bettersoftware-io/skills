@@ -1,11 +1,12 @@
 {
   "name": "agent-workflow",
-  "summary": "How an agent ships work: a hook that keeps each push and pull request step in a call of its own, a worktree script, a page of what is left, a weekly tag and a changelog.",
+  "summary": "How an agent ships work: a hook that keeps each push and pull request step in a call of its own, a worktree script and an audit of worktrees, a page of what is left, a weekly tag and a changelog.",
   "recommended": true,
   "packageJson": {
     ".": {
       "scripts": {
         "worktree": "node tools/agent-workflow/new-worktree.mts",
+        "worktree:audit": "node tools/agent-workflow/audit-worktrees.mts",
         "changelog": "node tools/agent-workflow/changelog.mts",
         "agent-workflow:check": "node tools/agent-workflow/check.mts"
       }
@@ -54,6 +55,16 @@
         "PreToolUse": [
           {
             "matcher": "Bash",
+            "hooks": [
+              {
+                "type": "command",
+                "command": "node \"$CLAUDE_PROJECT_DIR/tools/agent-workflow/hooks/split-outward-commands.mts\"",
+                "timeout": 5
+              }
+            ]
+          },
+          {
+            "matcher": "Monitor",
             "hooks": [
               {
                 "type": "command",

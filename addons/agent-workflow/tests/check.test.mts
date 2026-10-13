@@ -11,6 +11,7 @@ const CODEX_HOOK = "node tools/agent-workflow/hooks/split-outward-commands.mts";
 const COMMANDS = {
   ".claude/commands/workflow/status.md": "status\n",
   ".claude/commands/workflow/docs.md": "docs\n",
+  ".claude/commands/workflow/worktrees.md": "worktrees\n",
   ".claude/commands/workflow/changelog.md": "changelog\n",
   ".claude/commands/workflow/coverage-backfill.md": "coverage\n",
   ".claude/commands/workflow/visual-tolerance-audit.md": "visual\n",
@@ -35,6 +36,7 @@ describe("the add-on's check", () => {
       "PASS Codex: .codex/hooks.json runs the hook before each shell command",
       "PASS command /workflow:status",
       "PASS command /workflow:docs",
+      "PASS command /workflow:worktrees",
       "PASS command /workflow:changelog",
       'NOTE command /workflow:coverage-backfill: needs the "coverage" add-on, which this project does not have. It stops and says so when run',
       'NOTE command /workflow:visual-tolerance-audit: needs the "visual" add-on, which this project does not have. It stops and says so when run',
@@ -58,7 +60,7 @@ describe("the add-on's check", () => {
     ["Claude Code", ".claude/settings.json", `${CLAUDE_HOOK} ${RETIRED_ARGUMENT}`],
     ["Codex", ".codex/hooks.json", `${CODEX_HOOK} ${RETIRED_ARGUMENT}`],
   ])("passes, and notes it, when %s's settings still start the hook with the argument of an older version", (host, path, command) => {
-    const { status, lines } = runCheck(createProject({ [path]: { hooks: { PreToolUse: [createGroup(command, "Bash", 30)] } } }));
+    const { status, lines } = runCheck(createProject({ [path]: { hooks: { PreToolUse: [createGroup(command, "Bash", 30), createGroup(command, "Monitor", 30)] } } }));
 
     expect(status).toBe(0);
     expect(lines).toContain(`PASS ${host}: ${path} runs the hook before each shell command`);
@@ -78,7 +80,7 @@ describe("the add-on's check", () => {
   });
 
   it("notes a hook registered twice in one file, which then runs twice", () => {
-    const twice = { hooks: { PreToolUse: [createGroup(`${CLAUDE_HOOK} ${RETIRED_ARGUMENT}`, "Bash", 30), createGroup(CLAUDE_HOOK, "Bash", 5)] } };
+    const twice = { hooks: { PreToolUse: [createGroup(`${CLAUDE_HOOK} ${RETIRED_ARGUMENT}`, "Bash", 30), createGroup(CLAUDE_HOOK, "Bash", 5), createGroup(CLAUDE_HOOK, "Monitor", 5)] } };
     const { status, lines } = runCheck(createProject({ ".claude/settings.json": twice }));
 
     expect(status).toBe(0);
@@ -164,7 +166,7 @@ describe("the add-on's check", () => {
       ["Claude Code", ".claude/settings.json", CLAUDE_HOOK, claudeRuns],
       ["Codex", ".codex/hooks.json", CODEX_HOOK, codexRuns],
     ] as const) {
-      const { status, lines } = runCheck(createProject({ [path]: { permissions: { ask: [...ASK_RULES, ...EDIT_ASK_RULES] }, hooks: { PreToolUse: [{ matcher, hooks: [{ type: "command", command }] }] } } }));
+      const { status, lines } = runCheck(createProject({ [path]: { permissions: { ask: [...ASK_RULES, ...EDIT_ASK_RULES] }, hooks: { PreToolUse: [{ matcher, hooks: [{ type: "command", command }] }, createGroup(command, "Monitor")] } } }));
 
       expect(status, host).toBe(runs ? 0 : 1);
       expect(lines.includes(`PASS ${host}: ${path} runs the hook before each shell command`), host).toBe(runs);
@@ -217,14 +219,41 @@ describe("the add-on's check", () => {
   });
 
   it("passes when that switch is there and set to false, or the person's own settings hold something else", () => {
-    const own = { permissions: { ask: [...ASK_RULES, ...EDIT_ASK_RULES] }, hooks: { PreToolUse: [createGroup(CLAUDE_HOOK, "Bash", 5)] }, disableAllHooks: false };
+    const own = { permissions: { ask: [...ASK_RULES, ...EDIT_ASK_RULES] }, hooks: { PreToolUse: [createGroup(CLAUDE_HOOK, "Bash", 5), createGroup(CLAUDE_HOOK, "Monitor", 5)] }, disableAllHooks: false };
 
     expect(runCheck(createProject({ ".claude/settings.json": own, ".claude/settings.local.json": { disableAllHooks: false, model: "x" } })).status).toBe(0);
     expect(runCheck(createProject({ ".claude/settings.local.json": "not json" })).status).toBe(0);
   });
 
+  it("fails when Claude Code runs the hook before a Bash command and not before one given to the Monitor tool", () => {
+    const { status, lines } = runCheck(createProject({ ".claude/settings.json": { permissions: { ask: [...ASK_RULES, ...EDIT_ASK_RULES] }, hooks: { PreToolUse: [createGroup(CLAUDE_HOOK, "Bash", 5)] } } }));
+
+    expect(status).toBe(1);
+    expect(lines).toContain("PASS Claude Code: .claude/settings.json runs the hook before each shell command");
+    expect(lines).toContain(
+      "FAIL Claude Code: .claude/settings.json does not run the hook before a command given to the Monitor tool. Claude Code lets that tool run a command under the rules for Bash, so a push allowed there is neither refused in a chain nor asked about. Run the installer again (add-to-project.mts <project> agent-workflow): it merges what is missing and removes nothing",
+    );
+  });
+
+  it.each([
+    ["one group that names both tools", "Bash|Monitor"],
+    ["a group for every tool", "*"],
+  ])("passes when Claude Code runs the hook before both, by %s", (_name, matcher) => {
+    const { status, lines } = runCheck(createProject({ ".claude/settings.json": { permissions: { ask: [...ASK_RULES, ...EDIT_ASK_RULES] }, hooks: { PreToolUse: [createGroup(CLAUDE_HOOK, matcher, 5)] } } }));
+
+    expect(status).toBe(0);
+    expect(lines.join("\n")).not.toContain("Monitor tool");
+  });
+
+  it("asks nothing of the kind of Codex, which has no such tool", () => {
+    const { status, lines } = runCheck(createProject({ ".codex/hooks.json": { hooks: { PreToolUse: [createGroup(CODEX_HOOK, "Bash")] } } }));
+
+    expect(status).toBe(0);
+    expect(lines.join("\n")).not.toContain("Monitor");
+  });
+
   it("does not count a copy under another matcher as a second registration", () => {
-    const groups = [createGroup(CLAUDE_HOOK, "Edit", 5), createGroup(CLAUDE_HOOK, "Bash", 5)];
+    const groups = [createGroup(CLAUDE_HOOK, "Edit", 5), createGroup(CLAUDE_HOOK, "Bash", 5), createGroup(CLAUDE_HOOK, "Monitor", 5)];
     const { status, lines } = runCheck(createProject({ ".claude/settings.json": { hooks: { PreToolUse: groups } } }));
 
     expect(status).toBe(0);
@@ -382,7 +411,7 @@ function createProject(shape: ProjectShape = {}): string {
   const files: Record<string, unknown> = {
     ".claude/settings.json": {
       permissions: { allow: shape.allow ?? [], ask: shape.ask ?? [...ASK_RULES, ...EDIT_ASK_RULES] },
-      hooks: { PreToolUse: [createGroup(CLAUDE_HOOK, "Bash", 5)] },
+      hooks: { PreToolUse: [createGroup(CLAUDE_HOOK, "Bash", 5), createGroup(CLAUDE_HOOK, "Monitor", 5)] },
     },
     ".codex/hooks.json": { hooks: { PreToolUse: [createGroup(CODEX_HOOK, "Bash")] } },
     "tools/installed.json": Object.fromEntries((shape.installed ?? ["kit", "agent-workflow"]).map((unit) => [unit, { files: {} }])),
