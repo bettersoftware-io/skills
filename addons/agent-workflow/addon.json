@@ -61,6 +61,16 @@
                 "timeout": 5
               }
             ]
+          },
+          {
+            "matcher": "Monitor",
+            "hooks": [
+              {
+                "type": "command",
+                "command": "node \"$CLAUDE_PROJECT_DIR/tools/agent-workflow/hooks/split-outward-commands.mts\"",
+                "timeout": 5
+              }
+            ]
           }
         ]
       }

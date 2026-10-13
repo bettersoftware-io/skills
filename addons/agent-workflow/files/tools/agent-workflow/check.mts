@@ -51,6 +51,13 @@ import { installedIn } from "./requires.mts";
 
 /** The name both hosts give the tool that runs a shell command. */
 const SHELL_TOOL = "Bash";
+/**
+ * Claude Code's tool that runs a shell command and reports each line it
+ * prints. The host judges its command by the rules for `Bash`, so an `allow`
+ * rule for a push lets it push, and a hook registered for `Bash` alone never
+ * sees it. Codex has no such tool.
+ */
+const WATCH_TOOL = "Monitor";
 const REFUSED_SAMPLE = "git add -A && git commit -m wip && git push";
 /** A push that names a work branch and writes to main. No permission rule can say it, so the hook asks. */
 const ASKED_SAMPLE = "git push origin worktree-sample:main";
@@ -129,6 +136,12 @@ export function check({ root, runHook, report }: CheckOptions): number {
 
     if (registered.length > 0) {
       report(`PASS ${host}: ${path} runs the hook before each shell command`);
+
+      if (path === CLAUDE_SETTINGS && !known.some((command) => groups.some((group) => groupRuns(group, command, WATCH_TOOL, hostOf(path))))) {
+        fail(
+          `${host}: ${path} does not run the hook before a command given to the ${WATCH_TOOL} tool. Claude Code lets that tool run a command under the rules for ${SHELL_TOOL}, so a push allowed there is neither refused in a chain nor asked about. ${FIX}`,
+        );
+      }
     } else if (named) {
       fail(
         `${host}: ${path} names ${HOOK_SCRIPT} under hooks.PreToolUse, but not as a hook the host is known to run before a shell command. It needs a group whose matcher covers ${SHELL_TOOL}, and in it an entry of type "command" whose command is exactly \`${HOOK_COMMANDS[path]}\`, with no "if", not "async", and a timeout above 0 or none. ${FIX}`,

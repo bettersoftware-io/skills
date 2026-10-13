@@ -39,6 +39,8 @@ const WORKFLOW = readFileSync(join(ADDON, "files/.github/workflows/weekly-tag.ym
 const COMMANDS = Object.keys(COMMAND_NEEDS);
 const SECTION = readFileSync(join(ADDON, "AGENTS.section.md"), "utf8");
 const CLAUDE_HOOK = `node "$CLAUDE_PROJECT_DIR/${HOOK_SCRIPT}"`;
+/** The group the add-on registers for the tool that runs a command and reports its lines. */
+const MONITOR_GROUP = { matcher: "Monitor", hooks: [{ type: "command", command: CLAUDE_HOOK, timeout: 5 }] };
 /** The rule that version had about its setting file. A merge takes nothing out, so it stays. */
 const OLD_SETTING_RULE = "Edit(/tools/agent-workflow.config.json)";
 /** For a test that starts the hook once per command of a table. */
@@ -111,7 +113,9 @@ describe("the add-on's manifest", () => {
     expect(Object.keys(MANIFEST.hostSettings)).toEqual([CLAUDE_SETTINGS, CODEX_HOOKS]);
     expect(claude?.permissions).toEqual({ ask: [...ASK_RULES, ...EDIT_ASK_RULES] });
     expect(claude?.hooks).toEqual({
-      PreToolUse: [{ matcher: "Bash", hooks: [{ type: "command", command: `node "$CLAUDE_PROJECT_DIR/${HOOK_SCRIPT}"`, timeout: 5 }] }],
+      PreToolUse: ["Bash", "Monitor"].map((matcher) => {
+        return { matcher, hooks: [{ type: "command", command: `node "$CLAUDE_PROJECT_DIR/${HOOK_SCRIPT}"`, timeout: 5 }] };
+      }),
     });
     expect(Object.keys(codex ?? {})).toEqual(["hooks"]);
     expect(codex?.hooks?.PreToolUse).toHaveLength(1);
@@ -344,7 +348,7 @@ describe("the section for AGENTS.md", () => {
 
   it("says every outward step asks, and names no setting, no argument and no pattern rule that would let one run", () => {
     expect(SECTION).toContain("The hook never lets a command run without a prompt.");
-    expect(SECTION).toContain("of Claude Code it asks about a push that holds a colon");
+    expect(SECTION).toContain("of Claude Code it asks about a push that is not written plainly");
     expect(SECTION).not.toMatch(/agent-workflow\.config|--host=|worktree-\*|pr merge \*|pr create \*/);
   });
 
@@ -420,7 +424,7 @@ describe("the add-on in a project that has the kit", () => {
     expect(codex.description).toBe(kitCodex.description);
     expect(codex.hooks?.Stop).toEqual(kitCodex.hooks?.Stop);
     expect(codex.hooks?.PreToolUse).toEqual(MANIFEST.hostSettings[CODEX_HOOKS]?.hooks?.PreToolUse);
-    expect(result.settingsChanges).toHaveLength(ASK_RULES.length + EDIT_ASK_RULES.length + 2);
+    expect(result.settingsChanges).toHaveLength(ASK_RULES.length + EDIT_ASK_RULES.length + 3);
     expect(result.unmerged).toEqual([]);
     expect(result.notes).toEqual([]);
   });
@@ -465,6 +469,7 @@ describe("the add-on in a project that has the kit", () => {
     });
     expect(final.hooks?.PreToolUse?.map((group) => group.hooks[0]?.command)).toEqual([
       "node tools/own/guard.mts",
+      CLAUDE_HOOK,
       CLAUDE_HOOK,
     ]);
     expect(final.hooks?.Stop).toEqual(own.hooks.Stop);
@@ -518,17 +523,17 @@ describe("the add-on in a project that has the kit", () => {
     expect(verify.stdout).toContain("FAIL Codex: .codex/hooks.json does not register");
   });
 
-  it("leaves a project that had the old setting and the old registration right: one hook, started as it is now, the rest of its entry kept", () => {
+  it("leaves a project that had the old setting and the old registration right: its hook started as it is now, the rest of its entry kept, and the one for the Monitor tool beside it", () => {
     const project = createProjectAsBefore();
     const before = readJson<HostSettings>(project, CLAUDE_SETTINGS);
 
     const updated = addToProject({ project, unit: "agent-workflow", repository: REPOSITORY, scope: "@acme" });
     const after = readJson<HostSettings>(project, CLAUDE_SETTINGS);
 
-    expect(after.hooks?.PreToolUse).toEqual([{ matcher: "Bash", hooks: [{ type: "command", command: CLAUDE_HOOK, timeout: 30 }] }]);
+    expect(after.hooks?.PreToolUse).toEqual([{ matcher: "Bash", hooks: [{ type: "command", command: CLAUDE_HOOK, timeout: 30 }] }, MONITOR_GROUP]);
     expect({ ...after, hooks: { ...after.hooks, PreToolUse: before.hooks?.PreToolUse } }).toEqual(before);
     expect(after.permissions?.ask).toEqual([...ASK_RULES, ...EDIT_ASK_RULES, OLD_SETTING_RULE]);
-    expect(updated.settingsChanges).toEqual([`${CLAUDE_SETTINGS}: hooks.PreToolUse: ${OLD_CLAUDE_HOOK} is now ${CLAUDE_HOOK}`]);
+    expect([...updated.settingsChanges].sort()).toEqual([`${CLAUDE_SETTINGS}: hooks.PreToolUse: ${CLAUDE_HOOK}`, `${CLAUDE_SETTINGS}: hooks.PreToolUse: ${OLD_CLAUDE_HOOK} is now ${CLAUDE_HOOK}`].sort());
     expect(updated.created).toEqual([]);
     expect(updated.unmerged).toEqual([]);
     expect(updated.notes).toEqual(RETIRED_FILES.map((path) => `${path} is no longer read, and nothing took its place. ${MANIFEST.retiredFiles[path]?.note}`));
@@ -553,12 +558,17 @@ describe("the add-on in a project that has the kit", () => {
     expect(verify.status).toBe(0);
   });
 
-  it("notes the old argument in its proof before the update, and still passes: the hook ignores it", () => {
+  it("notes the old argument in its proof before the update, and fails for one thing only: no hook before the Monitor tool", () => {
     const project = createProjectAsBefore();
     const verify = spawnSync(process.execPath, ["tools/agent-workflow/check.mts"], { cwd: project, encoding: "utf8" });
 
     expect(verify.stdout).toContain(`NOTE Claude Code: ${CLAUDE_SETTINGS} starts the hook with ${RETIRED_ARGUMENT}`);
-    expect(verify.status).toBe(0);
+    expect(verify.stdout.split("\n").filter((line) => line.startsWith("FAIL"))).toEqual([expect.stringContaining("does not run the hook before a command given to the Monitor tool")]);
+    expect(verify.status).toBe(1);
+
+    addToProject({ project, unit: "agent-workflow", repository: REPOSITORY, scope: "@acme" });
+
+    expect(spawnSync(process.execPath, ["tools/agent-workflow/check.mts"], { cwd: project, encoding: "utf8" }).status).toBe(0);
   });
 
   it("answers as it should when started by the old registration, in that project, with the old setting on", () => {
@@ -588,12 +598,12 @@ describe("the add-on in a project that has the kit", () => {
 
     const updated = addToProject({ project, unit: "agent-workflow", repository: REPOSITORY, scope: "@acme" });
 
-    expect(readJson<HostSettings>(project, CLAUDE_SETTINGS).hooks?.PreToolUse).toEqual([beside, { matcher: "Bash", hooks: [{ type: "command", command: CLAUDE_HOOK, timeout: 30 }] }]);
-    expect(updated.settingsChanges).toEqual([`${CLAUDE_SETTINGS}: hooks.PreToolUse: ${OLD_CLAUDE_HOOK} is now ${CLAUDE_HOOK}`]);
+    expect(readJson<HostSettings>(project, CLAUDE_SETTINGS).hooks?.PreToolUse).toEqual([beside, { matcher: "Bash", hooks: [{ type: "command", command: CLAUDE_HOOK, timeout: 30 }] }, MONITOR_GROUP]);
+    expect([...updated.settingsChanges].sort()).toEqual([`${CLAUDE_SETTINGS}: hooks.PreToolUse: ${CLAUDE_HOOK}`, `${CLAUDE_SETTINGS}: hooks.PreToolUse: ${OLD_CLAUDE_HOOK} is now ${CLAUDE_HOOK}`].sort());
     expect(addToProject({ project, unit: "agent-workflow", repository: REPOSITORY, scope: "@acme" }).settingsChanges).toEqual([]);
   });
 
-  it("adds its Bash group in a project whose only copy of the hook is under a matcher that runs for no shell command, and its proof says why", () => {
+  it("adds its two groups in a project whose only copy of the hook is under a matcher that runs for no shell command, and its proof says why", () => {
     const project = createProjectWithKit();
 
     addToProject({ project, unit: "agent-workflow", repository: REPOSITORY, scope: "@acme" });
@@ -610,7 +620,7 @@ describe("the add-on in a project that has the kit", () => {
 
     const updated = addToProject({ project, unit: "agent-workflow", repository: REPOSITORY, scope: "@acme" });
 
-    expect(updated.settingsChanges).toEqual([`${CLAUDE_SETTINGS}: hooks.PreToolUse: ${CLAUDE_HOOK}`]);
+    expect(updated.settingsChanges).toEqual([`${CLAUDE_SETTINGS}: hooks.PreToolUse: ${CLAUDE_HOOK}`, `${CLAUDE_SETTINGS}: hooks.PreToolUse: ${CLAUDE_HOOK}`]);
     expect(readJson<HostSettings>(project, CLAUDE_SETTINGS).hooks?.PreToolUse).toEqual([...moved, ...(MANIFEST.hostSettings[CLAUDE_SETTINGS]?.hooks?.PreToolUse ?? [])]);
     expect(spawnSync(process.execPath, ["tools/agent-workflow/check.mts"], { cwd: project, encoding: "utf8" }).status).toBe(0);
   });
@@ -735,6 +745,8 @@ function createProjectAsBefore(): string {
 
   hook.command = OLD_CLAUDE_HOOK;
   hook.timeout = 30;
+  // That version registered the hook for `Bash` alone.
+  settings.hooks = { ...settings.hooks, PreToolUse: (settings.hooks?.PreToolUse ?? []).slice(0, 1) };
   settings.permissions.ask.push(OLD_SETTING_RULE);
   writeFile(project, CLAUDE_SETTINGS, `${JSON.stringify(settings, null, 2)}\n`);
   writeFile(project, RETIRED_FILES[0] as string, `${JSON.stringify(OLD_SETTING_ON)}\n`);

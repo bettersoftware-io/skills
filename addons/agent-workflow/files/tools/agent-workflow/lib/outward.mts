@@ -22,25 +22,51 @@ const WRITE_METHODS = ["POST", "PATCH", "PUT", "DELETE"];
 const GH_API_FIELDS = ["-f", "-F", "--field", "--raw-field", "--input"];
 /** `git` options that take their value as the next word. */
 const GIT_OPTIONS_WITH_VALUE = ["-C", "-c", "--git-dir", "--work-tree", "--namespace", "--exec-path"];
-/** Words a shell allows before a command that are not the command. */
-const LEADING_WORDS = ["then", "do", "else", "elif", "if", "while", "until", "!", "{", "}", "time", "command", "exec", "nohup", "env", "xargs"];
+/**
+ * Words before a command that are not the command: what a shell allows there,
+ * and programs that run the command that follows them. Claude Code looks past
+ * the second kind as well when it matches a rule to a command (`timeout`,
+ * `time`, `nice`, `stdbuf`, `nohup`, `command`, `builtin`, `noglob`, and
+ * `xargs` for an `allow` rule), so a push behind one must be read here too.
+ */
+const LEADING_WORDS = [
+  ...["then", "do", "else", "elif", "if", "while", "until", "!", "{", "}"],
+  ...["time", "command", "exec", "nohup", "env", "xargs", "timeout", "nice", "stdbuf", "builtin", "noglob"],
+];
+/** What such a program takes before the command it runs, beside its options: a number (`nice -n 5`) or a time (`timeout 30s`). */
+const LEADING_VALUE = /^\d+(?:\.\d+)?[smhd]?$/;
 const SHELLS = ["bash", "sh", "zsh", "dash", "ksh"];
 /**
- * A word nothing hides in: letters, digits and `. _ - / = ,`. Any other
+ * A word nothing hides in: letters, digits and `. _ - /`. Any other
  * character is a colon, or one the shell may read as something to fill in:
  * an expansion, an escape left as written, a pattern for file names. The
  * plain ones are listed, not the others: a list of what to look out for is
  * never whole.
  */
-const PLAIN_WORD = /^[A-Za-z0-9._/=,-]+$/;
+const PLAIN_WORD = /^[A-Za-z0-9._/-]+$/;
+/**
+ * The options of `git push` that change nothing about what is pushed or
+ * where. Any other is asked about, written out, shortened (`--de`) or joined
+ * to another (`-uf`): git reads both, and no permission rule can.
+ */
+const PLAIN_PUSH_OPTIONS = ["-u", "--set-upstream", "-v", "--verbose", "-q", "--quiet", "--progress", "--porcelain", "-n", "--dry-run", "--atomic"];
+/** The options of `git` itself that say nothing about where a push goes. `-C` takes a folder as its next word. */
+const PLAIN_GIT_OPTIONS = ["--no-pager", "-P"];
+/** A quote or a backslash: the shell takes it out of a word, so `-"f"` is `-f` to git and to nothing that reads the text. */
+const QUOTING = /['"\\]/;
 
 export interface Verdict {
   /** The outward steps found, as the first words of each. */
   outward: string[];
   /** True when an outward step shares the command with anything else. */
   chained: boolean;
-  /** True when a push among them may write to another branch than the one it names first, or delete one: a word of it is not plain. */
+  /** True when a push among them is not written plainly, so it may write to another branch than the one it names first, or delete one. */
   redirected: boolean;
+}
+
+/** A verdict, and whether a `git push` is among the outward steps. */
+interface Reading extends Verdict {
+  pushed: boolean;
 }
 
 /**
@@ -50,7 +76,10 @@ export interface Verdict {
  */
 export function judgeCommand(command: string): Verdict | undefined {
   try {
-    return judgeScript(parseShell(command));
+    const { pushed, outward, chained, redirected } = judgeScript(parseShell(command));
+
+    // The reader takes quotes out of the words, as the shell does. A rule of the host reads the text with them in.
+    return { outward, chained, redirected: redirected || (pushed && QUOTING.test(command)) };
   } catch (error) {
     if (error instanceof ShellError) {
       return undefined;
@@ -60,7 +89,7 @@ export function judgeCommand(command: string): Verdict | undefined {
   }
 }
 
-function judgeScript(script: Script, depth = 0): Verdict {
+function judgeScript(script: Script, depth = 0): Reading {
   // `bash -c "bash -c '…'"`: each level is read by a reader of its own, so the reader's bound does not count them.
   if (depth > DEEPEST_NESTING) {
     throw new LimitError(`the command nests commands more than ${DEEPEST_NESTING} deep`);
@@ -69,6 +98,7 @@ function judgeScript(script: Script, depth = 0): Verdict {
   const outward: string[] = [];
   let chained = false;
   let redirected = false;
+  let pushed = false;
   let steps = 0;
 
   for (const step of script.steps) {
@@ -78,13 +108,20 @@ function judgeScript(script: Script, depth = 0): Verdict {
       steps += 1;
     }
 
+    let behind = false;
+
     for (const stage of stages) {
       const words = commandWords(stage);
 
       if (isOutward(words)) {
         outward.push(words.slice(0, 3).join(" "));
+        // What stands behind a pipe from another command is no lone step: a filter comes after, never before.
+        chained ||= behind;
+        pushed ||= isGit(words);
         redirected ||= isRedirectedPush(stage, words);
       }
+
+      behind = true;
 
       // `bash -c "…"` and `eval "…"` run what their argument says.
       const inline = inlineScript(words);
@@ -95,6 +132,7 @@ function judgeScript(script: Script, depth = 0): Verdict {
         outward.push(...inner.outward);
         chained ||= inner.chained;
         redirected ||= inner.redirected;
+        pushed ||= inner.pushed;
       }
     }
   }
@@ -103,14 +141,16 @@ function judgeScript(script: Script, depth = 0): Verdict {
     const inner = judgeScript(nested, depth + 1);
 
     outward.push(...inner.outward);
-    chained ||= inner.chained;
+    // An outward step inside `$(…)` of another command runs beside that command.
+    chained ||= inner.chained || (inner.outward.length > 0 && steps > 0);
     redirected ||= inner.redirected;
+    pushed ||= inner.pushed;
   }
 
   // One outward step with a filter behind a pipe, or with a `$(cat …)` that
   // only feeds it, is still one step. Two of them, or one beside any other
   // step, is a chain.
-  return { outward, chained: chained || (outward.length > 0 && (steps > 1 || outward.length > 1)), redirected };
+  return { outward, chained: chained || (outward.length > 0 && (steps > 1 || outward.length > 1)), redirected, pushed };
 }
 
 /**
@@ -122,23 +162,39 @@ export function mentionsOutward(text: string): boolean {
   return /(?:^|[^A-Za-z0-9_-])(?:push|gh)(?:$|[^A-Za-z0-9_-])/.test(text);
 }
 
-/** The command's own words: no `VAR=value` in front, no `then`, `time`, `env` or `xargs`. Claude Code matches an `allow` rule for a command to `xargs` and that command too. */
+/**
+ * The command's own words: no `VAR=value` in front, no `then`, `time`, `env`
+ * or `xargs`, and none of what such a word takes before the command (`nice
+ * -n 5`, `timeout 30s`, `command --`).
+ */
 export function commandWords(stage: Stage): string[] {
-  let words = stage;
+  let start = 0;
+  let led = false;
 
-  while (words[0] !== undefined && (LEADING_WORDS.includes(words[0]) || /^[A-Za-z_][A-Za-z0-9_]*=/.test(words[0]))) {
-    words = words.slice(1);
+  // By index: a stage can hold hundreds of thousands of such words, and a copy of the rest for each takes longer than a host waits.
+  for (; start < stage.length; start += 1) {
+    const word = stage[start] ?? "";
+
+    if (LEADING_WORDS.includes(word)) {
+      led = true;
+    } else if (!(/^[A-Za-z_][A-Za-z0-9_]*=/.test(word) || (led && (word.startsWith("-") || LEADING_VALUE.test(word))))) {
+      break;
+    }
   }
 
-  return words;
+  return stage.slice(start);
+}
+
+function isGit(words: string[]): boolean {
+  return (words[0] ?? "").split("/").pop() === "git";
 }
 
 export function isOutward(words: string[]): boolean {
-  const program = (words[0] ?? "").split("/").pop();
-
-  if (program === "git") {
+  if (isGit(words)) {
     return GIT_OUTWARD.includes(skipGitOptions(words.slice(1))[0] ?? "");
   }
+
+  const program = (words[0] ?? "").split("/").pop();
 
   if (program === "gh") {
     const rest = skipGhOptions(words.slice(1));
@@ -151,41 +207,70 @@ export function isOutward(words: string[]): boolean {
 }
 
 /**
- * Whether an outward step is a `git push` that may write elsewhere than it
- * names first: a word of it is not plain. A colon says so: `source:target`,
- * `:target` (which deletes it), `-c remote.origin.push=a:b`, and also a
- * remote written as a URL. So does a word the shell turns into another
- * before git sees it (`"$BRANCH"`, a backtick, an escape, braces, a pattern
- * for file names): what it becomes is not read here. The whole stage is
- * read, with what is set in front of `git`: git takes
- * `GIT_CONFIG_VALUE_0=a:b` there as a setting.
+ * Whether an outward step is a `git push` that is not written plainly. A
+ * plain one is `git`, perhaps behind `-C <folder>`, then `push`, options that
+ * change nothing about what is pushed, and plain words for the remote and the
+ * branch. Anything else may write elsewhere than it names first, or delete:
+ *
+ * - a word that is not plain: a colon (`source:target`, `:target`, a remote
+ *   written as a URL), or what the shell turns into another word before git
+ *   sees it (`"$BRANCH"`, a backtick, an escape, braces, a pattern);
+ * - any other option, of `push` or of `git` (`-c remote.origin.push=a:b`);
+ * - a value set in front of `git`, which git may take as a setting
+ *   (`GIT_CONFIG_VALUE_0=a:b`);
+ * - `xargs` in front, which adds words from what it is fed.
  */
 function isRedirectedPush(stage: Stage, outward: string[]): boolean {
-  const program = (outward[0] ?? "").split("/").pop();
+  if (!isGit(outward)) {
+    return false;
+  }
 
-  return program === "git" && stage.some((word) => !PLAIN_WORD.test(word));
+  const led = stage.slice(0, stage.length - outward.length);
+  const own = skipGitOptions(outward.slice(1));
+  const before = outward.slice(1, outward.length - own.length);
+
+  return (
+    led.some((word) => word === "xargs" || word.includes("=")) ||
+    !isPlainFolderOnly(before) ||
+    own.slice(1).some((word) => (word.startsWith("-") ? !PLAIN_PUSH_OPTIONS.includes(word) : !PLAIN_WORD.test(word)))
+  );
+}
+
+/** Whether git's own options, before `push`, are `-C <folder>` and ones that say nothing about a push. */
+function isPlainFolderOnly(options: string[]): boolean {
+  for (let index = 0; index < options.length; index += 1) {
+    const option = options[index] ?? "";
+
+    if (option === "-C" && PLAIN_WORD.test(options[index + 1] ?? "")) {
+      index += 1;
+    } else if (!PLAIN_GIT_OPTIONS.includes(option)) {
+      return false;
+    }
+  }
+
+  return true;
 }
 
 /** `git -C dir -c key=value push` → `push`. */
 function skipGitOptions(words: string[]): string[] {
-  let rest = words;
+  let start = 0;
 
-  while (rest[0]?.startsWith("-")) {
-    rest = rest.slice(GIT_OPTIONS_WITH_VALUE.includes(rest[0]) ? 2 : 1);
+  while (words[start]?.startsWith("-")) {
+    start += GIT_OPTIONS_WITH_VALUE.includes(words[start] ?? "") ? 2 : 1;
   }
 
-  return rest;
+  return words.slice(start);
 }
 
 /** `gh -R owner/name pr merge` → `pr merge`. */
 function skipGhOptions(words: string[]): string[] {
-  let rest = words;
+  let start = 0;
 
-  while (rest[0]?.startsWith("-")) {
-    rest = rest.slice(["-R", "--repo"].includes(rest[0]) ? 2 : 1);
+  while (words[start]?.startsWith("-")) {
+    start += ["-R", "--repo"].includes(words[start] ?? "") ? 2 : 1;
   }
 
-  return rest;
+  return words.slice(start);
 }
 
 /** The first method named decides; with none, a request body makes it a write. */
