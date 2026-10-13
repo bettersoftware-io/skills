@@ -1,7 +1,7 @@
 ---
 description: Write what this session worked out into the project's documents: find where it belongs, propose it, then ship it as a pull request
 argument-hint: [topic words]
-allowed-tools: Bash(git:*), Bash(gh:*), Bash(pnpm:*), Bash(grep:*), Bash(ls:*), Bash(find:*), Read, Write, Edit
+allowed-tools: Bash(ls:*), Bash(grep:*), Bash(git ls-files:*), Bash(pnpm worktree:*), Bash(pnpm gate:full:*), Read, Write, Edit
 ---
 
 Write down what this session established, in the project's own documents.
@@ -15,7 +15,7 @@ Run each step yourself. This file runs nothing by itself.
 
 ```bash
 ls docs
-find docs -name "*.md"
+git ls-files docs
 grep -r -l -i "<a topic word>" docs AGENTS.md README.md
 ```
 

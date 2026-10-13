@@ -1,7 +1,7 @@
 ---
 description: Write the week's entry in CHANGELOG.md from the pull requests merged that week, then ship it as a pull request
 argument-hint: [ISO week, e.g. 2026-W41. Default: every week not yet in the file]
-allowed-tools: Bash(git:*), Bash(gh:*), Bash(pnpm:*), Bash(node:*), Read, Write, Edit
+allowed-tools: Bash(pnpm changelog:*), Bash(pnpm worktree:*), Bash(pnpm gate:fast:*), Bash(git log:*), Bash(gh pr view:*), Bash(gh issue list:*), Bash(gh repo view:*), Read, Write, Edit
 ---
 
 Bring `CHANGELOG.md` up to date. Requested week: `$ARGUMENTS`. If that is

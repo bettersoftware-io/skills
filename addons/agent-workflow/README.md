@@ -419,6 +419,28 @@ Two commands need nothing else:
   The source's table names its own folders; this one names the two pages the
   add-on gives a project and describes the rest.
 
+### What a command may run unasked
+
+A command's `allowed-tools` line is a grant: in Claude Code, what it lists
+runs with no prompt while that command is the one running. So the line is
+held to the add-on's own rule, that every outward step asks:
+
+- Each grant names a program by its first words (`git worktree list`,
+  `pnpm coverage:gaps`), never a whole program (`git`, `gh`, `pnpm`).
+- What is granted is on a closed list of reads and of the project's own
+  scripts, is not an outward step by the hook's own reading, and is used in
+  the command's text.
+- No command is granted a push, a pull request step, a merge, a workflow
+  run or `gh api`. Nor `git fetch` and `git grep`, which read and can also
+  be told to start a program (`--upload-pack`, `--open-files-in-pager`):
+  each asks, as it would with no command running.
+
+Until 2026-10-13 it was not so. The three commands the add-on began with
+granted all of `git` and `gh`, as the source's do, so while one of them ran
+a push or a merge did not ask. A security review of the commit that added
+three more named it. `/workflow:status` is where it matters most: it reads
+the titles of pull requests, which anyone who can open one writes.
+
 Not brought over: the source's command that runs a copy of the CI steps and
 looks for a step CI has and the copy lacks. A project from the starter runs
 `pnpm gate:full` on a laptop and in CI, one command, so there are not two
@@ -440,7 +462,7 @@ the agent to run. That also lets Codex use the same file.
 | Permission rules | `permissions.ask` in the project | None in the project. Codex's approval mode and sandbox decide |
 | Commands | `/workflow:changelog` and the two others | No project slash commands. The skills `$workflow-changelog` and the two others point at the same files |
 | `$ARGUMENTS` | Filled in | Not filled in; each command says to take the arguments from the request |
-| `allowed-tools` | Read | Ignored |
+| `allowed-tools` | Read: what the command may run with no prompt while it runs. Each command names only what it uses, and nothing outward ([below](#what-a-command-may-run-unasked)) | Ignored |
 | Inside the host's sandbox | — | `.codex` and `.agents` are read-only, so the installer leaves the hook registration and the three skills, and its notes say so |
 
 ## How it was tested

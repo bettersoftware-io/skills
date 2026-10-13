@@ -1,7 +1,7 @@
 ---
 description: Audit what is animating in the running client, as it is and under reduced motion, and judge each thing it finds
 argument-hint: [routes to open, e.g. / /orders] [still]
-allowed-tools: Bash(pnpm:*), Bash(node:*), Bash(git:*), Read
+allowed-tools: Bash(node tools/agent-workflow/requires.mts:*), Bash(pnpm perf:check:*), Bash(pnpm perf:motion-audit:*), Bash(pnpm worktree:*), Bash(pnpm gate:full:*), Read
 ---
 
 Run the runtime motion audit and judge what it reports. Asked for:
