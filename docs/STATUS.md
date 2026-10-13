@@ -206,10 +206,12 @@ Found while a project was set up with the plugin, on 2026-10-12 and 13.
 
 ## Not tried
 
-- **The commands `/workflow:status`, `/workflow:docs` and
-  `/workflow:perf-audit`, in a session.** They are text, and tests hold their
-  form: a description, the tools they may use, step 0 where an add-on is
-  needed, scripts that exist. No session has been run with any of the three.
+- **The commands `/workflow:status`, `/workflow:docs`,
+  `/workflow:worktrees` and `/workflow:perf-audit`, in a session.** They are
+  text, and tests hold their form: a description, the tools they may use,
+  step 0 where an add-on is needed, scripts that exist. No session has been
+  run with any of the four. `pnpm worktree:audit` itself was run against two
+  real projects; no agent has been watched to act on its report.
 
 - **The shipping rules of `agent-workflow`, when something goes wrong.** One
   session read them cold and followed every step on a one-word change ([the

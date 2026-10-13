@@ -23,12 +23,13 @@ Leave it out of a project where one of the three is not so.
 | Its registration | `.claude/settings.json`, `.codex/hooks.json` | Merged in under `hooks.PreToolUse`, matcher `Bash`, beside the kit's hooks. For Claude Code a second group, matcher `Monitor`: that tool runs a shell command too |
 | Permission rules | `.claude/settings.json` | Merged in: twelve `ask` rules for a forced or destructive push and an `--admin` merge, and one for an edit of the hook. No `allow` rule |
 | `pnpm worktree <name> [--ready]` | `tools/agent-workflow/new-worktree.mts` | A worktree beside the project on `worktree-<name>`, cut from `origin`'s main by name |
+| `pnpm worktree:audit [filter]` | `tools/agent-workflow/audit-worktrees.mts` | One verdict for each linked worktree, against `origin`'s main: merged, merged with files not committed, or work main does not have. Then orphan branches and stray folders. It only reads |
 | `pnpm changelog weeks\|prs\|check` | `tools/agent-workflow/changelog.mts` | The weeks with no entry, a week's merged pull requests, and the proof that each is cited |
 | Weekly tag | `.github/workflows/weekly-tag.yml`, `tools/agent-workflow/close-week.mts` | Monday 00:05 UTC: tags the finished ISO week, opens "Changelog: write `<week>`" |
 | `CHANGELOG.md` | project root | A starting file: the format, no week yet. The project owns it |
 | `docs/STATUS.md` | `docs/` | A starting file: the six sections of what is left, no entry yet. The project owns it |
 | `docs/IDEAS.md` | `docs/` | A starting file: what nobody has committed to. The project owns it |
-| Six commands | `.claude/commands/workflow/*.md` | `/workflow:status`, `/workflow:docs`, `/workflow:changelog`, `/workflow:coverage-backfill`, `/workflow:visual-tolerance-audit`, `/workflow:perf-audit` |
+| Seven commands | `.claude/commands/workflow/*.md` | `/workflow:status`, `/workflow:docs`, `/workflow:worktrees`, `/workflow:changelog`, `/workflow:coverage-backfill`, `/workflow:visual-tolerance-audit`, `/workflow:perf-audit` |
 | The same for Codex | `.agents/skills/workflow-*/SKILL.md` | One small skill per command, which points at the command file |
 | `node tools/agent-workflow/requires.mts <add-on>` | same | Exit 0 when the add-on is installed, exit 2 with what to do when not |
 | `pnpm agent-workflow:check` | `tools/agent-workflow/check.mts` | The add-on's `verify`: runs the hook on three commands as each host starts it, and reads both settings files |
@@ -357,6 +358,173 @@ Differences from the source:
   starter compiles nothing. With no `gate:fast` script it says `INSTALLED,
   NOT PROVEN` and exits 1.
 
+## The worktree audit
+
+Several sessions work on one project, and worktrees are left behind: some
+merged and forgotten, some holding work someone stopped in. Nothing told
+them apart. `pnpm worktree:audit` fetches `origin`'s main and gives each
+linked worktree one verdict against `origin/<main>`. The project's own
+checkout is not judged. The main branch is found as the worktree script
+finds it.
+
+```
+MERGED  rates-filter
+  path:    /work/app-worktrees/rates-filter
+  branch:  worktree-rates-filter
+  tip:     96d419b 2026-10-12 Grey out a stale price
+  tree:    clean: no file is changed or untracked. Files git ignores are not looked at
+  remove:  git worktree remove /work/app-worktrees/rates-filter
+           git branch -D worktree-rates-filter
+
+UNMERGED  login
+  path:    /work/app-worktrees/login
+  branch:  worktree-login
+  tip:     5c1e2aa 2026-10-09 Half of the form
+  commits: 2 not on origin/main, the newest 4 days ago
+           5c1e2aa Half of the form
+           0b7d913 Start the login form
+  tree:    1 path not committed: notes.txt (untracked)
+  Live work. No removal command is printed for it
+```
+
+| Verdict | When | A command that removes it |
+|---|---|---|
+| `MERGED` | The commit it stands on is an ancestor of `origin/<main>` (`git merge-base --is-ancestor`), and `git status` names no changed and no untracked file | `git worktree remove <path>`, then `git branch -D <branch>`. Never `--force`. None when it may hold no work of its own, when it is locked, or when its path or branch cannot be printed as one word; the lines under the verdict say which |
+| `MERGED, NOT CLEAN` | The commit is on main, and the tree holds changed or untracked files: how many, and the first five | None |
+| `UNMERGED` | It has commits main does not have: how many, the first five subjects, how old the newest is, and what the tree holds | None, ever |
+| `NOT JUDGED` | git could not say whether the commit is on main, or it is on main and the tree could not be read | None |
+
+Under a verdict the report says what else git knows about the worktree:
+
+- **Detached.** No branch is checked out, so the verdict is about the commit
+  it stands on, and no command is printed for a branch.
+- **Locked**, with the reason when one was given. No command is printed: git
+  refuses to remove a locked worktree, and unlocking is for whoever locked it.
+- **Prunable.** Its folder is gone. It is judged by the commit it stood on,
+  and `UNMERGED` then says the commits are still in the repository.
+
+After the worktrees:
+
+- **Orphan branches**: local branches named `worktree-*` that no worktree
+  has checked out, the project's own checkout included. Each is `MERGED` or
+  `UNMERGED` by the same test. A merged one gets `git branch -D <branch>`.
+- **Stray folders**: what is in `<project>-worktrees/` and is no worktree git
+  knows, each with the first five entries of its top level. A link is named
+  and not followed. They are listed and left where they are.
+- A `count:` line, a `next:` line for each kind of thing the report holds,
+  and a last line that is `OK` or `SKIP`. `MERGED` does not mean that a
+  command was printed. When a `MERGED` worktree has none, the count says for
+  how many there is one (`MERGED 3 (a command for 1)`), and a `next:` line
+  says not to write the missing command by hand.
+
+`[filter]` keeps the worktrees whose name holds it. It is one plain word, as
+a worktree's name is, and is refused before git is asked anything. Orphan
+branches and stray folders are all listed whatever the filter.
+
+| Exit | Means |
+|---|---|
+| `0` | Everything was read, and judged against `origin`'s main as fetched in this run. The verdicts do not change it: a worktree to remove and work left behind fail nothing |
+| `2` | Something was not read or not judged, and the last line says what: the fetch failed, a worktree or an orphan branch is `NOT JUDGED`, the filter matched no worktree, the branches or the worktree folder could not be read, the clone has no `origin/<main>`, this is not a git repository, a wrong argument. Not a pass |
+
+There is no exit 1. This is a report, and it has no finding that fails.
+
+**It only reads.** It removes no worktree, deletes no branch, prunes nothing
+and deletes no folder. A command that does is printed for a person. What it
+changes is what `git fetch origin <main>` changes: `origin/<main>`,
+`FETCH_HEAD`, and a tag the fetch follows. Every other call to git asks a
+question, and a test holds the list of them. A tree is read with
+`git --no-optional-locks status`, so the index of a worktree a session is
+working in is not rewritten under it. Untracked files are asked for by name
+(`--untracked-files=normal`): a person's git can be set to hide them, and a
+tree that hides them would read as clean.
+
+**It joins no gate.** It reports on one machine, not on the project: two
+clones of the same commit give two reports.
+
+**A failed fetch is said first and last.** The report still comes, judged
+against `origin/<main>` as the clone last had it, with how long ago that
+last moved when the clone's reflog says. Its last line is `SKIP` and the
+exit is 2, because a main that is behind makes merged work read as
+`UNMERGED`. A clone with no `origin/<main>` at all is not judged.
+
+**A squash reads as `UNMERGED`.** The test is whether the branch's commit is
+on main. After a squash or a rebase main holds other commits, and the
+branch's own are on no other branch. The report says so once, with the rule:
+a merge commit.
+
+**A worktree just made reads as `MERGED`, and gets no command.** It stands
+on a commit of main and its tree is clean, which is also what
+`pnpm worktree` leaves. The tool cannot see a session, so it reads what it
+can: the commit is on main's own line (a merge's first parent each time),
+where the tip of a branch merged by a merge commit is not. For a worktree on
+that line the verdict stays `MERGED`, and under it stand two lines and no
+`remove:`:
+
+```
+  note:    its commit is one main itself once stood at, so it may hold no work of its own. A worktree just made looks like this: a session may be about to work in it
+  No command is printed for it. Ask whose it is first: it is finished only if nobody is about to use it
+```
+
+Several sessions work on one project at once, and a worktree another
+session made a minute ago is exactly this case: a pasted removal takes the
+ground from under that session. In two runs against real checkouts
+(2026-10-13) two of four worktrees were this case, and both belonged to
+sessions that were still running. Three things follow:
+
+- A worktree that was made and never used gets no command either. A person
+  who knows it is nobody's removes it by hand.
+- A branch that was fast-forwarded onto main stands on that line too, and
+  reads the same. The rule here is a merge commit.
+- When git cannot say which line the commit is on, it is taken as this case.
+
+**Printed text is written out, and a printed command is safe to paste.** A
+branch's name, a path, a file's name, a commit's subject and what git said
+on a failure all come from outside the tool:
+
+- Every line goes out through one function (`lib/shown.mts`), which writes
+  a control character, a mark that turns the text round or has no width, a
+  line end and a space that is not the space as its escape (`\u001b`), by
+  Unicode's classes. A subject cannot clear a line and write a verdict, and
+  a file's name with a line end in it is one name on one line.
+- No line starts with text from outside. A stray folder named like a command
+  is printed after the word `STRAY`.
+- A path or a branch in a printed command is one word for a POSIX shell: as
+  it is when it holds only letters, digits and `_ @ % + = : , . / -`, in
+  single quotes otherwise, a quote inside written `'\''`. No command is
+  printed for a name that holds a character the report writes out (the word
+  on the screen would not be that name), for one that starts with `-`, or
+  for one Node could not read as text. The report says so, and whether it
+  is the path or the branch.
+- A commit is handed to git only as a full hash, and the main branch only
+  after the check the worktree script makes. git lists worktrees and files
+  with `-z`, so a name with a line end in it is one field.
+
+**git is started by its name**, as this add-on's other tools start it: the
+first `git` on the PATH. The settings check of `ci-security` looks for it
+only in a folder no project fills. Nothing here does.
+
+Differences from the source:
+
+- **No sessions.** The source names the Claude Code sessions that drove a
+  worktree, with the command that resumes each. It reads one host's files
+  under a person's home and needs a tool of its owner's, and this add-on
+  serves Codex too. So the tool cannot say that a session is running in a
+  worktree, and says so.
+- **Nothing is deleted.** The source removes a stray folder that holds only
+  editor state, by a standing permission of its owner. Here every stray
+  folder is listed.
+- **It fetches.** The source judges against the clone's `origin/main` as it
+  is and tells the reader to fetch first.
+- **Only `origin/<main>` is judged against.** The source falls back to a
+  local `main`, `master` or `HEAD`.
+- **One worktree folder.** The source also looks for strays under
+  `.claude/worktrees` inside the project. This add-on makes none there.
+- **No size on disk.** The source runs `du` on every worktree.
+- **`NOT JUDGED`, locked and prunable** are added, and so is the worktree
+  with no commit of its own, which gets a note and no command. The source
+  reads git's failure as `UNMERGED`, and prints the commands for every
+  worktree that is merged and clean.
+
 ## The weekly tag and the changelog
 
 The workflow's shell became `close-week.mts`, so its dates and its order of
@@ -383,7 +551,7 @@ pull requests and keeps those merged inside the week to the second.
 
 ## Commands, and the three that need another add-on
 
-All six commands are always installed. The three that need another add-on
+All seven commands are always installed. The three that need another add-on
 start with step 0, `node tools/agent-workflow/requires.mts coverage` (or
 `visual`, or `performance`), and tell the agent to stop if it does not exit
 0. The script
@@ -404,7 +572,7 @@ command is the reading of the report and the verdict on each finding. The
 source's own audit command was for its levels of power saving and its two
 clients, and none of that is here.
 
-Two commands need nothing else:
+Three commands need nothing else:
 
 - **`/workflow:status`** reports where the project stands: the checkout, the
   open pull requests, the last runs on main, and the headings of
@@ -420,6 +588,12 @@ Two commands need nothing else:
   The source's table names its own folders; this one names the two pages the
   add-on gives a project and describes the rest.
 
+- **`/workflow:worktrees`** is the reading of `pnpm worktree:audit`
+  ([above](#the-worktree-audit)): what to say about each verdict, and the
+  rule from the source that nothing is removed before a yes that names what
+  goes. It is granted the audit and nothing else, so each `git worktree
+  remove` it is told to run asks.
+
 ### What a command may run unasked
 
 A command's `allowed-tools` line is a grant: in Claude Code, what it lists
@@ -433,8 +607,17 @@ held to the add-on's own rule, that every outward step asks:
   the command's text.
 - No command is granted a push, a pull request step, a merge, a workflow
   run or `gh api`. Nor `git fetch` and `git grep`, which read and can also
-  be told to start a program (`--upload-pack`, `--open-files-in-pager`):
-  each asks, as it would with no command running.
+  be told to start a program (`--upload-pack`, `--open-files-in-pager`), nor
+  `git log` and `gh run download`, which can be told to write a file where
+  they are told. Each asks, as it would with no command running.
+
+What this does not hold: a grant is by a program's first words, and the
+words after them are the agent's. `git status` cannot be turned into a push,
+but a project's own script that is granted (`pnpm worktree`,
+`pnpm coverage:gaps`) is run with whatever arguments follow, and does what
+that script does with them. A second security review named the list as one
+that can be got round, with no detail; `git log` and `gh run download` went
+from it for that reason, and what is left is this.
 
 Until 2026-10-13 it was not so. The three commands the add-on began with
 granted all of `git` and `gh`, as the source's do, so while one of them ran
@@ -478,6 +661,16 @@ against real repositories made in a temporary folder, with another folder as
   and the hook run as a program.
 - `tests/new-worktree.test.mts`: a local main behind `origin`, a local main
   ahead of it, HEAD on another branch, a failed fetch, `--ready`.
+- `tests/audit-worktrees.test.mts`: each verdict; a branch merged by a real
+  merge commit and one whose changes reached main by a squash; detached,
+  locked and prunable; orphan branches and stray folders; the filter; a
+  failed fetch; a subject, a branch's name, a file's name and git's own
+  stderr with a control character or a text-direction mark in them; a path
+  with a space and a quote in it, whose printed commands are then run in a
+  real shell and remove that worktree and no other; and the state of the
+  repository before and after a run, which is the same. Its 155 mutants are
+  at the end of `tests/mutants.json`; they were run on 2026-10-13 and all
+  killed.
 - `tests/week.test.mts`, `tests/changelog.test.mts`,
   `tests/close-week.test.mts`: week arithmetic across years, the three
   checks, the tag on the right commit (first parent, the second before
@@ -581,6 +774,23 @@ and found closed; it is not a proof that nothing is left.
   merge. One session on one change is not the next one. Not watched: two
   sessions merging at the same time, a red check, a conflict, and a failure
   on main after the merge.
+- **The audit's report in an agent's hands.** `pnpm worktree:audit` was run
+  by hand on 2026-10-13 against two real checkouts, with one and with three
+  linked worktrees. The verdicts matched what `git status` and
+  `git merge-base` said of each, and the worktrees, the branches, the stash,
+  each tree's status and index and the worktree folder were the same before
+  and after. No session of either host was given a report to act on, and no
+  printed command was run outside a test.
+- **A session at work in a worktree.** The audit cannot see one. In those two
+  runs, two of the four worktrees read as `MERGED` with the note that they
+  may be new. Whether a session was at work in them, the tool could not say.
+- **The audit with a git older than 2.36, in a shell that is not a POSIX
+  one, and on a name that is not text.** It was run with git 2.56.0 only. An
+  older git does not know `git worktree list -z`: the tool then stops at
+  "could not list" and exits 2, which is tested with a folder that is no
+  repository and not with an old git. The quoting of a printed command was
+  tested with `sh`, and never on Windows. macOS refuses a file name that is
+  not UTF-8, so such a path was tested as a word only, not through git.
 - **The hook in a live session of Codex.** It was run by hand with Codex's
   payload. That side rests on its documentation and on the schemas in the
   0.160.0 binary (`PreToolUse`, tool name `Bash`, `tool_input.command` as

@@ -37,10 +37,10 @@ import { basename, dirname, join } from "node:path";
 import { isMainModule } from "./lib/main.mts";
 import { type Run, run, runShown } from "./lib/system.mts";
 
-const BRANCH_PREFIX = "worktree-";
-const REMOTE = "origin";
+export const BRANCH_PREFIX = "worktree-";
+export const REMOTE = "origin";
 /** A worktree's name: one word with no `/`, since it is also a folder's name. */
-const NAME = /^[A-Za-z0-9][A-Za-z0-9._-]*$/;
+export const NAME = /^[A-Za-z0-9][A-Za-z0-9._-]*$/;
 /** A branch to start from. It may hold `/` (`release/1.x`); it may not start with `-`, hold `..`, or end in `/` or `.`. */
 const BASE = /^[A-Za-z0-9][A-Za-z0-9._-]*(?:\/[A-Za-z0-9][A-Za-z0-9._-]*)*$/;
 const USAGE = "usage: new-worktree.mts <name> [--ready] [--base <branch>]   e.g. new-worktree.mts rates-filter-fix --ready";
@@ -161,12 +161,12 @@ export function newWorktree({ cwd, argv, run: runProgram, runShown: runLong, rep
   return 0;
 }
 
-function isBase(value: string | undefined): value is string {
+export function isBase(value: string | undefined): value is string {
   return value !== undefined && value.length <= 200 && BASE.test(value) && !value.includes("..") && !value.endsWith(".");
 }
 
 /** The branch `origin/HEAD` points at, or `main` when the clone does not record one. */
-function defaultBranch(git: (...args: string[]) => { status: number; stdout: string }): string {
+export function defaultBranch(git: (...args: string[]) => { status: number; stdout: string }): string {
   const head = git("symbolic-ref", "--quiet", "--short", `refs/remotes/${REMOTE}/HEAD`);
 
   return head.status === 0 && head.stdout.trim().startsWith(`${REMOTE}/`) ? head.stdout.trim().slice(REMOTE.length + 1) : "main";

@@ -57,7 +57,7 @@ describe("the add-on's manifest", () => {
   it("adds scripts that each run a tool it ships, and proves itself with one of them", () => {
     const scripts = MANIFEST.packageJson["."]?.scripts ?? {};
 
-    expect(Object.keys(scripts)).toEqual(["worktree", "changelog", "agent-workflow:check"]);
+    expect(Object.keys(scripts)).toEqual(["worktree", "worktree:audit", "changelog", "agent-workflow:check"]);
 
     for (const script of Object.values(scripts)) {
       const tool = /^node (tools\/agent-workflow\/[\w-]+\.mts)$/.exec(script)?.[1];
@@ -267,7 +267,7 @@ describe("the mutants of this add-on", () => {
 });
 
 describe("the commands", () => {
-  it("are the six the check knows about", () => {
+  it("are the seven the check knows about", () => {
     expect(readdirSync(join(ADDON, "files/.claude/commands/workflow")).sort()).toEqual(COMMANDS.map((name) => `${name}.md`).sort());
   });
 
@@ -292,7 +292,7 @@ describe("the commands", () => {
     ]);
     const tools = (/^allowed-tools: (.+)$/m.exec(frontmatter)?.[1] ?? "").split(", ");
     const programs = tools.filter((tool) => tool.startsWith("Bash")).map((tool) => /^Bash\((.+):\*\)$/.exec(tool)?.[1] ?? `not a grant by first words: ${tool}`);
-    const reads = /^(?:git (?:rev-parse|status|worktree list|rev-list|ls-files|log)|gh (?:pr (?:list|view)|run (?:list|download)|issue list|repo view)|grep|ls|node tools\/agent-workflow\/requires\.mts)$/;
+    const reads = /^(?:git (?:rev-parse|status|worktree list|rev-list|ls-files)|gh (?:pr (?:list|view)|run list|issue list|repo view)|grep|ls|node tools\/agent-workflow\/requires\.mts)$/;
 
     expect(tools.filter((tool) => !tool.startsWith("Bash") && !["Read", "Write", "Edit"].includes(tool))).toEqual([]);
     expect(programs.length).toBeGreaterThan(0);
@@ -301,7 +301,7 @@ describe("the commands", () => {
     expect(programs.filter((program) => !body.includes(program))).toEqual([]);
   });
 
-  it.each(["git push", "gh pr create", "gh pr merge", "gh workflow run", "gh api", "git fetch", "git grep"])("no command may run %s unasked", (step) => {
+  it.each(["git push", "gh pr create", "gh pr merge", "gh workflow run", "gh api", "git fetch", "git grep", "git log", "gh run download", "git worktree remove", "git branch"])("no command may run %s unasked", (step) => {
     const granted = COMMANDS.flatMap((name) => (/^allowed-tools: (.+)$/m.exec(readCommand(name).frontmatter)?.[1] ?? "").split(", ").map((tool) => `${name}: ${tool}`));
 
     expect(granted.filter((grant) => grant.includes(`(${step}`) || /\((?:git|gh|pnpm|node|sh|bash|find):\*\)/.test(grant))).toEqual([]);
@@ -340,7 +340,7 @@ describe("the commands", () => {
     expect(readCommand("changelog").text).not.toContain("requires.mts");
   });
 
-  it.each(["status", "docs"])("needs no other add-on for %s, which every project with this add-on can run", (name) => {
+  it.each(["status", "docs", "worktrees"])("needs no other add-on for %s, which every project with this add-on can run", (name) => {
     expect(Object.hasOwn(COMMAND_NEEDS, name)).toBe(true);
     expect(COMMAND_NEEDS[name]).toBeUndefined();
     expect(readCommand(name).text).not.toContain("requires.mts");
@@ -370,6 +370,16 @@ describe("the commands", () => {
       "6. Ship it",
     ]);
     expect(body).toContain("Wait for a yes.");
+  });
+
+  it("has a command for the worktrees that may run the audit and nothing that removes, and asks before anything goes", () => {
+    const { frontmatter, body } = readCommand("worktrees");
+
+    expect(frontmatter).toMatch(/^allowed-tools: Bash\(pnpm worktree:audit:\*\), Read$/m);
+    expect(body).toContain("Never remove a worktree or delete a branch without a yes from the user");
+    expect(body).toContain("- **Never `--force`.**");
+    expect(body).toContain("- **Only what the audit printed a command for.**");
+    expect(body).toContain("Exit\n2: something was not read or not judged");
   });
 
   it("has a command for the motion audit that never calls a run that did not happen a pass", () => {
