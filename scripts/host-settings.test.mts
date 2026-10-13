@@ -42,10 +42,10 @@ describe("merging an add-on's entries into a host's settings", () => {
   });
 
   it("adds a key the project lacks, at any depth, and names each entry it brought", () => {
-    const { merged, added } = mergeSettings({ model: "opus" }, { permissions: { ask: ["Bash(git push -f*)", "Bash(git push *:*)"] } });
+    const { merged, added } = mergeSettings({ model: "opus" }, { permissions: { ask: ["Bash(git push -f*)", "Bash(git push *--mirror*)"] } });
 
-    expect(merged).toEqual({ model: "opus", permissions: { ask: ["Bash(git push -f*)", "Bash(git push *:*)"] } });
-    expect(added).toEqual(["permissions.ask: Bash(git push -f*)", "permissions.ask: Bash(git push *:*)"]);
+    expect(merged).toEqual({ model: "opus", permissions: { ask: ["Bash(git push -f*)", "Bash(git push *--mirror*)"] } });
+    expect(added).toEqual(["permissions.ask: Bash(git push -f*)", "permissions.ask: Bash(git push *--mirror*)"]);
   });
 
   it("keeps the project's value where both have one", () => {

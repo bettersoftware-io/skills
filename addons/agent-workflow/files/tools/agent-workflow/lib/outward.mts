@@ -23,14 +23,24 @@ const GH_API_FIELDS = ["-f", "-F", "--field", "--raw-field", "--input"];
 /** `git` options that take their value as the next word. */
 const GIT_OPTIONS_WITH_VALUE = ["-C", "-c", "--git-dir", "--work-tree", "--namespace", "--exec-path"];
 /** Words a shell allows before a command that are not the command. */
-const LEADING_WORDS = ["then", "do", "else", "elif", "if", "while", "until", "!", "{", "}", "time", "command", "exec", "nohup", "env"];
+const LEADING_WORDS = ["then", "do", "else", "elif", "if", "while", "until", "!", "{", "}", "time", "command", "exec", "nohup", "env", "xargs"];
 const SHELLS = ["bash", "sh", "zsh", "dash", "ksh"];
+/**
+ * A word nothing hides in: letters, digits and `. _ - / = ,`. Any other
+ * character is a colon, or one the shell may read as something to fill in:
+ * an expansion, an escape left as written, a pattern for file names. The
+ * plain ones are listed, not the others: a list of what to look out for is
+ * never whole.
+ */
+const PLAIN_WORD = /^[A-Za-z0-9._/=,-]+$/;
 
 export interface Verdict {
   /** The outward steps found, as the first words of each. */
   outward: string[];
   /** True when an outward step shares the command with anything else. */
   chained: boolean;
+  /** True when a push among them may write to another branch than the one it names first, or delete one: a word of it is not plain. */
+  redirected: boolean;
 }
 
 /**
@@ -58,18 +68,22 @@ function judgeScript(script: Script, depth = 0): Verdict {
 
   const outward: string[] = [];
   let chained = false;
+  let redirected = false;
   let steps = 0;
 
   for (const step of script.steps) {
-    const stages = step.map(commandWords).filter((words) => words.length > 0);
+    const stages = step.filter((stage) => commandWords(stage).length > 0);
 
     if (stages.length > 0) {
       steps += 1;
     }
 
-    for (const words of stages) {
+    for (const stage of stages) {
+      const words = commandWords(stage);
+
       if (isOutward(words)) {
         outward.push(words.slice(0, 3).join(" "));
+        redirected ||= isRedirectedPush(stage, words);
       }
 
       // `bash -c "…"` and `eval "…"` run what their argument says.
@@ -80,6 +94,7 @@ function judgeScript(script: Script, depth = 0): Verdict {
 
         outward.push(...inner.outward);
         chained ||= inner.chained;
+        redirected ||= inner.redirected;
       }
     }
   }
@@ -89,12 +104,13 @@ function judgeScript(script: Script, depth = 0): Verdict {
 
     outward.push(...inner.outward);
     chained ||= inner.chained;
+    redirected ||= inner.redirected;
   }
 
   // One outward step with a filter behind a pipe, or with a `$(cat …)` that
   // only feeds it, is still one step. Two of them, or one beside any other
   // step, is a chain.
-  return { outward, chained: chained || (outward.length > 0 && (steps > 1 || outward.length > 1)) };
+  return { outward, chained: chained || (outward.length > 0 && (steps > 1 || outward.length > 1)), redirected };
 }
 
 /**
@@ -106,7 +122,7 @@ export function mentionsOutward(text: string): boolean {
   return /(?:^|[^A-Za-z0-9_-])(?:push|gh)(?:$|[^A-Za-z0-9_-])/.test(text);
 }
 
-/** The command's own words: no `VAR=value` in front, no `then`, `time` or `env`. */
+/** The command's own words: no `VAR=value` in front, no `then`, `time`, `env` or `xargs`. Claude Code matches an `allow` rule for a command to `xargs` and that command too. */
 export function commandWords(stage: Stage): string[] {
   let words = stage;
 
@@ -132,6 +148,22 @@ export function isOutward(words: string[]): boolean {
   }
 
   return false;
+}
+
+/**
+ * Whether an outward step is a `git push` that may write elsewhere than it
+ * names first: a word of it is not plain. A colon says so: `source:target`,
+ * `:target` (which deletes it), `-c remote.origin.push=a:b`, and also a
+ * remote written as a URL. So does a word the shell turns into another
+ * before git sees it (`"$BRANCH"`, a backtick, an escape, braces, a pattern
+ * for file names): what it becomes is not read here. The whole stage is
+ * read, with what is set in front of `git`: git takes
+ * `GIT_CONFIG_VALUE_0=a:b` there as a setting.
+ */
+function isRedirectedPush(stage: Stage, outward: string[]): boolean {
+  const program = (outward[0] ?? "").split("/").pop();
+
+  return program === "git" && stage.some((word) => !PLAIN_WORD.test(word));
 }
 
 /** `git -C dir -c key=value push` → `push`. */

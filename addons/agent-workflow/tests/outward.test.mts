@@ -44,7 +44,7 @@ describe("what counts as an outward step", () => {
     "gh api repos/acme/app/issues --input body.json",
   ])("%s", (outward) => {
     expect(judgeCommand(`git status && ${outward}`)?.chained).toBe(true);
-    expect(judgeCommand(outward)).toEqual({ outward: [outward.split(" ").slice(0, 3).join(" ")], chained: false });
+    expect(judgeCommand(outward)).toEqual({ outward: [outward.split(" ").slice(0, 3).join(" ")], chained: false, redirected: false });
   });
 
   it.each([
@@ -68,7 +68,7 @@ describe("what counts as an outward step", () => {
     "pnpm test",
     "echo push",
   ])("not %s", (local) => {
-    expect(judgeCommand(`git status && ${local} ; ls`)).toEqual({ outward: [], chained: false });
+    expect(judgeCommand(`git status && ${local} ; ls`)).toEqual({ outward: [], chained: false, redirected: false });
   });
 
   it("finds the push behind git's own options", () => {
@@ -147,15 +147,15 @@ describe("text that only mentions an outward step", () => {
     ["a heredoc that strips tabs", "git commit -F - <<-EOF\n\tgit push && gh pr merge\n\tEOF"],
     ["a comment", "git status # git push && gh pr create\nls"],
   ])("is not a step: %s", (_name, command) => {
-    expect(judgeCommand(command)).toEqual({ outward: [], chained: false });
+    expect(judgeCommand(command)).toEqual({ outward: [], chained: false, redirected: false });
   });
 
   it("still sees the push after a heredoc ends", () => {
-    expect(judgeCommand(`${createHeredocCommit("git commit -F -")}\ngit push`)).toEqual({ outward: ["git push"], chained: true });
+    expect(judgeCommand(`${createHeredocCommit("git commit -F -")}\ngit push`)).toEqual({ outward: ["git push"], chained: true, redirected: false });
   });
 
   it("reads a heredoc opened on the same line as the next step", () => {
-    expect(judgeCommand("cat <<EOF && git push\ngh pr create --fill\nEOF")).toEqual({ outward: ["git push"], chained: true });
+    expect(judgeCommand("cat <<EOF && git push\ngh pr create --fill\nEOF")).toEqual({ outward: ["git push"], chained: true, redirected: false });
   });
 });
 
@@ -163,7 +163,7 @@ describe("a command inside another", () => {
   it("lets a pull request take its body from a heredoc, the usual form", () => {
     const command = "gh pr create --title \"fix: a thing\" --body \"$(cat <<'EOF'\n## Summary\n- don't chain; git push && more\nEOF\n)\"";
 
-    expect(judgeCommand(command)).toEqual({ outward: ["gh pr create"], chained: false });
+    expect(judgeCommand(command)).toEqual({ outward: ["gh pr create"], chained: false, redirected: false });
   });
 
   it("refuses the same pull request once a push is joined to it", () => {
@@ -180,7 +180,7 @@ describe("a command inside another", () => {
   });
 
   it("counts a lone outward step inside a substitution as one step", () => {
-    expect(judgeCommand('echo "$(git push 2>&1)"')).toEqual({ outward: ["git push"], chained: false });
+    expect(judgeCommand('echo "$(git push 2>&1)"')).toEqual({ outward: ["git push"], chained: false, redirected: false });
   });
 
   it("refuses an outward step that takes its argument from another", () => {
@@ -191,8 +191,62 @@ describe("a command inside another", () => {
     expect(judgeCommand('bash -c "git commit -m wip && git push"')).toMatchObject({ chained: true });
     expect(judgeCommand("sh -lc 'git push; gh pr create --fill'")).toMatchObject({ chained: true });
     expect(judgeCommand('eval "git add -A && git push"')).toMatchObject({ chained: true });
-    expect(judgeCommand('bash -c "git push"')).toEqual({ outward: ["git push"], chained: false });
-    expect(judgeCommand('bash -c "pnpm test && pnpm build"')).toEqual({ outward: [], chained: false });
+    expect(judgeCommand('bash -c "git push"')).toEqual({ outward: ["git push"], chained: false, redirected: false });
+    expect(judgeCommand('bash -c "pnpm test && pnpm build"')).toEqual({ outward: [], chained: false, redirected: false });
+  });
+});
+
+describe("a push that holds a colon", () => {
+  it.each([
+    ["a source and a target", "git push origin worktree-a:main"],
+    ["a target alone, which deletes it", "git push origin :worktree-a"],
+    ["HEAD and a full ref", "git push -u origin HEAD:refs/heads/main"],
+    ["a setting in front of push that says where a push goes", "git -c remote.origin.push=worktree-a:main push"],
+    ["one behind git's own options", "git -C ../app push origin worktree-a:main"],
+    ["a path to the program", "/usr/bin/git push origin worktree-a:main"],
+    ["a remote written as a URL", "git push https://github.com/acme/app.git worktree-a"],
+    ["a remote written the short way", "git push git@github.com:acme/app.git worktree-a"],
+    ["one with a filter behind a pipe", "git push origin worktree-a:main 2>&1 | tail -2"],
+    ["one a shell is asked to run", 'bash -c "git push origin worktree-a:main"'],
+    ["one inside a substitution", 'echo "$(git push origin worktree-a:main 2>&1)"'],
+    ["a setting git reads from what is set in front of it", "GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=remote.origin.push GIT_CONFIG_VALUE_0=worktree-a:main git push"],
+    ["the same setting handed over by env", "env GIT_CONFIG_VALUE_0=worktree-a:main git push"],
+    ["a variable where the branch goes", 'git push origin "$BRANCH"'],
+    ["a variable in braces", "git push origin ${BRANCH}"],
+    ["a command whose output is the branch", 'git push origin "$(cat branch.txt)"'],
+    ["the same in backticks", "git push origin `cat branch.txt`"],
+    ["an escape the shell reads and this does not", "git push origin $'worktree-a\\x3amain'"],
+    ["a pattern for file names: a star", "git push origin worktree-*"],
+    ["a pattern for file names: a question mark", "git push origin worktree-?"],
+    ["a pattern for file names: a set", "git push origin worktree-[ab]"],
+    ["braces the shell writes out", "git push origin worktree-{a,b}"],
+    ["a word that held a blank inside quotes", 'git push origin "worktree a"'],
+    ["one handed to xargs, which the host matches to a rule for a push", "xargs git push origin worktree-a:main"],
+  ])("is found: %s", (_name, command) => {
+    expect(judgeCommand(command)).toMatchObject({ chained: false, redirected: true });
+  });
+
+  it.each([
+    ["a push of a branch by its name", "git push -u origin worktree-a"],
+    ["a push behind git's own options", "git -C ../app push origin main"],
+    ["a push with its upstream set and one option with a value", "git push --set-upstream --push-option=ci.skip origin worktree-a.b_c-1"],
+    ["a plain push handed to xargs", "xargs git push origin worktree-a"],
+    ["a colon in the step that feeds the push", "echo a:b | git push origin main"],
+    ["a colon in a commit message", 'git commit -m "fix: the list"'],
+    ["a fetch with a source and a target", "git fetch origin main:main"],
+    ["a stash, which is no push", 'git stash push -m "wip: the list"'],
+    ["a pull request with a colon in its title", 'gh pr create --title "fix: the list" --body b'],
+  ])("is not: %s", (_name, command) => {
+    expect(judgeCommand(command)?.redirected).toBe(false);
+  });
+
+  it("is an outward step behind xargs as well, and a chain when another step feeds it", () => {
+    expect(judgeCommand("xargs git push origin worktree-a")).toEqual({ outward: ["git push origin"], chained: false, redirected: false });
+    expect(judgeCommand("git add -A && xargs git push origin worktree-a")?.chained).toBe(true);
+  });
+
+  it("is still a chain when it is joined to another command", () => {
+    expect(judgeCommand("git commit -m wip && git push origin worktree-a:main")).toEqual({ outward: ["git push origin"], chained: true, redirected: true });
   });
 });
 
@@ -263,6 +317,51 @@ describe("the hook", () => {
     expect(judgeCall({ tool_name: "Bash", tool_input: { command: "git add -A && git commit -m wip" } })).toBeUndefined();
     expect(judgeCall({ tool_name: "Write", tool_input: {} })).toBeUndefined();
     expect(judgeCall({})).toBeUndefined();
+  });
+
+  it("asks about a push that holds a colon, and says why", () => {
+    const answer = judgeCall({ tool_name: "Bash", tool_input: { command: "git push origin worktree-a:main" } });
+
+    expect(answer?.decision).toBe("ask");
+    expect(answer?.reason).toContain("holds a colon");
+    expect(answer?.reason).toContain("whatever rule allows a push");
+  });
+
+  it("asks nothing of Codex, which sends the id of its turn and does not read a question", () => {
+    const fromCodex = { tool_name: "Bash", tool_input: { command: "git push origin worktree-a:main" }, turn_id: "turn-1" };
+
+    expect(judgeCall(fromCodex)).toBeUndefined();
+    expect(judgeCall({ ...fromCodex, turn_id: undefined })?.decision).toBe("ask");
+    expect(judgeCall({ ...fromCodex, tool_input: { command: "git add -A && git push origin worktree-a:main" } })?.decision).toBe("deny");
+  });
+
+  it("asks about a push whose branch the shell fills in, which may come to hold a colon", () => {
+    expect(judgeCall({ tool_name: "Bash", tool_input: { command: 'git push origin "$BRANCH"' } })?.reason).toContain("a word the shell turns into another");
+    expect(judgeCall({ tool_name: "Bash", tool_input: { command: "GIT_CONFIG_VALUE_0=worktree-a:main git push" } })?.decision).toBe("ask");
+  });
+
+  it("asks about a command it cannot read that names an outward step, and says nothing of it to Codex", () => {
+    const unread = { tool_name: "Bash", tool_input: { command: "git push origin worktree-a 'never closed" } };
+    const answer = judgeCall(unread);
+
+    expect(answer?.decision).toBe("ask");
+    expect(answer?.reason).toContain("could not be read");
+    expect(judgeCall({ ...unread, turn_id: "turn-1" })).toBeUndefined();
+    expect(judgeCall({ tool_name: "Bash", tool_input: { command: "pnpm test 'never closed" } })).toBeUndefined();
+  });
+
+  it("refuses, and does not ask, when a push that holds a colon is joined to another command", () => {
+    expect(judgeCall({ tool_name: "Bash", tool_input: { command: "git commit -m wip && git push origin worktree-a:main" } })?.decision).toBe("deny");
+  });
+
+  it("asks in the shape Claude Code reads, when run as a command", () => {
+    const asked = runHook({ tool_name: "Bash", tool_input: { command: "git push origin :worktree-a" }, permission_mode: "default" });
+    const reply = JSON.parse(asked.stdout) as { hookSpecificOutput: Record<string, string> };
+
+    expect(asked.status).toBe(0);
+    expect(Object.keys(reply.hookSpecificOutput)).toEqual(["hookEventName", "permissionDecision", "permissionDecisionReason"]);
+    expect(reply.hookSpecificOutput.permissionDecision).toBe("ask");
+    expect(runHook({ tool_name: "Bash", tool_input: { command: "git push origin :worktree-a" }, turn_id: "turn-1" }).stdout).toBe("");
   });
 
   it("replies in the shape both hosts read, when run as a command", () => {

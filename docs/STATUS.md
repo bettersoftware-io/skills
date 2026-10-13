@@ -241,6 +241,18 @@ Found while a project was set up with the plugin, on 2026-10-12 and 13.
   time, and removed (the add-on's README says how). What it relies on is from
   the documentation: the reply a host reads, how a host matches a hook to the
   shell tool, and that a hook that crashes or times out does not block.
+- **The hook's question about a push with a colon was not seen in a
+  session.** It answers `ask` for `git push origin a:b`, to Claude Code
+  only, in place of a rule the host read as a prefix. That Claude Code then
+  asks a person where an `allow` rule matches is read from the code of
+  2.1.296, and that Codex calls `ask` unsupported from its 0.162.1 binary
+  ([the add-on's README](../addons/agent-workflow/README.md#not-verified)).
+  The hosts are told apart by `turn_id`, which only Codex sends. If Claude
+  Code comes to send one, the hook goes silent there and nothing fails.
+- **A project that had `Bash(git push *:*)` keeps it after an update.** The
+  merge removes no rule, so Claude Code goes on warning about it at each
+  start until a person deletes it. `pnpm agent-workflow:check` names it. The
+  installer can retire a hook's command line and a file, and not a rule.
 - **A second review named the hook's reading of a command.** A security
   review of the add-on as a project got it (2026-10-12) named `outward.mts`,
   `shell.mts` and the hook for letting through a command they cannot read

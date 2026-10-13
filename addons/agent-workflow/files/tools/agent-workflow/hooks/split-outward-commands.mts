@@ -1,5 +1,6 @@
 #!/usr/bin/env node
-// PreToolUse hook, with one answer: a refusal.
+// PreToolUse hook, with two answers: a refusal, and for one kind of push a
+// question.
 //
 // It refuses a shell command that joins an outward step (a push, a pull
 // request written to, a workflow started) to anything else.
@@ -16,17 +17,27 @@
 // command only feeds the outer one.
 //
 // A command this cannot read (a quote that never closes) is not refused: the
-// host's own permission rules still judge it. The refusal orders the work;
+// host's own permission rules still judge it, and when it names an outward
+// step Claude Code is given the question too. The refusal orders the work;
 // it is not what keeps a push from happening. A command this will not read
 // (longer than a million characters, or nested more than forty deep) is
 // refused when it holds the word `push` or `gh` at all, and so is a command
 // the reader fails on: a chain must not get through because it was written
 // to be hard to read.
 //
+// It asks about a push that holds a colon (`source:target`, `:target`), which
+// can write to another branch than the one it names first, or delete one,
+// and about a push with a word the shell turns into another (`"$BRANCH"`),
+// which may come to hold one. A project that allows a push by a rule of its
+// own is still asked about these. No permission rule can say it: Claude Code reads `Bash(git push *:*)`
+// as its older prefix form, which matches nothing here, and warns about a
+// `:*` wherever it stands. Only Claude Code is given the question. Codex
+// calls `ask` an answer it does not support, so there the hook says nothing
+// and Codex's own approval decides, as it did before.
+//
 // For any other command it says nothing, and the host asks as it always does.
-// It never says yes to a command, and it never asks about one: `Answer` has
-// no such decision. The README says why, under "Why the hook does not approve
-// anything".
+// It never says yes to a command: `Answer` has no such decision. The README
+// says why, under "Why the hook does not approve anything".
 //
 // It reads standard input and nothing else: no file, no setting, no start-up
 // argument, and it starts no program. An argument it is given is ignored, so
@@ -37,22 +48,26 @@
 //
 // Works under Claude Code (the `Bash` tool: `tool_input.command` is text) and
 // Codex (its shell tool: the same field, as text or as a list of words). Both
-// read the same reply: `permissionDecision` with a reason, on stdout.
+// read the same refusal: `permissionDecision` with a reason, on stdout. The
+// two are told apart by `turn_id`, which Codex sends with every call and
+// Claude Code does not send.
 
 import { readFileSync } from "node:fs";
 
 import { isMainModule } from "../lib/main.mts";
 import { judgeCommand, mentionsOutward, type Verdict } from "../lib/outward.mts";
 
-/** The fields both hosts send that this hook reads. */
+/** The fields a host sends that this hook reads. */
 export interface CommandPayload {
   tool_name?: string;
   tool_input?: { command?: unknown; [field: string]: unknown };
+  /** Codex's name for the turn a call belongs to. Claude Code sends no such field. */
+  turn_id?: unknown;
 }
 
-/** The one thing the hook ever says. To let a call through it says nothing. */
+/** What the hook says: a refusal, or a question for a person. To leave a call to the host's own rules it says nothing. */
 export interface Answer {
-  decision: "deny";
+  decision: "deny" | "ask";
   reason: string;
 }
 
@@ -72,7 +87,7 @@ export function commandOf(payload: CommandPayload): string | undefined {
   return undefined;
 }
 
-/** The refusal to give the host, or undefined to say nothing and leave the call to its own rules. */
+/** The answer to give the host, or undefined to say nothing and leave the call to its own rules. */
 export function judgeCall(payload: CommandPayload): Answer | undefined {
   const command = commandOf(payload);
   let verdict: Verdict | undefined;
@@ -92,17 +107,42 @@ export function judgeCall(payload: CommandPayload): Answer | undefined {
       : undefined;
   }
 
-  return verdict?.chained
+  if (verdict === undefined) {
+    // Not read, and not for its size: a quote or a heredoc left open. What it does is not known, so a person is asked when it names an outward step.
+    return command !== undefined && mentionsOutward(command) && readsAQuestion(payload)
+      ? {
+          decision: "ask",
+          reason: "This command could not be read (a quote or a heredoc is left open), and it names an outward step (push, gh), so a person is asked whatever rule allows it.",
+        }
+      : undefined;
+  }
+
+  if (verdict.chained) {
+    return {
+      decision: "deny",
+      reason: [
+        `Refused: this command joins an outward step (${verdict.outward.join(", ")}) to other commands.`,
+        "Run each outward step (git push, gh pr create or merge, gh workflow run, a gh api write) as a tool call of its own,",
+        "and put those calls together at the start or the end of the work. Local steps (git add, git commit, tests) go in separate calls.",
+        "Split the command. Do not reword it to get past this check.",
+      ].join("\n"),
+    };
+  }
+
+  return verdict.redirected && readsAQuestion(payload)
     ? {
-        decision: "deny",
+        decision: "ask",
         reason: [
-          `Refused: this command joins an outward step (${verdict.outward.join(", ")}) to other commands.`,
-          "Run each outward step (git push, gh pr create or merge, gh workflow run, a gh api write) as a tool call of its own,",
-          "and put those calls together at the start or the end of the work. Local steps (git add, git commit, tests) go in separate calls.",
-          "Split the command. Do not reword it to get past this check.",
+          "This push holds a colon (source:target, :target, a remote written as a URL), or a word the shell turns into another before git reads it.",
+          "It can write to another branch than the one it names first, or delete one, so a person is asked whatever rule allows a push.",
         ].join("\n"),
       }
     : undefined;
+}
+
+/** Whether the host that sent the payload reads `ask`. Codex does not, and names its turn in every payload. */
+function readsAQuestion(payload: CommandPayload): boolean {
+  return payload.turn_id === undefined;
 }
 
 /** The reply for one payload, as the text to print. Empty when there is nothing to say. */

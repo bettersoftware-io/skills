@@ -24,11 +24,11 @@ const ONE_OF_EACH = [/^git push /, /^gh pr create /, /^gh pr merge /].map((kind)
 
 // An earlier version of the hook answered `allow` for thirty commands when a
 // project had turned that on. It was removed. These tests keep it removed:
-// whatever the hook is sent, and however it is started, it prints nothing or
-// a refusal.
+// whatever the hook is sent, and however it is started, it prints nothing, a
+// refusal, or a question for a person. Never a yes.
 describe("what the hook can say", () => {
-  it("is a refusal and nothing else, by its type", () => {
-    expectTypeOf<Answer["decision"]>().toEqualTypeOf<"deny">();
+  it("is a refusal or a question and nothing else, by its type", () => {
+    expectTypeOf<Answer["decision"]>().toEqualTypeOf<"deny" | "ask">();
     expectTypeOf(judgeCall).returns.toEqualTypeOf<Answer | undefined>();
     expectTypeOf(judgeCall).parameters.toEqualTypeOf<[CommandPayload]>();
     expectTypeOf(replyTo).parameters.toEqualTypeOf<[string]>();
@@ -113,7 +113,13 @@ describe("the hook, over thousands of commands put together from the tables", ()
   const shapes: ((command: string) => unknown)[] = [
     (command) => createCall(command),
     (command) => ({ ...createCall(command), cwd: "/project", permission_mode: "default" }),
-    (command) => ({ tool_name: "Shell", tool_input: { command: ["bash", "-lc", command] } }),
+    (command) => ({ tool_name: "Shell", tool_input: { command: ["bash", "-lc", command] }, turn_id: "turn-1" }),
+  ];
+  /** What each shape may be answered: a question goes to Claude Code only, and the third shape is Codex's. */
+  const answers = [
+    ["ask", "deny", "none"],
+    ["ask", "deny", "none"],
+    ["deny", "none"],
   ];
 
   it("is asked about more than five thousand, no near-miss given twice", () => {
@@ -122,7 +128,7 @@ describe("the hook, over thousands of commands put together from the tables", ()
     expect(NEAR_MISSES.length).toBeGreaterThan(150);
   });
 
-  it.each(shapes.map((shape, index) => [index, shape] as const))("prints nothing or a refusal for every one, in payload shape %i", (_index, shape) => {
+  it.each(shapes.map((shape, index) => [index, shape] as const))("prints nothing, a refusal or a question for every one, and never a yes, in payload shape %i", (index, shape) => {
     const decisions = new Map<string, number>();
 
     for (const command of generated) {
@@ -131,7 +137,7 @@ describe("the hook, over thousands of commands put together from the tables", ()
       decisions.set(decision, (decisions.get(decision) ?? 0) + 1);
     }
 
-    expect([...decisions.keys()].sort()).toEqual(["deny", "none"]);
+    expect([...decisions.keys()].sort()).toEqual(answers[index]);
     expect(decisions.get("deny")).toBeGreaterThan(1000);
     expect(decisions.get("none")).toBeGreaterThan(200);
   });
@@ -147,9 +153,9 @@ describe("the hook, over thousands of commands put together from the tables", ()
   });
 
   it("gives every answer it gives as the one line both hosts read", () => {
-    const refused = generated.map((command) => replyTo(JSON.stringify(createCall(command)))).filter((reply) => reply !== "");
+    const answered = generated.map((command) => replyTo(JSON.stringify(createCall(command)))).filter((reply) => reply !== "");
 
-    for (const reply of refused.slice(0, 500)) {
+    for (const reply of [...answered.slice(0, 500), ...answered.filter((reply) => decisionIn(reply) === "ask").slice(0, 50)]) {
       expect(Object.keys((JSON.parse(reply) as { hookSpecificOutput: object }).hookSpecificOutput)).toEqual(["hookEventName", "permissionDecision", "permissionDecisionReason"]);
       expect(reply).not.toContain("\n");
     }
@@ -204,9 +210,11 @@ describe("a command the hook does not read", () => {
     expect(judgeCall(createCall(`${"eval ".repeat(20_000)}ls`))).toBeUndefined();
   });
 
-  it("is one the reader itself gives up on only for a quote or a heredoc left open, which the host then judges", () => {
+  it("is one the reader itself gives up on only for a quote or a heredoc left open, which the host then judges, and a person too", () => {
     expect(judgeCommand("git commit -m 'never closed && git push")).toBeUndefined();
-    expect(judgeCall(createCall("git commit -m 'never closed && git push"))).toBeUndefined();
+    expect(judgeCall(createCall("git commit -m 'never closed && git push"))?.decision).toBe("ask");
+    expect(judgeCall({ ...createCall("git commit -m 'never closed && git push"), turn_id: "turn-1" })).toBeUndefined();
+    expect(judgeCall(createCall("git commit -m 'never closed"))).toBeUndefined();
   });
 
   it.each([
