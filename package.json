@@ -13,7 +13,8 @@
   "scripts": {
     "test": "vitest run",
     "typecheck": "tsc6 -p tsconfig.json",
-    "gates": "node kit/gates/run.mts"
+    "gates": "node kit/gates/run.mts",
+    "evals:trigger": "claude plugin eval . --tag trigger --ablation none --scaffold --model sonnet --no-publish"
   },
   "devDependencies": {
     "@babel/core": "^8.0.6",

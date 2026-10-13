@@ -1,0 +1,15 @@
+schema_version: "1.1"
+name: trigger-document-set
+description: "A set of architecture documents asked for in the skill's own words, in a project without the kit."
+tags: [trigger, documenting-architecture]
+context:
+  scaffold_script: fixture.sh
+execution:
+  prompt: "Document the architecture of this codebase as a set of documents with C4 and sequence diagrams, written from the source."
+  max_turns: 8
+  allowed_tools: [Read, Glob, Grep, Skill]
+graders:
+  - type: tool_used
+    name: loads-documenting-architecture
+    tool: Skill
+    input_match: '"skill"\s*:\s*"(?:[\w-]+:)?documenting-architecture"'
