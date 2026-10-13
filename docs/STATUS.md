@@ -279,6 +279,17 @@ Found while a project was set up with the plugin, on 2026-10-12 and 13.
 - **The stop hook judges the checkout the session stops in.** A session that
   changed two checkouts is held to one. That `cwd` in the payload follows the
   agent into a worktree is from the documentation.
+- **Two sessions that stop at the same time may each be told the gate is
+  red.** Seen once, on 2026-10-13, in a project two sessions were working in.
+  The stop hook's `pnpm gate:full` failed at the coverage stage with "vitest
+  wrote no coverage summary" for one package of eight, on a commit that was
+  green in CI. That package's tests passed when run alone, and the gate
+  passed when run again with nothing changed. The likely cause, which was
+  not proven: each session's stop hook runs the gate in the project's own
+  checkout, and vitest empties a package's `coverage/` folder when it
+  starts, so one run takes away the summary the other is about to read. The
+  two runs were not caught overlapping. Nothing keeps two gates from running
+  in one checkout at once, and the hook then says "red", not "run again".
 - **The stop hook's nine-minute limit is tested with short limits only**, on
   the same code path.
 - **The quiet gate copies the environment pnpm 12.6 gives a script.** A later
