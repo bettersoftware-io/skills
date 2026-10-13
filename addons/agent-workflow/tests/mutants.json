@@ -933,8 +933,8 @@
   {
     "name": "asks about a push that holds a colon",
     "file": "addons/agent-workflow/files/tools/agent-workflow/lib/outward.mts",
-    "find": "word.includes(\":\")",
-    "replace": "word.includes(\"::\")",
+    "find": "const MAY_NAME_A_TARGET = /[:$`",
+    "replace": "const MAY_NAME_A_TARGET = /[$`",
     "test": "pnpm vitest run addons/agent-workflow/tests/outward.test.mts --testNamePattern=\"is found: a source and a target\""
   },
   {
@@ -1815,8 +1815,8 @@
   {
     "name": "says nothing about a lone outward step",
     "file": "addons/agent-workflow/files/tools/agent-workflow/hooks/split-outward-commands.mts",
-    "find": "  if (verdict?.chained) {\n",
-    "replace": "  if (verdict !== undefined && verdict.outward.length > 0) {\n",
+    "find": "  if (verdict.chained) {\n",
+    "replace": "  if (verdict.outward.length > 0) {\n",
     "test": "pnpm vitest run addons/agent-workflow/tests/outward.test.mts --testNamePattern=\"says nothing about a lone outward step\""
   },
   {
@@ -1929,8 +1929,8 @@
   {
     "name": "refuses every one that joins one of the thirty to another command",
     "file": "addons/agent-workflow/files/tools/agent-workflow/hooks/split-outward-commands.mts",
-    "find": "  if (verdict?.chained) {\n",
-    "replace": "  if (verdict?.chained && !/worktree-a /.test(command ?? \"\")) {\n",
+    "find": "  if (verdict.chained) {\n",
+    "replace": "  if (verdict.chained && !/worktree-a /.test(command ?? \"\")) {\n",
     "test": "pnpm vitest run addons/agent-workflow/tests/never-allows.test.mts --testNamePattern=\"refuses every one that joins one of the thirty to another command\""
   },
   {
@@ -3378,8 +3378,8 @@
   {
     "name": "a colon in a gh step is no push with a colon",
     "file": "addons/agent-workflow/files/tools/agent-workflow/lib/outward.mts",
-    "find": "return program === \"git\" && outward.slice(1).some(",
-    "replace": "return outward.slice(1).some(",
+    "find": "return program === \"git\" && stage.some(",
+    "replace": "return stage.some(",
     "test": "pnpm vitest run addons/agent-workflow/tests/outward.test.mts --testNamePattern=\"is not: a pull request with a colon\""
   },
   {
@@ -3399,15 +3399,15 @@
   {
     "name": "the hook asks about a push with a colon, and never allows it",
     "file": "addons/agent-workflow/files/tools/agent-workflow/hooks/split-outward-commands.mts",
-    "find": "        decision: \"ask\",",
-    "replace": "        decision: \"allow\",",
+    "find": "        decision: \"ask\",\n        reason: [",
+    "replace": "        decision: \"allow\",\n        reason: [",
     "test": "pnpm vitest run addons/agent-workflow/tests/outward.test.mts --testNamePattern=\"asks about a push that holds a colon, and says why\""
   },
   {
     "name": "the hook asks nothing of Codex",
     "file": "addons/agent-workflow/files/tools/agent-workflow/hooks/split-outward-commands.mts",
-    "find": "verdict?.redirected && readsAQuestion(payload)",
-    "replace": "verdict?.redirected",
+    "find": "verdict.redirected && readsAQuestion(payload)",
+    "replace": "verdict.redirected",
     "test": "pnpm vitest run addons/agent-workflow/tests/outward.test.mts --testNamePattern=\"asks nothing of Codex\""
   },
   {
@@ -3420,8 +3420,8 @@
   {
     "name": "a chain with a push that holds a colon is refused, not asked about",
     "file": "addons/agent-workflow/files/tools/agent-workflow/hooks/split-outward-commands.mts",
-    "find": "  if (verdict?.chained) {",
-    "replace": "  if (verdict?.chained && !verdict.redirected) {",
+    "find": "  if (verdict.chained) {",
+    "replace": "  if (verdict.chained && !verdict.redirected) {",
     "test": "pnpm vitest run addons/agent-workflow/tests/outward.test.mts --testNamePattern=\"refuses, and does not ask\""
   },
   {
@@ -3493,5 +3493,82 @@
     "find": "of Claude Code it asks about a push that holds a colon",
     "replace": "it asks about every push",
     "test": "pnpm vitest run addons/agent-workflow/tests/addon.test.mts --testNamePattern=\"says every outward step asks\""
+  },
+  {
+    "name": "reads what is set in front of git, where git takes a setting",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/outward.mts",
+    "find": "return program === \"git\" && stage.some(",
+    "replace": "return program === \"git\" && outward.some(",
+    "test": "pnpm vitest run addons/agent-workflow/tests/outward.test.mts --testNamePattern=\"is found: a setting git reads\""
+  },
+  {
+    "name": "a variable where the branch goes is asked about",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/outward.mts",
+    "find": "const MAY_NAME_A_TARGET = /[:$`",
+    "replace": "const MAY_NAME_A_TARGET = /[:`",
+    "test": "pnpm vitest run addons/agent-workflow/tests/outward.test.mts --testNamePattern=\"is found: a variable where the branch goes\""
+  },
+  {
+    "name": "a branch in backticks is asked about",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/outward.mts",
+    "find": "const MAY_NAME_A_TARGET = /[:$`",
+    "replace": "const MAY_NAME_A_TARGET = /[:$",
+    "test": "pnpm vitest run addons/agent-workflow/tests/outward.test.mts --testNamePattern=\"is found: the same in backticks\""
+  },
+  {
+    "name": "an escape left as written is asked about",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/outward.mts",
+    "find": "/[:$`\\\\*?[]/",
+    "replace": "/[:$`*?[]/",
+    "test": "pnpm vitest run addons/agent-workflow/tests/outward.test.mts --testNamePattern=\"is found: an escape the shell reads\""
+  },
+  {
+    "name": "a star in the branch is asked about",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/outward.mts",
+    "find": "/[:$`\\\\*?[]/",
+    "replace": "/[:$`\\\\?[]/",
+    "test": "pnpm vitest run addons/agent-workflow/tests/outward.test.mts --testNamePattern=\"is found: a pattern for file names: a star\""
+  },
+  {
+    "name": "a question mark in the branch is asked about",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/outward.mts",
+    "find": "/[:$`\\\\*?[]/",
+    "replace": "/[:$`\\\\*[]/",
+    "test": "pnpm vitest run addons/agent-workflow/tests/outward.test.mts --testNamePattern=\"is found: a pattern for file names: a question\""
+  },
+  {
+    "name": "a set in the branch is asked about",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/outward.mts",
+    "find": "/[:$`\\\\*?[]/",
+    "replace": "/[:$`\\\\*?]/",
+    "test": "pnpm vitest run addons/agent-workflow/tests/outward.test.mts --testNamePattern=\"is found: a pattern for file names: a set\""
+  },
+  {
+    "name": "an unread command that names an outward step is asked about, never allowed",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/hooks/split-outward-commands.mts",
+    "find": "          decision: \"ask\",\n          reason: \"This command could not be read",
+    "replace": "          decision: \"allow\",\n          reason: \"This command could not be read",
+    "test": "pnpm vitest run addons/agent-workflow/tests/outward.test.mts --testNamePattern=\"asks about a command it cannot read\""
+  },
+  {
+    "name": "an unread command is not asked about under Codex",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/hooks/split-outward-commands.mts",
+    "find": "command !== undefined && mentionsOutward(command) && readsAQuestion(payload)",
+    "replace": "command !== undefined && mentionsOutward(command)",
+    "test": "pnpm vitest run addons/agent-workflow/tests/outward.test.mts --testNamePattern=\"asks about a command it cannot read\""
+  },
+  {
+    "name": "an unread command that names no outward step is left to the host",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/hooks/split-outward-commands.mts",
+    "find": "command !== undefined && mentionsOutward(command) && readsAQuestion(payload)",
+    "replace": "command !== undefined && readsAQuestion(payload)",
+    "test": "pnpm vitest run addons/agent-workflow/tests/outward.test.mts --testNamePattern=\"asks about a command it cannot read\""
+  },
+  {
+    "name": "an unread command gets its question",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/hooks/split-outward-commands.mts",
+    "find": "  if (verdict === undefined) {",
+    "replace": "  if (verdict === undefined && command === undefined) {",
+    "test": "pnpm vitest run addons/agent-workflow/tests/never-allows.test.mts --testNamePattern=\"is one the reader itself gives up on\""
   }
 ]

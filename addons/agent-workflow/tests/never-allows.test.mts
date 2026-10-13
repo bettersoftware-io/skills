@@ -210,9 +210,11 @@ describe("a command the hook does not read", () => {
     expect(judgeCall(createCall(`${"eval ".repeat(20_000)}ls`))).toBeUndefined();
   });
 
-  it("is one the reader itself gives up on only for a quote or a heredoc left open, which the host then judges", () => {
+  it("is one the reader itself gives up on only for a quote or a heredoc left open, which the host then judges, and a person too", () => {
     expect(judgeCommand("git commit -m 'never closed && git push")).toBeUndefined();
-    expect(judgeCall(createCall("git commit -m 'never closed && git push"))).toBeUndefined();
+    expect(judgeCall(createCall("git commit -m 'never closed && git push"))?.decision).toBe("ask");
+    expect(judgeCall({ ...createCall("git commit -m 'never closed && git push"), turn_id: "turn-1" })).toBeUndefined();
+    expect(judgeCall(createCall("git commit -m 'never closed"))).toBeUndefined();
   });
 
   it.each([

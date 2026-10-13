@@ -209,6 +209,16 @@ describe("a push that holds a colon", () => {
     ["one with a filter behind a pipe", "git push origin worktree-a:main 2>&1 | tail -2"],
     ["one a shell is asked to run", 'bash -c "git push origin worktree-a:main"'],
     ["one inside a substitution", 'echo "$(git push origin worktree-a:main 2>&1)"'],
+    ["a setting git reads from what is set in front of it", "GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=remote.origin.push GIT_CONFIG_VALUE_0=worktree-a:main git push"],
+    ["the same setting handed over by env", "env GIT_CONFIG_VALUE_0=worktree-a:main git push"],
+    ["a variable where the branch goes", 'git push origin "$BRANCH"'],
+    ["a variable in braces", "git push origin ${BRANCH}"],
+    ["a command whose output is the branch", 'git push origin "$(cat branch.txt)"'],
+    ["the same in backticks", "git push origin `cat branch.txt`"],
+    ["an escape the shell reads and this does not", "git push origin $'worktree-a\\x3amain'"],
+    ["a pattern for file names: a star", "git push origin worktree-*"],
+    ["a pattern for file names: a question mark", "git push origin worktree-?"],
+    ["a pattern for file names: a set", "git push origin worktree-[ab]"],
   ])("is found: %s", (_name, command) => {
     expect(judgeCommand(command)).toMatchObject({ chained: false, redirected: true });
   });
@@ -313,6 +323,21 @@ describe("the hook", () => {
     expect(judgeCall(fromCodex)).toBeUndefined();
     expect(judgeCall({ ...fromCodex, turn_id: undefined })?.decision).toBe("ask");
     expect(judgeCall({ ...fromCodex, tool_input: { command: "git add -A && git push origin worktree-a:main" } })?.decision).toBe("deny");
+  });
+
+  it("asks about a push whose branch the shell fills in, which may come to hold a colon", () => {
+    expect(judgeCall({ tool_name: "Bash", tool_input: { command: 'git push origin "$BRANCH"' } })?.reason).toContain("a word the shell turns into another");
+    expect(judgeCall({ tool_name: "Bash", tool_input: { command: "GIT_CONFIG_VALUE_0=worktree-a:main git push" } })?.decision).toBe("ask");
+  });
+
+  it("asks about a command it cannot read that names an outward step, and says nothing of it to Codex", () => {
+    const unread = { tool_name: "Bash", tool_input: { command: "git push origin worktree-a 'never closed" } };
+    const answer = judgeCall(unread);
+
+    expect(answer?.decision).toBe("ask");
+    expect(answer?.reason).toContain("could not be read");
+    expect(judgeCall({ ...unread, turn_id: "turn-1" })).toBeUndefined();
+    expect(judgeCall({ tool_name: "Bash", tool_input: { command: "pnpm test 'never closed" } })).toBeUndefined();
   });
 
   it("refuses, and does not ask, when a push that holds a colon is joined to another command", () => {

@@ -17,7 +17,8 @@
 // command only feeds the outer one.
 //
 // A command this cannot read (a quote that never closes) is not refused: the
-// host's own permission rules still judge it. The refusal orders the work;
+// host's own permission rules still judge it, and when it names an outward
+// step Claude Code is given the question too. The refusal orders the work;
 // it is not what keeps a push from happening. A command this will not read
 // (longer than a million characters, or nested more than forty deep) is
 // refused when it holds the word `push` or `gh` at all, and so is a command
@@ -25,9 +26,10 @@
 // to be hard to read.
 //
 // It asks about a push that holds a colon (`source:target`, `:target`), which
-// can write to another branch than the one it names first, or delete one. A
-// project that allows a push by a rule of its own is still asked about that
-// one. No permission rule can say it: Claude Code reads `Bash(git push *:*)`
+// can write to another branch than the one it names first, or delete one,
+// and about a push with a word the shell turns into another (`"$BRANCH"`),
+// which may come to hold one. A project that allows a push by a rule of its
+// own is still asked about these. No permission rule can say it: Claude Code reads `Bash(git push *:*)`
 // as its older prefix form, which matches nothing here, and warns about a
 // `:*` wherever it stands. Only Claude Code is given the question. Codex
 // calls `ask` an answer it does not support, so there the hook says nothing
@@ -105,7 +107,17 @@ export function judgeCall(payload: CommandPayload): Answer | undefined {
       : undefined;
   }
 
-  if (verdict?.chained) {
+  if (verdict === undefined) {
+    // Not read, and not for its size: a quote or a heredoc left open. What it does is not known, so a person is asked when it names an outward step.
+    return command !== undefined && mentionsOutward(command) && readsAQuestion(payload)
+      ? {
+          decision: "ask",
+          reason: "This command could not be read (a quote or a heredoc is left open), and it names an outward step (push, gh), so a person is asked whatever rule allows it.",
+        }
+      : undefined;
+  }
+
+  if (verdict.chained) {
     return {
       decision: "deny",
       reason: [
@@ -117,11 +129,11 @@ export function judgeCall(payload: CommandPayload): Answer | undefined {
     };
   }
 
-  return verdict?.redirected && readsAQuestion(payload)
+  return verdict.redirected && readsAQuestion(payload)
     ? {
         decision: "ask",
         reason: [
-          "This push holds a colon (source:target, :target, or a remote written as a URL).",
+          "This push holds a colon (source:target, :target, a remote written as a URL), or a word the shell turns into another before git reads it.",
           "It can write to another branch than the one it names first, or delete one, so a person is asked whatever rule allows a push.",
         ].join("\n"),
       }

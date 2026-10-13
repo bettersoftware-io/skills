@@ -25,13 +25,15 @@ const GIT_OPTIONS_WITH_VALUE = ["-C", "-c", "--git-dir", "--work-tree", "--names
 /** Words a shell allows before a command that are not the command. */
 const LEADING_WORDS = ["then", "do", "else", "elif", "if", "while", "until", "!", "{", "}", "time", "command", "exec", "nohup", "env"];
 const SHELLS = ["bash", "sh", "zsh", "dash", "ksh"];
+/** A colon, or what makes the shell turn a word into another: an expansion, an escape left as written, a pattern for file names. */
+const MAY_NAME_A_TARGET = /[:$`\\*?[]/;
 
 export interface Verdict {
   /** The outward steps found, as the first words of each. */
   outward: string[];
   /** True when an outward step shares the command with anything else. */
   chained: boolean;
-  /** True when a push among them holds a colon: it may write to another branch than the one it names first, or delete one. */
+  /** True when a push among them may write to another branch than the one it names first, or delete one: it holds a colon, or a word the shell turns into another. */
   redirected: boolean;
 }
 
@@ -64,16 +66,18 @@ function judgeScript(script: Script, depth = 0): Verdict {
   let steps = 0;
 
   for (const step of script.steps) {
-    const stages = step.map(commandWords).filter((words) => words.length > 0);
+    const stages = step.filter((stage) => commandWords(stage).length > 0);
 
     if (stages.length > 0) {
       steps += 1;
     }
 
-    for (const words of stages) {
+    for (const stage of stages) {
+      const words = commandWords(stage);
+
       if (isOutward(words)) {
         outward.push(words.slice(0, 3).join(" "));
-        redirected ||= isRedirectedPush(words);
+        redirected ||= isRedirectedPush(stage, words);
       }
 
       // `bash -c "…"` and `eval "…"` run what their argument says.
@@ -141,16 +145,18 @@ export function isOutward(words: string[]): boolean {
 }
 
 /**
- * Whether an outward step is a `git push` with a colon in any word after
- * `git`. That is a `source:target`, a `:target` (which deletes it), a
- * `-c remote.origin.push=a:b` in front of `push`, and also a remote written
- * as a URL. A colon the shell puts there (`"$BRANCH"`) is not seen: this
- * reads words, not what they become.
+ * Whether an outward step is a `git push` that may write elsewhere than it
+ * names first. A colon says so: `source:target`, `:target` (which deletes
+ * it), `-c remote.origin.push=a:b`, and also a remote written as a URL. So
+ * does a word the shell turns into another before git sees it (`"$BRANCH"`,
+ * a backtick, an escape, a pattern for file names): what it becomes is not
+ * read here. The whole stage is read, with what is set in front of `git`:
+ * git takes `GIT_CONFIG_VALUE_0=a:b` there as a setting.
  */
-function isRedirectedPush(outward: string[]): boolean {
+function isRedirectedPush(stage: Stage, outward: string[]): boolean {
   const program = (outward[0] ?? "").split("/").pop();
 
-  return program === "git" && outward.slice(1).some((word) => word.includes(":"));
+  return program === "git" && stage.some((word) => MAY_NAME_A_TARGET.test(word));
 }
 
 /** `git -C dir -c key=value push` → `push`. */

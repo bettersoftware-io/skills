@@ -137,12 +137,22 @@ that it is not refused: the host asks about it as it always does.
 
 **A push with a colon is asked about.** `git push origin worktree-a:main`
 names a work branch and writes to main, and `git push origin :worktree-a`
-deletes a branch. For a `git push` that stands alone and holds a colon in any
-word after `git`, the hook answers `ask`, and Claude Code then puts the
-question to a person whatever `allow` rule matches the command. A remote
-written as a URL holds a colon too, and is asked about as well. A colon the
-shell puts there (`"$BRANCH"`) is not seen: the hook reads words, not what
-they become. [Why this is the hook's and not a rule's](#the-ask-rules).
+deletes a branch. For a `git push` that stands alone and holds a colon, the
+hook answers `ask`, and Claude Code then puts the question to a person
+whatever `allow` rule matches the command. Three things follow from reading
+words and not what they become:
+
+- A remote written as a URL holds a colon, and is asked about as well.
+- What is set in front of `git` is read too: git takes
+  `GIT_CONFIG_VALUE_0=a:b git push` as a setting that says where a push goes.
+- A word the shell turns into another is asked about, since it may come to
+  hold a colon: `"$BRANCH"`, `$(…)`, a backtick, an escape left as written
+  (`$'a\x3ab'`), a pattern for file names (`*`, `?`, `[`).
+
+Not seen: a setting made by an earlier command (`git config
+remote.origin.push a:b`, then a plain `git push`), and a variable the session
+already holds that git reads by itself (`GIT_CONFIG_VALUE_0` exported
+before). [Why this is the hook's and not a rule's](#the-ask-rules).
 
 Text is not a step. A commit message, an `echo`, a `grep` pattern, a heredoc
 body or a comment may say `git push && gh pr create` and nothing is refused.
@@ -150,10 +160,12 @@ The hook reads the command with a small scanner of its own
 (`lib/shell.mts`): quotes, heredocs (`<<`, `<<-`, quoted delimiters),
 redirections, pipes, separators, grouping, substitutions.
 
-**A command it cannot read is let through.** A quote that never closes, a
+**A command it cannot read is not refused.** A quote that never closes, a
 heredoc that never ends: the hook has no verdict, and the host's permission
-rules are the only judge. That was the source's choice too. The hook orders
-the work; it is not what stops a push.
+rules judge it. That was the source's choice too. The hook orders the work;
+it is not what stops a push. When such a command names an outward step
+(`push`, `gh`), Claude Code is given `ask` for it, so that a rule which
+allows the command does not let it run unread.
 
 **A command it will not read is refused when it names an outward step.** The
 scanner calls itself for each `$(…)`, and `eval eval eval …` is read level by
