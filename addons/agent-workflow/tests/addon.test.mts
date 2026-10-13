@@ -5,8 +5,9 @@ import { describe, expect, it } from "vitest";
 
 import { addToProject } from "../../../scripts/add-to-project.mts";
 import { changelog } from "../files/tools/agent-workflow/changelog.mts";
+import { judgeCall } from "../files/tools/agent-workflow/hooks/split-outward-commands.mts";
 import { groupRuns, hostOf } from "../files/tools/agent-workflow/lib/hook-registration.mts";
-import { ASK_RULES, CLAUDE_SETTINGS, CODEX_HOOKS, COMMAND_NEEDS, EDIT_ASK_RULES, HOOK_COMMANDS, HOOK_SCRIPT, RETIRED_ARGUMENT, RETIRED_FILES } from "../files/tools/agent-workflow/lib/host.mts";
+import { ASK_RULES, CLAUDE_SETTINGS, CODEX_HOOKS, COMMAND_NEEDS, EDIT_ASK_RULES, HOOK_COMMANDS, HOOK_SCRIPT, RETIRED_ARGUMENT, RETIRED_ASK_RULES, RETIRED_FILES } from "../files/tools/agent-workflow/lib/host.mts";
 import { ONCE_ALLOWED, OLD_SETTING_ON } from "./shapes.mts";
 import { ADDON, createFolder, git, readJson, REPOSITORY, writeFile } from "./support.mts";
 
@@ -121,11 +122,14 @@ describe("the add-on's manifest", () => {
   });
 });
 
-// A model of how a rule is matched, as the host documents it: `*` stands for
-// any text, everything else is literal, and the whole command must match. It
-// is not the host's own code, so what it proves is that the rules say what
-// they are meant to say, not that a given version of the host reads them so.
-describe("the permission rules, read the way the host documents them", () => {
+// A model of how Claude Code matches a rule, from its documentation and from
+// the code of version 2.1.296. `*` stands for any text, everything else is
+// literal, and the whole command must match. A rule that ends in `:*` is the
+// older prefix form: what stands before it is literal, a `*` included, and
+// the command is that text or starts with it and a space. It is not the
+// host's own code, so what it proves is that the rules say what they are
+// meant to say, not that a given version of the host reads them so.
+describe("the permission rules, read the way the host reads them", () => {
   it("are ask rules only: the add-on lets nothing run without a prompt", () => {
     expect(MANIFEST.hostSettings[CLAUDE_SETTINGS]?.permissions).toEqual({ ask: [...ASK_RULES, ...EDIT_ASK_RULES] });
     expect(JSON.stringify(MANIFEST.hostSettings)).not.toContain('"allow"');
@@ -143,7 +147,6 @@ describe("the permission rules, read the way the host documents them", () => {
     "git push -u origin worktree-a -fu",
     "git push origin +worktree-a",
     "git push -u origin +worktree-a",
-    "git push origin worktree-a:main",
     "git push origin worktree-a +main",
     "git push origin worktree-a --delete main",
     "git push origin --delete worktree-a",
@@ -175,6 +178,21 @@ describe("the permission rules, read the way the host documents them", () => {
     "git pushd --force",
   ])("says nothing about: %s", (command) => {
     expect(asks(command)).toBe(false);
+  });
+
+  it("hold no `:*`, which the host reads as a prefix at the end of a rule and warns about anywhere in one", () => {
+    expect([...ASK_RULES, ...EDIT_ASK_RULES].filter((rule) => rule.includes(":*"))).toEqual([]);
+    expect(JSON.stringify(MANIFEST.hostSettings)).not.toContain(":*");
+  });
+
+  it("no longer hold the rule for a push with a colon, which matched no push: the hook asks about that one", () => {
+    expect(RETIRED_ASK_RULES).toEqual(["Bash(git push *:*)"]);
+    expect(ASK_RULES.filter((rule) => RETIRED_ASK_RULES.includes(rule))).toEqual([]);
+    expect(matches("Bash(git push *:*)", "git push origin worktree-a:main")).toBe(false);
+    expect(matches("Bash(git push *:*)", "git push * origin")).toBe(true);
+    expect(matches("Bash(git push *:**)", "git push origin worktree-a:main")).toBe(true);
+    expect(asks("git push origin worktree-a:main")).toBe(false);
+    expect(judgeCall({ tool_name: "Bash", tool_input: { command: "git push origin worktree-a:main" } })?.decision).toBe("ask");
   });
 });
 
@@ -326,6 +344,7 @@ describe("the section for AGENTS.md", () => {
 
   it("says every outward step asks, and names no setting, no argument and no pattern rule that would let one run", () => {
     expect(SECTION).toContain("The hook never lets a command run without a prompt.");
+    expect(SECTION).toContain("of Claude Code it asks about a push that holds a colon");
     expect(SECTION).not.toMatch(/agent-workflow\.config|--host=|worktree-\*|pr merge \*|pr create \*/);
   });
 
@@ -475,9 +494,9 @@ describe("the add-on in a project that has the kit", () => {
     const verify = spawnSync(process.execPath, script.replace(/^node /, "").split(" "), { cwd: project, encoding: "utf8" });
 
     expect(MANIFEST.verify).toBe("pnpm agent-workflow:check");
-    expect(verify.stdout).toContain("PASS hook: refuses an outward step joined to others, and says nothing about a push alone, whatever it is started with");
+    expect(verify.stdout).toContain("PASS hook: refuses an outward step joined to others, asks about a push with a colon, and says nothing about a push alone, whatever it is started with");
     expect(verify.stdout).not.toMatch(/NOTE (?:setting|Claude Code|Codex)/);
-    expect(verify.stdout).toContain("PASS Claude Code: all 13 ask rules are in");
+    expect(verify.stdout).toContain("PASS Claude Code: all 12 ask rules are in");
     expect(verify.stdout).toContain("PASS Codex: .codex/hooks.json runs the hook before each shell command");
     expect(verify.stdout).not.toContain("FAIL");
     expect(verify.status).toBe(0);
@@ -663,10 +682,20 @@ describe("the add-on in a project that has the kit", () => {
 /** Whether an ask rule matches the command. */
 function asks(command: string): boolean {
   return ASK_RULES.some((rule) => {
-    const pattern = /^Bash\((.*)\)$/.exec(rule)?.[1] ?? "";
-
-    return new RegExp(`^${pattern.split("*").map(escapeForRegExp).join(".*")}$`).test(command);
+    return matches(rule, command);
   });
+}
+
+/** Whether one rule matches the command: as a prefix when it ends in `:*`, and with `*` as any text when it does not. */
+function matches(rule: string, command: string): boolean {
+  const pattern = /^Bash\((.*)\)$/.exec(rule)?.[1] ?? "";
+  const prefix = /^(.+):\*$/.exec(pattern)?.[1];
+
+  if (prefix !== undefined) {
+    return command === prefix || command.startsWith(`${prefix} `);
+  }
+
+  return new RegExp(`^${pattern.split("*").map(escapeForRegExp).join(".*")}$`, "s").test(command);
 }
 
 function escapeForRegExp(text: string): string {

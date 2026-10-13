@@ -3,11 +3,12 @@
 //
 //   node tools/agent-workflow/check.mts
 //
-// It runs the hook on three commands: one it must refuse, and two it must
-// say nothing about, of which one is a routine push that an older version of
-// the hook let run without a prompt. Each is run as the hook is started now
-// and as an older registration starts it. Then it reads each host's settings
-// file to see that the hook is registered there.
+// It runs the hook on four commands: one it must refuse, one it must ask a
+// person about (a push with a colon), and two it must say nothing about, of
+// which one is a routine push that an older version of the hook let run
+// without a prompt. Each is run as the hook is started now and as an older
+// registration starts it. Then it reads each host's settings file to see that
+// the hook is registered there.
 //
 // "Registered" is decided as each host decides whether to run a hook, by
 // `lib/hook-registration.mts`: the group's matcher is read as the host reads
@@ -23,12 +24,14 @@
 //
 // A permission rule counts when its exact text is in `permissions.ask`.
 // Claude Code's documentation says an `ask` rule wins over an `allow` rule,
-// and a `deny` rule is stricter still, so neither is checked here.
+// and a `deny` rule is stricter still, so neither is checked here. A rule an
+// older version merged in that the host does not read as it was meant is
+// named, so that a person takes it out.
 //
 // A host's settings file belongs to the project. What the project chose is
 // reported as a NOTE: so is the rule that asks before an editing tool changes
 // the hook, when the project took it out. These are failures: the hook does not behave (it
-// answers anything but a refusal or nothing); it is not registered in a
+// answers a command with anything but what that command calls for); it is not registered in a
 // settings file that exists; an `allow` rule with a `*` lets a push or a
 // merge run unasked while the `ask` rules that catch a forced or destructive
 // one are missing.
@@ -41,7 +44,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { ASK_RULES, CLAUDE_LOCAL_SETTINGS, CLAUDE_SETTINGS, CODEX_HOOKS, COMMAND_NEEDS, EDIT_ASK_RULES, HOOK_COMMANDS, HOOK_SCRIPT, RETIRED_ARGUMENT, RETIRED_FILES, WIDE_ALLOW } from "./lib/host.mts";
+import { ASK_RULES, CLAUDE_LOCAL_SETTINGS, CLAUDE_SETTINGS, CODEX_HOOKS, COMMAND_NEEDS, EDIT_ASK_RULES, HOOK_COMMANDS, HOOK_SCRIPT, RETIRED_ARGUMENT, RETIRED_ASK_RULES, RETIRED_FILES, WIDE_ALLOW } from "./lib/host.mts";
 import { groupRuns, hostOf } from "./lib/hook-registration.mts";
 import { isMainModule } from "./lib/main.mts";
 import { installedIn } from "./requires.mts";
@@ -49,14 +52,16 @@ import { installedIn } from "./requires.mts";
 /** The name both hosts give the tool that runs a shell command. */
 const SHELL_TOOL = "Bash";
 const REFUSED_SAMPLE = "git add -A && git commit -m wip && git push";
+/** A push that names a work branch and writes to main. No permission rule can say it, so the hook asks. */
+const ASKED_SAMPLE = "git push origin worktree-sample:main";
 const UNANSWERED_SAMPLE = "git push origin main";
 /** A routine push in the exact form an older version of the hook let run without a prompt. */
 const ROUTINE_SAMPLE = "git push -u origin worktree-sample 2>&1 | tail -2";
 const FIX = "Run the installer again (add-to-project.mts <project> agent-workflow): it merges what is missing and removes nothing";
 
 type Settings = Record<string, unknown>;
-/** A refusal, nothing, or a hook that does not behave: it failed, or it gave an answer it must never give. */
-type Decision = "deny" | "none" | "broken" | `"${string}", which it must never answer`;
+/** A refusal, a question, nothing, or a hook that does not behave: it failed, or it gave an answer it must never give. */
+type Decision = "deny" | "ask" | "none" | "broken" | `"${string}", which it must never answer`;
 
 export interface CheckOptions {
   root: string;
@@ -78,6 +83,7 @@ export function check({ root, runHook, report }: CheckOptions): number {
   const asBefore = [RETIRED_ARGUMENT];
   const samples: [string, Decision][] = [
     [REFUSED_SAMPLE, "deny"],
+    [ASKED_SAMPLE, "ask"],
     [UNANSWERED_SAMPLE, "none"],
     [ROUTINE_SAMPLE, "none"],
   ];
@@ -90,7 +96,7 @@ export function check({ root, runHook, report }: CheckOptions): number {
   }
 
   if (wrong.length === 0) {
-    report("PASS hook: refuses an outward step joined to others, and says nothing about a push alone, whatever it is started with");
+    report("PASS hook: refuses an outward step joined to others, asks about a push with a colon, and says nothing about a push alone, whatever it is started with");
   }
 
   for (const path of RETIRED_FILES.filter((file) => existsSync(join(root, file)))) {
@@ -184,6 +190,10 @@ function judgePermissions(settings: Settings, report: (line: string) => void): b
   const missingEdit = EDIT_ASK_RULES.filter((rule) => !ask.includes(rule));
   const wide = allow.filter((rule): rule is string => typeof rule === "string" && WIDE_ALLOW.test(rule));
 
+  for (const rule of RETIRED_ASK_RULES.filter((retired) => ask.includes(retired))) {
+    report(`NOTE Claude Code: ${rule} is still in permissions.ask. Claude Code reads it as a prefix that matches no command, and warns about it at each start. The hook asks about such a push now. Delete the rule`);
+  }
+
   // The project may take the rule out: its settings are its own. It is told what that leaves open.
   report(
     missingEdit.length === 0
@@ -223,7 +233,7 @@ function decisionOf({ status, stdout }: { status: number; stdout: string }): Dec
   try {
     const decision = (JSON.parse(stdout) as { hookSpecificOutput?: { permissionDecision?: unknown } }).hookSpecificOutput?.permissionDecision;
 
-    return decision === "deny" ? decision : typeof decision === "string" ? `"${decision}", which it must never answer` : "broken";
+    return decision === "deny" || decision === "ask" ? decision : typeof decision === "string" ? `"${decision}", which it must never answer` : "broken";
   } catch {
     return "broken";
   }

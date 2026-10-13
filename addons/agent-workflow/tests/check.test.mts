@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { check, type CheckOptions, createHookRunner } from "../files/tools/agent-workflow/check.mts";
-import { ASK_RULES, EDIT_ASK_RULES, RETIRED_ARGUMENT, RETIRED_FILES, WIDE_ALLOW } from "../files/tools/agent-workflow/lib/host.mts";
+import { ASK_RULES, EDIT_ASK_RULES, RETIRED_ARGUMENT, RETIRED_ASK_RULES, RETIRED_FILES, WIDE_ALLOW } from "../files/tools/agent-workflow/lib/host.mts";
 import { installedIn, requires } from "../files/tools/agent-workflow/requires.mts";
 import { OLD_SETTING_ON } from "./shapes.mts";
 import { createFolder } from "./support.mts";
@@ -25,10 +25,10 @@ describe("the add-on's check", () => {
 
     expect(status).toBe(0);
     expect(lines).toEqual([
-      "PASS hook: refuses an outward step joined to others, and says nothing about a push alone, whatever it is started with",
+      "PASS hook: refuses an outward step joined to others, asks about a push with a colon, and says nothing about a push alone, whatever it is started with",
       "PASS Claude Code: .claude/settings.json runs the hook before each shell command",
       EDIT_PASS,
-      "PASS Claude Code: all 13 ask rules are in, so a forced or destructive push and an --admin merge ask whatever else allows them",
+      "PASS Claude Code: all 12 ask rules are in, so a forced or destructive push and an --admin merge ask whatever else allows them",
       "PASS Codex: .codex/hooks.json runs the hook before each shell command",
       "PASS command /workflow:changelog",
       'NOTE command /workflow:coverage-backfill: needs the "coverage" add-on, which this project does not have. It stops and says so when run',
@@ -94,8 +94,9 @@ describe("the add-on's check", () => {
 
     runCheck(root, { payloads, args });
 
-    expect(payloads).toHaveLength(6);
-    expect(args).toEqual([[], [RETIRED_ARGUMENT], [], [RETIRED_ARGUMENT], [], [RETIRED_ARGUMENT]]);
+    expect(payloads).toHaveLength(8);
+    expect(args).toEqual([[], [RETIRED_ARGUMENT], [], [RETIRED_ARGUMENT], [], [RETIRED_ARGUMENT], [], [RETIRED_ARGUMENT]]);
+    expect(payloads.map((payload) => (payload as { tool_input: { command: string } }).tool_input.command)[2]).toBe("git push origin worktree-sample:main");
     expect(payloads[0]).toEqual({ tool_name: "Bash", tool_input: { command: "git add -A && git commit -m wip && git push" }, cwd: root, permission_mode: "default" });
     expect(new Set(payloads.map((payload) => JSON.stringify(Object.keys(payload as object))))).toEqual(new Set(['["tool_name","tool_input","cwd","permission_mode"]']));
   });
@@ -108,11 +109,15 @@ describe("the add-on's check", () => {
     ["prints something that is no answer", { refused: { status: 0, stdout: "refused" } }, /answered "broken", not "deny"$/],
     ["prints a decision that is no text", { refused: { status: 0, stdout: DENY.replace('"deny"', "1") } }, /answered "broken", not "deny"$/],
     ["prints a decision it does not have", { refused: { status: 0, stdout: DENY.replace("deny", "maybe") } }, /answered "maybe", which it must never answer, not "deny"$/],
-    ["asks about the chain", { refused: { status: 0, stdout: ASK } }, /answered "ask", which it must never answer, not "deny"$/],
+    ["asks about the chain", { refused: { status: 0, stdout: ASK } }, /answered "ask", not "deny"$/],
+    ["says nothing about a push with a colon", { asked: { status: 0, stdout: "" } }, /^FAIL hook: `git push origin worktree-sample:main` started with no argument answered "none", not "ask"$/],
+    ["says nothing about a push with a colon when started as before", { askedAsBefore: { status: 0, stdout: "" } }, /^FAIL hook: `git push origin worktree-sample:main` started with --host=claude-code answered "none", not "ask"$/],
+    ["refuses a push with a colon", { asked: { status: 0, stdout: DENY } }, /^FAIL hook: `git push origin worktree-sample:main` .* answered "deny", not "ask"$/],
+    ["allows a push with a colon", { asked: { status: 0, stdout: ALLOW } }, /^FAIL hook: `git push origin worktree-sample:main` .* answered "allow", which it must never answer, not "ask"$/],
     ["allows a push to main", { unanswered: { status: 0, stdout: ALLOW } }, /^FAIL hook: `git push origin main` started with no argument answered "allow", which it must never answer, not "none"$/],
     ["refuses a push to main", { unanswered: { status: 0, stdout: DENY } }, /^FAIL hook: `git push origin main` .* answered "deny", not "none"$/],
     ["allows the routine push", { routine: { status: 0, stdout: ALLOW } }, new RegExp(`^FAIL hook: ${ROUTINE} started with no argument answered "allow", which it must never answer, not "none"$`)],
-    ["asks about the routine push", { routine: { status: 0, stdout: ASK } }, new RegExp(`^FAIL hook: ${ROUTINE} started with no argument answered "ask", which it must never answer, not "none"$`)],
+    ["asks about the routine push", { routine: { status: 0, stdout: ASK } }, new RegExp(`^FAIL hook: ${ROUTINE} started with no argument answered "ask", not "none"$`)],
     ["allows the routine push when started as before", { routineAsBefore: { status: 0, stdout: ALLOW } }, new RegExp(`^FAIL hook: ${ROUTINE} started with --host=claude-code answered "allow", which it must never answer, not "none"$`)],
   ])("fails when the hook %s", (_name, replies, message) => {
     const { status, lines } = runCheck(createProject(), replies);
@@ -262,8 +267,19 @@ describe("the add-on's check", () => {
 
     expect(status).toBe(0);
     expect(lines).toContain(
-      "NOTE Claude Code: 2 of 13 ask rules are not in permissions.ask. No allow rule lets a push or a merge run by pattern, so those forms ask anyway",
+      "NOTE Claude Code: 2 of 12 ask rules are not in permissions.ask. No allow rule lets a push or a merge run by pattern, so those forms ask anyway",
     );
+  });
+
+  it("names a rule of an older version that the host reads as a prefix, and does not fail", () => {
+    const { status, lines } = runCheck(createProject({ ask: [...ASK_RULES, ...RETIRED_ASK_RULES, ...EDIT_ASK_RULES] }));
+
+    expect(status).toBe(0);
+    expect(lines).toContain(
+      "NOTE Claude Code: Bash(git push *:*) is still in permissions.ask. Claude Code reads it as a prefix that matches no command, and warns about it at each start. The hook asks about such a push now. Delete the rule",
+    );
+    expect(lines).toContain("PASS Claude Code: all 12 ask rules are in, so a forced or destructive push and an --admin merge ask whatever else allows them");
+    expect(runCheck(createProject()).lines.join("\n")).not.toContain("still in permissions.ask");
   });
 
   it.each(["Bash(git push origin worktree-*)", "Bash(git push *)", "Bash(gh pr merge *)", "Bash(gh pr create *)"])(
@@ -390,6 +406,8 @@ interface Replies {
   args?: string[][];
   refused?: HookReply;
   refusedAsBefore?: HookReply;
+  asked?: HookReply;
+  askedAsBefore?: HookReply;
   unanswered?: HookReply;
   routine?: HookReply;
   routineAsBefore?: HookReply;
@@ -408,6 +426,10 @@ function runCheck(root: string, replies: Replies = {}): { status: number; lines:
 
     if (command.includes("&&")) {
       return (asBefore ? replies.refusedAsBefore : replies.refused) ?? { status: 0, stdout: DENY };
+    }
+
+    if (command.includes("worktree-sample:")) {
+      return (asBefore ? replies.askedAsBefore : replies.asked) ?? { status: 0, stdout: ASK };
     }
 
     if (command.includes("worktree-sample")) {

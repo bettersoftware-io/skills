@@ -28,14 +28,15 @@ export const HOOK_COMMANDS: Record<string, string> = {
 /**
  * Always ask. The add-on ships no `allow` rule, and its hook allows nothing.
  * These rules are the backstop for a project that adds an `allow` rule of its
- * own: a rule here wins over any `allow`.
+ * own: a rule here wins over any `allow`. None holds `:*`: Claude Code reads
+ * that at the end of a rule as its older prefix form, and warns about it
+ * anywhere else. The hook asks about a push with a colon in their place.
  */
 export const ASK_RULES = [
   "Bash(git push *--force*)",
   "Bash(git push -f*)",
   "Bash(git push * -f*)",
   "Bash(git push * +*)",
-  "Bash(git push *:*)",
   "Bash(git push *--delete*)",
   "Bash(git push -d*)",
   "Bash(git push * -d*)",
@@ -45,6 +46,14 @@ export const ASK_RULES = [
   "Bash(git push *--prune*)",
   "Bash(gh pr merge *--admin*)",
 ];
+
+/**
+ * Rules an older version merged in that Claude Code does not read as they
+ * were meant. `Bash(git push *:*)` ends in `:*`, so it is a prefix that holds
+ * a literal `*`: it matches no push, and the host warns about it at each
+ * start. A merge removes no rule, so the check names one that is still there.
+ */
+export const RETIRED_ASK_RULES = ["Bash(git push *:*)"];
 
 /**
  * Always ask before an editing tool changes the hook or the files beside it.

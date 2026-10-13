@@ -31,6 +31,8 @@ export interface Verdict {
   outward: string[];
   /** True when an outward step shares the command with anything else. */
   chained: boolean;
+  /** True when a push among them holds a colon: it may write to another branch than the one it names first, or delete one. */
+  redirected: boolean;
 }
 
 /**
@@ -58,6 +60,7 @@ function judgeScript(script: Script, depth = 0): Verdict {
 
   const outward: string[] = [];
   let chained = false;
+  let redirected = false;
   let steps = 0;
 
   for (const step of script.steps) {
@@ -70,6 +73,7 @@ function judgeScript(script: Script, depth = 0): Verdict {
     for (const words of stages) {
       if (isOutward(words)) {
         outward.push(words.slice(0, 3).join(" "));
+        redirected ||= isRedirectedPush(words);
       }
 
       // `bash -c "…"` and `eval "…"` run what their argument says.
@@ -80,6 +84,7 @@ function judgeScript(script: Script, depth = 0): Verdict {
 
         outward.push(...inner.outward);
         chained ||= inner.chained;
+        redirected ||= inner.redirected;
       }
     }
   }
@@ -89,12 +94,13 @@ function judgeScript(script: Script, depth = 0): Verdict {
 
     outward.push(...inner.outward);
     chained ||= inner.chained;
+    redirected ||= inner.redirected;
   }
 
   // One outward step with a filter behind a pipe, or with a `$(cat …)` that
   // only feeds it, is still one step. Two of them, or one beside any other
   // step, is a chain.
-  return { outward, chained: chained || (outward.length > 0 && (steps > 1 || outward.length > 1)) };
+  return { outward, chained: chained || (outward.length > 0 && (steps > 1 || outward.length > 1)), redirected };
 }
 
 /**
@@ -132,6 +138,19 @@ export function isOutward(words: string[]): boolean {
   }
 
   return false;
+}
+
+/**
+ * Whether an outward step is a `git push` with a colon in any word after
+ * `git`. That is a `source:target`, a `:target` (which deletes it), a
+ * `-c remote.origin.push=a:b` in front of `push`, and also a remote written
+ * as a URL. A colon the shell puts there (`"$BRANCH"`) is not seen: this
+ * reads words, not what they become.
+ */
+function isRedirectedPush(outward: string[]): boolean {
+  const program = (outward[0] ?? "").split("/").pop();
+
+  return program === "git" && outward.slice(1).some((word) => word.includes(":"));
 }
 
 /** `git -C dir -c key=value push` → `push`. */

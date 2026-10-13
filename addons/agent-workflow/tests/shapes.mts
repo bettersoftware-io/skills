@@ -1,6 +1,7 @@
 // The two tables the hook is swept with: every command an earlier version
 // let run without a prompt, and commands one step away from one. The hook
-// must answer nothing or a refusal for all of them, alone or joined.
+// must answer nothing, a refusal or a question for all of them, alone or
+// joined, and never a yes.
 
 /** A pull request body as a heredoc. bash 3.2 runs what such a body holds. */
 const HEREDOC_BODY = "\"$(cat <<'EOF'\n## Summary\n- don't chain; `git push` && $(rm -rf x) | $HOME \"quoted\"\nEOF\n)\"";

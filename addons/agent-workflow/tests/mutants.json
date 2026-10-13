@@ -79,8 +79,8 @@
   {
     "name": "looks past a variable set for the command (path)",
     "file": "addons/agent-workflow/files/tools/agent-workflow/lib/outward.mts",
-    "find": ".split(\"/\").pop();",
-    "replace": ".split(\"\\0\").pop();",
+    "find": "(words[0] ?? \"\").split(\"/\").pop();",
+    "replace": "(words[0] ?? \"\").split(\"\\0\").pop();",
     "test": "pnpm vitest run addons/agent-workflow/tests/outward.test.mts --testNamePattern=\"looks past a variable set for the command\""
   },
   {
@@ -254,8 +254,8 @@
   {
     "name": "finds an outward step inside a substitution",
     "file": "addons/agent-workflow/files/tools/agent-workflow/lib/outward.mts",
-    "find": "    outward.push(...inner.outward);\n    chained ||= inner.chained;\n  }\n\n  // One outward",
-    "replace": "    chained ||= inner.chained;\n  }\n\n  // One outward",
+    "find": "    outward.push(...inner.outward);\n    chained ||= inner.chained;\n    redirected ||= inner.redirected;\n  }\n\n  // One outward",
+    "replace": "    chained ||= inner.chained;\n    redirected ||= inner.redirected;\n  }\n\n  // One outward",
     "test": "pnpm vitest run addons/agent-workflow/tests/outward.test.mts --testNamePattern=\"finds an outward step inside a substitution\""
   },
   {
@@ -931,11 +931,11 @@
     "test": "pnpm vitest run addons/agent-workflow/tests/addon.test.mts --testNamePattern=\"always asks: git push origin \\\\+worktree-a\""
   },
   {
-    "name": "always asks: git push origin worktree-a:main",
-    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/host.mts",
-    "find": "  \"Bash(git push *:*)\",\n",
-    "replace": "",
-    "test": "pnpm vitest run addons/agent-workflow/tests/addon.test.mts --testNamePattern=\"always asks: git push origin worktree-a:main\""
+    "name": "asks about a push that holds a colon",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/outward.mts",
+    "find": "word.includes(\":\")",
+    "replace": "word.includes(\"::\")",
+    "test": "pnpm vitest run addons/agent-workflow/tests/outward.test.mts --testNamePattern=\"is found: a source and a target\""
   },
   {
     "name": "pins every action by a full commit hash",
@@ -1815,22 +1815,22 @@
   {
     "name": "says nothing about a lone outward step",
     "file": "addons/agent-workflow/files/tools/agent-workflow/hooks/split-outward-commands.mts",
-    "find": "  return verdict?.chained\n",
-    "replace": "  return verdict !== undefined && verdict.outward.length > 0\n",
+    "find": "  if (verdict?.chained) {\n",
+    "replace": "  if (verdict !== undefined && verdict.outward.length > 0) {\n",
     "test": "pnpm vitest run addons/agent-workflow/tests/outward.test.mts --testNamePattern=\"says nothing about a lone outward step\""
   },
   {
     "name": "a refusal of a chain is a refusal (the decision)",
     "file": "addons/agent-workflow/files/tools/agent-workflow/hooks/split-outward-commands.mts",
-    "find": "decision: \"deny\",\n        reason: [\n          `Refused: this command joins",
-    "replace": "decision: \"allow\" as never,\n        reason: [\n          `Refused: this command joins",
-    "test": "pnpm vitest run addons/agent-workflow/tests/never-allows.test.mts --testNamePattern=\"prints nothing or a refusal for every one\""
+    "find": "decision: \"deny\",\n      reason: [\n        `Refused: this command joins",
+    "replace": "decision: \"allow\" as never,\n      reason: [\n        `Refused: this command joins",
+    "test": "pnpm vitest run addons/agent-workflow/tests/never-allows.test.mts --testNamePattern=\"prints nothing, a refusal or a question\""
   },
   {
     "name": "a refusal of a chain is a refusal, as each host starts it",
     "file": "addons/agent-workflow/files/tools/agent-workflow/hooks/split-outward-commands.mts",
-    "find": "decision: \"deny\",\n        reason: [\n          `Refused: this command joins",
-    "replace": "decision: \"ask\" as never,\n        reason: [\n          `Refused: this command joins",
+    "find": "decision: \"deny\",\n      reason: [\n        `Refused: this command joins",
+    "replace": "decision: \"ask\",\n      reason: [\n        `Refused: this command joins",
     "test": "pnpm vitest run addons/agent-workflow/tests/never-allows.test.mts --testNamePattern=\"is refused once another command is joined to it\""
   },
   {
@@ -1841,10 +1841,10 @@
     "test": "pnpm vitest run addons/agent-workflow/tests/never-allows.test.mts --testNamePattern=\"is refused when it is nested too deep and names an outward step\""
   },
   {
-    "name": "the hook can say a refusal and nothing else, by its type",
+    "name": "the hook can say a refusal or a question and nothing else, by its type",
     "file": "addons/agent-workflow/files/tools/agent-workflow/hooks/split-outward-commands.mts",
-    "find": "  decision: \"deny\";",
-    "replace": "  decision: \"deny\" | \"allow\";",
+    "find": "  decision: \"deny\" | \"ask\";",
+    "replace": "  decision: \"deny\" | \"ask\" | \"allow\";",
     "test": "node_modules/.bin/tsc6 -p tsconfig.json",
     "uncounted": "the type checker, not a test runner: the test is an expectTypeOf, which only tsc reads"
   },
@@ -1859,22 +1859,22 @@
   {
     "name": "a routine push is let run again (the form an older version allowed)",
     "file": "addons/agent-workflow/files/tools/agent-workflow/hooks/split-outward-commands.mts",
-    "find": "    : undefined;\n}\n\n/** The reply for one payload",
-    "replace": "    : /^git push -u origin worktree-[a-z-]+$/.test(command ?? \"\")\n      ? ({ decision: \"allow\", reason: \"x\" } as never)\n      : undefined;\n}\n\n/** The reply for one payload",
+    "find": "    : undefined;\n}\n\n/** Whether the host that sent the payload reads",
+    "replace": "    : /^git push -u origin worktree-[a-z-]+$/.test(command ?? \"\")\n      ? ({ decision: \"allow\", reason: \"x\" } as never)\n      : undefined;\n}\n\n/** Whether the host that sent the payload reads",
     "test": "pnpm vitest run addons/agent-workflow/tests/never-allows.test.mts --testNamePattern=\"gets no answer, as Claude Code starts it\""
   },
   {
     "name": "a routine push is let run again, seen by the sweep",
     "file": "addons/agent-workflow/files/tools/agent-workflow/hooks/split-outward-commands.mts",
-    "find": "    : undefined;\n}\n\n/** The reply for one payload",
-    "replace": "    : /^git push -u origin worktree-[a-z-]+$/.test(command ?? \"\")\n      ? ({ decision: \"allow\", reason: \"x\" } as never)\n      : undefined;\n}\n\n/** The reply for one payload",
-    "test": "pnpm vitest run addons/agent-workflow/tests/never-allows.test.mts --testNamePattern=\"prints nothing or a refusal for every one\""
+    "find": "    : undefined;\n}\n\n/** Whether the host that sent the payload reads",
+    "replace": "    : /^git push -u origin worktree-[a-z-]+$/.test(command ?? \"\")\n      ? ({ decision: \"allow\", reason: \"x\" } as never)\n      : undefined;\n}\n\n/** Whether the host that sent the payload reads",
+    "test": "pnpm vitest run addons/agent-workflow/tests/never-allows.test.mts --testNamePattern=\"prints nothing, a refusal or a question\""
   },
   {
     "name": "a routine push is asked about again, seen by the thirty alone",
     "file": "addons/agent-workflow/files/tools/agent-workflow/hooks/split-outward-commands.mts",
-    "find": "    : undefined;\n}\n\n/** The reply for one payload",
-    "replace": "    : /^gh pr merge /.test(command ?? \"\")\n      ? ({ decision: \"ask\", reason: \"x\" } as never)\n      : undefined;\n}\n\n/** The reply for one payload",
+    "find": "    : undefined;\n}\n\n/** Whether the host that sent the payload reads",
+    "replace": "    : /^gh pr merge /.test(command ?? \"\")\n      ? ({ decision: \"ask\", reason: \"x\" } as never)\n      : undefined;\n}\n\n/** Whether the host that sent the payload reads",
     "test": "pnpm vitest run addons/agent-workflow/tests/never-allows.test.mts --testNamePattern=\"says nothing about each of the thirty alone\""
   },
   {
@@ -1929,8 +1929,8 @@
   {
     "name": "refuses every one that joins one of the thirty to another command",
     "file": "addons/agent-workflow/files/tools/agent-workflow/hooks/split-outward-commands.mts",
-    "find": "  return verdict?.chained\n",
-    "replace": "  return verdict?.chained && !/worktree-a /.test(command ?? \"\")\n",
+    "find": "  if (verdict?.chained) {\n",
+    "replace": "  if (verdict?.chained && !/worktree-a /.test(command ?? \"\")) {\n",
     "test": "pnpm vitest run addons/agent-workflow/tests/never-allows.test.mts --testNamePattern=\"refuses every one that joins one of the thirty to another command\""
   },
   {
@@ -2013,7 +2013,7 @@
   {
     "name": "a plain push meets no ask rule",
     "file": "addons/agent-workflow/files/tools/agent-workflow/lib/host.mts",
-    "find": "\"Bash(git push *:*)\"",
+    "find": "\"Bash(git push * +*)\"",
     "replace": "\"Bash(git push *o*)\"",
     "test": "pnpm vitest run addons/agent-workflow/tests/addon.test.mts --testNamePattern=\"says nothing about: git push origin main\""
   },
@@ -2090,22 +2090,22 @@
   {
     "name": "fails when the hook allows a chain",
     "file": "addons/agent-workflow/files/tools/agent-workflow/check.mts",
-    "find": "return decision === \"deny\" ? decision : typeof decision === \"string\"",
-    "replace": "return decision === \"deny\" || decision === \"allow\" ? \"deny\" : typeof decision === \"string\"",
+    "find": "return decision === \"deny\" || decision === \"ask\" ? decision : typeof decision === \"string\"",
+    "replace": "return decision === \"deny\" || decision === \"ask\" ? decision : decision === \"allow\" ? \"deny\" : typeof decision === \"string\"",
     "test": "pnpm vitest run addons/agent-workflow/tests/check.test.mts --testNamePattern=\"fails when the hook allows a chain\""
   },
   {
     "name": "fails when the hook asks about the chain",
     "file": "addons/agent-workflow/files/tools/agent-workflow/check.mts",
-    "find": "return decision === \"deny\" ? decision : typeof decision === \"string\"",
+    "find": "return decision === \"deny\" || decision === \"ask\" ? decision : typeof decision === \"string\"",
     "replace": "return decision === \"deny\" || decision === \"ask\" ? \"deny\" : typeof decision === \"string\"",
     "test": "pnpm vitest run addons/agent-workflow/tests/check.test.mts --testNamePattern=\"fails when the hook asks about the chain\""
   },
   {
     "name": "fails when the hook prints a decision it does not have",
     "file": "addons/agent-workflow/files/tools/agent-workflow/check.mts",
-    "find": "return decision === \"deny\" ? decision : typeof decision === \"string\"",
-    "replace": "return typeof decision === \"string\" && decision !== \"allow\" && decision !== \"ask\" ? \"deny\" : typeof decision === \"string\"",
+    "find": "return decision === \"deny\" || decision === \"ask\" ? decision : typeof decision === \"string\"",
+    "replace": "return decision === \"ask\" ? decision : typeof decision === \"string\" && decision !== \"allow\" ? \"deny\" : typeof decision === \"string\"",
     "test": "pnpm vitest run addons/agent-workflow/tests/check.test.mts --testNamePattern=\"fails when the hook prints a decision it does not have\""
   },
   {
@@ -3374,5 +3374,124 @@
     "find": "remove the entry, in that pull request",
     "replace": "remove the entry later",
     "test": "pnpm vitest run addons/agent-workflow/tests/addon.test.mts --testNamePattern=\"tells an agent to write what a piece of work leaves into the page\""
+  },
+  {
+    "name": "a colon in a gh step is no push with a colon",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/outward.mts",
+    "find": "return program === \"git\" && outward.slice(1).some(",
+    "replace": "return outward.slice(1).some(",
+    "test": "pnpm vitest run addons/agent-workflow/tests/outward.test.mts --testNamePattern=\"is not: a pull request with a colon\""
+  },
+  {
+    "name": "finds a push with a colon that a shell is asked to run",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/outward.mts",
+    "find": "        redirected ||= inner.redirected;\n",
+    "replace": "",
+    "test": "pnpm vitest run addons/agent-workflow/tests/outward.test.mts --testNamePattern=\"is found: one a shell is asked to run\""
+  },
+  {
+    "name": "finds a push with a colon inside a substitution",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/outward.mts",
+    "find": "\n    redirected ||= inner.redirected;",
+    "replace": "",
+    "test": "pnpm vitest run addons/agent-workflow/tests/outward.test.mts --testNamePattern=\"is found: one inside a substitution\""
+  },
+  {
+    "name": "the hook asks about a push with a colon, and never allows it",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/hooks/split-outward-commands.mts",
+    "find": "        decision: \"ask\",",
+    "replace": "        decision: \"allow\",",
+    "test": "pnpm vitest run addons/agent-workflow/tests/outward.test.mts --testNamePattern=\"asks about a push that holds a colon, and says why\""
+  },
+  {
+    "name": "the hook asks nothing of Codex",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/hooks/split-outward-commands.mts",
+    "find": "verdict?.redirected && readsAQuestion(payload)",
+    "replace": "verdict?.redirected",
+    "test": "pnpm vitest run addons/agent-workflow/tests/outward.test.mts --testNamePattern=\"asks nothing of Codex\""
+  },
+  {
+    "name": "a payload with no turn id is one that reads a question",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/hooks/split-outward-commands.mts",
+    "find": "payload.turn_id === undefined",
+    "replace": "payload.turn_id !== undefined",
+    "test": "pnpm vitest run addons/agent-workflow/tests/outward.test.mts --testNamePattern=\"asks about a push that holds a colon, and says why\""
+  },
+  {
+    "name": "a chain with a push that holds a colon is refused, not asked about",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/hooks/split-outward-commands.mts",
+    "find": "  if (verdict?.chained) {",
+    "replace": "  if (verdict?.chained && !verdict.redirected) {",
+    "test": "pnpm vitest run addons/agent-workflow/tests/outward.test.mts --testNamePattern=\"refuses, and does not ask\""
+  },
+  {
+    "name": "the sweep never sees a yes, nor a question put to Codex",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/hooks/split-outward-commands.mts",
+    "find": "  return payload.turn_id === undefined;",
+    "replace": "  return true;",
+    "test": "pnpm vitest run addons/agent-workflow/tests/never-allows.test.mts --testNamePattern=\"prints nothing, a refusal or a question\""
+  },
+  {
+    "name": "no ask rule holds the pair the host reads as a prefix",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/host.mts",
+    "find": "  \"Bash(git push * +*)\",\n",
+    "replace": "  \"Bash(git push * +*)\",\n  \"Bash(git push *:*)\",\n",
+    "test": "pnpm vitest run addons/agent-workflow/tests/addon.test.mts --testNamePattern=\"hold no\""
+  },
+  {
+    "name": "the manifest holds no such rule either",
+    "file": "addons/agent-workflow/addon.json",
+    "find": "          \"Bash(git push * +*)\",\n",
+    "replace": "          \"Bash(git push * +*)\",\n          \"Bash(git push *:*)\",\n",
+    "test": "pnpm vitest run addons/agent-workflow/tests/addon.test.mts --testNamePattern=\"hold no\""
+  },
+  {
+    "name": "names the rule an older version merged in",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/host.mts",
+    "find": "export const RETIRED_ASK_RULES = [\"Bash(git push *:*)\"];",
+    "replace": "export const RETIRED_ASK_RULES = [\"Bash(git push *:**)\"];",
+    "test": "pnpm vitest run addons/agent-workflow/tests/addon.test.mts --testNamePattern=\"no longer hold the rule\""
+  },
+  {
+    "name": "the check asks the hook about a push with a colon",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/check.mts",
+    "find": "    [ASKED_SAMPLE, \"ask\"],\n",
+    "replace": "",
+    "test": "pnpm vitest run addons/agent-workflow/tests/check.test.mts --testNamePattern=\"fails when the hook says nothing about a push with a colon\""
+  },
+  {
+    "name": "the check takes a question as an answer the hook has",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/check.mts",
+    "find": "decision === \"deny\" || decision === \"ask\" ? decision",
+    "replace": "decision === \"deny\" ? decision",
+    "test": "pnpm vitest run addons/agent-workflow/tests/check.test.mts --testNamePattern=\"fails when the hook asks about the chain\""
+  },
+  {
+    "name": "the check names a retired rule only where it still is",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/check.mts",
+    "find": "RETIRED_ASK_RULES.filter((retired) => ask.includes(retired))",
+    "replace": "RETIRED_ASK_RULES.filter((retired) => !ask.includes(retired))",
+    "test": "pnpm vitest run addons/agent-workflow/tests/check.test.mts --testNamePattern=\"names a rule of an older version\""
+  },
+  {
+    "name": "the check's sample writes to main under another branch's name",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/check.mts",
+    "find": "const ASKED_SAMPLE = \"git push origin worktree-sample:main\";",
+    "replace": "const ASKED_SAMPLE = \"git push origin worktree-sample main\";",
+    "test": "pnpm vitest run addons/agent-workflow/tests/check.test.mts --testNamePattern=\"asks the hook the way a host does\""
+  },
+  {
+    "name": "finds a push with a colon behind a path to the program",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/outward.mts",
+    "find": "(outward[0] ?? \"\").split(\"/\").pop();",
+    "replace": "(outward[0] ?? \"\").split(\"\\0\").pop();",
+    "test": "pnpm vitest run addons/agent-workflow/tests/outward.test.mts --testNamePattern=\"is found: a path to the program\""
+  },
+  {
+    "name": "says what the hook asks about",
+    "file": "addons/agent-workflow/AGENTS.section.md",
+    "find": "of Claude Code it asks about a push that holds a colon",
+    "replace": "it asks about every push",
+    "test": "pnpm vitest run addons/agent-workflow/tests/addon.test.mts --testNamePattern=\"says every outward step asks\""
   }
 ]
