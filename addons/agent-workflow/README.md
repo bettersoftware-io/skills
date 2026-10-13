@@ -28,7 +28,7 @@ Leave it out of a project where one of the three is not so.
 | `CHANGELOG.md` | project root | A starting file: the format, no week yet. The project owns it |
 | `docs/STATUS.md` | `docs/` | A starting file: the six sections of what is left, no entry yet. The project owns it |
 | `docs/IDEAS.md` | `docs/` | A starting file: what nobody has committed to. The project owns it |
-| Three commands | `.claude/commands/workflow/*.md` | `/workflow:changelog`, `/workflow:coverage-backfill`, `/workflow:visual-tolerance-audit` |
+| Six commands | `.claude/commands/workflow/*.md` | `/workflow:status`, `/workflow:docs`, `/workflow:changelog`, `/workflow:coverage-backfill`, `/workflow:visual-tolerance-audit`, `/workflow:perf-audit` |
 | The same for Codex | `.agents/skills/workflow-*/SKILL.md` | One small skill per command, which points at the command file |
 | `node tools/agent-workflow/requires.mts <add-on>` | same | Exit 0 when the add-on is installed, exit 2 with what to do when not |
 | `pnpm agent-workflow:check` | `tools/agent-workflow/check.mts` | The add-on's `verify`: runs the hook on three commands as each host starts it, and reads both settings files |
@@ -380,11 +380,12 @@ in its own week's section, a definition must point at that number, and the
 definitions must be in ascending order. It asks `gh` for the week's merged
 pull requests and keeps those merged inside the week to the second.
 
-## Commands, and the two that need another add-on
+## Commands, and the three that need another add-on
 
-All three commands are always installed. The two that need another add-on
+All six commands are always installed. The three that need another add-on
 start with step 0, `node tools/agent-workflow/requires.mts coverage` (or
-`visual`), and tell the agent to stop if it does not exit 0. The script
+`visual`, or `performance`), and tell the agent to stop if it does not exit
+0. The script
 reads `tools/installed.json`, the installer's own record.
 
 Why not install them only when that add-on is present: the order of adding
@@ -397,6 +398,53 @@ per file from a fresh run (`pnpm coverage:gaps`), and `visual` already
 measures the noise floor with the tier's own comparison and judges both
 knobs (`pnpm visual:jitter`). The two commands are the judgement around
 those scripts, with the source project's own numbers and file names left out.
+`performance` has the audit (`pnpm perf:motion-audit`) and the guide; its
+command is the reading of the report and the verdict on each finding. The
+source's own audit command was for its levels of power saving and its two
+clients, and none of that is here.
+
+Two commands need nothing else:
+
+- **`/workflow:status`** reports where the project stands: the checkout, the
+  open pull requests, the last runs on main, and the headings of
+  `docs/STATUS.md`. It is allowed `git`, `gh`, `grep` and reading, and no
+  tool that writes. A red main is the first line of its report. The source's
+  runs its commands before the command is read; here they are steps, as for
+  every command (below).
+- **`/workflow:docs`** writes what a session worked out into the project's
+  documents. Its core is a table of where each kind of finding goes (work
+  that is pending, an idea, a decision, how the project is built, how one
+  part behaves, a rule for every session, and what does not belong in the
+  project at all) and a stop: it proposes the place and waits for a yes.
+  The source's table names its own folders; this one names the two pages the
+  add-on gives a project and describes the rest.
+
+### What a command may run unasked
+
+A command's `allowed-tools` line is a grant: in Claude Code, what it lists
+runs with no prompt while that command is the one running. So the line is
+held to the add-on's own rule, that every outward step asks:
+
+- Each grant names a program by its first words (`git worktree list`,
+  `pnpm coverage:gaps`), never a whole program (`git`, `gh`, `pnpm`).
+- What is granted is on a closed list of reads and of the project's own
+  scripts, is not an outward step by the hook's own reading, and is used in
+  the command's text.
+- No command is granted a push, a pull request step, a merge, a workflow
+  run or `gh api`. Nor `git fetch` and `git grep`, which read and can also
+  be told to start a program (`--upload-pack`, `--open-files-in-pager`):
+  each asks, as it would with no command running.
+
+Until 2026-10-13 it was not so. The three commands the add-on began with
+granted all of `git` and `gh`, as the source's do, so while one of them ran
+a push or a merge did not ask. A security review of the commit that added
+three more named it. `/workflow:status` is where it matters most: it reads
+the titles of pull requests, which anyone who can open one writes.
+
+Not brought over: the source's command that runs a copy of the CI steps and
+looks for a step CI has and the copy lacks. A project from the starter runs
+`pnpm gate:full` on a laptop and in CI, one command, so there are not two
+lists to drift apart.
 
 No command has a block that runs before the command is read (`` !`…` ``).
 In a project-scoped command such a block is parsed and matched against
@@ -414,7 +462,7 @@ the agent to run. That also lets Codex use the same file.
 | Permission rules | `permissions.ask` in the project | None in the project. Codex's approval mode and sandbox decide |
 | Commands | `/workflow:changelog` and the two others | No project slash commands. The skills `$workflow-changelog` and the two others point at the same files |
 | `$ARGUMENTS` | Filled in | Not filled in; each command says to take the arguments from the request |
-| `allowed-tools` | Read | Ignored |
+| `allowed-tools` | Read: what the command may run with no prompt while it runs. Each command names only what it uses, and nothing outward ([below](#what-a-command-may-run-unasked)) | Ignored |
 | Inside the host's sandbox | — | `.codex` and `.agents` are read-only, so the installer leaves the hook registration and the three skills, and its notes say so |
 
 ## How it was tested

@@ -336,7 +336,21 @@ Claude Code, the `workflow-changelog` skill in Codex). What the entry says is
 your judgement; that it cites every merged pull request is checked by
 `pnpm changelog check <week>`. Never create or move a week's tag by hand.
 
-Two more runbooks sit beside it, and each stops at its first step when the
-add-on it needs is not in the project:
-`.claude/commands/workflow/coverage-backfill.md` (needs `coverage`) and
-`.claude/commands/workflow/visual-tolerance-audit.md` (needs `visual`).
+### The other runbooks
+
+Each is a command in Claude Code (`/workflow:status`) and a skill of the same
+name in Codex (`workflow-status`). The steps are in the file, and it runs
+nothing by itself.
+
+- `.claude/commands/workflow/status.md`: where the project stands. This
+  checkout, the open pull requests, the last runs on main, and the headings
+  of `docs/STATUS.md`. It reads and changes nothing.
+- `.claude/commands/workflow/docs.md`: write what a session worked out into
+  the project's documents. It says where each kind of finding goes, and stops
+  for a yes before it writes.
+
+Three more stop at their first step when the add-on they need is not in the
+project:
+`.claude/commands/workflow/coverage-backfill.md` (needs `coverage`),
+`.claude/commands/workflow/visual-tolerance-audit.md` (needs `visual`) and
+`.claude/commands/workflow/perf-audit.md` (needs `performance`).

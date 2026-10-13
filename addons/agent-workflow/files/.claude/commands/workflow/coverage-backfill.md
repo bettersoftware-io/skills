@@ -1,7 +1,7 @@
 ---
 description: Rank the files with the most untested code from a fresh run, propose a shortlist, then write the tests you approve
 argument-hint: [package folders, e.g. packages/domain]
-allowed-tools: Bash(pnpm:*), Bash(node:*), Bash(git:*), Bash(gh:*), Read, Write, Edit
+allowed-tools: Bash(node tools/agent-workflow/requires.mts:*), Bash(git worktree list:*), Bash(pnpm coverage:*), Bash(pnpm mutation-check:*), Bash(pnpm worktree:*), Bash(pnpm gate:full:*), Read, Write, Edit
 ---
 
 Find and close per-file gaps in test coverage. Packages asked for:
