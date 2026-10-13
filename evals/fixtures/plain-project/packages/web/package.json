@@ -1,0 +1,9 @@
+{
+  "name": "@shop/web",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "vite build",
+    "test": "vitest run"
+  }
+}

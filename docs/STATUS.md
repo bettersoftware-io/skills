@@ -225,7 +225,16 @@ Found while a project was set up with the plugin, on 2026-10-12 and 13.
 - **`extending-a-project` in a Codex session.** The other two are checked
   there ([the record](codex-test-2026-10-04.md)).
 - **A model between the smallest and the frontier.** Claude Haiku 4.5 has been
-  tried ([the record](small-model-2026-10-05.md)); Claude Sonnet has not.
+  tried ([the record](small-model-2026-10-05.md)). Claude Sonnet has only been
+  asked which skill it loads ([the evals](../evals/README.md)); it has built
+  nothing.
+- **Evals of what a skill does once it is loaded.** The thirteen cases under
+  [`evals/`](../evals/README.md) grade one thing: which skill a request loads.
+  None gives the agent a shell, so none shows whether it then runs the script
+  or writes the files by hand. Whether the eval sandbox lets `pnpm install`
+  through has not been tried either, and the project-creation case needs it.
+- **The evals on any model but Claude Sonnet, and on Codex.** One run of the
+  thirteen, on 2026-10-13. `claude plugin eval` does not run Codex.
 - **The kit in a real existing project.** The script sets up the files and says
   what is left. Declaring each package's role, and deciding what to do with the
   findings on code that was never held to these rules, is judgement nobody has
@@ -283,6 +292,17 @@ Found while a project was set up with the plugin, on 2026-10-12 and 13.
 - **The stop hook judges the checkout the session stops in.** A session that
   changed two checkouts is held to one. That `cwd` in the payload follows the
   agent into a worktree is from the documentation.
+- **Two sessions that stop at the same time may each be told the gate is
+  red.** Seen once, on 2026-10-13, in a project two sessions were working in.
+  The stop hook's `pnpm gate:full` failed at the coverage stage with "vitest
+  wrote no coverage summary" for one package of eight, on a commit that was
+  green in CI. That package's tests passed when run alone, and the gate
+  passed when run again with nothing changed. The likely cause, which was
+  not proven: each session's stop hook runs the gate in the project's own
+  checkout, and vitest empties a package's `coverage/` folder when it
+  starts, so one run takes away the summary the other is about to read. The
+  two runs were not caught overlapping. Nothing keeps two gates from running
+  in one checkout at once, and the hook then says "red", not "run again".
 - **The stop hook's nine-minute limit is tested with short limits only**, on
   the same code path.
 - **The quiet gate copies the environment pnpm 12.6 gives a script.** A later

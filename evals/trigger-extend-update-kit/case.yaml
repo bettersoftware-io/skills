@@ -1,0 +1,15 @@
+schema_version: "1.1"
+name: trigger-extend-update-kit
+description: "An update of the kit, which is not an add-on."
+tags: [trigger, extending-a-project]
+context:
+  scaffold_script: fixture.sh
+execution:
+  prompt: "The architecture gates in this repository were installed months ago. Bring them up to date."
+  max_turns: 8
+  allowed_tools: [Read, Glob, Grep, Skill]
+graders:
+  - type: tool_used
+    name: loads-extending-a-project
+    tool: Skill
+    input_match: '"skill"\s*:\s*"(?:[\w-]+:)?extending-a-project"'

@@ -1,0 +1,15 @@
+schema_version: "1.1"
+name: trigger-review-follows-architecture
+description: "The question the skill exists to answer, asked about one package."
+tags: [trigger, reviewing-architecture]
+context:
+  scaffold_script: fixture.sh
+execution:
+  prompt: "Does the code in packages/client-core follow the architecture?"
+  max_turns: 8
+  allowed_tools: [Read, Glob, Grep, Skill]
+graders:
+  - type: tool_used
+    name: loads-reviewing-architecture
+    tool: Skill
+    input_match: '"skill"\s*:\s*"(?:[\w-]+:)?reviewing-architecture"'
