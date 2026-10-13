@@ -25,11 +25,14 @@
 // the reader fails on: a chain must not get through because it was written
 // to be hard to read.
 //
-// It asks about a push that holds a colon (`source:target`, `:target`), which
-// can write to another branch than the one it names first, or delete one,
-// and about a push with a word the shell turns into another (`"$BRANCH"`),
-// which may come to hold one. A project that allows a push by a rule of its
-// own is still asked about these. No permission rule can say it: Claude Code reads `Bash(git push *:*)`
+// It asks about a push that is not written plainly: one that holds a colon
+// (`source:target`, `:target`), which can write to another branch than the
+// one it names first, or delete one; an option that changes what is pushed,
+// written out, cut short (`--de`) or joined to another (`-uf`); a quote,
+// which hides a word from a rule (`-"f"`); a word the shell turns into
+// another (`"$BRANCH"`). `lib/outward.mts` says what plain is. A project that
+// allows a push by a rule of its own is still asked about these. No
+// permission rule can say it: Claude Code reads `Bash(git push *:*)`
 // as its older prefix form, which matches nothing here, and warns about a
 // `:*` wherever it stands. Only Claude Code is given the question. Codex
 // calls `ask` an answer it does not support, so there the hook says nothing
@@ -46,7 +49,8 @@
 // It never ends without an answer it meant to give: whatever fails inside
 // it, it says nothing and exits 0.
 //
-// Works under Claude Code (the `Bash` tool: `tool_input.command` is text) and
+// Works under Claude Code (the `Bash` tool, and `Monitor`, which runs a
+// command under the rules for `Bash`: `tool_input.command` is text) and
 // Codex (its shell tool: the same field, as text or as a list of words). Both
 // read the same refusal: `permissionDecision` with a reason, on stdout. The
 // two are told apart by `turn_id`, which Codex sends with every call and
@@ -133,7 +137,8 @@ export function judgeCall(payload: CommandPayload): Answer | undefined {
     ? {
         decision: "ask",
         reason: [
-          "This push holds a colon (source:target, :target, a remote written as a URL), or a word the shell turns into another before git reads it.",
+          "This push is not written plainly. It holds a colon (source:target, :target, a remote written as a URL), an option that changes what is pushed,",
+          "a quote or a backslash, a value set in front of git, or a word the shell turns into another before git reads it.",
           "It can write to another branch than the one it names first, or delete one, so a person is asked whatever rule allows a push.",
         ].join("\n"),
       }

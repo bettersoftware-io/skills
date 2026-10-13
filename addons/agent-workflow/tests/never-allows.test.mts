@@ -265,6 +265,21 @@ describe("a command the hook does not read", () => {
     expect(seconds).toBeLessThan(Math.min(...TIMEOUTS) / 2);
   });
 
+  // It once copied the rest of the words for each word it looked past: 8.6 seconds for the first of these, and no end in sight for the second.
+  it.each([
+    ["programs that run the next word", `${"command ".repeat(124_000)}git add -A && git push origin main`],
+    ["words a shell allows in front", `${"! ".repeat(499_000)}git add -A && git push origin main`],
+    ["options of git", `git ${"-q ".repeat(200_000)}push && ls`],
+    ["options of gh", `gh ${"-q ".repeat(200_000)}pr merge 1 && ls`],
+  ])("refuses a chain behind hundreds of thousands of %s, inside the time a host gives it", (_name, command) => {
+    const started = performance.now();
+    const answer = judgeCall(createCall(command));
+
+    expect(answer?.decision).toBe("deny");
+    expect(answer?.reason).toContain("joins an outward step");
+    expect((performance.now() - started) / 1000).toBeLessThan(Math.min(...TIMEOUTS) / 2);
+  });
+
   it("refuses the deep chain when run as a program, where it once died of a stack overflow with nothing said", () => {
     const run = spawnSync(process.execPath, [join(ADDON, "files", HOOK_SCRIPT)], {
       input: JSON.stringify({ tool_name: "Bash", tool_input: { command: `${deep(20_000, "true")} && git push origin main` } }),

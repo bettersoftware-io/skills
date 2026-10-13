@@ -65,8 +65,9 @@ for a push now.
 ### Every outward step asks
 
 The hook never lets a command run without a prompt. It refuses a chain, and
-of Claude Code it asks about a push that holds a colon
-(`git push origin a:b`), whatever rule allows a push. It says nothing else,
+of Claude Code it asks about a push that is not written plainly
+(a colon as in `git push origin a:b`, an option that forces or deletes, a
+quote, a variable), whatever rule allows a push. It says nothing else,
 so each push, each pull request step and each merge asks a person, under the
 host's own rules. Do not add an `allow` rule for one to
 `.claude/settings.json`, and do not change the hook under

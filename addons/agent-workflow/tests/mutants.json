@@ -58,14 +58,14 @@
   {
     "name": "finds the push behind git's own options",
     "file": "addons/agent-workflow/files/tools/agent-workflow/lib/outward.mts",
-    "find": "GIT_OPTIONS_WITH_VALUE.includes(rest[0]) ? 2 : 1",
+    "find": "GIT_OPTIONS_WITH_VALUE.includes(words[start] ?? \"\") ? 2 : 1",
     "replace": "1",
     "test": "pnpm vitest run addons/agent-workflow/tests/outward.test.mts --testNamePattern=\"finds the push behind git's own options\""
   },
   {
     "name": "finds the group behind gh's own options",
     "file": "addons/agent-workflow/files/tools/agent-workflow/lib/outward.mts",
-    "find": "[\"-R\", \"--repo\"].includes(rest[0]) ? 2 : 1",
+    "find": "[\"-R\", \"--repo\"].includes(words[start] ?? \"\") ? 2 : 1",
     "replace": "1",
     "test": "pnpm vitest run addons/agent-workflow/tests/outward.test.mts --testNamePattern=\"finds the group behind gh's own options\""
   },
@@ -79,15 +79,15 @@
   {
     "name": "looks past a variable set for the command (path)",
     "file": "addons/agent-workflow/files/tools/agent-workflow/lib/outward.mts",
-    "find": "(words[0] ?? \"\").split(\"/\").pop();",
-    "replace": "(words[0] ?? \"\").split(\"\\0\").pop();",
+    "find": "(words[0] ?? \"\").split(\"/\").pop() === \"git\"",
+    "replace": "(words[0] ?? \"\").split(\"\\0\").pop() === \"git\"",
     "test": "pnpm vitest run addons/agent-workflow/tests/outward.test.mts --testNamePattern=\"looks past a variable set for the command\""
   },
   {
     "name": "looks past a variable set for the command (assignment)",
     "file": "addons/agent-workflow/files/tools/agent-workflow/lib/outward.mts",
-    "find": " || /^[A-Za-z_][A-Za-z0-9_]*=/.test(words[0]))",
-    "replace": ")",
+    "find": "/^[A-Za-z_][A-Za-z0-9_]*=/.test(word) || (led && (",
+    "replace": "(led && (",
     "test": "pnpm vitest run addons/agent-workflow/tests/outward.test.mts --testNamePattern=\"looks past a variable set for the command\""
   },
   {
@@ -168,11 +168,11 @@
     "test": "pnpm vitest run addons/agent-workflow/tests/outward.test.mts --testNamePattern=\"lets through a comment after it\""
   },
   {
-    "name": "refuses two outward steps joined by a pipe",
+    "name": "refuses two outward steps that each only fill a variable",
     "file": "addons/agent-workflow/files/tools/agent-workflow/lib/outward.mts",
     "find": "(steps > 1 || outward.length > 1)",
     "replace": "(steps > 1)",
-    "test": "pnpm vitest run addons/agent-workflow/tests/outward.test.mts --testNamePattern=\"refuses two outward steps joined by a pipe\""
+    "test": "pnpm vitest run addons/agent-workflow/tests/outward.test.mts --testNamePattern=\"refuses two outward steps that each only fill a variable\""
   },
   {
     "name": "names every outward step it found",
@@ -254,23 +254,16 @@
   {
     "name": "finds an outward step inside a substitution",
     "file": "addons/agent-workflow/files/tools/agent-workflow/lib/outward.mts",
-    "find": "    outward.push(...inner.outward);\n    chained ||= inner.chained;\n    redirected ||= inner.redirected;\n  }\n\n  // One outward",
-    "replace": "    chained ||= inner.chained;\n    redirected ||= inner.redirected;\n  }\n\n  // One outward",
-    "test": "pnpm vitest run addons/agent-workflow/tests/outward.test.mts --testNamePattern=\"finds an outward step inside a substitution\""
+    "find": "    outward.push(...inner.outward);\n    // An outward step inside",
+    "replace": "    // An outward step inside",
+    "test": "pnpm vitest run addons/agent-workflow/tests/outward.test.mts --testNamePattern=\"counts an outward step inside a substitution\""
   },
   {
-    "name": "counts a lone outward step inside a substitution as one step",
+    "name": "a substitution is not a step of its own",
     "file": "addons/agent-workflow/files/tools/agent-workflow/lib/outward.mts",
     "find": "  for (const nested of script.nested) {\n    const inner = judgeScript(nested, depth + 1);\n",
     "replace": "  for (const nested of script.nested) {\n    const inner = judgeScript(nested, depth + 1);\n\n    steps += 1;\n",
-    "test": "pnpm vitest run addons/agent-workflow/tests/outward.test.mts --testNamePattern=\"counts a lone outward step inside a substitution as one step\""
-  },
-  {
-    "name": "refuses an outward step that takes its argument from another",
-    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/outward.mts",
-    "find": "(steps > 1 || outward.length > 1)",
-    "replace": "(steps > 1)",
-    "test": "pnpm vitest run addons/agent-workflow/tests/outward.test.mts --testNamePattern=\"refuses an outward step that takes its argument from another\""
+    "test": "pnpm vitest run addons/agent-workflow/tests/outward.test.mts --testNamePattern=\"counts an outward step inside a substitution\""
   },
   {
     "name": "reads what a shell is asked to run",
@@ -933,8 +926,8 @@
   {
     "name": "asks about a push that holds a colon",
     "file": "addons/agent-workflow/files/tools/agent-workflow/lib/outward.mts",
-    "find": "const PLAIN_WORD = /^[A-Za-z0-9._/=,-]+$/;",
-    "replace": "const PLAIN_WORD = /^[A-Za-z0-9._/=,:-]+$/;",
+    "find": "const PLAIN_WORD = /^[A-Za-z0-9._/-]+$/;",
+    "replace": "const PLAIN_WORD = /^[A-Za-z0-9._/:-]+$/;",
     "test": "pnpm vitest run addons/agent-workflow/tests/outward.test.mts --testNamePattern=\"is found: a source and a target\""
   },
   {
@@ -992,13 +985,6 @@
     "find": "      # Plain Node, no dependency installed",
     "replace": "      - run: corepack enable\n\n      # Plain Node, no dependency installed",
     "test": "pnpm vitest run addons/agent-workflow/tests/addon.test.mts --testNamePattern=\"installs nothing before the step that holds the token\""
-  },
-  {
-    "name": "are the three the check knows about",
-    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/host.mts",
-    "find": "  changelog: undefined,\n",
-    "replace": "",
-    "test": "pnpm vitest run addons/agent-workflow/tests/addon.test.mts --testNamePattern=\"are the six the check knows about\""
   },
   {
     "name": "changelog says what it does, and what it may run",
@@ -1936,8 +1922,8 @@
   {
     "name": "is started with no argument now",
     "file": "addons/agent-workflow/addon.json",
-    "find": "split-outward-commands.mts\\\"\",\n                \"timeout\": 5",
-    "replace": "split-outward-commands.mts\\\" --host=claude-code\",\n                \"timeout\": 5",
+    "find": "split-outward-commands.mts\\\"\",\n                \"timeout\": 5\n              }\n            ]\n          },\n          {\n            \"matcher\": \"Monitor\"",
+    "replace": "split-outward-commands.mts\\\" --host=claude-code\",\n                \"timeout\": 5\n              }\n            ]\n          },\n          {\n            \"matcher\": \"Monitor\"",
     "test": "pnpm vitest run addons/agent-workflow/tests/never-allows.test.mts --testNamePattern=\"is started with no argument now, and was started with one before\""
   },
   {
@@ -3378,8 +3364,8 @@
   {
     "name": "a colon in a gh step is no push with a colon",
     "file": "addons/agent-workflow/files/tools/agent-workflow/lib/outward.mts",
-    "find": "return program === \"git\" && stage.some(",
-    "replace": "return stage.some(",
+    "find": "  if (!isGit(outward)) {\n    return false;\n  }\n\n  const led",
+    "replace": "  const led",
     "test": "pnpm vitest run addons/agent-workflow/tests/outward.test.mts --testNamePattern=\"is not: a pull request with a colon\""
   },
   {
@@ -3387,14 +3373,14 @@
     "file": "addons/agent-workflow/files/tools/agent-workflow/lib/outward.mts",
     "find": "        redirected ||= inner.redirected;\n",
     "replace": "",
-    "test": "pnpm vitest run addons/agent-workflow/tests/outward.test.mts --testNamePattern=\"is found: one a shell is asked to run\""
+    "test": "pnpm vitest run addons/agent-workflow/tests/outward.test.mts --testNamePattern=\"is found: one eval is given\""
   },
   {
     "name": "finds a push with a colon inside a substitution",
     "file": "addons/agent-workflow/files/tools/agent-workflow/lib/outward.mts",
     "find": "\n    redirected ||= inner.redirected;",
     "replace": "",
-    "test": "pnpm vitest run addons/agent-workflow/tests/outward.test.mts --testNamePattern=\"is found: one inside a substitution\""
+    "test": "pnpm vitest run addons/agent-workflow/tests/outward.test.mts --testNamePattern=\"is found: one that fills a variable\""
   },
   {
     "name": "the hook asks about a push with a colon, and never allows it",
@@ -3481,59 +3467,45 @@
     "test": "pnpm vitest run addons/agent-workflow/tests/check.test.mts --testNamePattern=\"asks the hook the way a host does\""
   },
   {
-    "name": "finds a push with a colon behind a path to the program",
-    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/outward.mts",
-    "find": "(outward[0] ?? \"\").split(\"/\").pop();",
-    "replace": "(outward[0] ?? \"\").split(\"\\0\").pop();",
-    "test": "pnpm vitest run addons/agent-workflow/tests/outward.test.mts --testNamePattern=\"is found: a path to the program\""
-  },
-  {
     "name": "says what the hook asks about",
     "file": "addons/agent-workflow/AGENTS.section.md",
-    "find": "of Claude Code it asks about a push that holds a colon",
+    "find": "of Claude Code it asks about a push that is not written plainly",
     "replace": "it asks about every push",
     "test": "pnpm vitest run addons/agent-workflow/tests/addon.test.mts --testNamePattern=\"says every outward step asks\""
   },
   {
     "name": "reads what is set in front of git, where git takes a setting",
     "file": "addons/agent-workflow/files/tools/agent-workflow/lib/outward.mts",
-    "find": "return program === \"git\" && stage.some(",
-    "replace": "return program === \"git\" && outward.some(",
+    "find": "word === \"xargs\" || word.includes(\"=\")",
+    "replace": "word === \"xargs\"",
     "test": "pnpm vitest run addons/agent-workflow/tests/outward.test.mts --testNamePattern=\"is found: a setting git reads\""
   },
   {
     "name": "a variable where the branch goes is asked about",
     "file": "addons/agent-workflow/files/tools/agent-workflow/lib/outward.mts",
-    "find": "const PLAIN_WORD = /^[A-Za-z0-9._/=,-]+$/;",
-    "replace": "const PLAIN_WORD = /^[A-Za-z0-9._/=,$-]+$/;",
-    "test": "pnpm vitest run addons/agent-workflow/tests/outward.test.mts --testNamePattern=\"is found: a variable where the branch goes\""
-  },
-  {
-    "name": "an escape left as written is asked about",
-    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/outward.mts",
-    "find": "const PLAIN_WORD = /^[A-Za-z0-9._/=,-]+$/;",
-    "replace": "const PLAIN_WORD = /^[A-Za-z0-9._/=,\\\\-]+$/;",
-    "test": "pnpm vitest run addons/agent-workflow/tests/outward.test.mts --testNamePattern=\"is found: an escape the shell reads\""
+    "find": "const PLAIN_WORD = /^[A-Za-z0-9._/-]+$/;",
+    "replace": "const PLAIN_WORD = /^[A-Za-z0-9._/$-]+$/;",
+    "test": "pnpm vitest run addons/agent-workflow/tests/outward.test.mts --testNamePattern=\"is found: a bare variable\""
   },
   {
     "name": "a star in the branch is asked about",
     "file": "addons/agent-workflow/files/tools/agent-workflow/lib/outward.mts",
-    "find": "const PLAIN_WORD = /^[A-Za-z0-9._/=,-]+$/;",
-    "replace": "const PLAIN_WORD = /^[A-Za-z0-9._/=,*-]+$/;",
+    "find": "const PLAIN_WORD = /^[A-Za-z0-9._/-]+$/;",
+    "replace": "const PLAIN_WORD = /^[A-Za-z0-9._/*-]+$/;",
     "test": "pnpm vitest run addons/agent-workflow/tests/outward.test.mts --testNamePattern=\"is found: a pattern for file names: a star\""
   },
   {
     "name": "a question mark in the branch is asked about",
     "file": "addons/agent-workflow/files/tools/agent-workflow/lib/outward.mts",
-    "find": "const PLAIN_WORD = /^[A-Za-z0-9._/=,-]+$/;",
-    "replace": "const PLAIN_WORD = /^[A-Za-z0-9._/=,?-]+$/;",
+    "find": "const PLAIN_WORD = /^[A-Za-z0-9._/-]+$/;",
+    "replace": "const PLAIN_WORD = /^[A-Za-z0-9._/?-]+$/;",
     "test": "pnpm vitest run addons/agent-workflow/tests/outward.test.mts --testNamePattern=\"is found: a pattern for file names: a question\""
   },
   {
     "name": "a set in the branch is asked about",
     "file": "addons/agent-workflow/files/tools/agent-workflow/lib/outward.mts",
-    "find": "const PLAIN_WORD = /^[A-Za-z0-9._/=,-]+$/;",
-    "replace": "const PLAIN_WORD = /^[A-Za-z0-9._/=,[\\]-]+$/;",
+    "find": "const PLAIN_WORD = /^[A-Za-z0-9._/-]+$/;",
+    "replace": "const PLAIN_WORD = /^[A-Za-z0-9._/[\\]-]+$/;",
     "test": "pnpm vitest run addons/agent-workflow/tests/outward.test.mts --testNamePattern=\"is found: a pattern for file names: a set\""
   },
   {
@@ -3567,37 +3539,254 @@
   {
     "name": "a word is plain as a whole, not for one plain character in it",
     "file": "addons/agent-workflow/files/tools/agent-workflow/lib/outward.mts",
-    "find": "const PLAIN_WORD = /^[A-Za-z0-9._/=,-]+$/;",
-    "replace": "const PLAIN_WORD = /[A-Za-z0-9._/=,-]+/;",
+    "find": "const PLAIN_WORD = /^[A-Za-z0-9._/-]+$/;",
+    "replace": "const PLAIN_WORD = /[A-Za-z0-9._/-]+/;",
     "test": "pnpm vitest run addons/agent-workflow/tests/outward.test.mts --testNamePattern=\"is found: a source and a target\""
   },
   {
     "name": "braces in the branch are asked about",
     "file": "addons/agent-workflow/files/tools/agent-workflow/lib/outward.mts",
-    "find": "const PLAIN_WORD = /^[A-Za-z0-9._/=,-]+$/;",
-    "replace": "const PLAIN_WORD = /^[A-Za-z0-9._/=,{}-]+$/;",
+    "find": "const PLAIN_WORD = /^[A-Za-z0-9._/-]+$/;",
+    "replace": "const PLAIN_WORD = /^[A-Za-z0-9._/{}-]+$/;",
     "test": "pnpm vitest run addons/agent-workflow/tests/outward.test.mts --testNamePattern=\"is found: braces the shell writes out\""
-  },
-  {
-    "name": "a blank inside a word is asked about",
-    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/outward.mts",
-    "find": "const PLAIN_WORD = /^[A-Za-z0-9._/=,-]+$/;",
-    "replace": "const PLAIN_WORD = /^[A-Za-z0-9._/=, -]+$/;",
-    "test": "pnpm vitest run addons/agent-workflow/tests/outward.test.mts --testNamePattern=\"is found: a word that held a blank\""
-  },
-  {
-    "name": "an option with a value is a plain word",
-    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/outward.mts",
-    "find": "const PLAIN_WORD = /^[A-Za-z0-9._/=,-]+$/;",
-    "replace": "const PLAIN_WORD = /^[A-Za-z0-9._/,-]+$/;",
-    "test": "pnpm vitest run addons/agent-workflow/tests/outward.test.mts --testNamePattern=\"is not: a push with its upstream set\""
   },
   {
     "name": "a push handed to xargs is an outward step",
     "file": "addons/agent-workflow/files/tools/agent-workflow/lib/outward.mts",
-    "find": "\"nohup\", \"env\", \"xargs\"];",
-    "replace": "\"nohup\", \"env\"];",
+    "find": "\"nohup\", \"env\", \"xargs\", \"timeout\",",
+    "replace": "\"nohup\", \"env\", \"timeout\",",
     "test": "pnpm vitest run addons/agent-workflow/tests/outward.test.mts --testNamePattern=\"is an outward step behind xargs as well\""
+  },
+  {
+    "name": "a path to gh is looked past as one to git is",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/outward.mts",
+    "find": "const program = (words[0] ?? \"\").split(\"/\").pop();",
+    "replace": "const program = (words[0] ?? \"\").split(\"\\0\").pop();",
+    "test": "pnpm vitest run addons/agent-workflow/tests/outward.test.mts --testNamePattern=\"looks past a variable set for the command\""
+  },
+  {
+    "name": "a push behind timeout is read",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/outward.mts",
+    "find": "[\"time\", \"command\", \"exec\", \"nohup\", \"env\", \"xargs\", \"timeout\", \"nice\", \"stdbuf\", \"builtin\", \"noglob\"]",
+    "replace": "[\"time\", \"command\", \"exec\", \"nohup\", \"env\", \"xargs\", \"nice\", \"stdbuf\", \"builtin\", \"noglob\"]",
+    "test": "pnpm vitest run addons/agent-workflow/tests/outward.test.mts --testNamePattern=\"finds the push behind a program that runs it: timeout 30\""
+  },
+  {
+    "name": "a push behind nice is read",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/outward.mts",
+    "find": "[\"time\", \"command\", \"exec\", \"nohup\", \"env\", \"xargs\", \"timeout\", \"nice\", \"stdbuf\", \"builtin\", \"noglob\"]",
+    "replace": "[\"time\", \"command\", \"exec\", \"nohup\", \"env\", \"xargs\", \"timeout\", \"stdbuf\", \"builtin\", \"noglob\"]",
+    "test": "pnpm vitest run addons/agent-workflow/tests/outward.test.mts --testNamePattern=\"finds the push behind a program that runs it: nice git\""
+  },
+  {
+    "name": "a push behind stdbuf is read",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/outward.mts",
+    "find": "[\"time\", \"command\", \"exec\", \"nohup\", \"env\", \"xargs\", \"timeout\", \"nice\", \"stdbuf\", \"builtin\", \"noglob\"]",
+    "replace": "[\"time\", \"command\", \"exec\", \"nohup\", \"env\", \"xargs\", \"timeout\", \"nice\", \"builtin\", \"noglob\"]",
+    "test": "pnpm vitest run addons/agent-workflow/tests/outward.test.mts --testNamePattern=\"finds the push behind a program that runs it: stdbuf\""
+  },
+  {
+    "name": "a push behind builtin is read",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/outward.mts",
+    "find": "[\"time\", \"command\", \"exec\", \"nohup\", \"env\", \"xargs\", \"timeout\", \"nice\", \"stdbuf\", \"builtin\", \"noglob\"]",
+    "replace": "[\"time\", \"command\", \"exec\", \"nohup\", \"env\", \"xargs\", \"timeout\", \"nice\", \"stdbuf\", \"noglob\"]",
+    "test": "pnpm vitest run addons/agent-workflow/tests/outward.test.mts --testNamePattern=\"finds the push behind a program that runs it: builtin\""
+  },
+  {
+    "name": "a push behind noglob is read",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/outward.mts",
+    "find": "[\"time\", \"command\", \"exec\", \"nohup\", \"env\", \"xargs\", \"timeout\", \"nice\", \"stdbuf\", \"builtin\", \"noglob\"]",
+    "replace": "[\"time\", \"command\", \"exec\", \"nohup\", \"env\", \"xargs\", \"timeout\", \"nice\", \"stdbuf\", \"builtin\"]",
+    "test": "pnpm vitest run addons/agent-workflow/tests/outward.test.mts --testNamePattern=\"finds the push behind a program that runs it: noglob\""
+  },
+  {
+    "name": "a number such a program takes is looked past",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/outward.mts",
+    "find": "(word.startsWith(\"-\") || LEADING_VALUE.test(word))",
+    "replace": "word.startsWith(\"-\")",
+    "test": "pnpm vitest run addons/agent-workflow/tests/outward.test.mts --testNamePattern=\"finds the push behind a program that runs it: timeout 30\""
+  },
+  {
+    "name": "an option such a program takes is looked past",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/outward.mts",
+    "find": "(word.startsWith(\"-\") || LEADING_VALUE.test(word))",
+    "replace": "LEADING_VALUE.test(word)",
+    "test": "pnpm vitest run addons/agent-workflow/tests/outward.test.mts --testNamePattern=\"finds the push behind a program that runs it: stdbuf\""
+  },
+  {
+    "name": "a time with its unit is looked past",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/outward.mts",
+    "find": "[smhd]?$/;",
+    "replace": "$/;",
+    "test": "pnpm vitest run addons/agent-workflow/tests/outward.test.mts --testNamePattern=\"finds the push behind a program that runs it: timeout -k\""
+  },
+  {
+    "name": "an option is looked past only behind a program that runs a command",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/outward.mts",
+    "find": "(led && (word.startsWith",
+    "replace": "((word.startsWith",
+    "test": "pnpm vitest run addons/agent-workflow/tests/outward.test.mts --testNamePattern=\"takes no option or number for the command\""
+  },
+  {
+    "name": "a push behind a pipe from another command is a chain",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/outward.mts",
+    "find": "        chained ||= behind;\n",
+    "replace": "",
+    "test": "pnpm vitest run addons/agent-workflow/tests/outward.test.mts --testNamePattern=\"is a chain behind a pipe from another command\""
+  },
+  {
+    "name": "an outward step inside a substitution of another command is a chain",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/outward.mts",
+    "find": "chained ||= inner.chained || (inner.outward.length > 0 && steps > 0);",
+    "replace": "chained ||= inner.chained;",
+    "test": "pnpm vitest run addons/agent-workflow/tests/outward.test.mts --testNamePattern=\"counts an outward step inside a substitution\""
+  },
+  {
+    "name": "a substitution that only fills a variable is one step",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/outward.mts",
+    "find": "(inner.outward.length > 0 && steps > 0)",
+    "replace": "(inner.outward.length > 0)",
+    "test": "pnpm vitest run addons/agent-workflow/tests/outward.test.mts --testNamePattern=\"counts an outward step inside a substitution\""
+  },
+  {
+    "name": "a quote in a push is asked about",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/outward.mts",
+    "find": "redirected: redirected || (pushed && QUOTING.test(command))",
+    "replace": "redirected",
+    "test": "pnpm vitest run addons/agent-workflow/tests/outward.test.mts --testNamePattern=\"is found: a branch in double quotes\""
+  },
+  {
+    "name": "a quote where nothing is pushed is not",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/outward.mts",
+    "find": "redirected || (pushed && QUOTING.test(command))",
+    "replace": "redirected || QUOTING.test(command)",
+    "test": "pnpm vitest run addons/agent-workflow/tests/outward.test.mts --testNamePattern=\"is not: a colon in a commit message\""
+  },
+  {
+    "name": "a double quote counts",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/outward.mts",
+    "find": "const QUOTING = /['\"\\\\]/;",
+    "replace": "const QUOTING = /['\\\\]/;",
+    "test": "pnpm vitest run addons/agent-workflow/tests/outward.test.mts --testNamePattern=\"is found: a branch in double quotes\""
+  },
+  {
+    "name": "a single quote counts",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/outward.mts",
+    "find": "const QUOTING = /['\"\\\\]/;",
+    "replace": "const QUOTING = /[\"\\\\]/;",
+    "test": "pnpm vitest run addons/agent-workflow/tests/outward.test.mts --testNamePattern=\"is found: a quote around the branch\""
+  },
+  {
+    "name": "a backslash counts",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/outward.mts",
+    "find": "const QUOTING = /['\"\\\\]/;",
+    "replace": "const QUOTING = /['\"]/;",
+    "test": "pnpm vitest run addons/agent-workflow/tests/outward.test.mts --testNamePattern=\"is found: a backslash the shell takes out\""
+  },
+  {
+    "name": "a push a shell is asked to run counts as a push",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/outward.mts",
+    "find": "        pushed ||= inner.pushed;\n",
+    "replace": "",
+    "test": "pnpm vitest run addons/agent-workflow/tests/outward.test.mts --testNamePattern=\"reads what a shell is asked to run\""
+  },
+  {
+    "name": "a push inside a substitution counts as a push",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/outward.mts",
+    "find": "\n    pushed ||= inner.pushed;",
+    "replace": "",
+    "test": "pnpm vitest run addons/agent-workflow/tests/outward.test.mts --testNamePattern=\"counts an outward step inside a substitution\""
+  },
+  {
+    "name": "a push behind xargs is asked about",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/outward.mts",
+    "find": "word === \"xargs\" || word.includes(\"=\")",
+    "replace": "word.includes(\"=\")",
+    "test": "pnpm vitest run addons/agent-workflow/tests/outward.test.mts --testNamePattern=\"is found: a plain one handed to xargs\""
+  },
+  {
+    "name": "a setting of git in front of push is asked about",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/outward.mts",
+    "find": "    !isPlainFolderOnly(before) ||\n",
+    "replace": "",
+    "test": "pnpm vitest run addons/agent-workflow/tests/outward.test.mts --testNamePattern=\"is found: a setting of git in front of push\""
+  },
+  {
+    "name": "an option of push that is not plain is asked about",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/outward.mts",
+    "find": "(word.startsWith(\"-\") ? !PLAIN_PUSH_OPTIONS.includes(word) : !PLAIN_WORD.test(word))",
+    "replace": "!PLAIN_WORD.test(word)",
+    "test": "pnpm vitest run addons/agent-workflow/tests/outward.test.mts --testNamePattern=\"is found: two options joined\""
+  },
+  {
+    "name": "the plain options of push are a list, and force joined to one is not on it",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/outward.mts",
+    "find": "const PLAIN_PUSH_OPTIONS = [\"-u\", ",
+    "replace": "const PLAIN_PUSH_OPTIONS = [\"-u\", \"-uf\", ",
+    "test": "pnpm vitest run addons/agent-workflow/tests/outward.test.mts --testNamePattern=\"is found: two options joined\""
+  },
+  {
+    "name": "setting the upstream is a plain option",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/outward.mts",
+    "find": "const PLAIN_PUSH_OPTIONS = [\"-u\", ",
+    "replace": "const PLAIN_PUSH_OPTIONS = [",
+    "test": "pnpm vitest run addons/agent-workflow/tests/outward.test.mts --testNamePattern=\"is not: a push with no pager\""
+  },
+  {
+    "name": "a trial push is a plain option",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/outward.mts",
+    "find": "\"-n\", \"--dry-run\", \"--atomic\"];",
+    "replace": "\"-n\", \"--atomic\"];",
+    "test": "pnpm vitest run addons/agent-workflow/tests/outward.test.mts --testNamePattern=\"is not: a trial push\""
+  },
+  {
+    "name": "a folder for git must be a plain word",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/outward.mts",
+    "find": "option === \"-C\" && PLAIN_WORD.test(options[index + 1] ?? \"\")",
+    "replace": "option === \"-C\"",
+    "test": "pnpm vitest run addons/agent-workflow/tests/outward.test.mts --testNamePattern=\"is found: a folder that is not a plain word\""
+  },
+  {
+    "name": "the folder after -C is not read as an option",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/outward.mts",
+    "find": "      index += 1;\n    } else if (!PLAIN_GIT_OPTIONS",
+    "replace": "    } else if (!PLAIN_GIT_OPTIONS",
+    "test": "pnpm vitest run addons/agent-workflow/tests/outward.test.mts --testNamePattern=\"is not: a push with no pager\""
+  },
+  {
+    "name": "no pager is a plain option of git",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/outward.mts",
+    "find": "const PLAIN_GIT_OPTIONS = [\"--no-pager\", \"-P\"];",
+    "replace": "const PLAIN_GIT_OPTIONS = [\"--no-pager\"];",
+    "test": "pnpm vitest run addons/agent-workflow/tests/outward.test.mts --testNamePattern=\"is not: a push with no pager\""
+  },
+  {
+    "name": "the check asks for the hook before the Monitor tool",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/check.mts",
+    "find": "groupRuns(group, command, WATCH_TOOL, hostOf(path))",
+    "replace": "groupRuns(group, command, SHELL_TOOL, hostOf(path))",
+    "test": "pnpm vitest run addons/agent-workflow/tests/check.test.mts --testNamePattern=\"fails when Claude Code runs the hook before a Bash command and not\""
+  },
+  {
+    "name": "the check asks it of Claude Code only",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/check.mts",
+    "find": "path === CLAUDE_SETTINGS && !known.some(",
+    "replace": "!known.some(",
+    "test": "pnpm vitest run addons/agent-workflow/tests/check.test.mts --testNamePattern=\"asks nothing of the kind of Codex\""
+  },
+  {
+    "name": "the manifest registers the hook for the Monitor tool",
+    "file": "addons/agent-workflow/addon.json",
+    "find": "\"matcher\": \"Monitor\"",
+    "replace": "\"matcher\": \"Monitors\"",
+    "test": "pnpm vitest run addons/agent-workflow/tests/addon.test.mts --testNamePattern=\"asks each host for the same entries\""
+  },
+  {
+    "name": "are the three the check knows about",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/host.mts",
+    "find": "  changelog: undefined,\n",
+    "replace": "",
+    "test": "pnpm vitest run addons/agent-workflow/tests/addon.test.mts --testNamePattern=\"are the six the check knows about\""
   },
   {
     "name": "commands: status needs no other add-on",
@@ -3787,5 +3976,61 @@
     "find": "--testNamePattern=\\\"no command may run git push unasked\\\"",
     "replace": "--testNamePattern=\\\"no command may run `true` unasked\\\"",
     "test": "pnpm vitest run addons/agent-workflow/tests/addon.test.mts --testNamePattern=\"have no test command that a shell would read\""
+  },
+  {
+    "name": "an option of such a program that takes a word is looked past with its word",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/outward.mts",
+    "find": "    } else if (led && LEADING_OPTIONS_WITH_VALUE.includes(word)) {\n      start += 1;\n",
+    "replace": "    } else if (led && LEADING_OPTIONS_WITH_VALUE.includes(word)) {\n",
+    "test": "pnpm vitest run addons/agent-workflow/tests/outward.test.mts --testNamePattern=\"finds the push behind a program that runs it: timeout -s KILL\""
+  },
+  {
+    "name": "a signal for timeout by its long name is looked past",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/outward.mts",
+    "find": "[\"-s\", \"--signal\", \"-k\",",
+    "replace": "[\"-s\", \"-k\",",
+    "test": "pnpm vitest run addons/agent-workflow/tests/outward.test.mts --testNamePattern=\"finds the push behind a program that runs it: timeout --signal\""
+  },
+  {
+    "name": "a name env is told to unset is looked past",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/outward.mts",
+    "find": "\"--kill-after\", \"-n\", \"-u\"];",
+    "replace": "\"--kill-after\", \"-n\"];",
+    "test": "pnpm vitest run addons/agent-workflow/tests/outward.test.mts --testNamePattern=\"finds the push behind a program that runs it: env -u\""
+  },
+  {
+    "name": "such an option takes a word only behind a program that runs a command",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/outward.mts",
+    "find": "} else if (led && LEADING_OPTIONS_WITH_VALUE.includes(word)) {",
+    "replace": "} else if (LEADING_OPTIONS_WITH_VALUE.includes(word)) {",
+    "test": "pnpm vitest run addons/agent-workflow/tests/outward.test.mts --testNamePattern=\"takes no option or number for the command\""
+  },
+  {
+    "name": "two substitutions side by side, one outward, are a chain",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/outward.mts",
+    "find": "  chained ||= within && beside > 1;\n",
+    "replace": "",
+    "test": "pnpm vitest run addons/agent-workflow/tests/outward.test.mts --testNamePattern=\"refuses an outward step that fills a variable beside another\""
+  },
+  {
+    "name": "a substitution that runs nothing is no neighbour",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/outward.mts",
+    "find": "    beside += inner.runs ? 1 : 0;",
+    "replace": "    beside += 1;",
+    "test": "pnpm vitest run addons/agent-workflow/tests/outward.test.mts --testNamePattern=\"refuses an outward step that fills a variable beside another\""
+  },
+  {
+    "name": "two substitutions that feed a pull request are no chain",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/outward.mts",
+    "find": "  chained ||= within && beside > 1;",
+    "replace": "  chained ||= beside > 1;",
+    "test": "pnpm vitest run addons/agent-workflow/tests/outward.test.mts --testNamePattern=\"refuses an outward step that fills a variable beside another\""
+  },
+  {
+    "name": "a substitution runs something when one inside it does",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/outward.mts",
+    "find": "runs: steps > 0 || beside > 0 };",
+    "replace": "runs: steps > 0 };",
+    "test": "pnpm vitest run addons/agent-workflow/tests/outward.test.mts --testNamePattern=\"refuses an outward step that fills a variable beside another\""
   }
 ]

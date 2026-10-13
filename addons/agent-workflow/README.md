@@ -19,8 +19,8 @@ Leave it out of a project where one of the three is not so.
 
 | Part | Where | What it does |
 |---|---|---|
-| The hook | `tools/agent-workflow/hooks/split-outward-commands.mts` | Before each shell command: refuses one that joins an outward step to anything else. It says nothing about any other command |
-| Its registration | `.claude/settings.json`, `.codex/hooks.json` | Merged in under `hooks.PreToolUse`, matcher `Bash`, beside the kit's hooks |
+| The hook | `tools/agent-workflow/hooks/split-outward-commands.mts` | Before each shell command: refuses one that joins an outward step to anything else, and of Claude Code asks about a push that is not written plainly. It says nothing about any other command |
+| Its registration | `.claude/settings.json`, `.codex/hooks.json` | Merged in under `hooks.PreToolUse`, matcher `Bash`, beside the kit's hooks. For Claude Code a second group, matcher `Monitor`: that tool runs a shell command too |
 | Permission rules | `.claude/settings.json` | Merged in: twelve `ask` rules for a forced or destructive push and an `--admin` merge, and one for an edit of the hook. No `allow` rule |
 | `pnpm worktree <name> [--ready]` | `tools/agent-workflow/new-worktree.mts` | A worktree beside the project on `worktree-<name>`, cut from `origin`'s main by name |
 | `pnpm changelog weeks\|prs\|check` | `tools/agent-workflow/changelog.mts` | The weeks with no entry, a week's merged pull requests, and the proof that each is cited |
@@ -126,30 +126,55 @@ An outward step sends something off the machine or changes shared state.
 
 A command is refused when it holds an outward step and anything else beside
 it: joined by `&&`, `;`, `||`, `&` or a new line, in a subshell or a `{ }`
-group, in an `if` or a loop, inside `$(…)` or backticks with other steps, or
-as the text given to `bash -c` or `eval`. Two outward steps in one command
-are refused however they are joined.
+group, in an `if` or a loop, inside `$(…)` or backticks of another command
+(`git commit -m "$(git push)"`) or beside another `$(…)` that runs
+something (`A=$(git add -A) B=$(git push)`), behind a pipe from another command
+(`git commit -qam wip | git push`), or as the text given to `bash -c` or
+`eval`. Two outward steps in one command are refused however they are
+joined.
+
+A step is read behind a program that only runs it: `time`, `command`,
+`exec`, `nohup`, `env`, `timeout`, `nice`, `stdbuf`, `builtin`, `noglob` and
+`xargs`, each with its own options (`nice -n 5`, `timeout -s KILL 30s`). Claude Code
+looks past the same words when it matches a permission rule to a command, so
+`nice git push` runs under an `allow` rule for `git push`.
 
 It is let through when the outward step is alone: with a pipe into a filter
 (`git push 2>&1 | tail -2`), with redirections, with a `$(cat <<'EOF' … EOF)`
 that only feeds it, or with variables set in front. Let through means only
 that it is not refused: the host asks about it as it always does.
 
-**A push with a colon is asked about.** `git push origin worktree-a:main`
-names a work branch and writes to main, and `git push origin :worktree-a`
-deletes a branch. For a `git push` that stands alone and holds a colon, the
-hook answers `ask`, and Claude Code then puts the question to a person
-whatever `allow` rule matches the command. Three things follow from reading
-words and not what they become:
+**A push that is not written plainly is asked about.** `git push origin
+worktree-a:main` names a work branch and writes to main, `git push origin
+:worktree-a` deletes a branch, and `git push origin worktree-a -"f"` forces
+one past every rule that looks for `-f`. For a `git push` that stands alone,
+the hook answers `ask` unless it is plain, and Claude Code then puts the
+question to a person whatever `allow` rule matches the command. Plain is:
 
-- A remote written as a URL holds a colon, and is asked about as well.
-- What is set in front of `git` is read too: git takes
-  `GIT_CONFIG_VALUE_0=a:b git push` as a setting that says where a push goes.
-- A word the shell turns into another is asked about, since it may come to
-  hold a colon: `"$BRANCH"`, `$(…)`, a backtick, an escape left as written
-  (`$'a\x3ab'`), braces, a pattern for file names (`*`, `?`, `[`). The hook
-  does not list these. It lists what is plain (letters, digits and
-  `. _ - / = ,`) and asks about a push with any word that is not.
+- `git`, with no option of its own before `push` but `-C <folder>`,
+  `--no-pager` or `-P`;
+- options of `push` from one list: `-u`, `--set-upstream`, `-v`,
+  `--verbose`, `-q`, `--quiet`, `--progress`, `--porcelain`, `-n`,
+  `--dry-run`, `--atomic`;
+- every other word made of letters, digits and `. _ - /`;
+- no quote and no backslash anywhere in the command;
+- nothing set in front of `git`, and no `xargs`.
+
+What that asks about, and why a list of plain forms and not of dangerous
+ones:
+
+- A colon: `source:target`, `:target`, and also a remote written as a URL.
+- An option not on the list. Git reads one cut short (`--de` for
+  `--delete`, `--mir`) and several joined (`-uf`), and no permission rule can
+  say either. An option of `git` itself, as in `-c remote.origin.push=a:b`.
+- A quote or a backslash. The shell takes it out, so `-"f"` and `--forc''e`
+  are `-f` and `--force` to git, and not to a rule, which reads the text as
+  written.
+- A word the shell turns into another: `"$BRANCH"`, `$(…)`, a backtick,
+  braces, a pattern for file names (`*`, `?`, `[`).
+- A value set in front of `git`: git takes `GIT_CONFIG_VALUE_0=a:b` there as
+  a setting that says where a push goes.
+- `xargs`, which adds words from what it is fed.
 
 Not seen: a setting made by an earlier command (`git config
 remote.origin.push a:b`, then a plain `git push`), and a variable the session
@@ -158,35 +183,6 @@ before). And the question is about how a push is written, not about where it
 goes: `git push origin main`, a second branch after the first, another
 remote and `HEAD` are plain words, and an `allow` rule of the project's own
 decides them, with branch protection behind it. [Why this is the hook's and not a rule's](#the-ask-rules).
-
-Text is not a step. A commit message, an `echo`, a `grep` pattern, a heredoc
-body or a comment may say `git push && gh pr create` and nothing is refused.
-The hook reads the command with a small scanner of its own
-(`lib/shell.mts`): quotes, heredocs (`<<`, `<<-`, quoted delimiters),
-redirections, pipes, separators, grouping, substitutions.
-
-**A command it cannot read is not refused.** A quote that never closes, a
-heredoc that never ends: the hook has no verdict, and the host's permission
-rules judge it. That was the source's choice too. The hook orders the work;
-it is not what stops a push. When such a command names an outward step
-(`push`, `gh`), Claude Code is given `ask` for it, so that a rule which
-allows the command does not let it run unread.
-
-**A command it will not read is refused when it names an outward step.** The
-scanner calls itself for each `$(…)`, and `eval eval eval …` is read level by
-level. A command nested twenty thousand deep once ended the hook with a stack
-overflow: exit 1, nothing printed, and the chain went through unrefused. Now
-nesting stops at forty levels and a command at a million characters. Past
-either, a command that holds the word `push` or `gh` is refused with the
-reason, and any other is left to the host. The same answer is given if the
-scanner fails in a way nobody foresaw. The hook never exits without the
-answer it meant: a payload that is not JSON gets no answer and exit 0.
-
-Its reply is `hookSpecificOutput.permissionDecision: "deny"` with the reason,
-on stdout, exit 0. Both hosts read it. For anything else it prints nothing.
-Those are its only two outputs: the type of its answer has no other decision.
-It reads standard input and nothing else, and it ignores any argument it is
-started with.
 
 **The refusal is not a lock.** Each host gives the hook five seconds. When a
 `PreToolUse` hook runs out of time, or ends with an error that is not a
@@ -201,9 +197,11 @@ prompt and the remote's branch protection.
 
 - Aliases and functions: `gp` for `git push`, a shell function that pushes.
 - A script that pushes (`./release.sh`, `pnpm release`).
-- `find -exec`, `ssh host 'git push'`, `sudo`. (`xargs git push` is read:
-  Claude Code matches an `allow` rule for a command to `xargs` and that
-  command as well.)
+- `find -exec`, `ssh host 'git push'`, `sudo`, and any other program that
+  runs a command and is not in the list above.
+- A tool of the host that runs a shell command and is neither `Bash` nor
+  Claude Code's `Monitor`. The hook is registered by tool name, and sees no
+  other.
 - Other programs that write to a remote: `glab`, `hub`, `curl` to an API,
   `npm publish`.
 - `gh api graphql -f query=…` counts as a write even when the query reads,
@@ -271,6 +269,9 @@ session of either host.
 
 ### Updating a project that had it
 
+- A project that got the add-on before 2026-10-13 runs the hook before
+  `Bash` alone. The update adds the group for `Monitor` beside it, and until
+  then `pnpm agent-workflow:check` fails and says so.
 - `tools/agent-workflow.config.json`, or the older `.mts`, is no longer
   read. The update and the check say so until the file is deleted.
 - `.claude/settings.json` may start the hook with `--host=claude-code` and a
@@ -456,9 +457,9 @@ the agent to run. That also lets Codex use the same file.
 
 | | Claude Code | Codex |
 |---|---|---|
-| The hook | `PreToolUse`, matcher `Bash`, in `.claude/settings.json` | `PreToolUse`, matcher `Bash`, in `.codex/hooks.json` |
+| The hook | `PreToolUse`, two groups, matchers `Bash` and `Monitor`, in `.claude/settings.json` | `PreToolUse`, matcher `Bash`, in `.codex/hooks.json` |
 | The refusal | `permissionDecision: "deny"` | The same shape |
-| The question about a push with a colon | `permissionDecision: "ask"` | Not given. Codex calls that answer unsupported, so the hook says nothing to a payload that holds a `turn_id`, which Codex sends with every call |
+| The question about a push not written plainly | `permissionDecision: "ask"` | Not given. Codex calls that answer unsupported, so the hook says nothing to a payload that holds a `turn_id`, which Codex sends with every call |
 | Permission rules | `permissions.ask` in the project | None in the project. Codex's approval mode and sandbox decide |
 | Commands | `/workflow:changelog` and the two others | No project slash commands. The skills `$workflow-changelog` and the two others point at the same files |
 | `$ARGUMENTS` | Filled in | Not filled in; each command says to take the arguments from the request |
@@ -518,6 +519,53 @@ Three tests judge a table and not code, and were turned red by hand: no
 `.sh` file is shipped; no near-miss is given twice; the sweep is over five
 thousand commands.
 
+### In a live session of Claude Code
+
+Run on 2026-10-13 with Claude Code 2.1.296, headless (`claude -p`, where a
+question nobody can answer is a refusal), in a scratch repository with a
+folder as `origin`. Only the project's settings were in force
+(`--setting-sources project`), and `Bash(git push *)` was allowed on the
+command line: a headless session drops a project's own `allow` rules until
+the folder is trusted.
+
+| The project's settings | Command | What happened |
+|---|---|---|
+| The hook | `git push origin main:other` | Not run. The hook's reason reached the session |
+| The hook | `git push origin main` | Ran |
+| No hook | `git push origin main:other` | Ran, and made `other` on the remote |
+| The hook | `git status --short && git push origin main` | Refused by the hook. The session ran the two as calls of their own |
+| No hook, the ask rule `Bash(git push *--force*)` | `git push --force origin main` | Not run |
+| The same | `git push origin main` | Ran |
+| The hook, for `Bash` alone | The Monitor tool given `git push origin main:viamonitor1` | Ran, and made the branch on the remote |
+| The hook, for `Bash` and `Monitor` | The Monitor tool given `git push origin main:viamonitor2` | Not run. The hook's reason reached the session |
+
+So in that version a hook's `ask` and an `ask` rule each win over an `allow`
+rule, the hook's refusal is read, and an `allow` rule for `Bash` lets the
+Monitor tool run the same command. Not seen: the prompt a person gets in an
+interactive session, any other version, and Codex.
+
+### A review against the host's own matching
+
+On 2026-10-13 a reviewer was given the hook, the reader and the binary of
+Claude Code 2.1.296, and asked for commands that an `allow` rule for a push
+lets run, that no `ask` rule matches, and that the hook neither refuses nor
+asks about. It ran the host's own matching functions, cut out of the binary,
+against each candidate. Five kinds were found, and each is a test now:
+
+| Found | Example | Now |
+|---|---|---|
+| A program the host looks past and the hook did not | `nice git push origin a:b`; a chain ending in `timeout 30 git push` | Read as the push it runs |
+| `xargs` fed by a pipe | `echo :main \| xargs git push origin worktree-a` | Refused as a chain; asked about without the pipe |
+| An option hidden by a quote | `git push origin worktree-a -"f"` | Asked about |
+| An option cut short or joined | `-uf`, `--de`, `--mir` | Asked about |
+| The Monitor tool | A push given to it, with the hook registered for `Bash` | The hook is registered for `Monitor` too |
+
+Two more, of the refusal and not of the question: an outward step inside
+`$(…)` of another command or behind a pipe from one was not a chain, and
+hundreds of thousands of words in front of a command took the hook past its
+five seconds. Both are fixed and tested. The review also lists what it tried
+and found closed; it is not a proof that nothing is left.
+
 ## Not verified
 
 - **The shipping rules, more than once.** They were read cold by one session
@@ -533,27 +581,26 @@ thousand commands.
   merge. One session on one change is not the next one. Not watched: two
   sessions merging at the same time, a red check, a conflict, and a failure
   on main after the merge.
-- **The hook in a live session of either host.** It was run by hand with
-  both hosts' payloads. Codex's side rests on its documentation and on the
-  schemas in the 0.160.0 binary (`PreToolUse`, tool name `Bash`,
-  `tool_input.command` as text, `permissionDecision: "deny"`).
+- **The hook in a live session of Codex.** It was run by hand with Codex's
+  payload. That side rests on its documentation and on the schemas in the
+  0.160.0 binary (`PreToolUse`, tool name `Bash`, `tool_input.command` as
+  text, `permissionDecision: "deny"`). Under Claude Code it ran in a headless
+  session ([above](#in-a-live-session-of-claude-code)); the prompt of an
+  interactive one was not watched.
 - **Codex finding the skills** in `.agents/skills`. That is the documented
   place for a repository's skills; no session was run.
 - **What a host does with a hook that times out or crashes.** That the call
   then goes ahead is from each host's documentation; no session was run to
   see it. The same holds for the `Edit(/path)` rule form.
-- **The ask rules in Claude Code itself.** That an `ask` rule wins over an
-  `allow` rule is from its documentation; no session was run to see it. The
-  rules are matched in tests with a model of the pattern syntax: the
+- **Each ask rule in Claude Code itself.** One was run against an `allow`
+  rule ([above](#in-a-live-session-of-claude-code)), and it won. The other
+  eleven are matched in tests with a model of the pattern syntax: the
   documented one, and for a rule that ends in `:*` the code of version
   2.1.296, read on 2026-10-13.
-- **The hook's question in a live session.** That Claude Code asks a person
-  when a hook answers `ask`, also where an `allow` rule matches, was read in
-  the code of version 2.1.296 on 2026-10-13; no push with a colon was run
-  under an `allow` rule to see it. That Codex sends `turn_id` with every call
-  and calls `ask` unsupported is from the schema and the messages in its
-  0.162.1 binary. If Claude Code comes to send a `turn_id`, the hook goes
-  silent there and no test here sees it.
+- **How the hook tells the hosts apart, over time.** That Codex sends
+  `turn_id` with every call and calls `ask` unsupported is from the schema
+  and the messages in its 0.162.1 binary. If Claude Code comes to send a
+  `turn_id`, the hook goes silent there and no test here sees it.
 - **How each host reads a matcher and a hook entry.** From their
   documentation, read on 2026-10-06; no session was run. Codex's does not say
   whether a pattern must match the whole tool name, which is why only a list
