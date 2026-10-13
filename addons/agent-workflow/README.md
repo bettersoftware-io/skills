@@ -147,12 +147,17 @@ words and not what they become:
   `GIT_CONFIG_VALUE_0=a:b git push` as a setting that says where a push goes.
 - A word the shell turns into another is asked about, since it may come to
   hold a colon: `"$BRANCH"`, `$(…)`, a backtick, an escape left as written
-  (`$'a\x3ab'`), a pattern for file names (`*`, `?`, `[`).
+  (`$'a\x3ab'`), braces, a pattern for file names (`*`, `?`, `[`). The hook
+  does not list these. It lists what is plain (letters, digits and
+  `. _ - / = ,`) and asks about a push with any word that is not.
 
 Not seen: a setting made by an earlier command (`git config
 remote.origin.push a:b`, then a plain `git push`), and a variable the session
 already holds that git reads by itself (`GIT_CONFIG_VALUE_0` exported
-before). [Why this is the hook's and not a rule's](#the-ask-rules).
+before). And the question is about how a push is written, not about where it
+goes: `git push origin main`, a second branch after the first, another
+remote and `HEAD` are plain words, and an `allow` rule of the project's own
+decides them, with branch protection behind it. [Why this is the hook's and not a rule's](#the-ask-rules).
 
 Text is not a step. A commit message, an `echo`, a `grep` pattern, a heredoc
 body or a comment may say `git push && gh pr create` and nothing is refused.
@@ -196,7 +201,9 @@ prompt and the remote's branch protection.
 
 - Aliases and functions: `gp` for `git push`, a shell function that pushes.
 - A script that pushes (`./release.sh`, `pnpm release`).
-- `xargs`, `find -exec`, `ssh host 'git push'`, `sudo`.
+- `find -exec`, `ssh host 'git push'`, `sudo`. (`xargs git push` is read:
+  Claude Code matches an `allow` rule for a command to `xargs` and that
+  command as well.)
 - Other programs that write to a remote: `glab`, `hub`, `curl` to an API,
   `npm publish`.
 - `gh api graphql -f query=…` counts as a write even when the query reads,

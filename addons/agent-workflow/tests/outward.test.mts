@@ -219,6 +219,9 @@ describe("a push that holds a colon", () => {
     ["a pattern for file names: a star", "git push origin worktree-*"],
     ["a pattern for file names: a question mark", "git push origin worktree-?"],
     ["a pattern for file names: a set", "git push origin worktree-[ab]"],
+    ["braces the shell writes out", "git push origin worktree-{a,b}"],
+    ["a word that held a blank inside quotes", 'git push origin "worktree a"'],
+    ["one handed to xargs, which the host matches to a rule for a push", "xargs git push origin worktree-a:main"],
   ])("is found: %s", (_name, command) => {
     expect(judgeCommand(command)).toMatchObject({ chained: false, redirected: true });
   });
@@ -226,6 +229,8 @@ describe("a push that holds a colon", () => {
   it.each([
     ["a push of a branch by its name", "git push -u origin worktree-a"],
     ["a push behind git's own options", "git -C ../app push origin main"],
+    ["a push with its upstream set and one option with a value", "git push --set-upstream --push-option=ci.skip origin worktree-a.b_c-1"],
+    ["a plain push handed to xargs", "xargs git push origin worktree-a"],
     ["a colon in the step that feeds the push", "echo a:b | git push origin main"],
     ["a colon in a commit message", 'git commit -m "fix: the list"'],
     ["a fetch with a source and a target", "git fetch origin main:main"],
@@ -233,6 +238,11 @@ describe("a push that holds a colon", () => {
     ["a pull request with a colon in its title", 'gh pr create --title "fix: the list" --body b'],
   ])("is not: %s", (_name, command) => {
     expect(judgeCommand(command)?.redirected).toBe(false);
+  });
+
+  it("is an outward step behind xargs as well, and a chain when another step feeds it", () => {
+    expect(judgeCommand("xargs git push origin worktree-a")).toEqual({ outward: ["git push origin"], chained: false, redirected: false });
+    expect(judgeCommand("git add -A && xargs git push origin worktree-a")?.chained).toBe(true);
   });
 
   it("is still a chain when it is joined to another command", () => {

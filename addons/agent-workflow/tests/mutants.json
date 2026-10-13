@@ -933,8 +933,8 @@
   {
     "name": "asks about a push that holds a colon",
     "file": "addons/agent-workflow/files/tools/agent-workflow/lib/outward.mts",
-    "find": "const MAY_NAME_A_TARGET = /[:$`",
-    "replace": "const MAY_NAME_A_TARGET = /[$`",
+    "find": "const PLAIN_WORD = /^[A-Za-z0-9._/=,-]+$/;",
+    "replace": "const PLAIN_WORD = /^[A-Za-z0-9._/=,:-]+$/;",
     "test": "pnpm vitest run addons/agent-workflow/tests/outward.test.mts --testNamePattern=\"is found: a source and a target\""
   },
   {
@@ -3504,43 +3504,36 @@
   {
     "name": "a variable where the branch goes is asked about",
     "file": "addons/agent-workflow/files/tools/agent-workflow/lib/outward.mts",
-    "find": "const MAY_NAME_A_TARGET = /[:$`",
-    "replace": "const MAY_NAME_A_TARGET = /[:`",
+    "find": "const PLAIN_WORD = /^[A-Za-z0-9._/=,-]+$/;",
+    "replace": "const PLAIN_WORD = /^[A-Za-z0-9._/=,$-]+$/;",
     "test": "pnpm vitest run addons/agent-workflow/tests/outward.test.mts --testNamePattern=\"is found: a variable where the branch goes\""
-  },
-  {
-    "name": "a branch in backticks is asked about",
-    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/outward.mts",
-    "find": "const MAY_NAME_A_TARGET = /[:$`",
-    "replace": "const MAY_NAME_A_TARGET = /[:$",
-    "test": "pnpm vitest run addons/agent-workflow/tests/outward.test.mts --testNamePattern=\"is found: the same in backticks\""
   },
   {
     "name": "an escape left as written is asked about",
     "file": "addons/agent-workflow/files/tools/agent-workflow/lib/outward.mts",
-    "find": "/[:$`\\\\*?[]/",
-    "replace": "/[:$`*?[]/",
+    "find": "const PLAIN_WORD = /^[A-Za-z0-9._/=,-]+$/;",
+    "replace": "const PLAIN_WORD = /^[A-Za-z0-9._/=,\\\\-]+$/;",
     "test": "pnpm vitest run addons/agent-workflow/tests/outward.test.mts --testNamePattern=\"is found: an escape the shell reads\""
   },
   {
     "name": "a star in the branch is asked about",
     "file": "addons/agent-workflow/files/tools/agent-workflow/lib/outward.mts",
-    "find": "/[:$`\\\\*?[]/",
-    "replace": "/[:$`\\\\?[]/",
+    "find": "const PLAIN_WORD = /^[A-Za-z0-9._/=,-]+$/;",
+    "replace": "const PLAIN_WORD = /^[A-Za-z0-9._/=,*-]+$/;",
     "test": "pnpm vitest run addons/agent-workflow/tests/outward.test.mts --testNamePattern=\"is found: a pattern for file names: a star\""
   },
   {
     "name": "a question mark in the branch is asked about",
     "file": "addons/agent-workflow/files/tools/agent-workflow/lib/outward.mts",
-    "find": "/[:$`\\\\*?[]/",
-    "replace": "/[:$`\\\\*[]/",
+    "find": "const PLAIN_WORD = /^[A-Za-z0-9._/=,-]+$/;",
+    "replace": "const PLAIN_WORD = /^[A-Za-z0-9._/=,?-]+$/;",
     "test": "pnpm vitest run addons/agent-workflow/tests/outward.test.mts --testNamePattern=\"is found: a pattern for file names: a question\""
   },
   {
     "name": "a set in the branch is asked about",
     "file": "addons/agent-workflow/files/tools/agent-workflow/lib/outward.mts",
-    "find": "/[:$`\\\\*?[]/",
-    "replace": "/[:$`\\\\*?]/",
+    "find": "const PLAIN_WORD = /^[A-Za-z0-9._/=,-]+$/;",
+    "replace": "const PLAIN_WORD = /^[A-Za-z0-9._/=,[\\]-]+$/;",
     "test": "pnpm vitest run addons/agent-workflow/tests/outward.test.mts --testNamePattern=\"is found: a pattern for file names: a set\""
   },
   {
@@ -3570,5 +3563,40 @@
     "find": "  if (verdict === undefined) {",
     "replace": "  if (verdict === undefined && command === undefined) {",
     "test": "pnpm vitest run addons/agent-workflow/tests/never-allows.test.mts --testNamePattern=\"is one the reader itself gives up on\""
+  },
+  {
+    "name": "a word is plain as a whole, not for one plain character in it",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/outward.mts",
+    "find": "const PLAIN_WORD = /^[A-Za-z0-9._/=,-]+$/;",
+    "replace": "const PLAIN_WORD = /[A-Za-z0-9._/=,-]+/;",
+    "test": "pnpm vitest run addons/agent-workflow/tests/outward.test.mts --testNamePattern=\"is found: a source and a target\""
+  },
+  {
+    "name": "braces in the branch are asked about",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/outward.mts",
+    "find": "const PLAIN_WORD = /^[A-Za-z0-9._/=,-]+$/;",
+    "replace": "const PLAIN_WORD = /^[A-Za-z0-9._/=,{}-]+$/;",
+    "test": "pnpm vitest run addons/agent-workflow/tests/outward.test.mts --testNamePattern=\"is found: braces the shell writes out\""
+  },
+  {
+    "name": "a blank inside a word is asked about",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/outward.mts",
+    "find": "const PLAIN_WORD = /^[A-Za-z0-9._/=,-]+$/;",
+    "replace": "const PLAIN_WORD = /^[A-Za-z0-9._/=, -]+$/;",
+    "test": "pnpm vitest run addons/agent-workflow/tests/outward.test.mts --testNamePattern=\"is found: a word that held a blank\""
+  },
+  {
+    "name": "an option with a value is a plain word",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/outward.mts",
+    "find": "const PLAIN_WORD = /^[A-Za-z0-9._/=,-]+$/;",
+    "replace": "const PLAIN_WORD = /^[A-Za-z0-9._/,-]+$/;",
+    "test": "pnpm vitest run addons/agent-workflow/tests/outward.test.mts --testNamePattern=\"is not: a push with its upstream set\""
+  },
+  {
+    "name": "a push handed to xargs is an outward step",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/outward.mts",
+    "find": "\"nohup\", \"env\", \"xargs\"];",
+    "replace": "\"nohup\", \"env\"];",
+    "test": "pnpm vitest run addons/agent-workflow/tests/outward.test.mts --testNamePattern=\"is an outward step behind xargs as well\""
   }
 ]
