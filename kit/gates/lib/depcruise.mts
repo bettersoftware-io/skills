@@ -12,7 +12,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import type { Finding, Project, ResolvedConfig, WorkspacePackage } from "./config.mts";
-import { declaredPackages, packagesWithRole, ROLE_MAY_IMPORT } from "./config.mts";
+import { declaredPackages, importablePaths, packagesWithRole } from "./config.mts";
 import { TEST_SCAFFOLDING_SOURCE } from "./files.mts";
 
 const GATE = "dependencies";
@@ -88,11 +88,7 @@ export function buildRules(config: ResolvedConfig, workspace: WorkspacePackage[]
   }
 
   for (const pkg of declared.filter(({ role }) => role !== "e2e")) {
-    const allowed = [
-      pkg.path,
-      ...declared.filter((other) => ROLE_MAY_IMPORT[pkg.role].includes(other.role)).map(({ path }) => path),
-      ...(pkg.mayImport ?? []),
-    ];
+    const allowed = importablePaths(config, pkg);
 
     rules.push({
       name: `${slug(pkg.path)}-imports-inward-only`,

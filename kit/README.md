@@ -32,10 +32,10 @@ A project declares its layers once, in `architecture.config.mts`
 
 | Gate | Fails when |
 |---|---|
-| `structure` | A workspace package has no declared role; a required role is missing; the domain has no ports folder; a package has a runtime dependency outside its closed list; a client holds source outside its composition root and its UI folder; an integration package holds anything but tests; an e2e package holds a file that is neither a spec, a page object nor in a `testing` folder |
+| `structure` | A workspace package has no declared role; a required role is missing; a package has no ports folder where it declares one (a domain declares `src/ports` by default); a package has a runtime dependency outside its closed list; a client holds source outside its composition root and its UI folder; an integration package holds anything but tests; an e2e package holds a file that is neither a spec, a page object nor in a `testing` folder |
 | `typescript-only` | The project holds a `.js`, `.jsx`, `.mjs` or `.cjs` source file that is not listed as an exception |
 | `dumb-ui` | A UI file imports the stream library, touches storage, reads configuration, opens a connection, or sets a timer |
-| `port-contracts` | A port has no contract test; the contract never calls one of the port's methods; the contract imports an implementation; an adapter folder that implements a port does not run that port's contract |
+| `port-contracts` | A port has no contract test; the contract never calls one of the port's methods; the contract imports an implementation; an adapter folder that implements a port does not run that port's contract; adapter folders are declared and no port is found |
 | `dependencies` | An import points outward; the domain, or a package that asked, uses a Node built-in; the core imports a UI framework; a presenter or a state machine imports an adapter; production code imports test scaffolding; a confined library is imported outside its packages; the UI imports the composition root or an adapter; anything imports an integration package or an e2e package; an e2e package imports any of the application but a client's test ids; there is a cycle |
 | `agent-docs` | `AGENTS.md` or `CLAUDE.md` names a file or folder that does not exist |
 | `task-cache` | A cached task in `turbo.json` has a key that leaves out the packages a package imports; a package's tsconfig extends a file outside the package that is not a global dependency; a package with tests that need a port caches its `test` task |
@@ -369,13 +369,24 @@ root) may import a folder listed under `adapters`. A presenter, a state
 machine and the function that composes them take the port as an argument.
 `mayImportAdapters` on the package replaces the list of exempt files.
 
+### Where the ports are
+
+A domain holds its port interfaces in `src/ports`, and the contract gate looks
+there by default. An architecture whose ports live in another package (a
+`core`, say, when the entities are a package of their own) declares the
+folder with `ports: "src/ports"` on that package, and the gate judges it the
+same way. Adapter folders declared with no port found anywhere is a failure,
+not a skip: it means the gate looks in the wrong place, and every adapter
+goes unchecked.
+
 ### A contract imports no implementation
 
 A contract is handed the implementation it tests. One that imports a simulator
 or an adapter can only ever test that one. The `port-contracts` gate fails on
 an import, in a file under `__contracts__`, that lands in a folder listed
-under `adapters` or in another workspace package. An npm package is not
-judged: the test runner is one.
+under `adapters`, or in a workspace package its own package may not import.
+The entities can live in a package the role grants, or one named in
+`mayImport`. An npm package is not judged: the test runner is one.
 
 ### The application is built in one test helper
 

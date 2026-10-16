@@ -6,9 +6,10 @@ import { fileURLToPath } from "node:url";
 import { beforeAll, describe, expect, it } from "vitest";
 
 import type { Finding, ResolvedConfig } from "./lib/config.mts";
-import { ConfigError, readVendorEntries } from "./lib/config.mts";
+import { ConfigError, loadConfig, readVendorEntries } from "./lib/config.mts";
 import { buildRules, type Rule, vendorRuleName } from "./lib/depcruise.mts";
 import { resolveSubpathImport } from "./lib/files.mts";
+import { checkPortContracts, portContractsSkipReason } from "./lib/contracts.mts";
 import { checkNodeFloor } from "./lib/node-floor.mts";
 import { checkPackageManager } from "./lib/package-manager.mts";
 import { lenientLintCommands } from "./lib/package-scripts.mts";
@@ -159,6 +160,15 @@ describe("a project that breaks the rules", () => {
     expect(messages("port-contracts", "packages/domain/src/ports/orderPort.ts")).toContain("OrderPort has no contract test");
     expect(messages("port-contracts", "packages/client-core/src/adapters/wsPrice.ts")).toContain("describePricePortContract");
     expect(of("port-contracts", "packages/domain/src/simulators/priceSimulator.ts")).toEqual([]);
+  });
+
+  it("judges the ports of a package of any role that declares them", () => {
+    expect(messages("port-contracts", "packages/client-core/src/ports/clockPort.ts")).toContain(
+      "ClockPort has no contract test. Add packages/client-core/src/ports/__contracts__/ClockPortContract.ts",
+    );
+    expect(messages("structure", "packages/react-bindings/src/ports")).toContain(
+      "packages/react-bindings declares its ports in src/ports, and there is no such folder",
+    );
   });
 
   it("names a port method its contract never calls, and is not fooled by a comment", () => {
@@ -622,6 +632,31 @@ describe("a gate with nothing to judge", () => {
 
     expect(result.skipped["package-scripts"]).toBe("no workspace package was found, so there was nothing to check");
     expect(formatFindings(result)).toContain("SKIP package-scripts");
+  });
+});
+
+describe("adapter folders with no port to implement", () => {
+  const project = (config: string): string => {
+    const root = mkdtempSync(join(tmpdir(), "arch-ports-"));
+
+    mkdirSync(join(root, "packages/core/src/adapters"), { recursive: true });
+    writeFileSync(join(root, "architecture.config.mts"), config);
+
+    return root;
+  };
+
+  it("fail the contract gate, where a project with neither adapters nor ports skips it", async () => {
+    const withAdapters = await loadConfig(
+      project('export default { packages: { "packages/core": { role: "core" } }, adapters: ["packages/core/src/adapters"] };\n'),
+    );
+    const bare = await loadConfig(project('export default { packages: { "packages/core": { role: "core" } } };\n'));
+
+    expect(portContractsSkipReason(withAdapters)).toBeUndefined();
+    expect(checkPortContracts(withAdapters).map((finding) => finding.message)).toEqual([
+      expect.stringContaining("Adapter folders are declared (packages/core/src/adapters), and no port interface was found"),
+    ]);
+    expect(portContractsSkipReason(bare)).toBe("no port interfaces were found, so there was nothing to check");
+    expect(checkPortContracts(bare)).toEqual([]);
   });
 });
 
