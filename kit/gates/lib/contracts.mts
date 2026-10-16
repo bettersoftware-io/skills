@@ -7,8 +7,8 @@
 import { existsSync, readFileSync } from "node:fs";
 import { basename, dirname, join, normalize } from "node:path";
 
-import type { DomainPackage, Finding, Project } from "./config.mts";
-import { packagesWithRole } from "./config.mts";
+import type { Finding, PortsPackage, Project } from "./config.mts";
+import { importablePaths, packagesWithPorts } from "./config.mts";
 import { isInside, isTestFile, listSourceFiles, readCodeLines, resolveSubpathImport } from "./files.mts";
 
 const GATE = "port-contracts";
@@ -20,26 +20,34 @@ function portNameOf(file: string): string {
   return stem.charAt(0).toUpperCase() + stem.slice(1);
 }
 
-function portFilesOf(root: string, domain: DomainPackage): string[] {
-  return listSourceFiles(root, `${domain.path}/${domain.ports}`).filter(
+function portFilesOf(root: string, owner: PortsPackage): string[] {
+  return listSourceFiles(root, `${owner.path}/${owner.ports}`).filter(
     (file) => PORT_FILE.test(file) && !isTestFile(file) && !file.includes("/__contracts__/"),
   );
 }
 
 /** Why this gate judged nothing, if it did. A gate with nothing to judge has not passed. */
 export function portContractsSkipReason({ root, config }: Project): string | undefined {
-  const ports = packagesWithRole(config, "domain").flatMap((domain) => portFilesOf(root, domain));
-
-  return ports.length === 0 ? "no port interfaces were found, so there was nothing to check" : undefined;
+  // Adapters with no port to implement is a finding, not a skip: see checkPortContracts.
+  return config.adapters.length === 0 && allPortFiles(root, config).length === 0
+    ? "no port interfaces were found, so there was nothing to check"
+    : undefined;
 }
 
 export function checkPortContracts(project: Project): Finding[] {
   const { root, config } = project;
   const findings: Finding[] = checkContractsImportNoImplementation(project);
 
-  for (const domain of packagesWithRole(config, "domain")) {
-    const portsFolder = `${domain.path}/${domain.ports}`;
-    const portFiles = portFilesOf(root, domain);
+  if (config.adapters.length > 0 && allPortFiles(root, config).length === 0) {
+    findings.push({
+      gate: GATE,
+      message: `Adapter folders are declared (${config.adapters.join(", ")}), and no port interface was found, so no adapter is held to a contract. A port is a file named *Port.ts in the ports folder of a domain (src/ports), or of a package that declares one with \`ports\` in architecture.config.mts. Declare it on the package that holds the ports.`,
+    });
+  }
+
+  for (const owner of packagesWithPorts(config)) {
+    const portsFolder = `${owner.path}/${owner.ports}`;
+    const portFiles = portFilesOf(root, owner);
 
     for (const portFile of portFiles) {
       const port = portNameOf(portFile);
@@ -180,6 +188,10 @@ function methodNameOf(member: string): string | undefined {
 
 const IMPORTED = /(?:\bfrom|\bimport|\brequire\s*\()\s*\(?\s*["']([^"']+)["']/g;
 
+function allPortFiles(root: string, config: Project["config"]): string[] {
+  return packagesWithPorts(config).flatMap((owner) => portFilesOf(root, owner));
+}
+
 /**
  * A contract that imports an implementation can be run against that one only.
  * Read from source, so it has a line and the after-edit hook can judge one
@@ -188,10 +200,11 @@ const IMPORTED = /(?:\bfrom|\bimport|\brequire\s*\()\s*\(?\s*["']([^"']+)["']/g;
 export function checkContractsImportNoImplementation({ root, config, workspace }: Project, onlyFiles?: string[]): Finding[] {
   const findings: Finding[] = [];
 
-  for (const domain of packagesWithRole(config, "domain")) {
-    const contracts = `${domain.path}/${domain.ports}/__contracts__`;
+  for (const holder of packagesWithPorts(config)) {
+    const contracts = `${holder.path}/${holder.ports}/__contracts__`;
     const files = onlyFiles?.filter((file) => isInside(file, contracts)) ?? listSourceFiles(root, contracts);
-    const ownAndAllowed = [domain.path, ...(domain.mayImport ?? [])];
+    // A contract may import what its package may: the entities can live in a package the role grants.
+    const ownAndAllowed = importablePaths(config, holder);
 
     for (const file of files) {
       readCodeLines(root, file).forEach((code, index) => {
@@ -202,7 +215,7 @@ export function checkContractsImportNoImplementation({ root, config, workspace }
           const target = specifier.startsWith(".")
             ? normalize(join(dirname(file), specifier))
             : specifier.startsWith("#")
-              ? resolveSubpathImport(root, domain.path, specifier)
+              ? resolveSubpathImport(root, holder.path, specifier)
               : owner && `${owner.path}/src/${specifier.slice(owner.name.length + 1) || "index.ts"}`;
           const adapters = target === undefined ? undefined : config.adapters.find((folder) => isInside(target, folder));
           const outside = owner !== undefined && !ownAndAllowed.includes(owner.path);

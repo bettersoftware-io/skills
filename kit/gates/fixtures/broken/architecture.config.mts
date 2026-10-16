@@ -2,8 +2,9 @@ export default {
   packages: {
     "packages/domain": { role: "domain", npm: ["rxjs"] },
     "packages/contract-types": { role: "leaf", typesOnly: true },
-    "packages/client-core": { role: "core", noNodeBuiltins: true },
-    "packages/react-bindings": { role: "bindings" },
+    "packages/client-core": { role: "core", noNodeBuiltins: true, ports: "src/ports" },
+    "packages/react-bindings": { role: "bindings", ports: "src/ports" },
+    "packages/widgets": { role: "explicit" },
     "packages/client-react": { role: "client" },
     "packages/checks": { role: "integration" },
     "packages/browser-tests": { role: "e2e" },
