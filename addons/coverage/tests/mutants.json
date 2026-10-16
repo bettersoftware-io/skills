@@ -1024,8 +1024,8 @@
   {
     "name": "addon: gives write access to the repository to the publish job only",
     "file": "addons/coverage/files/.github/workflows/coverage.yml",
-    "find": "permissions:\n  contents: read\n\njobs:",
-    "replace": "permissions:\n  contents: write\n\njobs:",
+    "find": "permissions:\n  contents: read\n\nenv:",
+    "replace": "permissions:\n  contents: write\n\nenv:",
     "test": "pnpm vitest run addons/coverage/tests/addon.test.mts -t \"gives write access to the repository to the publish job only\""
   },
   {

@@ -548,8 +548,8 @@
   {
     "name": "check-versions: puts manypkg.s findings under its name",
     "file": "addons/repo-hygiene/files/tools/repo-hygiene/check-versions.mts",
-    "find": "...manypkg.map((line) => `  ${line}`)]",
-    "replace": "...manypkg]",
+    "find": ".map((finding) => `  ${finding}`), `    ${advice}`]",
+    "replace": ".map((finding) => finding), `    ${advice}`]",
     "test": "pnpm vitest run addons/repo-hygiene/tests/check-versions.test.mts -t \"puts manypkg.s findings under its name\""
   },
   {
