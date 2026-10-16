@@ -40,7 +40,9 @@ checkout is the plugin, and a run is given a rule for what it holds: with the
 starter's own `node_modules`, `.turbo` and `dist` in it, about 13,000 files,
 every run failed with `E2BIG: argument list too long, posix_spawn` before the
 agent started, on Claude Code 2.1.301, on 2026-10-16. `git clean -fdX starter`
-removes them; a fresh worktree has none.
+removes them; a fresh worktree has none. Both scripts check first
+(`scripts/evals-preflight.mts`): with anything git ignores under `starter/`
+they stop before the harness starts, and print that command.
 
 Anything after the script's name is passed on, so a run can be narrowed or
 changed:

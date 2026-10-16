@@ -1,0 +1,30 @@
+[
+  {
+    "name": "evals preflight: an installed starter is refused",
+    "file": "scripts/evals-preflight.mts",
+    "find": "  if (installed.length === 0) {\n    return undefined;\n  }\n",
+    "replace": "  if (installed.length >= 0) {\n    return undefined;\n  }\n",
+    "test": "pnpm vitest run scripts/evals.test.mts -t \"refuses a checkout where the starter was installed\""
+  },
+  {
+    "name": "evals preflight: only what git ignores counts",
+    "file": "scripts/evals-preflight.mts",
+    "find": "\"--others\", \"--ignored\", \"--exclude-standard\"",
+    "replace": "\"--others\", \"--exclude-standard\"",
+    "test": "pnpm vitest run scripts/evals.test.mts -t \"lets a run start when git ignores nothing\""
+  },
+  {
+    "name": "evals preflight: the refusal stops the run",
+    "file": "scripts/evals-preflight.mts",
+    "find": "    process.exit(1);",
+    "replace": "    process.exit(0);",
+    "test": "pnpm vitest run scripts/evals.test.mts -t \"exits 1 with that refusal when run\""
+  },
+  {
+    "name": "evals preflight: the scripts run it first",
+    "file": "package.json",
+    "find": "\"evals:trigger\": \"node scripts/evals-preflight.mts && claude plugin eval",
+    "replace": "\"evals:trigger\": \"claude plugin eval",
+    "test": "pnpm vitest run scripts/evals.test.mts -t \"refuses to start in a checkout with the starter installed\""
+  }
+]
