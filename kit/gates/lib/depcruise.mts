@@ -97,7 +97,10 @@ export function buildRules(config: ResolvedConfig, workspace: WorkspacePackage[]
     rules.push({
       name: `${slug(pkg.path)}-imports-inward-only`,
       severity: "error",
-      comment: `A ${pkg.role} package may import only: ${allowed.slice(1).join(", ") || "nothing"}. Dependencies point inward; if this code needs something further out, declare an interface here and let the outer package implement it.`,
+      comment:
+        pkg.role === "explicit"
+          ? `An explicit package may import only what its mayImport names: ${allowed.slice(1).join(", ") || "nothing"}. Its edges are the ones written down in architecture.config.mts; if this one belongs in the graph, the architecture says so first, then the config.`
+          : `${withArticle(pkg.role)} package may import only: ${allowed.slice(1).join(", ") || "nothing"}. Dependencies point inward; if this code needs something further out, declare an interface here and let the outer package implement it.`,
       from: { path: `^${escape(pkg.path)}/src` },
       to: { path: anyOf(everyPackage), pathNot: anyOf(allowed) },
     });
@@ -184,6 +187,11 @@ export function buildRules(config: ResolvedConfig, workspace: WorkspacePackage[]
   }
 
   return rules;
+}
+
+/** "A core", "An integration": the role with the article it takes. */
+function withArticle(role: string): string {
+  return `${/^[aeiou]/.test(role) ? "An" : "A"} ${role}`;
 }
 
 /** The project's own dependency-cruiser if it has one, else the one beside these gates. */
