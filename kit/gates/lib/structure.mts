@@ -13,7 +13,7 @@ import type {
   ResolvedConfig,
   WorkspacePackage,
 } from "./config.mts";
-import { packagesWithRole } from "./config.mts";
+import { packagesWithPorts, packagesWithRole } from "./config.mts";
 import { isInside, isTestFile, isTestScaffolding, listSourceFiles, matchesName } from "./files.mts";
 
 const GATE = "structure";
@@ -81,13 +81,16 @@ function checkRequiredRoles(config: ResolvedConfig): Finding[] {
 }
 
 function checkPortsFolder(root: string, config: ResolvedConfig): Finding[] {
-  return packagesWithRole(config, "domain")
-    .filter((domain) => existsSync(join(root, domain.path)))
-    .filter((domain) => !existsSync(join(root, domain.path, domain.ports)))
-    .map((domain) => ({
+  return packagesWithPorts(config)
+    .filter((owner) => existsSync(join(root, owner.path)))
+    .filter((owner) => !existsSync(join(root, owner.path, owner.ports)))
+    .map((owner) => ({
       gate: GATE,
-      file: `${domain.path}/${domain.ports}`,
-      message: "The domain has no ports folder. Every interface an adapter implements is declared here, so the domain owns the contract and adapters depend on it.",
+      file: `${owner.path}/${owner.ports}`,
+      message:
+        owner.role === "domain"
+          ? "The domain has no ports folder. Every interface an adapter implements is declared here, so the domain owns the contract and adapters depend on it."
+          : `${owner.path} declares its ports in ${owner.ports}, and there is no such folder. Every interface an adapter implements is declared there, so the package that owns the contract owns the interface.`,
     }));
 }
 

@@ -14,7 +14,7 @@ export interface PackageDeclaration {
   npm?: string[];
   /** Extra workspace package paths this one may import. */
   mayImport?: string[];
-  /** domain only: folder holding the port interfaces. */
+  /** The folder holding the port interfaces. A domain has `src/ports` by default; a package of any other role that holds ports declares it. */
   ports?: string;
   /** client only: the composition root folder. */
   app?: string;
@@ -90,6 +90,9 @@ export interface DeclaredPackage extends PackageDeclaration {
 export interface DomainPackage extends DeclaredPackage {
   ports: string;
 }
+
+/** A package that holds port interfaces: every domain, and any other that declares a ports folder. */
+export type PortsPackage = DomainPackage;
 
 export interface ClientPackage extends DeclaredPackage {
   app: string;
@@ -357,6 +360,22 @@ export function packagesWithRole(config: ResolvedConfig, role: "domain"): Domain
 export function packagesWithRole(config: ResolvedConfig, role: Role): DeclaredPackage[];
 export function packagesWithRole(config: ResolvedConfig, role: Role): DeclaredPackage[] {
   return declaredPackages(config).filter((declared) => declared.role === role);
+}
+
+/** Every package that holds port interfaces: the contract gate judges each. */
+export function packagesWithPorts(config: ResolvedConfig): PortsPackage[] {
+  return declaredPackages(config).filter((declared): declared is PortsPackage => declared.ports !== undefined);
+}
+
+/** The packages one package may import: its own, those its role grants, and its mayImport. */
+export function importablePaths(config: ResolvedConfig, pkg: DeclaredPackage): string[] {
+  return [
+    pkg.path,
+    ...declaredPackages(config)
+      .filter((other) => ROLE_MAY_IMPORT[pkg.role].includes(other.role))
+      .map(({ path }) => path),
+    ...(pkg.mayImport ?? []),
+  ];
 }
 
 function withPlainPaths<T>(byPath: Record<string, T>): Record<string, T> {
