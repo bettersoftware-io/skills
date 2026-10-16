@@ -889,11 +889,11 @@
     "test": "pnpm vitest run addons/agent-workflow/tests/addon.test.mts --testNamePattern=\"adds scripts that each run a tool it ships\""
   },
   {
-    "name": "installs no package and joins no gate",
+    "name": "installs no package, and joins gate:fast with the status check only",
     "file": "addons/agent-workflow/addon.json",
-    "find": "\"fast\": [],",
-    "replace": "\"fast\": [\"pnpm agent-workflow:check\"],",
-    "test": "pnpm vitest run addons/agent-workflow/tests/addon.test.mts --testNamePattern=\"installs no package and joins no gate\""
+    "find": "\"fast\": [\n      \"pnpm check:status\"\n    ],",
+    "replace": "\"fast\": [\n      \"pnpm check:status\",\n      \"pnpm agent-workflow:check\"\n    ],",
+    "test": "pnpm vitest run addons/agent-workflow/tests/addon.test.mts -t \"installs no package, and joins gate:fast with the status page\""
   },
   {
     "name": "asks each host for the same entries (codex command)",
