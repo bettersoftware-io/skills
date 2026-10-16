@@ -71,6 +71,23 @@ A project on a runtime too old to run `.mts` declares `language: "javascript"`
 (in an `architecture.config.mjs`). The gate then reports `SKIP` with that
 reason; it does not quietly pass.
 
+### The explicit role: a graph the ladder cannot draw
+
+The other roles form a ladder: each may import the rungs below it, and
+`mayImport` adds an edge on top. Some architectures are not a ladder. "The
+catalog imports the spec, and only the runtime imports the catalog" has no
+rung: as a `leaf` every package could import the catalog.
+
+A package with the role `explicit` is granted nothing by its role, and no role
+but `integration` lists it. Its edges are exactly the ones written down: it
+imports what its own `mayImport` names, and another package imports it only
+by naming it in its own `mayImport`. A wrong edge fails `dependencies` with
+the rule `<package>-imports-inward-only`.
+
+The role carries no other rule. A package of it that imports React gets none
+of React's lint rules, so `check:react-policies` asks for it under
+`reactWithoutPolicies` with the reason.
+
 ### The integration role: where the two sides meet
 
 The layer rules keep the client from importing the server, so each side is

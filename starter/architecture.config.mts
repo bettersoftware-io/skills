@@ -12,6 +12,7 @@ import type { ArchitectureConfig } from "./tools/arch/gates/lib/config.mts";
 // bindings   core, domain, leaf
 // client     bindings, core, domain, leaf
 // server     domain, shared, leaf
+// explicit   only what its own mayImport names; only a package naming it imports it
 // integration  every role above; nothing may import it, and it holds only tests
 // e2e        no source of the application: only a client's test ids, and types
 const config: ArchitectureConfig = {

@@ -219,6 +219,25 @@ describe("a project that breaks the rules", () => {
     expect(outward).toContain("domain-no-node-builtins");
   });
 
+  it("names an explicit package's import that its mayImport does not name, and says the edge is written down first", () => {
+    const fromWidgets = messages("dependencies", "packages/widgets/src/index.ts");
+
+    expect(fromWidgets).toContain("widgets-imports-inward-only: imports packages/domain/src/index.ts");
+    expect(fromWidgets).toContain("An explicit package may import only what its mayImport names: nothing.");
+  });
+
+  it("names a package that imports an explicit one without naming it, whatever its own role grants", () => {
+    expect(messages("dependencies", "packages/client-core/src/usesTheWidgets.ts")).toContain(
+      "client-core-imports-inward-only: imports packages/widgets/src/index.ts. A core package may import only:",
+    );
+  });
+
+  it("names an integration package that imports an e2e package, in words that read", () => {
+    expect(messages("dependencies", "packages/checks/src/reachesTheBrowser.test.ts")).toContain(
+      "checks-imports-inward-only: imports packages/browser-tests/src/helpers.ts. An integration package may import only:",
+    );
+  });
+
   it("names production code in an integration package, and leaves its tests alone", () => {
     expect(messages("structure", "packages/checks/src/retryPolicy.ts")).toContain("holds only tests");
     expect(of("structure", "packages/checks/src/priceAgreement.test.ts")).toEqual([]);
