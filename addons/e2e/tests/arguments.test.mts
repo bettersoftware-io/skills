@@ -26,4 +26,23 @@ describe("what pnpm e2e was asked", () => {
     expect(() => parseArguments(["--mode"])).toThrow(UsageError);
     expect(() => parseArguments(["--mode", "--headed"])).toThrow('"--mode" needs the name of a mode');
   });
+
+  it("takes --where, in either spelling, and does not hand it on", () => {
+    expect(parseArguments(["--where", "host", "-g", "a title"])).toEqual({ modes: [], where: "host", forwarded: ["-g", "a title"] });
+    expect(parseArguments(["--where=container", "--mode", "sim"])).toEqual({ modes: ["sim"], where: "container", forwarded: [] });
+    expect(parseArguments(["--where", "host", "--where=host"]).where).toBe("host");
+  });
+
+  it("asks for no place when --where is not given, so every mode runs", () => {
+    expect(parseArguments(["--mode", "sim"]).where).toBeUndefined();
+  });
+
+  it.each([[["--where"]], [["--where", "--headed"]], [["--where", "docker"]], [["--where="]]])("refuses a --where that names neither place: %j", (argv) => {
+    expect(() => parseArguments(argv)).toThrow(UsageError);
+    expect(() => parseArguments(argv)).toThrow('"--where" takes "container" or "host"');
+  });
+
+  it("refuses two different places", () => {
+    expect(() => parseArguments(["--where", "host", "--where", "container"])).toThrow('"--where" is given twice, as "host" and as "container"');
+  });
 });

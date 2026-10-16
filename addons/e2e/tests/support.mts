@@ -11,7 +11,7 @@ import { dirname, join } from "node:path";
 
 import { onTestFinished } from "vitest";
 
-import { type E2eConfig, OUT_DIR, SERVER_HOST, SERVER_URL } from "../files/tools/e2e/lib/config.mts";
+import { type E2eConfig, OUT_DIR, type ReadEnv, SERVER_HOST, SERVER_URL } from "../files/tools/e2e/lib/config.mts";
 
 export const ADDON = join(import.meta.dirname, "..");
 export const REPOSITORY = join(ADDON, "..", "..");
@@ -190,14 +190,49 @@ export function createFakeProject(): FakeProject {
   return { root, record, config };
 }
 
-/** The config as the file a project would hold. A pattern is written as a literal. */
+/** The config as the file a project would hold. A pattern is written as a literal, an env function as its source. */
 export function renderConfig(config: E2eConfig): string {
-  const text = JSON.stringify(config, (_key, value: unknown) => (value instanceof RegExp ? `__pattern__${value.source}` : value), 2).replace(
-    /"__pattern__((?:[^"\\]|\\.)*)"/g,
-    (_whole, source: string) => `/${(JSON.parse(`"${source}"`) as string)}/`,
-  );
+  const sources: string[] = [];
+  const text = JSON.stringify(
+    config,
+    (_key, value: unknown) => {
+      if (value instanceof RegExp) {
+        return `__pattern__${value.source}`;
+      }
+
+      if (typeof value === "function") {
+        sources.push(readSource(value));
+
+        return `__source__${sources.length - 1}`;
+      }
+
+      return value;
+    },
+    2,
+  )
+    .replace(/"__pattern__((?:[^"\\]|\\.)*)"/g, (_whole, source: string) => `/${(JSON.parse(`"${source}"`) as string)}/`)
+    .replace(/"__source__(\d+)"/g, (_whole, index: string) => sources[Number(index)] as string);
 
   return `export default ${text};\n`;
+}
+
+/**
+ * A mode's env function, written into the config file as this source. The
+ * source is what runs: the function's own body is never called, and a test
+ * cannot hand over a closure, since the file is read by another process.
+ */
+export function envFunction(source: string): ReadEnv {
+  return Object.assign(() => Promise.reject(new Error("only its source runs, in the config file")), { [SOURCE]: source });
+}
+
+const SOURCE = Symbol("source");
+
+function readSource(value: object): string {
+  if (!(SOURCE in value) || typeof value[SOURCE] !== "string") {
+    throw new Error("a function in a rendered config must come from envFunction(), which carries its source");
+  }
+
+  return value[SOURCE];
 }
 
 export interface Recorded {

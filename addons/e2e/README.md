@@ -21,7 +21,7 @@ cd <project> && pnpm install && pnpm e2e:install && pnpm e2e
 | Modes | `tools/e2e.config.mts` | How the client is built and served, and what each mode starts. The project's file |
 | `pnpm e2e` | `tools/e2e/run.mts` | For each mode: start its server, build the client, serve the build. Run the specs. Stop everything |
 | `pnpm e2e:install` | root script | Downloads the browser, once on a machine |
-| CI | `.github/workflows/e2e.yml` | The same run on pull requests and on main, in the Playwright container, with the report uploaded when it fails |
+| CI | `.github/workflows/e2e.yml` | The same run on pull requests and on main, with the report uploaded when it fails: one job in the Playwright container, and one on the runner itself for a mode that says `host: true` |
 
 Dev dependencies of `packages/e2e`: `@playwright/test` (exactly `1.63.0`, the
 version the `visual` add-on uses), `@types/node`, and the client and the wire
@@ -140,6 +140,51 @@ declare `serverUrl`) needs no change.
   a spec in no mode's folder, a build that fails, a server that never says it
   is ready, and an environment that cannot open a port.
 
+### A mode that needs Docker: `host: true`
+
+The Playwright container has no Docker, so no mode run there can start a
+local database. And a local database's keys must not be written in
+`tools/e2e.config.mts`: they are read from it once it runs. So a mode may say
+two more things:
+
+```ts
+stack: {
+  host: true,                 // runs on the machine itself, not in the container
+  env: readStack,             // called when the mode starts, before its server and its build
+},
+
+async function readStack(): Promise<Record<string, string>> {
+  const printed = execFileSync("node_modules/.bin/supabase", ["status", "-o", "env"], { encoding: "utf8" });
+  // … read the lines it printed into the client's variables
+}
+```
+
+| Command | Runs |
+|---|---|
+| `pnpm e2e` | every mode, wherever it runs, as before |
+| `pnpm e2e --where container` | the modes that do not say `host: true` |
+| `pnpm e2e --where host` | the modes that do |
+
+- **The workflow has a job for each.** `end-to-end in the container` runs
+  `--where container` in the pinned image. `end-to-end on the host` runs
+  `--where host` on `ubuntu-latest` itself, where Docker is, after
+  `playwright install --with-deps chromium` through the project's own
+  Playwright: the browser build and its system libraries at the version
+  `packages/e2e` pins, with no image to keep in step.
+- **A project with no host mode needs no change.** Its host job finds no mode,
+  says so, and exits 0. That is the one run that judges nothing and passes:
+  it was asked for a place, not for a mode. A `--mode` that runs in the other
+  place is refused (exit 2), and so is a spec in no mode's folder.
+- **An env function is called only for a mode that is started.** The
+  container's job never calls a host mode's function, so it cannot fail for
+  want of the database. When it throws, or gives anything but an object of
+  strings, the run stops before the mode's server with the mode named, and
+  exits 2. Its values may hold `SERVER_URL` and `SERVER_HOST` like any other.
+- **The runner does not start or stop what the function reads.** It reads a
+  stack that is running. Starting it (`supabase start`, which pulls images on
+  a fresh runner) is a step of the project's own, before `pnpm e2e`; the
+  host job's limit is 30 minutes for that reason.
+
 ### Specs that wait on state
 
 - `fullyParallel`, no retries. Each test opens a page of its own.
@@ -234,7 +279,7 @@ with a run.
 results. Without that the check would refuse the command as one that may have
 run nothing.
 
-**The rules and the tools can fail.** The add-on's scripts have 91 tests in
+**The rules and the tools can fail.** The add-on's scripts have 115 tests in
 `tests/` (`pnpm vitest run addons/e2e` from this repository's root). The
 runner is tested against real processes: fake programs that listen on real
 ports and start children of their own. [`tests/mutants.json`](tests/mutants.json)
@@ -243,14 +288,27 @@ package, and of what the kit, the installer and this repository's lists of
 add-ons gained with it: 162 of 162 killed. Two survived a first run and
 showed two tests that could not fail; both tests were rewritten. The host
 and port (2026-10-06) added 13 mutants and rewrote 5 whose text had moved:
-those 18 were run, 18 of 18 killed, and the file now holds 175.
+those 18 were run, 18 of 18 killed, and the file held 175.
+
+A mode on the host and an env function (2026-10-16) added 24 tests and 32
+mutants, rewrote 7 whose text or test had moved, and ran again 2 whose code
+had moved: those 41 were run, 41 of 41 killed, and the file now holds 207. Two rows of the installer's
+(`scripts add: …`) name text that is no longer there, and were left as they
+were. In a project created with `create-project.mts --with recommended,e2e`
+on macOS arm64, with a `stack` mode that says `host: true` and reads its
+server's address from what a script prints, against a server started before
+the run: `pnpm e2e --where host` passed (1 test), and exited 2 naming the mode
+when the stack was not running; with the function's value dropped, the spec
+failed; `--where container` passed (5 tests, run on the Mac, not in the
+image); `pnpm e2e` passed (6); and without the `stack` mode, `--where host`
+said there was nothing to start and exited 0. `gate:full` and
+`lint:workflows` passed there.
 
 ## Limits
 
-- **Not run on GitHub.** The workflow passes actionlint and zizmor, and this
-  repository's CI runs the specs in a created project with a browser it
-  installs. Neither has run yet. The Playwright container was not run here
-  either.
+- **The host job has not run on GitHub.** It passes actionlint and zizmor,
+  and its install step is the one this repository's CI runs for a created
+  project. The container job ran in skills-demo on 2026-10-06.
 - **Chromium only.** One browser, one viewport.
 - **One client package.** `tools/e2e.config.mts` names `packages/client-react`
   and `packages/server`; a project with other names edits it.
@@ -258,6 +316,9 @@ those 18 were run, 18 of 18 killed, and the file now holds 175.
   groups of their own, so nothing else stops them. Every other end is covered.
 - **pnpm starts the script in a process group of its own.** Ctrl-C reaches
   the runner because pnpm passes the signal on. Measured with pnpm 12.6.
+- **What an env function starts is not stopped.** The runner stops the
+  programs it started. A function that starts a program of its own (a
+  database's `start`) leaves it to the project.
 - **A server that dies mid-run is not noticed by the runner.** The specs fail
   on what they wait for.
 - **Not on Windows.** A program is stopped through its process group.

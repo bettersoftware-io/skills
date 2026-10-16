@@ -205,7 +205,7 @@ describe("the workflow", () => {
   it("pins every action to a full commit hash, with the version beside it", () => {
     const uses = WORKFLOW.split("\n").filter((line) => /^\s*-?\s*uses:/.test(line));
 
-    expect(uses).toHaveLength(3);
+    expect(uses).toHaveLength(6);
     expect(uses.filter((line) => !/uses: [\w-]+\/[\w-]+@[0-9a-f]{40} # v\d+(\.\d+){0,2}$/.test(line))).toEqual([]);
   });
 
@@ -213,17 +213,47 @@ describe("the workflow", () => {
     expect(WORKFLOW).toContain("\non:\n  pull_request:\n  push:\n    branches: [main]\n");
     expect(WORKFLOW).toContain("\npermissions:\n  contents: read\n");
     expect(WORKFLOW).not.toMatch(/: write/);
-    expect(WORKFLOW).toContain("persist-credentials: false");
+
+    for (const job of Object.values(readJobs())) {
+      expect(job).toContain("persist-credentials: false");
+    }
   });
 
-  it("runs the script the add-on adds, unfiltered, in the pinned container, and cannot hang for hours", () => {
-    expect(WORKFLOW).toContain("        run: pnpm e2e\n");
-    expect(WORKFLOW).toMatch(/\n {4}container: mcr\.microsoft\.com\/playwright:v\d+\.\d+\.\d+-noble\n/);
-    expect(WORKFLOW).toContain("    timeout-minutes: 15\n");
+  it("has two jobs: one in the container, one on the runner itself", () => {
+    const jobs = WORKFLOW.slice(WORKFLOW.indexOf("\njobs:\n"));
+
+    expect([...jobs.matchAll(/^ {2}([\w-]+):\n/gm)].map((match) => match[1])).toEqual(["e2e", "e2e-host"]);
   });
 
-  it("uploads the report only when the run failed", () => {
-    expect(WORKFLOW).toMatch(/if: failure\(\)\n\s+uses: actions\/upload-artifact@/);
+  it("runs the script the add-on adds, unfiltered, in the pinned container, for the modes that run there, and cannot hang for hours", () => {
+    const { container } = readJobs();
+
+    expect(container).toContain("        run: pnpm e2e --where container\n");
+    expect(container).toMatch(/\n {4}container: mcr\.microsoft\.com\/playwright:v\d+\.\d+\.\d+-noble\n/);
+    expect(container).toContain("    timeout-minutes: 15\n");
+  });
+
+  it("runs the modes that say host on the runner, with the browser and its libraries from the pinned Playwright, and cannot hang for hours", () => {
+    const { host } = readJobs();
+
+    expect(host).toContain("    runs-on: ubuntu-latest\n");
+    expect(host).not.toMatch(/^\s+container:/m);
+    expect(host).toContain("        run: pnpm --dir packages/e2e exec playwright install --with-deps chromium\n");
+    expect(host.indexOf("playwright install")).toBeLessThan(host.indexOf("run: pnpm e2e"));
+    expect(host).toContain("        run: pnpm e2e --where host\n");
+    expect(host).toContain("    timeout-minutes: 30\n");
+  });
+
+  it("uploads each job's report only when its run failed, under a name of its own", () => {
+    const { container, host } = readJobs();
+
+    for (const job of [container, host]) {
+      expect(job).toMatch(/if: failure\(\)\n\s+uses: actions\/upload-artifact@/);
+      expect(job).toContain(`path: ${PACKAGE}/reports\n`);
+    }
+
+    expect(container).toContain("name: e2e-report\n");
+    expect(host).toContain("name: e2e-report-host\n");
   });
 });
 
@@ -309,4 +339,16 @@ async function readLayers(project: string): Promise<ArchitectureConfig> {
 /** A tsconfig may hold comments. None of the shipped one's holds a quote. */
 function stripComments(text: string): string {
   return text.replace(/^\s*\/\/.*$/gm, "");
+}
+
+interface Jobs {
+  container: string;
+  host: string;
+}
+
+/** The workflow's two jobs, as text: everything from a job's name to the next one's. */
+function readJobs(): Jobs {
+  const [, container = "", host = ""] = WORKFLOW.split(/^ {2}(?:e2e|e2e-host):\n/m);
+
+  return { container, host };
 }

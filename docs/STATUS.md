@@ -41,6 +41,18 @@ on 2026-10-05, on pushes to main and on a pull request
   It is new (2026-10-06): all nine together, under the long scope and under
   `@zeta`, with `gate:full` and the e2e specs. The same steps pass locally on
   macOS.
+- **The `e2e` add-on's host job has not run on GitHub.** A mode that says
+  `host: true` runs in a job of its own on the runner, with an `env`
+  function that reads a running stack (added 2026-10-16). Proven on macOS
+  arm64 only, in a project created with `--with recommended,e2e`: a host
+  mode whose function read a server's address from what a script printed,
+  `--where host`, `--where container` (on the Mac, not in the image) and no
+  flag. Not seen: the job on `ubuntu-latest`, its
+  `playwright install --with-deps chromium` (the command this repository's
+  CI already runs for a created project), Docker and a real database behind
+  a host mode, and the container job's `--where container` in the image.
+  The first run on GitHub will be Origamic's `stack` mode against a local
+  Supabase.
 - **The starter's `linux-x64` goldens were not redrawn or compared after the
   visual host changed.** No container could be run where the change was
   made. The `darwin-arm64` set matched with both knobs at 0, and the host
@@ -201,7 +213,10 @@ Found while a project was set up with the plugin, on 2026-10-12 and 13.
   into a settings file that is a link out of the project", "counts a file
   that is not JSON as unmerged", "does not write over the file that took its
   place", and the two that begin "says nothing once". They went stale when
-  the installer changed. Nothing fails when a mutant goes stale.
+  the installer changed. Nothing fails when a mutant goes stale. Two of
+  `e2e`'s are the same: "scripts add: a kit with no list of gates is taken
+  to have them all" and "scripts add: a project's own declaration is
+  replaced".
 - **Renovate runs here with the default config.** Its "Configure Renovate"
   pull request was merged on 2026-10-13. It has opened two for actions.
   Nothing tells it to leave `starter/` alone, whose versions are tested
@@ -386,8 +401,9 @@ Found while a project was set up with the plugin, on 2026-10-12 and 13.
 - **The `performance` add-on's static check and the `visual` add-on's server
   check walk the project by their own closed lists.** Neither was looked at
   for stray root folders.
-- **`e2e`'s 175 mutants were not all run again.** The 18 that the host and
-  port added or rewrote were, and the 14 application mutants were.
+- **`e2e`'s 207 mutants were not all run again.** The 18 that the host and
+  port added or rewrote were, the 41 that a mode on the host added, rewrote
+  or moved were (2026-10-16), and the 14 application mutants were.
 - **Without `format-lint`, nothing bans an import that climbs two folders.**
   The ban is Biome's; ESLint has no twin of it.
 - **`allowBuilds` names esbuild, which nothing in the starter installs** (Vite
