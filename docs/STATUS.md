@@ -51,8 +51,11 @@ on 2026-10-05, on pushes to main and on a pull request
 - **Nothing here has run on Linux outside GitHub's CI,** and nothing through
   a real `docker build`. The Dockerfile check was compared with BuildKit's own
   parser, built from source; the `e2e` workflow and its container have not run.
-- **Renovate has only been through its validator.** No repository with the
-  app installed has used the shipped config.
+- **Renovate has read the shipped config, and opened nothing yet.** In
+  origamic on 2026-10-16 its Dependency Dashboard shows the config applied:
+  the "actions" and "minor and patch" groups, both waiting for Monday's
+  wave. The first pull requests, and whether pnpm accepts the lockfile each
+  writes, are due on 2026-10-19.
 - **No run where the coverage gate fails has been seen.** The report is meant
   to publish then too.
 - **The motion audit had nothing to judge.** The starter has no animation, so
@@ -205,11 +208,6 @@ Found while a project was set up with the plugin, on 2026-10-12 and 13.
   `moved-to-project`, `project-paths`, `told-without-a-template`). Most
   went stale when the installer changed. Nothing fails when a mutant goes
   stale; whether a spec's `find` occurs once in its file is decidable.
-- **Renovate runs here with the default config.** Its "Configure Renovate"
-  pull request was merged on 2026-10-13. It has opened two for actions.
-  Nothing tells it to leave `starter/` alone, whose versions are tested
-  together and held by one lockfile, or to wait a week for a release as the
-  add-on's own `renovate.json5` does.
 
 ## Open decisions
 
