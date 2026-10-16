@@ -99,7 +99,7 @@ as in step 4.
 When the choice is known before the project is created, `create-project.mts`
 takes it directly: `--with recommended`, or `--with coverage,format-lint`. An
 add-on with a choice takes its option after a colon
-(`--with ci-security:renovate`); without one it gets its default.
+(`--with ci-security:dependabot`); without one it gets its default.
 
 ## 6. Report
 
@@ -115,6 +115,10 @@ Say, in this order:
    the price list is a worked example to copy, not part of the product.
 4. Which add-ons were added, and which were not, with the command that adds
    one later.
+   With `ci-security`, that its update bot does nothing until a person
+   installs Renovate's GitHub App on the repository, and that
+   `pnpm repo:settings`, after the first push, names the settings that are
+   off.
 5. That the hooks are in the project, so they apply to everyone who works on
    it: Claude Code reads `.claude/settings.json`; Codex reads
    `.codex/hooks.json` once it is trusted with `/hooks`.

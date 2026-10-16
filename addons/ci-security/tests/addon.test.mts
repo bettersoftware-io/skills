@@ -73,9 +73,9 @@ describe("the add-on in a project created from the starter", () => {
     expect(existsSync(join(ADDON, "files/SECURITY.md"))).toBe(true);
   });
 
-  it("offers one update bot or the other, Dependabot when none is named, each as one file of its own", () => {
-    expect(MANIFEST.choice.default).toBe("dependabot");
-    expect(Object.keys(MANIFEST.choice.options)).toEqual(["dependabot", "renovate"]);
+  it("offers one update bot or the other, Renovate when none is named, each as one file of its own", () => {
+    expect(MANIFEST.choice.default).toBe("renovate");
+    expect(Object.keys(MANIFEST.choice.options)).toEqual(["renovate", "dependabot"]);
     expect(listUnder("choice")).toEqual([DEPENDABOT, RENOVATE]);
     expect(listUnder("files").filter((file) => /dependabot|renovate/i.test(file))).toEqual([]);
   });
@@ -122,7 +122,8 @@ describe("what the add-on says of itself", () => {
     expect(table).toContain("`pnpm repo:settings` reads the ones marked\n\"yes\" and prints which are off.");
     expect(read.map((row) => row.split(" | ")[0]?.replace(/^\| /, "").split(/[.,:]| that /)[0])).toEqual([
       "Dependency graph",
-      "Dependabot alerts and Dependabot security updates",
+      "Dependabot alerts",
+      "Dependabot security updates",
       "CodeQL default setup",
       "Private vulnerability reporting",
       "A ruleset on the default branch",
@@ -381,8 +382,8 @@ describe("the Renovate config", () => {
     expect(dependabot).toContain('      actions:\n        patterns: ["*"]');
   });
 
-  it("leaves security fixes to Dependabot's repository setting, so that none arrives twice", () => {
-    expect(config.vulnerabilityAlerts).toEqual({ enabled: false });
+  it("opens the security fixes itself, which Dependabot cannot under the starter's Node", () => {
+    expect(config.vulnerabilityAlerts).toEqual({ enabled: true });
   });
 
   it("moves nothing in pnpm-workspace.yaml and nothing the add-ons installed", () => {

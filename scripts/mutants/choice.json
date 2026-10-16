@@ -173,5 +173,19 @@
     "find": "...(result.choiceRemoved ?? []).map(",
     "replace": "...([] as string[]).map(",
     "test": "pnpm vitest run scripts/add-to-project.test.mts -t \"prints the option the project has\""
+  },
+  {
+    "name": "choice: the README names the default option",
+    "file": "scripts/create-project.mts",
+    "find": "parseUnit(asked).option ?? addon.choice.default]",
+    "replace": "parseUnit(asked).option ?? \"\"]",
+    "test": "pnpm vitest run scripts/create-project.test.mts -t \"says what the default option is\""
+  },
+  {
+    "name": "choice: what is printed names the default option",
+    "file": "scripts/create-project.mts",
+    "find": "const given = option ?? choice?.default;",
+    "replace": "const given = option;",
+    "test": "pnpm vitest run scripts/create-project.test.mts -t \"says what the default option is\""
   }
 ]
