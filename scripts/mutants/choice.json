@@ -23,7 +23,7 @@
   {
     "name": "choice: a file never changed is removed",
     "file": "scripts/add-to-project.mts",
-    "find": "      rmSync(join(destination, owned));\n",
+    "find": "      removeProjectFile(destination, owned);\n",
     "replace": "",
     "test": "pnpm vitest run scripts/add-to-project.test.mts -t \"moves to another option\""
   },
@@ -37,7 +37,7 @@
   {
     "name": "choice: a changed file is left",
     "file": "scripts/add-to-project.mts",
-    "find": "if (installed === readFileSync(join(destination, owned), \"utf8\")) {",
+    "find": "if (installed === readProjectText(destination, owned)) {",
     "replace": "if (installed !== undefined) {",
     "test": "pnpm vitest run scripts/add-to-project.test.mts -t \"leaves a file the project changed where it is\""
   },
@@ -51,15 +51,15 @@
   {
     "name": "choice: a file already deleted",
     "file": "scripts/add-to-project.mts",
-    "find": "    if (!existsSync(join(destination, owned))) {\n      continue;",
-    "replace": "    if (false) {\n      continue;",
+    "find": "  for (const { owned, template } of left) {\n    if (!projectHas(destination, owned)) {\n      continue;",
+    "replace": "  for (const { owned, template } of left) {\n    if (false) {\n      continue;",
     "test": "pnpm vitest run scripts/add-to-project.test.mts -t \"old option that the project already deleted\""
   },
   {
     "name": "choice: never over a file the project has",
     "file": "scripts/add-to-project.mts",
-    "find": "(firstTime || neverGiven(path)) && !existsSync(join(destination, path))",
-    "replace": "(firstTime || neverGiven(path))",
+    "find": "  for (const [path, content] of starting) {\n    if (projectHas(destination, path)) {\n      continue;\n    }\n\n",
+    "replace": "  for (const [path, content] of starting) {\n",
     "test": "pnpm vitest run scripts/add-to-project.test.mts -t \"does not write over a file the project already has where\""
   },
   {
@@ -72,8 +72,8 @@
   {
     "name": "choice: a project from before the choice has the default",
     "file": "scripts/add-to-project.mts",
-    "find": "(installedChoice(destination, unit) ?? manifest.choice?.default)",
-    "replace": "installedChoice(destination, unit)",
+    "find": "? recorded : manifest.choice?.default;",
+    "replace": "? recorded : undefined;",
     "test": "pnpm vitest run scripts/add-to-project.test.mts -t \"moves such a project off the default\""
   },
   {
@@ -114,8 +114,8 @@
   {
     "name": "starting file: a new one is not written over the project's",
     "file": "scripts/add-to-project.mts",
-    "find": "(firstTime || neverGiven(path)) && !existsSync(join(destination, path))",
-    "replace": "(firstTime || neverGiven(path))",
+    "find": "  for (const [path, content] of starting) {\n    if (projectHas(destination, path)) {\n      continue;\n    }\n\n",
+    "replace": "  for (const [path, content] of starting) {\n",
     "test": "pnpm vitest run scripts/add-to-project.test.mts -t \"is not written over a file the project already has under that name\""
   },
   {

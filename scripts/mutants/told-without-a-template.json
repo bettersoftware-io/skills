@@ -16,8 +16,8 @@
   {
     "name": "told: the difference is from the template to the project's file",
     "file": "scripts/lib/templates.mts",
-    "find": "lines: changedLines(now, withoutAddonSections(yours)) });",
-    "replace": "lines: changedLines(withoutAddonSections(yours), now) });",
+    "find": "  return changedLines(template, text).map(showSafely);",
+    "replace": "  return changedLines(text, template).map(showSafely);",
     "test": "pnpm vitest run scripts/add-to-project.test.mts -t \"shows where a file the project already had differs\""
   },
   {
@@ -93,7 +93,7 @@
   {
     "name": "told: a package the project does not have is not a file it lacks",
     "file": "scripts/add-to-project.mts",
-    "find": "template.onlyIn === undefined || existsSync(join(destination, template.onlyIn)))),",
+    "find": "template.onlyIn === undefined || projectHas(destination, template.onlyIn))),",
     "replace": "template.onlyIn === undefined || true)),",
     "test": "pnpm vitest run scripts/add-to-project.test.mts -t \"says nothing of a package of the starter's that the project does not have\""
   },
@@ -191,22 +191,22 @@
   {
     "name": "compare: with the template as it is now, not the project's copy",
     "file": "scripts/add-to-project.mts",
-    "find": "      const templateIsOlder = template !== undefined && readIfThere(join(destination, template)) !== content.toString(\"utf8\");",
+    "find": "      const templateIsOlder = template !== undefined && readProjectTextIfThere(destination, template) !== content.toString(\"utf8\");",
     "replace": "      const templateIsOlder = false;",
     "test": "pnpm vitest run scripts/add-to-project.test.mts -t \"compares with the template as the repository ships it now\""
   },
   {
     "name": "compare: a file that is gone is absent",
     "file": "scripts/add-to-project.mts",
-    "find": "      if (!existsSync(file)) {\n        return { unit: name, owned, ...(template === undefined ? {} : { template }), state: \"absent\", lines: [], templateIsOlder };\n      }\n",
-    "replace": "      if (!existsSync(file)) {\n        return { unit: name, owned, ...(template === undefined ? {} : { template }), state: \"same\", lines: [], templateIsOlder };\n      }\n",
+    "find": "template }), state: \"absent\", lines: [], templateIsOlder };",
+    "replace": "template }), state: \"same\", lines: [], templateIsOlder };",
     "test": "pnpm vitest run scripts/add-to-project.test.mts -t \"lists every file of every unit the project has\""
   },
   {
     "name": "compare: the sections this script appends are no difference",
     "file": "scripts/add-to-project.mts",
-    "find": "Buffer.from(withoutAddonSections(readFileSync(file, \"utf8\")));",
-    "replace": "readFileSync(file);",
+    "find": "Buffer.from(withoutAddonSections(readProjectText(destination, owned)));",
+    "replace": "readProjectFile(destination, owned);",
     "test": "pnpm vitest run scripts/add-to-project.test.mts -t \"prints the differences, the files that are not there\""
   },
   {
