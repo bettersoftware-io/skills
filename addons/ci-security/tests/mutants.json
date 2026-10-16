@@ -1841,6 +1841,13 @@
     "test": "pnpm vitest run addons/ci-security/tests/settings.test.mts -t \"fails CodeQL set up without the actions language\""
   },
   {
+    "name": "settings: CodeQL still being set up is not read",
+    "file": "addons/ci-security/files/tools/ci-security/lib/settings.mts",
+    "find": "if (languages.length === 0) {",
+    "replace": "if (false) {",
+    "test": "pnpm vitest run addons/ci-security/tests/settings.test.mts -t \"says CodeQL is still being set up\""
+  },
+  {
     "name": "settings: the CodeQL command sends only languages GitHub accepts",
     "file": "addons/ci-security/files/tools/ci-security/lib/settings.mts",
     "find": " && CODEQL_LANGUAGES.includes(language))];",

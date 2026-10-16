@@ -242,6 +242,13 @@ function judgeCodeql(answer: Answer, api: string, where: string): Verdict {
     return notRead(answer);
   }
 
+  // For about a minute after it is switched on, GitHub has not looked for the
+  // languages yet: the state is `configured` and the list is empty. A command
+  // written from that list would set it to `actions` alone.
+  if (languages.length === 0) {
+    return { state: "unread", reason: "GitHub is still setting it up and has found no language yet. Run this again in a minute" };
+  }
+
   if (languages.includes("actions")) {
     return ON;
   }
