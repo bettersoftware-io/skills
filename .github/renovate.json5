@@ -1,0 +1,101 @@
+// Renovate for this repository: the policy the ci-security add-on ships
+// (one wave a week, grouped, never a release younger than a week), and what
+// this repository needs on top of it.
+//
+// The starter, the add-ons and the root are moved in the same wave and the
+// same pull request, so CI tests them together: the starter's versions are
+// what a created project installs.
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": ["config:recommended", "helpers:pinGitHubActionDigests"],
+
+  // As in the add-on: a malicious release is usually removed within days.
+  // Never below `minimumReleaseAge` in the pnpm-workspace.yaml files (a
+  // day), or the pull request could not update the lockfile.
+  "minimumReleaseAge": "7 days",
+  "internalChecksFilter": "strict",
+  "schedule": ["before 6am on monday"],
+  "prConcurrentLimit": 5,
+
+  // Dependabot cannot open these: its updater runs Node 24, and the starter
+  // asks for 26. A fix ignores the schedule and the wait above.
+  "vulnerabilityAlerts": {
+    "enabled": true
+  },
+
+  // Renovate's own list, with `fixtures/` added: a fixture's versions are
+  // what a test reads, some of them wrong on purpose.
+  "ignorePaths": [
+    "**/node_modules/**",
+    "**/bower_components/**",
+    "**/vendor/**",
+    "**/examples/**",
+    "**/__tests__/**",
+    "**/test/**",
+    "**/tests/**",
+    "**/__fixtures__/**",
+    "**/fixtures/**"
+  ],
+
+  // An add-on's addon.json names the versions it adds to a project. Renovate
+  // knows no such file, so it is read here: an exact or a ranged version
+  // beside a package name. Without this the Biome of the root moves alone,
+  // and the format-lint test that holds the two together fails.
+  "customManagers": [
+    {
+      "customType": "regex",
+      "description": "The versions an add-on adds to a project",
+      "managerFilePatterns": ["/^addons/[^/]+/addon\\.json$/"],
+      "matchStrings": ["\"(?<depName>@?[a-z0-9][a-z0-9._/-]*)\": \"(?<currentValue>[~^]?\\d+\\.\\d+\\.\\d+)\""],
+      "datasourceTemplate": "npm"
+    },
+    {
+      // A workflow's Playwright image is read as the npm package it carries.
+      // An image tag has no release date, so the wait above cannot hold it,
+      // and the image would move ahead of the package; a project's
+      // `playwright-pin` gate fails on the two being different.
+      "customType": "regex",
+      "description": "The Playwright image of a workflow, at the version of @playwright/test",
+      "managerFilePatterns": ["/(^|/)\\.github/workflows/[^/]+\\.ya?ml$/"],
+      "matchStrings": ["mcr\\.microsoft\\.com/playwright:v(?<currentValue>\\d+\\.\\d+\\.\\d+)-noble"],
+      "depNameTemplate": "@playwright/test",
+      "datasourceTemplate": "npm"
+    }
+  ],
+
+  "packageRules": [
+    {
+      "groupName": "minor and patch",
+      "matchUpdateTypes": ["minor", "patch"]
+    },
+    {
+      "groupName": "actions",
+      "matchManagers": ["github-actions"]
+    },
+    {
+      // Playwright is pinned in five places (two packages, the performance
+      // add-on, and the container image of four workflows), and the goldens
+      // were drawn by one version of it. Moving it is a piece of work, begun
+      // from the Dependency Dashboard and not on a Monday.
+      "groupName": "playwright",
+      "matchPackageNames": ["playwright", "@playwright/test", "mcr.microsoft.com/playwright"],
+      "dependencyDashboardApproval": true
+    },
+    {
+      // The image is read above, as the npm package.
+      "matchDatasources": ["docker"],
+      "matchPackageNames": ["mcr.microsoft.com/playwright"],
+      "enabled": false
+    },
+    {
+      "matchPackageNames": ["@biomejs/biome"],
+      "prBodyNotes": ["The format-lint README says what was measured on the old Biome (its rules, its timings). Measure again, or say there that it was not."]
+    },
+    {
+      // As in the add-on: an override is a pin written by hand for one
+      // advisory, which Renovate would lift to the next major.
+      "matchFileNames": ["**/pnpm-workspace.yaml"],
+      "enabled": false
+    }
+  ]
+}
