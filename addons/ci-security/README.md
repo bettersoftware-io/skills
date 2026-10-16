@@ -173,6 +173,9 @@ off, and the same 404 to a login that may not see the setting. A 404 is read
 as "off" in two cases: the login may administer the repository, or the
 message says "disabled". Any other refusal is a `SKIP` with GitHub's reason.
 An answer in a form the tool does not know is a `SKIP` too.
+So is CodeQL in the minute after it is switched on, while GitHub has found
+no language yet: a command written from that empty list would set it to
+`actions` alone, so none is printed.
 
 **The repository** is the one `origin` points at when that is an address on
 github.com. Otherwise it is the one `gh repo view` names. The address is

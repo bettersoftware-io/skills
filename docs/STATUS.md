@@ -172,22 +172,6 @@ Found while Origamic's dependency rule went into its gates, on 2026-10-16
 
 Found while a project was set up with the plugin, on 2026-10-12 and 13.
 
-- **Five CodeQL alerts nobody has read.** CodeQL default setup was switched
-  on for this repository on 2026-10-13 and found them at once. Three of
-  "incomplete multi-character sanitization", rated high:
-  `scripts/architecture-docs/lib/page.mts:34`,
-  `addons/repo-hygiene/files/tools/repo-hygiene/lib/markdown.mts:100` and
-  `addons/ci-security/tests/addon.test.mts:138` (a test). Two of "shell
-  command built from the environment", rated medium:
-  `kit/gates/quiet.mts:213` and
-  `addons/coverage/files/tools/coverage/mutation-check.mts:285`. Which are
-  true is not known.
-- **`pnpm repo:settings` prints a wrong fix while CodeQL is being set up.**
-  For the minute GitHub takes to find the languages, the state is
-  `configured` and the list is empty. The check says "set up without the
-  `actions` language (it has: none)" and prints a command that would set the
-  list to `actions` alone. Seen on this repository; the list filled in by
-  itself. It should say that the setup is running, and print nothing to run.
 - **`pnpm repo:settings` names no check of a job with a `strategy:`.** This
   repository's two matrix jobs make twelve checks, and the ruleset the
   command printed asked for one. A matrix whose values are written out in

@@ -150,6 +150,18 @@ describe("a setting that is off", () => {
     expect(status).toBe(1);
   });
 
+  it("says CodeQL is still being set up, and prints nothing to run, while GitHub has found no language yet", () => {
+    const { status, lines } = check({ answers: { [`${API}/code-scanning/default-setup`]: { body: { state: "configured", languages: [] } } } });
+
+    expect(lines).toEqual(
+      expected(
+        { codeql: [`SKIP CodeQL default setup, with the actions language: ${NOT_READ} GitHub is still setting it up and has found no language yet. Run this again in a minute`] },
+        "8 on, 0 off, 1 not read",
+      ),
+    );
+    expect(status).toBe(2);
+  });
+
   it("fails workflow permissions that default to a write token", () => {
     const { status, lines } = check({ answers: { [`${API}/actions/permissions/workflow`]: { body: { default_workflow_permissions: "write", can_approve_pull_request_reviews: false } } } });
 
