@@ -149,6 +149,28 @@ Added on 2026-10-11 ([the record](documenting-architecture-2026-10-11.md)).
   sends an add-on through `extending-a-project` would be the first thing to
   try, then the Codex runs again ([the evals](../evals/README.md#results)).
 
+Found while Origamic's dependency rule went into its gates, on 2026-10-16
+(skills #30 and #31, origamic #18).
+
+- **The role `explicit` carries none of React's lint rules.** A package of
+  it that imports React has to be listed under `reactWithoutPolicies`, so it
+  gets no hook rules, no inline-style ban and no memoization ban. Origamic's
+  catalog (React components, imported only by its runtime) is the first that
+  will. A field that picks the React rules of a role (`client` or
+  `bindings`) for an explicit package would close it.
+- **The core's "no UI framework" rule sees only an import that resolves.**
+  Its pattern is `node_modules/react/`, so `import "react"` in a core that
+  cannot resolve React is not one of its findings. In Origamic the library
+  ban (`vendorOnlyIn`) caught it; a project that lists React nowhere in
+  `vendorOnlyIn` would not see it at all. Matching the bare name too, as
+  the library ban does, would close it.
+- **No gate sees a workspace package missing from the lockfile.** pnpm 12
+  writes no importer for a package with no dependency, and its frozen
+  install, which CI runs, then refuses the lockfile; `gate:full` is green
+  and only CI fails. Origamic added `packages/<name>: {}` by hand. Whether a
+  package of the workspace has an entry under `importers` is decidable from
+  `pnpm-lock.yaml`.
+
 Found while a project was set up with the plugin, on 2026-10-12 and 13.
 
 - **Five CodeQL alerts nobody has read.** CodeQL default setup was switched
