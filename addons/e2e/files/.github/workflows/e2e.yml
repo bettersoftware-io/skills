@@ -32,7 +32,10 @@ env:
 
 jobs:
   e2e:
-    name: end-to-end in the container (chromium)
+    # The name is what a ruleset's required check is named after (ci-security
+    # builds them from the jobs' names). Renaming it leaves a required check
+    # that no job reports, and every pull request waits for good.
+    name: end-to-end (chromium)
     runs-on: ubuntu-latest
     # The run takes well under a minute. A server that hangs must not hold a
     # runner for the six hours a job is allowed.

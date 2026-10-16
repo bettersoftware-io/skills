@@ -153,8 +153,12 @@ stack: {
   env: readStack,             // called when the mode starts, before its server and its build
 },
 
+// import { execFile } from "node:child_process"; import { promisify } from "node:util";
 async function readStack(): Promise<Record<string, string>> {
-  const printed = execFileSync("node_modules/.bin/supabase", ["status", "-o", "env"], { encoding: "utf8" });
+  const run = promisify(execFile);
+  // `start` does nothing when the stack is already running.
+  await run("node_modules/.bin/supabase", ["start"]);
+  const { stdout } = await run("node_modules/.bin/supabase", ["status", "-o", "env"]);
   // … read the lines it printed into the client's variables
 }
 ```
@@ -165,8 +169,9 @@ async function readStack(): Promise<Record<string, string>> {
 | `pnpm e2e --where container` | the modes that do not say `host: true` |
 | `pnpm e2e --where host` | the modes that do |
 
-- **The workflow has a job for each.** `end-to-end in the container` runs
-  `--where container` in the pinned image. `end-to-end on the host` runs
+- **The workflow has a job for each.** `end-to-end (chromium)` runs
+  `--where container` in the pinned image; its name is kept, since a
+  ruleset's required check is named after it. `end-to-end on the host` runs
   `--where host` on `ubuntu-latest` itself, where Docker is, after
   `playwright install --with-deps chromium` through the project's own
   Playwright: the browser build and its system libraries at the version
@@ -180,10 +185,16 @@ async function readStack(): Promise<Record<string, string>> {
   want of the database. When it throws, or gives anything but an object of
   strings, the run stops before the mode's server with the mode named, and
   exits 2. Its values may hold `SERVER_URL` and `SERVER_HOST` like any other.
-- **The runner does not start or stop what the function reads.** It reads a
-  stack that is running. Starting it (`supabase start`, which pulls images on
-  a fresh runner) is a step of the project's own, before `pnpm e2e`; the
-  host job's limit is 30 minutes for that reason.
+- **The runner does not start or stop what the function reads.** When
+  starting it twice is harmless, as `supabase start` is, let the function
+  start it and then read it, as above: the host job then needs no step of
+  its own. That is the way to take. Adding a step to `e2e.yml` instead makes
+  the file the project's, and the installer stops updating it. A first start
+  pulls images on a fresh runner, so the run says `[e2e] <mode>: reading its
+  variables` before it waits, and the host job's limit is 30 minutes.
+- **Use the function's async calls** (`execFile`, not `execFileSync`). A
+  call that blocks also blocks the runner's signal handling: a Ctrl-C waits
+  for it.
 
 ### Specs that wait on state
 
@@ -279,7 +290,7 @@ with a run.
 results. Without that the check would refuse the command as one that may have
 run nothing.
 
-**The rules and the tools can fail.** The add-on's scripts have 115 tests in
+**The rules and the tools can fail.** The add-on's scripts have 118 tests in
 `tests/` (`pnpm vitest run addons/e2e` from this repository's root). The
 runner is tested against real processes: fake programs that listen on real
 ports and start children of their own. [`tests/mutants.json`](tests/mutants.json)
@@ -290,9 +301,9 @@ showed two tests that could not fail; both tests were rewritten. The host
 and port (2026-10-06) added 13 mutants and rewrote 5 whose text had moved:
 those 18 were run, 18 of 18 killed, and the file held 175.
 
-A mode on the host and an env function (2026-10-16) added 24 tests and 32
+A mode on the host and an env function (2026-10-16) added 27 tests and 35
 mutants, rewrote 7 whose text or test had moved, and ran again 2 whose code
-had moved: those 41 were run, 41 of 41 killed, and the file now holds 207. Two rows of the installer's
+had moved: those 44 were run, 44 of 44 killed, and the file now holds 210. Two rows of the installer's
 (`scripts add: …`) name text that is no longer there, and were left as they
 were. In a project created with `create-project.mts --with recommended,e2e`
 on macOS arm64, with a `stack` mode that says `host: true` and reads its
@@ -316,6 +327,9 @@ said there was nothing to start and exited 0. `gate:full` and
   groups of their own, so nothing else stops them. Every other end is covered.
 - **pnpm starts the script in a process group of its own.** Ctrl-C reaches
   the runner because pnpm passes the signal on. Measured with pnpm 12.6.
+- **The host job installs Chromium in every project,** with its system
+  libraries, even in one with no host mode, before the run says there is
+  nothing to do: a minute or two of a runner on each pull request.
 - **What an env function starts is not stopped.** The runner stops the
   programs it started. A function that starts a program of its own (a
   database's `start`) leaves it to the project.

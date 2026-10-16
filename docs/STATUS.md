@@ -401,8 +401,8 @@ Found while a project was set up with the plugin, on 2026-10-12 and 13.
 - **The `performance` add-on's static check and the `visual` add-on's server
   check walk the project by their own closed lists.** Neither was looked at
   for stray root folders.
-- **`e2e`'s 207 mutants were not all run again.** The 18 that the host and
-  port added or rewrote were, the 41 that a mode on the host added, rewrote
+- **`e2e`'s 210 mutants were not all run again.** The 18 that the host and
+  port added or rewrote were, the 44 that a mode on the host added, rewrote
   or moved were (2026-10-16), and the 14 application mutants were.
 - **Without `format-lint`, nothing bans an import that climbs two folders.**
   The ban is Biome's; ESLint has no twin of it.

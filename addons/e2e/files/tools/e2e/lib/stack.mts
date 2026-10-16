@@ -55,6 +55,11 @@ export async function startMode(
   const mode = config.modes[name] as Mode;
   const clientFolder = join(root, config.client.cwd);
   const outDir = join(root, config.tests, "node_modules", ".cache", "e2e", name);
+  if (typeof mode.env === "function") {
+    // A first start of what it reads (a database pulling its images) can take minutes.
+    say(`[e2e] ${name}: reading its variables`);
+  }
+
   const env = await readEnv(name, mode.env);
   let server: ServerAddress | undefined;
 

@@ -1447,5 +1447,26 @@
     "find": "\n  e2e-host:\n",
     "replace": "\n  e2e-on-host:\n",
     "test": "pnpm vitest run addons/e2e/tests/addon.test.mts -t \"has two jobs\""
+  },
+  {
+    "name": "addon: the container job is renamed, and a ruleset's required check is never reported",
+    "file": "addons/e2e/files/.github/workflows/e2e.yml",
+    "find": "    name: end-to-end (chromium)\n",
+    "replace": "    name: end-to-end in the container (chromium)\n",
+    "test": "pnpm vitest run addons/e2e/tests/addon.test.mts -t \"keeps the container job's name\""
+  },
+  {
+    "name": "tools run: nothing is said before an env function is called",
+    "file": "addons/e2e/files/tools/e2e/lib/stack.mts",
+    "find": "  if (typeof mode.env === \"function\") {\n    // A first start",
+    "replace": "  if (typeof mode.env === \"never\") {\n    // A first start",
+    "test": "pnpm vitest run addons/e2e/tests/run.port.test.mts -t \"says it is reading a mode's variables\""
+  },
+  {
+    "name": "tools run: the line comes only once the function has answered",
+    "file": "addons/e2e/files/tools/e2e/lib/stack.mts",
+    "find": "  if (typeof mode.env === \"function\") {\n    // A first start of what it reads (a database pulling its images) can take minutes.\n    say(`[e2e] ${name}: reading its variables`);\n  }\n\n  const env = await readEnv(name, mode.env);\n",
+    "replace": "  const env = await readEnv(name, mode.env);\n  if (typeof mode.env === \"function\") {\n    // A first start of what it reads (a database pulling its images) can take minutes.\n    say(`[e2e] ${name}: reading its variables`);\n  }\n\n",
+    "test": "pnpm vitest run addons/e2e/tests/run.port.test.mts -t \"says it is reading a mode's variables\""
   }
 ]

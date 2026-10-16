@@ -219,6 +219,13 @@ describe("the workflow", () => {
     }
   });
 
+  it("keeps the container job's name, which a ruleset's required check is named after", () => {
+    // ci-security builds a ruleset's required checks from the jobs' names. A
+    // renamed job leaves a required check that nothing reports, and every
+    // pull request in a project that applied the ruleset waits for good.
+    expect(readJobs().container).toMatch(/^ {4}name: end-to-end \(chromium\)\n/m);
+  });
+
   it("has two jobs: one in the container, one on the runner itself", () => {
     const jobs = WORKFLOW.slice(WORKFLOW.indexOf("\njobs:\n"));
 

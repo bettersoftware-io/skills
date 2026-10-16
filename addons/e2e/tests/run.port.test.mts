@@ -270,6 +270,27 @@ describe("a mode that runs on the host, with variables read from a running stack
     expect(readRecord(project.record)).toEqual({});
   });
 
+  it("says it is reading a mode's variables before it calls the function, so a slow stack is not a silent wait", async () => {
+    const project = createProjectWithHostMode();
+
+    const { output } = await startCli(project, ["--where", "host"], { FAKE_ENV_FAILS: "slow" }).ended;
+
+    expect(output).toContain("[e2e] fullstack: reading its variables\n");
+    expect(output.indexOf("[e2e] fullstack: reading its variables")).toBeLessThan(output.indexOf("e2e could not run"));
+  });
+
+  it("stops the modes it had started when a later mode's env function fails, and names that mode", async () => {
+    const project = createProjectWithHostMode();
+
+    const { exitCode, output } = await startCli(project, [], { FAKE_ENV_FAILS: "supabase is not running" }).ended;
+
+    expect(exitCode).toBe(2);
+    expect(output).toContain("[e2e] sim: client built and served at");
+    expect(output).toContain('e2e could not run: the env function of mode "fullstack" failed: supabase is not running');
+    expect(Object.keys(readRecord(project.record)).map((name) => name.replace(/-\d+$/, ""))).toEqual(["client"]);
+    expect(findSurvivors(project.record)).toEqual([]);
+  });
+
   it("could not run when an env function gives something other than variables, and names the mode", async () => {
     const project = createProjectWithHostMode(`async () => ({ CLIENT_API_URL: 54321 })`);
 
