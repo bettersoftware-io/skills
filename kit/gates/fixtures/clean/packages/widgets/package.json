@@ -1,0 +1,13 @@
+{
+  "name": "@fx/widgets",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "test": "vitest run"
+  },
+  "exports": "./src/index.ts",
+  "dependencies": {
+    "@fx/domain": "workspace:*"
+  }
+}

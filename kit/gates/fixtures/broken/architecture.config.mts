@@ -4,6 +4,7 @@ export default {
     "packages/contract-types": { role: "leaf", typesOnly: true },
     "packages/client-core": { role: "core", noNodeBuiltins: true },
     "packages/react-bindings": { role: "bindings" },
+    "packages/widgets": { role: "explicit" },
     "packages/client-react": { role: "client" },
     "packages/checks": { role: "integration" },
     "packages/browser-tests": { role: "e2e" },

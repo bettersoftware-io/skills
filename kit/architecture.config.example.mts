@@ -12,6 +12,8 @@
 // bindings         core, domain, leaf
 // client           bindings, core, domain, leaf
 // server           domain, shared, leaf
+// explicit         only what its own mayImport names; and only a package that
+//                  names it in its mayImport imports it
 // integration      every role above. Nothing may import it; it holds only tests
 // e2e              no source of the application: only a client's test ids, and
 //                  types. Nothing may import it; it holds only specs, page
@@ -70,6 +72,12 @@ const config: ArchitectureConfig = {
     // A package of shared types adds `typesOnly: true`: it may then export no
     // runtime value.
     // "packages/core-api": { role: "leaf", typesOnly: true },
+
+    // A graph the roles above cannot draw ("the catalog imports the spec, and
+    // only the runtime imports the catalog") is written edge by edge: the
+    // role `explicit` grants nothing, and the edges are the mayImport lists.
+    // "packages/catalog": { role: "explicit", mayImport: ["packages/spec"] },
+    // "packages/runtime": { role: "bindings", mayImport: ["packages/catalog"] },
 
     // End-to-end tests that drive the built application in a browser. It
     // imports none of the packages above, only the client's test ids, and has
