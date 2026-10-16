@@ -40,7 +40,9 @@ checkout is the plugin, and a run is given a rule for what it holds: with the
 starter's own `node_modules`, `.turbo` and `dist` in it, about 13,000 files,
 every run failed with `E2BIG: argument list too long, posix_spawn` before the
 agent started, on Claude Code 2.1.301, on 2026-10-16. `git clean -fdX starter`
-removes them; a fresh worktree has none.
+removes them; a fresh worktree has none. Both scripts check first
+(`scripts/evals-preflight.mts`): with anything git ignores under `starter/`
+they stop before the harness starts, and print that command.
 
 Anything after the script's name is passed on, so a run can be narrowed or
 changed:
@@ -106,7 +108,7 @@ second the skill it is about, or `none`.
 | Skill | Trigger cases: should load it | Outcome case |
 |---|---|---|
 | `creating-a-project` | A new project in the skill's own words; the same without naming ports and adapters or RxJS | Names `create-project.mts` with the scope and the name asked for |
-| `extending-a-project` | End-to-end tests; CI security checks, asked for without the add-on's name; an update of the kit; an existing project that wants the gates (and `creating-a-project` must stay out) | Names `add-to-project.mts` with `ci-security:renovate` |
+| `extending-a-project` | End-to-end tests; CI security checks, asked for without the add-on's name; an update of the kit; an existing project that wants the gates (and `creating-a-project` must stay out) | Names `add-to-project.mts` with `ci-security:dependabot`, the option that is not the default |
 | `reviewing-architecture` | A review before merging, with no mention of architecture; "does this follow the architecture?" | Finds an average worked out in a component, which belongs in the core |
 | `documenting-architecture` | A set of documents with C4 diagrams; a guide for a newcomer, with no mention of architecture | None: the skill starts readers of its own and fetches a 230 MB toolset, more than a run holds |
 | none | A Python service; a review in a project without the kit; one diagram | |
@@ -164,6 +166,10 @@ command the agent names, not the result of running it.
 | 2026-10-16 | trigger, one run each | Claude Opus | 13 of 13 runs, $3.01 |
 | 2026-10-16 | outcome, one run each | Claude Opus | With the plugin 3 of 3. Without it: creating 0.33, extending 0.50, the review 1.00. $0.91 |
 | 2026-10-16 | Codex trigger | Codex's default | 30 of 39 runs; 35 of 39 after `AGENTS.md` gained "Adding a check". See below |
+
+The outcome results are from `outcome-extend-command` as it was then, asking
+for Renovate. In 0.17.0 Renovate became the default, so the case asks for
+Dependabot, the option that is not; it has not been run since.
 
 **The review scores the same without the plugin.** All seven Sonnet runs
 without it, and the Opus one, reported the average as belonging in the core.

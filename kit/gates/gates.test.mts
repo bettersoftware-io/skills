@@ -889,11 +889,41 @@ describe("two entries of vendorOnlyIn that cannot both mean what they say", () =
   });
 });
 
+describe("reactRules on a declaration", () => {
+  it("is a configuration error on a package of another role, and the message names the package", async () => {
+    const root = createConfigRoot('{ "packages/widgets": { role: "leaf", reactRules: "client" } }');
+
+    await expect(loadConfig(root)).rejects.toThrow(/"packages\/widgets" has reactRules but the role "leaf".*Only a package of role "explicit"/);
+    await expect(loadConfig(root)).rejects.toBeInstanceOf(ConfigError);
+  });
+
+  it("is a configuration error when it names a role that has no React rules to take, and the message names the package", async () => {
+    const root = createConfigRoot('{ "packages/catalog": { role: "explicit", reactRules: "server" } }');
+
+    await expect(loadConfig(root)).rejects.toThrow(/"packages\/catalog" has reactRules "server" — expected "client" or "bindings"/);
+  });
+
+  it("is read on an explicit package", async () => {
+    const root = createConfigRoot('{ "packages/catalog": { role: "explicit", reactRules: "bindings" } }');
+    const { config } = await loadConfig(root);
+
+    expect(config.packages["packages/catalog"]?.reactRules).toBe("bindings");
+  });
+});
+
 describe("a project that cannot be judged", () => {
   it("refuses instead of passing when no layers are declared", async () => {
     await expect(runGates({ root: fixtures })).rejects.toBeInstanceOf(ConfigError);
   });
 });
+
+function createConfigRoot(packages: string): string {
+  const root = mkdtempSync(join(tmpdir(), "arch-react-rules-"));
+
+  writeFileSync(join(root, "architecture.config.mts"), `export default { packages: ${packages} };\n`);
+
+  return root;
+}
 
 /** What the package-manager gate says about a project whose root package.json is this. */
 function managerFindings(manifest: object): string[] {

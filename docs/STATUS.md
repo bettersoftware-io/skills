@@ -24,10 +24,12 @@ on 2026-10-05, on pushes to main and on a pull request
 - **`ci-security` has run on GitHub with everything passing only.** In
   skills-demo on 2026-10-06: workflow lint and `pnpm audit` on a pull request
   and on main, Dependency Review on a pull request, Scorecard on main, and
-  Dependabot's update runs (four, all green, no pull request opened yet). Not
-  seen: a Dependabot pull request, Dependency Review refusing a pull request
-  for an advisory or a licence, and what Scorecard's findings look like in the
-  repository's code-scanning page.
+  Dependabot's update runs (four, all green, no pull request opened yet). On
+  2026-10-14 Dependabot opened one for the actions (skills-demo #11, every
+  check green), and its npm run failed, as under every project's Node floor.
+  Not seen: Dependency Review refusing a pull request for an advisory or a
+  licence, and what Scorecard's findings look like in the repository's
+  code-scanning page.
 - **Dependency Review fails until the repository's dependency graph is on.**
   Seen: "Dependency review is not supported on this repository". The add-on's
   README lists the setting; `gh api -X PUT repos/<owner>/<repo>/vulnerability-alerts`
@@ -61,8 +63,11 @@ on 2026-10-05, on pushes to main and on a pull request
 - **Nothing here has run on Linux outside GitHub's CI,** and nothing through
   a real `docker build`. The Dockerfile check was compared with BuildKit's own
   parser, built from source; the `e2e` workflow and its container have not run.
-- **Renovate has only been through its validator.** No repository with the
-  app installed has used the shipped config.
+- **Renovate has read the shipped config, and opened nothing yet.** In
+  origamic on 2026-10-16 its Dependency Dashboard shows the config applied:
+  the "actions" and "minor and patch" groups, both waiting for Monday's
+  wave. The first pull requests, and whether pnpm accepts the lockfile each
+  writes, are due on 2026-10-19.
 - **No run where the coverage gate fails has been seen.** The report is meant
   to publish then too.
 - **The motion audit had nothing to judge.** The starter has no animation, so
@@ -138,19 +143,33 @@ Added on 2026-10-11 ([the record](documenting-architecture-2026-10-11.md)).
 
 ## Dated
 
-- **From 19 October 2026 `ubuntu-latest` means Ubuntu 26.** GitHub's notice:
-  [actions/runner-images#14748](https://github.com/actions/runner-images/issues/14748).
-  Every workflow here uses that label: this repository's `ci.yml`, the
-  starter's `ci.yml`, and the add-ons' `coverage.yml`, `visual.yml`,
-  `update-visual-goldens.yml`, `perf.yml`, `e2e.yml`, `ci-security.yml`,
-  `dependency-review.yml`, `scorecard.yml` and `weekly-tag.yml`. A project
-  created from the starter has the same label in every workflow it was given.
-  Decide whether to pin a version (`ubuntu-24.04`) or to move with the label.
-  Either way, re-run this repository's CI once the change lands. The visual
-  and end-to-end tests are the least exposed, since they run inside a pinned
-  Playwright container.
+- **`ubuntu-latest` moves to Ubuntu 26 between 19 October and 19 November
+  2026** ([actions/runner-images#14748](https://github.com/actions/runner-images/issues/14748)).
+  Decided on 2026-10-16: the workflows move with the label, none is pinned.
+  A trial on `ubuntu-26.04` the same day passed: this repository's CI,
+  16 checks of 16 (skills #40), and in skills-demo every workflow a pull
+  request runs (skills-demo #13). The one failure there was actionlint
+  1.7.12, which does not know the label `ubuntu-26.04`; only a workflow
+  that pins it meets that. Not run on Ubuntu 26: `scorecard.yml`,
+  `update-visual-goldens.yml` and `weekly-tag.yml`, which no pull request
+  starts. Look at the first runs after the switch.
 
 ## Next, with no plan yet
+
+- **Two projects still have Dependabot, which cannot update their npm
+  packages.** Renovate became the default in 0.17.0; a project keeps the bot
+  it has. `condo-ledger` and `skills-demo` have `dependabot.yml`;
+  `add-to-project.mts <project> ci-security:renovate` moves each, and a
+  person turns Dependabot security updates off (`pnpm repo:settings` says
+  so). `origamic` moved on 2026-10-13, but its `renovate.json5` is the old
+  one, with `vulnerabilityAlerts` off: the update lists the line to change.
+- **An update bot's pull request edits files the installer owns.** Both bots
+  move the action commits in `.github/workflows/`, which the add-ons wrote
+  and `tools/installed.json` records. A merged bump makes each file one the
+  next update of its add-on refuses, unless the add-on's new copy is the same
+  byte for byte. Read from the installer's code; not yet seen in a project.
+  Leaving the add-ons' workflows to the add-on updates, as `tools/` is
+  left, would close it.
 
 - **Projects created before 0.16.0 have no "Adding a check" in their
   `AGENTS.md`.** Without it, Codex skipped `extending-a-project` and planned
@@ -163,12 +182,11 @@ Added on 2026-10-11 ([the record](documenting-architecture-2026-10-11.md)).
 Found while Origamic's dependency rule went into its gates, on 2026-10-16
 (skills #30 and #31, origamic #18).
 
-- **The role `explicit` carries none of React's lint rules.** A package of
-  it that imports React has to be listed under `reactWithoutPolicies`, so it
-  gets no hook rules, no inline-style ban and no memoization ban. Origamic's
-  catalog (React components, imported only by its runtime) is the first that
-  will. A field that picks the React rules of a role (`client` or
-  `bindings`) for an explicit package would close it.
+- **An explicit package that declares `reactCompiler: true` is not checked
+  against a build.** `reactRules: "client"` gives it the memoization ban when
+  it declares the compiler, but the build that compiles it is another
+  package's (the app's), so `check:react-policies` reads no `vite.config.ts`
+  for it and cannot tell a false declaration. Seen on 2026-10-16.
 - **The core's "no UI framework" rule sees only an import that resolves.**
   Its pattern is `node_modules/react/`, so `import "react"` in a core that
   cannot resolve React is not one of its findings. In Origamic the library
@@ -184,44 +202,10 @@ Found while Origamic's dependency rule went into its gates, on 2026-10-16
 
 Found while a project was set up with the plugin, on 2026-10-12 and 13.
 
-- **Five CodeQL alerts nobody has read.** CodeQL default setup was switched
-  on for this repository on 2026-10-13 and found them at once. Three of
-  "incomplete multi-character sanitization", rated high:
-  `scripts/architecture-docs/lib/page.mts:34`,
-  `addons/repo-hygiene/files/tools/repo-hygiene/lib/markdown.mts:100` and
-  `addons/ci-security/tests/addon.test.mts:138` (a test). Two of "shell
-  command built from the environment", rated medium:
-  `kit/gates/quiet.mts:213` and
-  `addons/coverage/files/tools/coverage/mutation-check.mts:285`. Which are
-  true is not known.
-- **`pnpm repo:settings` prints a wrong fix while CodeQL is being set up.**
-  For the minute GitHub takes to find the languages, the state is
-  `configured` and the list is empty. The check says "set up without the
-  `actions` language (it has: none)" and prints a command that would set the
-  list to `actions` alone. Seen on this repository; the list filled in by
-  itself. It should say that the setup is running, and print nothing to run.
 - **`pnpm repo:settings` names no check of a job with a `strategy:`.** This
   repository's two matrix jobs make twelve checks, and the ruleset the
   command printed asked for one. A matrix whose values are written out in
   the file could be read. The twelve names were added by hand.
-- **Nothing checks `docs/STATUS.md`.** That the page has its six sections,
-  that its date moved with an edit, that an entry links a file that exists:
-  each is decidable, and `repo-hygiene` already checks the links.
-- **Six mutants of `agent-workflow` no longer apply.** The text each one
-  looks for is not in its file once, so `mutation-check.mts` cannot run
-  them: "creates a host's settings file that is not there", "never merges
-  into a settings file that is a link out of the project", "counts a file
-  that is not JSON as unmerged", "does not write over the file that took its
-  place", and the two that begin "says nothing once". They went stale when
-  the installer changed. Nothing fails when a mutant goes stale. Two of
-  `e2e`'s are the same: "scripts add: a kit with no list of gates is taken
-  to have them all" and "scripts add: a project's own declaration is
-  replaced".
-- **Renovate runs here with the default config.** Its "Configure Renovate"
-  pull request was merged on 2026-10-13. It has opened two for actions.
-  Nothing tells it to leave `starter/` alone, whose versions are tested
-  together and held by one lockfile, or to wait a week for a release as the
-  add-on's own `renovate.json5` does.
 
 ## Open decisions
 
@@ -237,17 +221,6 @@ Found while a project was set up with the plugin, on 2026-10-12 and 13.
 - **Nothing checks that the core reaches the clock through a port.** In the
   Codex run a presenter read `new Date()` directly. A check for `Date` in the
   domain and the core is decidable from source, and does not exist.
-- **Dependabot cannot update a project's npm packages.** Its updater runs
-  Node 24. The starter's root asks for `>=26` in `devEngines.runtime` with
-  `"onFail": "error"`, and the `node-floor` gate holds it there, so pnpm
-  stops with `ERR_PNPM_BAD_RUNTIME_VERSION`. Both runs failed in a project
-  created on 2026-10-12, and every weekly run will. That project moved to
-  `ci-security:renovate`. Dependabot security updates fail the same way, so
-  it also switched Renovate's `vulnerabilityAlerts` on in its own file: the
-  add-on's row "Security fixes: still Dependabot security updates" is not
-  true under this floor. For the add-on, Renovate as the default with its
-  fixes on, a floor the updater is let past, or waiting for Dependabot: not
-  decided.
 
 ## Not tried
 
@@ -301,9 +274,9 @@ Found while a project was set up with the plugin, on 2026-10-12 and 13.
   start a run: `E2BIG: argument list too long, posix_spawn`, score 0, no
   cost. Installing the starter in a clean worktree made it fail, and
   `git clean -fdX starter` made it pass, on 2026-10-16; reported to Claude
-  Code. Nothing here stops a run first and names that command: a check at
-  the start of `pnpm evals:trigger` and `pnpm evals:outcome` would
-  ([the evals](../evals/README.md#running-them)).
+  Code. `pnpm evals:trigger` and `pnpm evals:outcome` now stop first and name
+  that command ([the evals](../evals/README.md#running-them)); a run started
+  some other way, `claude plugin eval .` by hand, still fails.
 
 - **No command that `pnpm repo:settings` prints has been run.** The
   `ci-security` add-on's command reads a repository's settings and prints,

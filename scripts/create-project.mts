@@ -66,6 +66,8 @@ export interface CreatedProject {
   firstRuns: string[];
   /** What is left for a person to do by hand. Empty after a normal run. */
   notes: string[];
+  /** For each add-on with a choice, the option it was given, asked for or its default, and what that option says. */
+  options: string[];
 }
 
 /** The steps that can be swapped in a test. */
@@ -121,7 +123,15 @@ export function createProject(
     // Last, because it names the add-ons and the commands they ask for.
     writeFileSync(join(destination, "README.md"), projectReadme({ name: projectName, scope, addons: added, firstRuns }));
 
-    return { destination, addons: chosen, firstRuns, notes };
+    const options = chosen.flatMap((asked) => {
+      const { name: unit, option } = parseUnit(asked);
+      const choice = available.find((addon) => addon.name === unit)?.choice;
+      const given = option ?? choice?.default;
+
+      return choice === undefined || given === undefined ? [] : [`${unit}, option ${given}: ${choice.options[given] ?? ""}`];
+    });
+
+    return { destination, addons: chosen, firstRuns, notes, options };
   } catch (error) {
     // Half a project looks like a project. The folder was empty or absent, so
     // everything in it now is ours to take away again.
@@ -133,9 +143,9 @@ export function createProject(
   }
 }
 
-/** The add-on as the README lists it: under the name it was asked for, with what its option says after its summary. */
+/** The add-on as the README lists it: under the name it was asked for, with what its option, or its default, says after its summary. */
 function nameWithOption(addon: ListedAddon, asked: string): ListedAddon {
-  const says = addon.choice?.options[parseUnit(asked).option ?? ""];
+  const says = addon.choice?.options[parseUnit(asked).option ?? addon.choice.default];
 
   return { ...addon, name: asked, summary: says === undefined ? addon.summary : `${addon.summary} ${says}` };
 }
@@ -287,9 +297,9 @@ export function parseArguments(argv: string[]): ProjectOptions {
 
 if (isMainModule(import.meta.url)) {
   try {
-    const { destination, addons, firstRuns, notes } = createProject(parseArguments(process.argv.slice(2)));
+    const { destination, addons, firstRuns, notes, options } = createProject(parseArguments(process.argv.slice(2)));
     const once = firstRuns.map((command) => `\n  ${command}`).join("");
-    const added = addons.length === 0 ? "" : `\nWith: ${addons.join(", ")}`;
+    const added = addons.length === 0 ? "" : `\nWith: ${addons.join(", ")}${options.map((line) => `\n  ${line}`).join("")}`;
     const byHand = notes.length === 0 ? "" : `\n\nStill to do by hand:\n${notes.map((note) => `  - ${note}`).join("\n")}`;
 
     console.log(printable(`Created ${destination}${added}${byHand}\n\nNext:\n  cd ${destination}\n  git init\n  pnpm install${once}\n  pnpm gate:full`));

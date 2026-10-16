@@ -76,7 +76,10 @@ const config: ArchitectureConfig = {
     // A graph the roles above cannot draw ("the catalog imports the spec, and
     // only the runtime imports the catalog") is written edge by edge: the
     // role `explicit` grants nothing, and the edges are the mayImport lists.
-    // "packages/catalog": { role: "explicit", mayImport: ["packages/spec"] },
+    // `reactRules: "client"` (or "bindings") gives a package of that role the
+    // React lint rules of a client (or the bindings); without it, a package
+    // that imports React is listed under `reactWithoutPolicies`.
+    // "packages/catalog": { role: "explicit", mayImport: ["packages/spec"], reactRules: "client" },
     // "packages/runtime": { role: "bindings", mayImport: ["packages/catalog"] },
 
     // End-to-end tests that drive the built application in a browser. It

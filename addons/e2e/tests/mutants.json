@@ -429,8 +429,8 @@
   {
     "name": "scripts add: a kit with no list of gates is taken to have them all",
     "file": "scripts/add-to-project.mts",
-    "find": "const has = readGateList(readIfThere(join(destination, GATE_LIST))) ?? {};",
-    "replace": "const has = readGateList(readIfThere(join(destination, GATE_LIST))) ?? Object.fromEntries(wanted.map((gate) => [gate, []]));",
+    "find": "const has = readGateList(readProjectTextIfThere(destination, GATE_LIST)) ?? {};",
+    "replace": "const has = readGateList(readProjectTextIfThere(destination, GATE_LIST)) ?? Object.fromEntries(wanted.map((gate) => [gate, []]));",
     "test": "pnpm vitest run scripts/add-to-project.test.mts -t \"refuses the same way when the project's kit has no list\""
   },
   {
@@ -443,8 +443,8 @@
   {
     "name": "scripts add: a project's own declaration is replaced",
     "file": "scripts/add-to-project.mts",
-    "find": "declarePackages(existsSync(file) ? readFileSync(file, \"utf8\") : \"\", packages)",
-    "replace": "declarePackages(existsSync(file) ? readFileSync(file, \"utf8\").replaceAll(\"packages/demo\", \"packages/was-demo\") : \"\", packages)",
+    "find": "declarePackages(readProjectTextIfThere(project, ARCHITECTURE_CONFIG) ?? \"\", packages)",
+    "replace": "declarePackages((readProjectTextIfThere(project, ARCHITECTURE_CONFIG) ?? \"\").replaceAll(\"packages/demo\", \"packages/was-demo\"), packages)",
     "test": "pnpm vitest run scripts/add-to-project.test.mts -t \"leaves a declaration the project already wrote\""
   },
   {

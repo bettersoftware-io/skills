@@ -1,0 +1,44 @@
+[
+  {
+    "name": "renovate here: security fixes off",
+    "file": ".github/renovate.json5",
+    "find": "\"vulnerabilityAlerts\": {\n    \"enabled\": true",
+    "replace": "\"vulnerabilityAlerts\": {\n    \"enabled\": false",
+    "test": "pnpm vitest run scripts/renovate.test.mts -t \"opens the security fixes\""
+  },
+  {
+    "name": "renovate here: fixtures read",
+    "file": ".github/renovate.json5",
+    "find": ",\n    \"**/fixtures/**\"",
+    "replace": "",
+    "test": "pnpm vitest run scripts/renovate.test.mts -t \"leaves the tests' fixtures alone\""
+  },
+  {
+    "name": "renovate here: a ranged version in addon.json not read",
+    "file": ".github/renovate.json5",
+    "find": "(?<currentValue>[~^]?\\\\d+",
+    "replace": "(?<currentValue>\\\\d+",
+    "test": "pnpm vitest run scripts/renovate.test.mts -t \"reads every version an add-on adds\""
+  },
+  {
+    "name": "renovate here: the image moves as an image",
+    "file": ".github/renovate.json5",
+    "find": "\"depNameTemplate\": \"@playwright/test\",",
+    "replace": "\"depNameTemplate\": \"mcr.microsoft.com/playwright\",",
+    "test": "pnpm vitest run scripts/renovate.test.mts -t \"moves each workflow's Playwright image\""
+  },
+  {
+    "name": "renovate here: Playwright moves on Monday",
+    "file": ".github/renovate.json5",
+    "find": "\"dependencyDashboardApproval\": true",
+    "replace": "\"dependencyDashboardApproval\": false",
+    "test": "pnpm vitest run scripts/renovate.test.mts -t \"moves Playwright only when someone asks\""
+  },
+  {
+    "name": "renovate here: a wait of its own",
+    "file": ".github/renovate.json5",
+    "find": "\"minimumReleaseAge\": \"7 days\"",
+    "replace": "\"minimumReleaseAge\": \"3 days\"",
+    "test": "pnpm vitest run scripts/renovate.test.mts -t \"keeps the policy the ci-security add-on ships\""
+  }
+]

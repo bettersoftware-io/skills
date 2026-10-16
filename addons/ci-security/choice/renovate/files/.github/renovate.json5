@@ -8,10 +8,11 @@
 // the organisation's or the account's settings. Until then no pull request is
 // opened and nothing reports an error.
 //
-// It drives version updates only. A pull request that fixes a known advisory
-// comes from Dependabot security updates, which are a repository setting and
-// need no file. That is why `vulnerabilityAlerts` is off below: with both on,
-// each fix would arrive twice.
+// It also opens the pull request that fixes a known advisory, from the
+// repository's Dependabot alerts (a setting, which must be on). A fix does not
+// wait for the schedule or the week below. Dependabot security updates, the
+// other setting, stay off: with both on, each fix would arrive twice, and
+// `pnpm repo:settings` fails while they are on.
 {
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
   "extends": [
@@ -39,7 +40,7 @@
   "prConcurrentLimit": 5,
 
   "vulnerabilityAlerts": {
-    "enabled": false
+    "enabled": true
   },
 
   // `tools/` holds what the kit and the add-ons installed. An update of the

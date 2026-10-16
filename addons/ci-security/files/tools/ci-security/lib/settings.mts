@@ -14,6 +14,9 @@
 // is off and also for one the login may not see, so a 404 counts as off only
 // where it can mean nothing else: see `meansOff`.
 
+import { existsSync } from "node:fs";
+import { join } from "node:path";
+
 import { type RequiredChecks, requiredChecks } from "./required-checks.mts";
 
 export interface Ran {
@@ -127,15 +130,27 @@ export function checkSettings({ root, run, report: print }: SettingsOptions): Ex
       setting: "Dependabot alerts, and with them the dependency graph",
       verdict: alerts.ok ? ON : meansOff(alerts) ? off("off", security("Dependabot alerts"), `gh api -X PUT ${api}/vulnerability-alerts`) : notRead(alerts),
     },
-    {
-      setting: "Dependabot security updates",
-      verdict:
-        updatesOn === true
-          ? ON
-          : updatesOn === false || meansOff(updates)
-            ? off("off", security("Dependabot security updates"), `gh api -X PUT ${api}/automated-security-fixes`)
-            : notRead(updates),
-    },
+    usesRenovate(root)
+      ? {
+          // Renovate opens the fixes, from the alerts above. With Dependabot's
+          // on too, each fix would come from both bots.
+          setting: "Dependabot security updates are off, as Renovate opens the fixes",
+          verdict:
+            updatesOn === false || meansOff(updates)
+              ? ON
+              : updatesOn === true
+                ? off("on, so a fix would come from both bots", security("Dependabot security updates"), `gh api -X DELETE ${api}/automated-security-fixes`)
+                : notRead(updates),
+        }
+      : {
+          setting: "Dependabot security updates",
+          verdict:
+            updatesOn === true
+              ? ON
+              : updatesOn === false || meansOff(updates)
+                ? off("off", security("Dependabot security updates"), `gh api -X PUT ${api}/automated-security-fixes`)
+                : notRead(updates),
+        },
     {
       setting: "Private vulnerability reporting",
       verdict:
@@ -205,6 +220,14 @@ export function checkSettings({ root, run, report: print }: SettingsOptions): Ex
   return count("off") > 0 ? 1 : count("unread") > 0 ? 2 : 0;
 }
 
+/** The files Renovate reads its config from, as Renovate looks for them. */
+const RENOVATE_CONFIGS = ["renovate.json", "renovate.json5", ".github/renovate.json", ".github/renovate.json5", ".gitlab/renovate.json", ".gitlab/renovate.json5", ".renovaterc", ".renovaterc.json", ".renovaterc.json5"];
+
+/** True when the project's update bot is Renovate: one of its config files is there. */
+function usesRenovate(root: string): boolean {
+  return RENOVATE_CONFIGS.some((path) => existsSync(join(root, path)));
+}
+
 function judgeCodeql(answer: Answer, api: string, where: string): Verdict {
   const state = answer.ok ? field(answer.body, "state") : undefined;
   const listed = answer.ok ? field(answer.body, "languages") : undefined;
@@ -217,6 +240,13 @@ function judgeCodeql(answer: Answer, api: string, where: string): Verdict {
 
   if (state !== "configured") {
     return notRead(answer);
+  }
+
+  // For about a minute after it is switched on, GitHub has not looked for the
+  // languages yet: the state is `configured` and the list is empty. A command
+  // written from that list would set it to `actions` alone.
+  if (languages.length === 0) {
+    return { state: "unread", reason: "GitHub is still setting it up and has found no language yet. Run this again in a minute" };
   }
 
   if (languages.includes("actions")) {

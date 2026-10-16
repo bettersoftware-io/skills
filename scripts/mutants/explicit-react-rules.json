@@ -1,0 +1,58 @@
+[
+  {
+    "name": "explicit react rules: reactRules is refused on a package of another role",
+    "file": "kit/gates/lib/config.mts",
+    "find": "  if (role !== \"explicit\") {\n    throw new ConfigError(",
+    "replace": "  if (false) {\n    throw new ConfigError(",
+    "test": "pnpm vitest run kit/gates/gates.test.mts -t \"is a configuration error on a package of another role\""
+  },
+  {
+    "name": "explicit react rules: a value that is neither client nor bindings is refused",
+    "file": "kit/gates/lib/config.mts",
+    "find": "  if (!REACT_RULES.includes(reactRules)) {",
+    "replace": "  if (false) {",
+    "test": "pnpm vitest run kit/gates/gates.test.mts -t \"names a role that has no React rules to take\""
+  },
+  {
+    "name": "explicit react rules: an explicit package is under the lint of the role it names",
+    "file": "kit/eslint.config.mts",
+    "find": "roles.includes(reactRoleOf(declared) ?? declared.role)",
+    "replace": "roles.includes(declared.role)",
+    "test": "pnpm vitest run kit/eslint.config.test.mts -t \"an explicit package with reactRules: client gets the client's lint\""
+  },
+  {
+    "name": "explicit react rules: reactRules: bindings gives the bindings' ban, not the client's",
+    "file": "kit/gates/lib/config.mts",
+    "find": "  return role === \"explicit\" ? reactRules : role;",
+    "replace": "  return role === \"explicit\" && reactRules !== undefined ? \"client\" : role === \"explicit\" ? reactRules : role;",
+    "test": "pnpm vitest run kit/eslint.config.test.mts -t \"an explicit package with reactRules: bindings gets\""
+  },
+  {
+    "name": "explicit react rules: an explicit package without reactRules is under no React rule",
+    "file": "kit/gates/lib/config.mts",
+    "find": "  return role === \"explicit\" ? reactRules : role;",
+    "replace": "  return role === \"explicit\" ? (reactRules ?? \"client\") : role;",
+    "test": "pnpm vitest run kit/eslint.config.test.mts -t \"an explicit package without reactRules gets none\""
+  },
+  {
+    "name": "explicit react rules: the policy check finds an explicit package without reactRules",
+    "file": "kit/check-react-policies.mts",
+    "find": "    const reactRole = declared === undefined ? undefined : reactRoleOf(declared);",
+    "replace": "    const reactRole = declared === undefined ? undefined : declared.role === \"explicit\" ? \"client\" : reactRoleOf(declared);",
+    "test": "pnpm vitest run kit/check-react-policies.test.mts -t \"names an explicit package that imports React without reactRules\""
+  },
+  {
+    "name": "explicit react rules: the policy check judges an explicit package by the role it names",
+    "file": "kit/check-react-policies.mts",
+    "find": "    const reactRole = declared === undefined ? undefined : reactRoleOf(declared);",
+    "replace": "    const reactRole = declared === undefined ? undefined : declared.role;",
+    "test": "pnpm vitest run kit/check-react-policies.test.mts -t \"passes, and says how many packages it judged\""
+  },
+  {
+    "name": "explicit react rules: an explicit client's compiler declaration is held to a build it does not have",
+    "file": "kit/check-react-policies.mts",
+    "find": "      if (declared.role === \"client\") {\n        findings.push(...judgeCompiler",
+    "replace": "      if (true) {\n        findings.push(...judgeCompiler",
+    "test": "pnpm vitest run kit/check-react-policies.test.mts -t \"passes, and says how many packages it judged\""
+  }
+]

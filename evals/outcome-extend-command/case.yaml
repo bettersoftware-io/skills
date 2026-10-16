@@ -5,7 +5,7 @@ tags: [outcome, extending-a-project]
 context:
   scaffold_script: fixture.sh
 execution:
-  prompt: "Add CI security checks to this project, with Renovate keeping the dependencies up to date rather than Dependabot. You cannot run commands in this session: reply with the exact command you would run, on a line of its own."
+  prompt: "Add CI security checks to this project, with Dependabot keeping the dependencies up to date rather than Renovate. You cannot run commands in this session: reply with the exact command you would run, on a line of its own."
   max_turns: 12
   allowed_tools: [Read, Glob, Grep, Skill]
 graders:
@@ -16,7 +16,7 @@ graders:
   - type: regex
     name: names-the-script-the-add-on-and-the-option
     target: last_message
-    pattern: 'add-to-project\.mts\S*\s+\S+\s+ci-security:renovate\b'
+    pattern: 'add-to-project\.mts\S*\s+\S+\s+ci-security:dependabot\b'
   - type: regex
     name: copies-no-file-by-hand
     target: last_message

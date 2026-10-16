@@ -1638,10 +1638,10 @@
     "test": "pnpm vitest run addons/ci-security/tests/addon.test.mts -t \"leaves the security policy to the project\""
   },
   {
-    "name": "addon: Dependabot is the default",
+    "name": "addon: Renovate is the default",
     "file": "addons/ci-security/addon.json",
-    "find": "\"default\": \"dependabot\"",
-    "replace": "\"default\": \"renovate\"",
+    "find": "\"default\": \"renovate\"",
+    "replace": "\"default\": \"dependabot\"",
     "test": "pnpm vitest run addons/ci-security/tests/addon.test.mts -t \"offers one update bot or the other\""
   },
   {
@@ -1729,11 +1729,11 @@
     "test": "pnpm vitest run addons/ci-security/tests/addon.test.mts -t \"groups as Dependabot does\""
   },
   {
-    "name": "renovate: security fixes are Dependabot's",
+    "name": "renovate: opens the security fixes",
     "file": "addons/ci-security/choice/renovate/files/.github/renovate.json5",
-    "find": "\"vulnerabilityAlerts\": {\n    \"enabled\": false",
-    "replace": "\"vulnerabilityAlerts\": {\n    \"enabled\": true",
-    "test": "pnpm vitest run addons/ci-security/tests/addon.test.mts -t \"leaves security fixes to Dependabot\""
+    "find": "\"vulnerabilityAlerts\": {\n    \"enabled\": true",
+    "replace": "\"vulnerabilityAlerts\": {\n    \"enabled\": false",
+    "test": "pnpm vitest run addons/ci-security/tests/addon.test.mts -t \"opens the security fixes itself\""
   },
   {
     "name": "renovate: tools/ is not moved",
@@ -1780,15 +1780,15 @@
   {
     "name": "settings: security updates not enabled are off",
     "file": "addons/ci-security/files/tools/ci-security/lib/settings.mts",
-    "find": "updatesOn === false || meansOff(updates)",
-    "replace": "meansOff(updates)",
+    "find": "updatesOn === false || meansOff(updates)\n                ? off(\"off\"",
+    "replace": "meansOff(updates)\n                ? off(\"off\"",
     "test": "pnpm vitest run addons/ci-security/tests/settings.test.mts -t \"fails Dependabot security updates that GitHub says are not enabled\""
   },
   {
     "name": "settings: an administrator's 404 on security updates is off",
     "file": "addons/ci-security/files/tools/ci-security/lib/settings.mts",
-    "find": "updatesOn === false || meansOff(updates)",
-    "replace": "updatesOn === false",
+    "find": "updatesOn === false || meansOff(updates)\n                ? off(\"off\"",
+    "replace": "updatesOn === false\n                ? off(\"off\"",
     "test": "pnpm vitest run addons/ci-security/tests/settings.test.mts -t \"fails Dependabot security updates on an administrator\""
   },
   {
@@ -1797,6 +1797,34 @@
     "find": ": reportingOn === false",
     "replace": ": reportingOn === null",
     "test": "pnpm vitest run addons/ci-security/tests/settings.test.mts -t \"fails private vulnerability reporting that is not enabled\""
+  },
+  {
+    "name": "settings: Renovate is known by its config",
+    "file": "addons/ci-security/files/tools/ci-security/lib/settings.mts",
+    "find": "return RENOVATE_CONFIGS.some((path) => existsSync(join(root, path)));",
+    "replace": "return false;",
+    "test": "pnpm vitest run addons/ci-security/tests/settings.test.mts -t \"a project whose update bot is Renovate\""
+  },
+  {
+    "name": "settings: Renovate is known by a root config too",
+    "file": "addons/ci-security/files/tools/ci-security/lib/settings.mts",
+    "find": "const RENOVATE_CONFIGS = [\"renovate.json\", ",
+    "replace": "const RENOVATE_CONFIGS = [",
+    "test": "pnpm vitest run addons/ci-security/tests/settings.test.mts -t \"knows Renovate by any file\""
+  },
+  {
+    "name": "settings: under Renovate, security updates that are on fail",
+    "file": "addons/ci-security/files/tools/ci-security/lib/settings.mts",
+    "find": "updatesOn === false || meansOff(updates)\n              ? ON",
+    "replace": "updatesOn !== undefined || meansOff(updates)\n              ? ON",
+    "test": "pnpm vitest run addons/ci-security/tests/settings.test.mts -t \"fails Dependabot security updates that are on\""
+  },
+  {
+    "name": "settings: under Renovate, the 404 is off",
+    "file": "addons/ci-security/files/tools/ci-security/lib/settings.mts",
+    "find": "updatesOn === false || meansOff(updates)\n              ? ON",
+    "replace": "updatesOn === false\n              ? ON",
+    "test": "pnpm vitest run addons/ci-security/tests/settings.test.mts -t \"passes them on an administrator's 404\""
   },
   {
     "name": "settings: CodeQL not set up is off",
@@ -1811,6 +1839,13 @@
     "find": "if (languages.includes(\"actions\")) {",
     "replace": "if (true) {",
     "test": "pnpm vitest run addons/ci-security/tests/settings.test.mts -t \"fails CodeQL set up without the actions language\""
+  },
+  {
+    "name": "settings: CodeQL still being set up is not read",
+    "file": "addons/ci-security/files/tools/ci-security/lib/settings.mts",
+    "find": "if (languages.length === 0) {",
+    "replace": "if (false) {",
+    "test": "pnpm vitest run addons/ci-security/tests/settings.test.mts -t \"says CodeQL is still being set up\""
   },
   {
     "name": "settings: the CodeQL command sends only languages GitHub accepts",

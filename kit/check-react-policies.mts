@@ -6,7 +6,8 @@
 //
 // The lint applies React's rules by role: the hook rules, the inline-style ban
 // and (where the compiler runs) the memoization ban to a client, and the
-// memoization ban to the bindings. Three things make such a rule silently
+// memoization ban to the bindings. A package of role `explicit` takes the rules
+// of the role its `reactRules` names. Three things make such a rule silently
 // absent, with every run green:
 //
 //   - a package imports React and has another role, so it gets none of them;
@@ -26,7 +27,7 @@
 import { existsSync } from "node:fs";
 import { join } from "node:path";
 
-import { ConfigError, loadConfig, type Project } from "./gates/lib/config.mts";
+import { ConfigError, loadConfig, type Project, reactRoleOf } from "./gates/lib/config.mts";
 import { isMainModule, isTestScaffolding, listSourceFiles, readCodeLines } from "./gates/lib/files.mts";
 
 const IMPORTS_REACT = /\bfrom\s*["']react["']/;
@@ -85,11 +86,14 @@ export async function judgeReactPolicies(project: Project, resolveLint: ResolveL
 
   for (const { path, sample, markup } of packages) {
     const declared = config.packages[path];
+    const reactRole = declared === undefined ? undefined : reactRoleOf(declared);
 
-    if (declared?.role !== "client" && declared?.role !== "bindings") {
+    if (declared === undefined || (reactRole !== "client" && reactRole !== "bindings")) {
       if (!config.reactWithoutPolicies[path]) {
+        const explicitly = declared?.role === "explicit" ? ` Or give it reactRules: "client" or reactRules: "bindings" to take the rules of that role.` : "";
+
         findings.push(
-          `${path} imports React (${sample}) and ${declared ? `has the role "${declared.role}"` : "has no declared role"}. The lint applies React's rules by role, to a client and to the bindings, so this package gets none: no hook rules, no inline-style ban, no memoization ban. Move the React code into a client or the bindings, or list "${path}" under reactWithoutPolicies in architecture.config.mts with the reason.`,
+          `${path} imports React (${sample}) and ${declared ? `has the role "${declared.role}"` : "has no declared role"}. The lint applies React's rules by role, to a client and to the bindings, so this package gets none: no hook rules, no inline-style ban, no memoization ban. Move the React code into a client or the bindings, or list "${path}" under reactWithoutPolicies in architecture.config.mts with the reason.${explicitly}`,
         );
       }
 
@@ -98,10 +102,14 @@ export async function judgeReactPolicies(project: Project, resolveLint: ResolveL
 
     const lint = await resolveLint(sample);
     const compiles = runsCompiler(root, path);
-    const declaresCompiler = declared.role === "client" && declared.reactCompiler === true;
+    const declaresCompiler = reactRole === "client" && declared.reactCompiler === true;
 
-    if (declared.role === "client") {
-      findings.push(...judgeCompiler(path, declaresCompiler, compiles));
+    if (reactRole === "client") {
+      // The build that compiles an explicit package is another package's, so
+      // its vite.config.ts is not here to be read.
+      if (declared.role === "client") {
+        findings.push(...judgeCompiler(path, declaresCompiler, compiles));
+      }
 
       if (!isError(lint, "react-hooks/rules-of-hooks")) {
         findings.push(missing(path, sample, "the hook rules (react-hooks/rules-of-hooks)", "react-hooks/rules-of-hooks"));
@@ -112,7 +120,7 @@ export async function judgeReactPolicies(project: Project, resolveLint: ResolveL
       }
     }
 
-    if ((declared.role === "bindings" || declaresCompiler) && !bansMemoization(lint)) {
+    if ((reactRole === "bindings" || declaresCompiler) && !bansMemoization(lint)) {
       findings.push(missing(path, sample, "the memoization ban (no-restricted-imports of useMemo, useCallback and memo from react)", "no-restricted-imports"));
     }
   }

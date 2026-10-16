@@ -314,6 +314,10 @@ the work that left it.
 
 One bullet for each: the name in bold, what is left, and a link to its plan
 when it has one. Link only a file that is on main.
+Every edit sets the "Last updated" line to today. `pnpm check:status`, in
+`gate:fast`, fails a page that leaves one of the six sections out, adds one,
+or writes an entry without its bold name, and one changed since the last
+commit with an old date.
 
 - **Work is planned, or something is left over:** add its entry.
 - **Its pull request merges:** remove the entry, in that pull request. There

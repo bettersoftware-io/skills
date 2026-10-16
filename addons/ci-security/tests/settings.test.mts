@@ -150,6 +150,18 @@ describe("a setting that is off", () => {
     expect(status).toBe(1);
   });
 
+  it("says CodeQL is still being set up, and prints nothing to run, while GitHub has found no language yet", () => {
+    const { status, lines } = check({ answers: { [`${API}/code-scanning/default-setup`]: { body: { state: "configured", languages: [] } } } });
+
+    expect(lines).toEqual(
+      expected(
+        { codeql: [`SKIP CodeQL default setup, with the actions language: ${NOT_READ} GitHub is still setting it up and has found no language yet. Run this again in a minute`] },
+        "8 on, 0 off, 1 not read",
+      ),
+    );
+    expect(status).toBe(2);
+  });
+
   it("fails workflow permissions that default to a write token", () => {
     const { status, lines } = check({ answers: { [`${API}/actions/permissions/workflow`]: { body: { default_workflow_permissions: "write", can_approve_pull_request_reviews: false } } } });
 
@@ -197,6 +209,48 @@ describe("a setting that is off", () => {
     expect(toGitHub.length).toBeGreaterThan(7);
     expect(toGitHub.filter((call) => call.slice(1, 4).join(" ") !== "api --method GET" || call.length !== 5)).toEqual([]);
     expect(lines.slice(-2)).toEqual([`${REPOSITORY}: 0 on, 9 off, 0 not read. ${NOTHING_CHANGED}`, A_PERSON_RUNS_IT]);
+  });
+});
+
+describe("a project whose update bot is Renovate", () => {
+  const WITH_RENOVATE = { ...PROJECT, ".github/renovate.json5": "{}\n" };
+  const RENOVATE_PASS = "PASS Dependabot security updates are off, as Renovate opens the fixes";
+
+  it("passes Dependabot security updates that are off, and still asks for the alerts Renovate reads", () => {
+    const { status, lines } = check({ answers: { [`${API}/automated-security-fixes`]: { body: { enabled: false, paused: false } } } }, WITH_RENOVATE);
+
+    expect(lines).toEqual(expected({ updates: [RENOVATE_PASS] }, "9 on, 0 off, 0 not read"));
+    expect(status).toBe(0);
+  });
+
+  it("passes them on an administrator's 404 too, which is how GitHub says they are off", () => {
+    const { lines } = check({ answers: { [`${API}/automated-security-fixes`]: NOT_FOUND } }, WITH_RENOVATE);
+
+    expect(lines[1]).toBe(RENOVATE_PASS);
+  });
+
+  it("fails Dependabot security updates that are on, since a fix would come from both bots, with the command that switches them off", () => {
+    const { status, lines } = check({}, WITH_RENOVATE);
+
+    expect(lines).toEqual(
+      expected(
+        {
+          updates: [
+            "FAIL Dependabot security updates are off, as Renovate opens the fixes: on, so a fix would come from both bots",
+            `  where: Settings → Advanced Security → Dependabot security updates (${SECURITY_PAGE})`,
+            "  fix:   gh api -X DELETE repos/acme/app/automated-security-fixes",
+          ],
+        },
+        "8 on, 1 off, 0 not read",
+      ),
+    );
+    expect(status).toBe(1);
+  });
+
+  it("knows Renovate by any file it reads its config from, at the root too", () => {
+    const { lines } = check({}, { ...PROJECT, "renovate.json": "{}\n" });
+
+    expect(lines[1]).toMatch(/^FAIL Dependabot security updates are off, as Renovate opens the fixes/);
   });
 });
 

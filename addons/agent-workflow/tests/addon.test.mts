@@ -57,7 +57,7 @@ describe("the add-on's manifest", () => {
   it("adds scripts that each run a tool it ships, and proves itself with one of them", () => {
     const scripts = MANIFEST.packageJson["."]?.scripts ?? {};
 
-    expect(Object.keys(scripts)).toEqual(["worktree", "worktree:audit", "changelog", "agent-workflow:check"]);
+    expect(Object.keys(scripts)).toEqual(["worktree", "worktree:audit", "changelog", "agent-workflow:check", "check:status"]);
 
     for (const script of Object.values(scripts)) {
       const tool = /^node (tools\/agent-workflow\/[\w-]+\.mts)$/.exec(script)?.[1];
@@ -68,9 +68,9 @@ describe("the add-on's manifest", () => {
     expect(MANIFEST.verify).toBe("pnpm agent-workflow:check");
   });
 
-  it("installs no package and joins no gate: a host's settings are the project's to change", () => {
+  it("installs no package, and joins gate:fast with the status page's check only: a host's settings, which the hook check reads, are the project's to change", () => {
     expect(Object.values(MANIFEST.packageJson).filter((patch) => patch.devDependencies !== undefined)).toEqual([]);
-    expect(MANIFEST.gates).toEqual({ fast: [], full: [] });
+    expect(MANIFEST.gates).toEqual({ fast: ["pnpm check:status"], full: [] });
   });
 
   it("leaves CHANGELOG.md to the project once it is written, and ships no setting", () => {
