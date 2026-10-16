@@ -889,11 +889,11 @@
     "test": "pnpm vitest run addons/agent-workflow/tests/addon.test.mts --testNamePattern=\"adds scripts that each run a tool it ships\""
   },
   {
-    "name": "installs no package and joins no gate",
+    "name": "installs no package, and joins gate:fast with the status check only",
     "file": "addons/agent-workflow/addon.json",
-    "find": "\"fast\": [],",
-    "replace": "\"fast\": [\"pnpm agent-workflow:check\"],",
-    "test": "pnpm vitest run addons/agent-workflow/tests/addon.test.mts --testNamePattern=\"installs no package and joins no gate\""
+    "find": "\"fast\": [\n      \"pnpm check:status\"\n    ],",
+    "replace": "\"fast\": [\n      \"pnpm check:status\",\n      \"pnpm agent-workflow:check\"\n    ],",
+    "test": "pnpm vitest run addons/agent-workflow/tests/addon.test.mts -t \"installs no package, and joins gate:fast with the status page\""
   },
   {
     "name": "asks each host for the same entries (codex command)",
@@ -5180,5 +5180,110 @@
     "find": "- `.claude/commands/workflow/worktrees.md`: which worktrees are finished and",
     "replace": "- The worktrees: which worktrees are finished and",
     "test": "pnpm vitest run addons/agent-workflow/tests/addon.test.mts --testNamePattern=\"points at command files that are shipped\""
+  },
+  {
+    "name": "status: a section of the page's own fails",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/check-status.mts",
+    "find": "    if (!SECTIONS.includes(name)) {\n      findings.push",
+    "replace": "    if (false) {\n      findings.push",
+    "test": "pnpm vitest run addons/agent-workflow/tests/check-status.test.mts -t \"fails one that is missing, one twice\""
+  },
+  {
+    "name": "status: a missing section fails",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/check-status.mts",
+    "find": "    if (found.length === 0) {",
+    "replace": "    if (found.length < 0) {",
+    "test": "pnpm vitest run addons/agent-workflow/tests/check-status.test.mts -t \"fails one that is missing, one twice\""
+  },
+  {
+    "name": "status: a section twice fails",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/check-status.mts",
+    "find": "    } else if (found.length > 1) {",
+    "replace": "    } else if (found.length > 2) {",
+    "test": "pnpm vitest run addons/agent-workflow/tests/check-status.test.mts -t \"fails one that is missing, one twice\""
+  },
+  {
+    "name": "status: the order is held",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/check-status.mts",
+    "find": "  if (order.join(\"\\n\") !== expected.join(\"\\n\")) {",
+    "replace": "  if (false) {",
+    "test": "pnpm vitest run addons/agent-workflow/tests/check-status.test.mts -t \"fails them out of order\""
+  },
+  {
+    "name": "status: an entry has its name in bold",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/check-status.mts",
+    "find": "    if (!/^- \\*\\*[^*]+\\*\\*/.test(entry.text)) {",
+    "replace": "    if (!/^- /.test(entry.text)) {",
+    "test": "pnpm vitest run addons/agent-workflow/tests/check-status.test.mts -t \"fails an entry that does not start with its name in bold\""
+  },
+  {
+    "name": "status: a nested bullet is no entry",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/check-status.mts",
+    "find": "const entries = lines.flatMap((line, index) => (/^[-*] /.test(line)",
+    "replace": "const entries = lines.flatMap((line, index) => (/^\\s*[-*] /.test(line)",
+    "test": "pnpm vitest run addons/agent-workflow/tests/check-status.test.mts -t \"fails an entry that does not start with its name in bold\""
+  },
+  {
+    "name": "status: one date line",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/check-status.mts",
+    "find": "  if (dates.length !== 1) {",
+    "replace": "  if (dates.length > 2) {",
+    "test": "pnpm vitest run addons/agent-workflow/tests/check-status.test.mts -t \"fails one that is no day, one after today\""
+  },
+  {
+    "name": "status: no entry yet with entries fails",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/check-status.mts",
+    "find": "      if (entries.length > 0) {",
+    "replace": "      if (entries.length > 99) {",
+    "test": "pnpm vitest run addons/agent-workflow/tests/check-status.test.mts -t \"fails a page with entries that still says no entry yet\""
+  },
+  {
+    "name": "status: a date that is no day fails",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/check-status.mts",
+    "find": "    } else if (!isDay(date.value)) {",
+    "replace": "    } else if (!/^\\d{4}-\\d{2}-\\d{2}$/.test(date.value)) {",
+    "test": "pnpm vitest run addons/agent-workflow/tests/check-status.test.mts -t \"fails one that is no day, one after today\""
+  },
+  {
+    "name": "status: a date after today fails",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/check-status.mts",
+    "find": "    } else if (date.value > today) {",
+    "replace": "    } else if (date.value > \"9999\") {",
+    "test": "pnpm vitest run addons/agent-workflow/tests/check-status.test.mts -t \"fails one that is no day, one after today\""
+  },
+  {
+    "name": "status: an edit moves the date",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/check-status.mts",
+    "find": "committed !== undefined && committed !== text && date.value !== today",
+    "replace": "committed !== undefined && committed === text && date.value !== today",
+    "test": "pnpm vitest run addons/agent-workflow/tests/check-status.test.mts -t \"fails a page that changed since the last commit\""
+  },
+  {
+    "name": "status: a page as committed is not judged by its age",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/check-status.mts",
+    "find": "committed !== undefined && committed !== text && date.value !== today",
+    "replace": "date.value !== today",
+    "test": "pnpm vitest run addons/agent-workflow/tests/check-status.test.mts -t \"does not judge an old date on a page the commit has\""
+  },
+  {
+    "name": "status: the command compares with the last commit",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/check-status.mts",
+    "find": "  const shown = spawnSync(\"git\", [\"show\", `HEAD:${STATUS_PAGE}`]",
+    "replace": "  const shown = spawnSync(\"git\", [\"show\", `HEAD:missing`]",
+    "test": "pnpm vitest run addons/agent-workflow/tests/check-status.test.mts -t \"fails a page edited after the last commit\""
+  },
+  {
+    "name": "status: today is the local day",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/check-status.mts",
+    "find": "String(now.getDate()).padStart(2, \"0\")}`;",
+    "replace": "String(now.getUTCDate()).padStart(2, \"0\")}`;",
+    "test": "pnpm vitest run addons/agent-workflow/tests/check-status.test.mts -t \"writes today as the person\""
+  },
+  {
+    "name": "status: no page fails",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/check-status.mts",
+    "find": "    process.exit(1);\n  }\n\n  const findings",
+    "replace": "    process.exit(0);\n  }\n\n  const findings",
+    "test": "pnpm vitest run addons/agent-workflow/tests/check-status.test.mts -t \"fails a project with no page\""
   }
 ]
