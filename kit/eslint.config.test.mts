@@ -16,6 +16,9 @@ const LAYERS: ArchitectureConfig = {
     "packages/react-bindings": { role: "bindings" },
     "packages/client-react": { role: "client" },
     "packages/client-web": { role: "client", reactCompiler: true },
+    "packages/catalog": { role: "explicit", reactRules: "client", reactCompiler: true },
+    "packages/catalog-bridge": { role: "explicit", reactRules: "bindings" },
+    "packages/catalog-bare": { role: "explicit" },
     "packages/e2e": { role: "e2e" },
   },
   javascriptAllowed: { "stylelint.config.mjs": "stylelint's config loader cannot read .mts" },
@@ -106,6 +109,32 @@ describe("where a rule applies", () => {
     expect(await findingsOf(source, BINDINGS, "no-restricted-imports", /React Compiler/)).toEqual([]);
     expect(await findingsOf(source, COMPILED, "no-restricted-imports", /React Compiler memoizes at build time/)).toHaveLength(1);
     expect(await findingsOf(source, COMPILED, "no-restricted-imports", /memo-free by design/)).toEqual([]);
+  });
+
+  it("scope: an explicit package with reactRules: client gets the client's lint", async () => {
+    const hook = `declare function useThing(): number;\n\nexport function runWhen(ready: boolean): number {\n  if (ready) {\n    return useThing();\n  }\n\n  return 0;\n}\n`;
+    const memo = `import { useMemo } from "react";\n\nexport const probe = useMemo;\n`;
+    const style = `export function Frame() {\n  return <div style={{ width: 320 }} />;\n}\n`;
+
+    expect(await findingsOf(hook, "packages/catalog/src/runWhen.ts", "react-hooks/rules-of-hooks")).not.toEqual([]);
+    expect(await findingsOf(memo, "packages/catalog/src/Thing.ts", "no-restricted-imports", /React Compiler/)).not.toEqual([]);
+    expect(await findingsOf(style, "packages/catalog/src/Frame.tsx", "no-restricted-syntax", /Inline style/)).not.toEqual([]);
+  });
+
+  it("scope: an explicit package with reactRules: bindings gets the bindings' memoization ban and no hook rules", async () => {
+    const memo = `import { useMemo } from "react";\n\nexport const probe = useMemo;\n`;
+    const hook = `declare function useThing(): number;\n\nexport function runWhen(ready: boolean): number {\n  if (ready) {\n    return useThing();\n  }\n\n  return 0;\n}\n`;
+
+    expect(await findingsOf(memo, "packages/catalog-bridge/src/Thing.ts", "no-restricted-imports", /memo-free by design/)).toHaveLength(1);
+    expect(await findingsOf(hook, "packages/catalog-bridge/src/runWhen.ts", "react-hooks/rules-of-hooks")).toEqual([]);
+  });
+
+  it("scope: an explicit package without reactRules gets none of React's lint", async () => {
+    const memo = `import { useMemo } from "react";\n\nexport const probe = useMemo;\n`;
+    const hook = `declare function useThing(): number;\n\nexport function runWhen(ready: boolean): number {\n  if (ready) {\n    return useThing();\n  }\n\n  return 0;\n}\n`;
+
+    expect(await findingsOf(memo, "packages/catalog-bare/src/Thing.ts", "no-restricted-imports")).toEqual([]);
+    expect(await findingsOf(hook, "packages/catalog-bare/src/runWhen.ts", "react-hooks/rules-of-hooks")).toEqual([]);
   });
 
   it("scope: a JavaScript file the project lists as allowed is not reported", async () => {
