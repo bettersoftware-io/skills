@@ -268,6 +268,24 @@ describe("the README of a created project", () => {
   });
 });
 
+describe("the AGENTS.md of a created project", () => {
+  // Without this section, Codex asked for end-to-end tests or CI security checks
+  // in a created project read AGENTS.md, skipped the skill and planned to write
+  // the add-on by hand, in 4 runs of 6 (pnpm evals:codex, 2026-10-16). With it,
+  // in none of 12.
+  it("tells an agent that a check comes through the installer, by the record it keeps and the skill that runs it", () => {
+    const { destination } = createProject({ target: createTarget("price-desk") });
+    const agents = readFileSync(join(destination, "AGENTS.md"), "utf8");
+    const section = agents.slice(agents.indexOf("## Adding a check"), agents.indexOf("## Reviewing a change"));
+
+    expect(section).toContain("`tools/installed.json`");
+    expect(section).toContain("`extending-a-project`");
+    expect(section).toContain("run with no arguments it lists the add-ons");
+    expect(existsSync(join(destination, "tools/installed.json"))).toBe(true);
+    expect(existsSync(new URL("../skills/extending-a-project/SKILL.md", import.meta.url))).toBe(true);
+  });
+});
+
 function readReadme(project: string): string {
   return readFileSync(join(project, "README.md"), "utf8");
 }

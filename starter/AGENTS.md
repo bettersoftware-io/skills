@@ -210,6 +210,17 @@ outside its package. The gates follow an alias to the file it names, so a
 forbidden import is still found. The `format-lint` add-on fails a deeper
 relative import; without it this is a convention.
 
+## Adding a check
+
+Every check in this project was put here by an installer, and
+`tools/installed.json` records each file it wrote. So a new check, or a newer
+copy of the kit or of an add-on, comes through that installer too: the
+`extending-a-project` skill of the plugin this project was made with says how
+to run it, and run with no arguments it lists the add-ons. Look there before
+you write a workflow, a lint config or a test package for a check. A file the
+installer did not write is one it cannot update, and it will not overwrite a
+file you have edited.
+
 ## Reviewing a change
 
 A review in this project does two things first, whoever or whatever does it:

@@ -140,14 +140,12 @@ Added on 2026-10-11 ([the record](documenting-architecture-2026-10-11.md)).
 
 ## Next, with no plan yet
 
-- **A created project's `AGENTS.md` does not say how an add-on is
-  installed.** Found by `pnpm evals:codex` on 2026-10-16: asked for
-  end-to-end tests or CI security checks in a created project, Codex read
-  `AGENTS.md` and skipped the skill in 4 runs of 6, and each of those four
-  planned to write the add-on by hand. Claude Code is not measured on this:
-  its eval runs load no `CLAUDE.md`. A line in the starter's `AGENTS.md` that
-  sends an add-on through `extending-a-project` would be the first thing to
-  try, then the Codex runs again ([the evals](../evals/README.md#results)).
+- **Projects created before 0.16.0 have no "Adding a check" in their
+  `AGENTS.md`.** Without it, Codex skipped `extending-a-project` and planned
+  to write an add-on by hand in 4 runs of 6 ([the evals](../evals/README.md#results)).
+  An update never overwrites a project's `AGENTS.md`;
+  `add-to-project.mts <project> --compare` shows the section missing. The
+  demo project is one.
 
 Found while Origamic's dependency rule went into its gates, on 2026-10-16
 (skills #30 and #31, origamic #18).
@@ -255,7 +253,8 @@ Found while a project was set up with the plugin, on 2026-10-12 and 13.
   added a second transport and forms, but no navigation and no session.
 - **`extending-a-project` in a Codex session that can write.** The other two
   are checked there ([the record](codex-test-2026-10-04.md)). Read-only runs
-  load it in 8 runs of 12 ([the evals](../evals/README.md#results)).
+  load it in 12 runs of 12 since 0.16.0, 7 of 12 before
+  ([the evals](../evals/README.md#results)).
 - **A model between the smallest and the frontier.** Claude Haiku 4.5 has been
   tried ([the record](small-model-2026-10-05.md)). Claude Sonnet has only been
   asked which skill it loads and which command it would run
@@ -265,8 +264,8 @@ Found while a project was set up with the plugin, on 2026-10-12 and 13.
   can have a shell (see Known limits).
 - **A review case the skill makes a difference to.** The planted average is
   found in every run without the plugin as well.
-- **The evals on Claude Opus.** Sonnet and Haiku pass the trigger cases; Opus
-  has not been run.
+- **The evals on Claude Opus, three runs a case.** Once a case, Opus passed
+  every trigger case and, with the plugin, every outcome case.
 - **The kit in a real existing project.** The script sets up the files and says
   what is left. Declaring each package's role, and deciding what to do with the
   findings on code that was never held to these rules, is judgement nobody has
