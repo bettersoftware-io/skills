@@ -39,7 +39,7 @@ addons/<name>/
   "startingFiles": ["packages/client-react/tests/visual/scenarios.ts", "packages/client-react/tests/visual/goldens/"],
   "movedToProject": { "packages/client-react/tests/visual/host/main.tsx": { "to": "packages/client-react/tests/visual/seeding.ts", "note": "One sentence." } },
   "hostSettings": { ".claude/settings.json": { "permissions": { "ask": ["Bash(git push *--force*)"] } } },
-  "choice": { "default": "dependabot", "options": { "dependabot": "One line.", "renovate": "One line." } },
+  "choice": { "default": "renovate", "options": { "renovate": "One line.", "dependabot": "One line." } },
   "requiresGates": ["playwright-pin"],
   "architecture": { "packages": { "packages/e2e": { "role": "e2e" } } },
   "verify": "pnpm coverage"

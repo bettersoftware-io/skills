@@ -6,6 +6,12 @@
 # It drives version updates only. Security updates (a pull request that fixes
 # a known advisory) are a repository setting, and they ignore both the
 # cooldown and the limit below, so a fix is never held back.
+#
+# Under the starter's Node floor (`devEngines.runtime` in package.json) the
+# npm updates and the security updates fail: Dependabot's updater runs an
+# older Node, and pnpm stops with ERR_PNPM_BAD_RUNTIME_VERSION. The actions
+# are still updated. That is why Renovate is the add-on's default;
+# `ci-security:renovate` moves the project to it.
 version: 2
 updates:
   # The packages in pnpm-lock.yaml, for every workspace package.

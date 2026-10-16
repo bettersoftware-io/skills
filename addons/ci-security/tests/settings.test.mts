@@ -212,6 +212,48 @@ describe("a setting that is off", () => {
   });
 });
 
+describe("a project whose update bot is Renovate", () => {
+  const WITH_RENOVATE = { ...PROJECT, ".github/renovate.json5": "{}\n" };
+  const RENOVATE_PASS = "PASS Dependabot security updates are off, as Renovate opens the fixes";
+
+  it("passes Dependabot security updates that are off, and still asks for the alerts Renovate reads", () => {
+    const { status, lines } = check({ answers: { [`${API}/automated-security-fixes`]: { body: { enabled: false, paused: false } } } }, WITH_RENOVATE);
+
+    expect(lines).toEqual(expected({ updates: [RENOVATE_PASS] }, "9 on, 0 off, 0 not read"));
+    expect(status).toBe(0);
+  });
+
+  it("passes them on an administrator's 404 too, which is how GitHub says they are off", () => {
+    const { lines } = check({ answers: { [`${API}/automated-security-fixes`]: NOT_FOUND } }, WITH_RENOVATE);
+
+    expect(lines[1]).toBe(RENOVATE_PASS);
+  });
+
+  it("fails Dependabot security updates that are on, since a fix would come from both bots, with the command that switches them off", () => {
+    const { status, lines } = check({}, WITH_RENOVATE);
+
+    expect(lines).toEqual(
+      expected(
+        {
+          updates: [
+            "FAIL Dependabot security updates are off, as Renovate opens the fixes: on, so a fix would come from both bots",
+            `  where: Settings → Advanced Security → Dependabot security updates (${SECURITY_PAGE})`,
+            "  fix:   gh api -X DELETE repos/acme/app/automated-security-fixes",
+          ],
+        },
+        "8 on, 1 off, 0 not read",
+      ),
+    );
+    expect(status).toBe(1);
+  });
+
+  it("knows Renovate by any file it reads its config from, at the root too", () => {
+    const { lines } = check({}, { ...PROJECT, "renovate.json": "{}\n" });
+
+    expect(lines[1]).toMatch(/^FAIL Dependabot security updates are off, as Renovate opens the fixes/);
+  });
+});
+
 describe("a setting GitHub did not answer for is told apart from one that is off", () => {
   const readOnly = repository({ delete_branch_on_merge: true, permissions: { admin: false, push: false, pull: true } });
 

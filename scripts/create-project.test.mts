@@ -126,6 +126,19 @@ describe("creating a project from the starter", () => {
     expect(readReadme(destination)).toContain("- `visual:dark`: Goldens. Dark goldens.\n");
   });
 
+  it("says what the default option is when none is named, in the README and in what it returns to print", () => {
+    const { destination, options } = createProject({ target: createTarget("price-desk"), addons: ["visual", "coverage"] }, createStepsThatRecord([]));
+
+    expect(readReadme(destination)).toContain("- `visual`: Goldens. Light goldens.\n");
+    expect(options).toEqual(["visual, option light: Light goldens."]);
+  });
+
+  it("returns the option that was asked for, and nothing for an add-on with no choice", () => {
+    const { options } = createProject({ target: createTarget("price-desk"), addons: ["coverage", "visual:dark"] }, createStepsThatRecord([]));
+
+    expect(options).toEqual(["visual, option dark: Dark goldens."]);
+  });
+
   it("adds none unless asked", () => {
     const added: string[] = [];
 

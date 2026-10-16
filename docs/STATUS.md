@@ -24,10 +24,12 @@ on 2026-10-05, on pushes to main and on a pull request
 - **`ci-security` has run on GitHub with everything passing only.** In
   skills-demo on 2026-10-06: workflow lint and `pnpm audit` on a pull request
   and on main, Dependency Review on a pull request, Scorecard on main, and
-  Dependabot's update runs (four, all green, no pull request opened yet). Not
-  seen: a Dependabot pull request, Dependency Review refusing a pull request
-  for an advisory or a licence, and what Scorecard's findings look like in the
-  repository's code-scanning page.
+  Dependabot's update runs (four, all green, no pull request opened yet). On
+  2026-10-14 Dependabot opened one for the actions (skills-demo #11, every
+  check green), and its npm run failed, as under every project's Node floor.
+  Not seen: Dependency Review refusing a pull request for an advisory or a
+  licence, and what Scorecard's findings look like in the repository's
+  code-scanning page.
 - **Dependency Review fails until the repository's dependency graph is on.**
   Seen: "Dependency review is not supported on this repository". The add-on's
   README lists the setting; `gh api -X PUT repos/<owner>/<repo>/vulnerability-alerts`
@@ -140,6 +142,21 @@ Added on 2026-10-11 ([the record](documenting-architecture-2026-10-11.md)).
 
 ## Next, with no plan yet
 
+- **Two projects still have Dependabot, which cannot update their npm
+  packages.** Renovate became the default in 0.17.0; a project keeps the bot
+  it has. `condo-ledger` and `skills-demo` have `dependabot.yml`;
+  `add-to-project.mts <project> ci-security:renovate` moves each, and a
+  person turns Dependabot security updates off (`pnpm repo:settings` says
+  so). `origamic` moved on 2026-10-13, but its `renovate.json5` is the old
+  one, with `vulnerabilityAlerts` off: the update lists the line to change.
+- **An update bot's pull request edits files the installer owns.** Both bots
+  move the action commits in `.github/workflows/`, which the add-ons wrote
+  and `tools/installed.json` records. A merged bump makes each file one the
+  next update of its add-on refuses, unless the add-on's new copy is the same
+  byte for byte. Read from the installer's code; not yet seen in a project.
+  Leaving the add-ons' workflows to the add-on updates, as `tools/` is
+  left, would close it.
+
 - **Projects created before 0.16.0 have no "Adding a check" in their
   `AGENTS.md`.** Without it, Codex skipped `extending-a-project` and planned
   to write an add-on by hand in 4 runs of 6 ([the evals](../evals/README.md#results)).
@@ -208,17 +225,6 @@ Found while a project was set up with the plugin, on 2026-10-12 and 13.
 - **Nothing checks that the core reaches the clock through a port.** In the
   Codex run a presenter read `new Date()` directly. A check for `Date` in the
   domain and the core is decidable from source, and does not exist.
-- **Dependabot cannot update a project's npm packages.** Its updater runs
-  Node 24. The starter's root asks for `>=26` in `devEngines.runtime` with
-  `"onFail": "error"`, and the `node-floor` gate holds it there, so pnpm
-  stops with `ERR_PNPM_BAD_RUNTIME_VERSION`. Both runs failed in a project
-  created on 2026-10-12, and every weekly run will. That project moved to
-  `ci-security:renovate`. Dependabot security updates fail the same way, so
-  it also switched Renovate's `vulnerabilityAlerts` on in its own file: the
-  add-on's row "Security fixes: still Dependabot security updates" is not
-  true under this floor. For the add-on, Renovate as the default with its
-  fixes on, a floor the updater is let past, or waiting for Dependabot: not
-  decided.
 
 ## Not tried
 

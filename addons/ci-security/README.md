@@ -8,8 +8,8 @@ from, the config of one update bot, and a command that reads the
 repository's settings and names the ones that are off.
 
 ```bash
-node scripts/add-to-project.mts <project> ci-security            # with Dependabot
-node scripts/add-to-project.mts <project> ci-security:renovate   # with Renovate instead
+node scripts/add-to-project.mts <project> ci-security              # with Renovate
+node scripts/add-to-project.mts <project> ci-security:dependabot   # with Dependabot instead
 cd <project> && pnpm install && pnpm lint:workflows
 ```
 
@@ -33,8 +33,8 @@ push. The Dockerfile check reads files only, so it is in `gate:fast`.
 | `pnpm repo:settings` | `tools/ci-security/check-settings.mts` | Asks GitHub which repository settings are on. `PASS`, `FAIL` or `SKIP` per setting; under a `FAIL`, where the setting is and the command that switches it on. It only reads. Joins no gate |
 | The required checks | `tools/ci-security/lib/required-checks.mts` | Reads `.github/workflows/` for the jobs every pull request runs, which are the status checks a ruleset can require |
 | Security policy | `SECURITY.md` | How to report in private, what to expect, what is in scope. Written once, then the project's own |
-| Dependabot (the default) | `.github/dependabot.yml` | Weekly version updates for npm and for actions, never a release younger than seven days. Written once, then the project's own |
-| Renovate (`ci-security:renovate`) | `.github/renovate.json5` | The same policy for Renovate, in place of the Dependabot file. Written once, then the project's own |
+| Renovate (the default) | `.github/renovate.json5` | Weekly version updates for npm and for actions, never a release younger than seven days, and the fix for a known advisory at once. Written once, then the project's own |
+| Dependabot (`ci-security:dependabot`) | `.github/dependabot.yml` | The same policy for Dependabot, in place of the Renovate file. Under the starter's Node it updates the actions only. Written once, then the project's own |
 
 Three scripts are added to the root `package.json`. No package is installed.
 
@@ -49,17 +49,25 @@ decision record of the project these checks come from.
 | **zizmor** | Is each workflow safe: injection through `${{ }}`, a token left in the git config, permissions wider than needed, an action not pinned by commit. actionlint has no opinion on these |
 | **Dependency Review** | What a pull request changes in the dependencies, development ones included, before it merges. Also the only check that reads licences |
 | **`pnpm audit --prod`** | The whole production tree against known advisories, including the day an advisory is published and nothing was pushed (the weekly run) |
-| **Dependabot** | Keeps versions and action commits moving, a week behind their release. A malicious release is usually removed within days |
+| **Renovate** | Keeps versions and action commits moving, a week behind their release, and opens the fix for a known advisory at once. A malicious release is usually removed within days |
 | **Scorecard** | The repository's settings, which no file shows: branch protection, token defaults, and the day one of them is loosened |
 
-## Dependabot or Renovate
+## Renovate or Dependabot
 
 A project has one of the two, never both: two bots open the same pull
-requests twice. Dependabot is the default because it needs nothing installed.
+requests twice. Renovate is the default because Dependabot cannot update a
+project made from the starter. The starter asks for Node 26 in
+`devEngines.runtime`, with `"onFail": "error"`, and Dependabot's updater runs
+Node 24 (its `npm_and_yarn` image on 2026-10-15), so pnpm stops with
+`ERR_PNPM_BAD_RUNTIME_VERSION` in every npm update and every security
+update. It still updates the actions. Renovate's app runs the Node the
+project asks for: its pull requests in this plugin's own repository update
+the starter's lockfile, and pass. A project made before the default changed
+keeps the bot it has.
 
 ```bash
-node scripts/add-to-project.mts <project> ci-security:renovate     # move to Renovate
-node scripts/add-to-project.mts <project> ci-security:dependabot   # move back
+node scripts/add-to-project.mts <project> ci-security:dependabot   # move to Dependabot
+node scripts/add-to-project.mts <project> ci-security:renovate     # move back
 node scripts/add-to-project.mts <project> ci-security              # update; keeps the one the project has
 ```
 
@@ -85,7 +93,7 @@ The two files hold one policy:
 | Grouping | Minor and patch in one pull request, each major alone; the actions in one | The same two groups |
 | Open at once | `open-pull-requests-limit: 5` | `prConcurrentLimit: 5` |
 | Actions | The commit and the version comment move together | `helpers:pinGitHubActionDigests` does the same, and pins an action that is not pinned yet |
-| Security fixes | Dependabot security updates, a repository setting | Still Dependabot security updates. Renovate's `vulnerabilityAlerts` is off, so no fix arrives twice |
+| Security fixes | Dependabot security updates, a repository setting. They fail under the starter's Node | `vulnerabilityAlerts`, from the repository's Dependabot alerts. Dependabot security updates stay off, so no fix arrives twice |
 
 `minimumReleaseAge` in `pnpm-workspace.yaml` is a day. Both bots wait
 longer, and Renovate must never wait less: pnpm refuses a younger release,
@@ -123,11 +131,12 @@ GitHub.
 | Setting | Where | Without it | Read by `pnpm repo:settings` |
 |---|---|---|---|
 | Dependency graph | Advanced Security | Dependency Review fails every pull request, saying the graph is off. On by default for a public repository | With Dependabot alerts: they need the graph, and switching them on switches it on |
-| Dependabot alerts and Dependabot security updates | Advanced Security | No pull request is opened when an advisory hits a version already on main | yes, one line each |
-| Dependabot version updates | Advanced Security | Usually on once `dependabot.yml` exists; check it | no |
+| Dependabot alerts | Advanced Security | No pull request is opened when an advisory hits a version already on main. Renovate reads its fixes from them | yes |
+| Dependabot security updates: on with Dependabot, off with Renovate | Advanced Security | With Dependabot: no fix is opened. With Renovate: each fix comes from both bots, and Dependabot's fails | yes, by the bot whose config is in the project |
+| Dependabot version updates, with `ci-security:dependabot` only | Advanced Security | Usually on once `dependabot.yml` exists; check it | no |
 | CodeQL default setup, with the `actions` language | Advanced Security → Code scanning | No static analysis of the project's own code. It is also where Scorecard's findings are shown | yes |
 | Private vulnerability reporting | Advanced Security | Nobody can report a flaw in private, and the "Report a vulnerability" button that `SECURITY.md` points to does not exist | yes |
-| The Renovate app, with `ci-security:renovate` only | <https://github.com/apps/renovate>, then the repository | Nothing happens. No pull request, and no error | no |
+| The Renovate app, unless the project has `ci-security:dependabot` | <https://github.com/apps/renovate>, then the repository | Nothing happens. No pull request, and no error | no |
 | The three things `SECURITY.md` asks its maintainers for, in the comment at its top | The file itself | The policy promises an answer in 7 days and disclosure within 90, which may not be times you keep | no |
 | A ruleset on the default branch that requires a pull request, blocks deletion and force pushes, and requires the status check of every job that every pull request runs. With the starter and this add-on those are `gates · lint · typecheck · test · build`, `workflow lint (actionlint · zizmor)`, `pnpm audit (production dependencies)` and `dependency review (advisories · licences)` | Rules → Rulesets | The checks run and anyone can merge past a red one | yes, one line for each of the three |
 | Workflow permissions: read repository contents | Actions → General | A workflow with no `permissions:` block gets a write token | yes |
@@ -479,6 +488,9 @@ successfully". As a control, a file with `minimumReleaseAge` as a number and
 a misspelt key was refused with exit 1. The validator warned that its RE2
 module was not built on this machine and fell back to JavaScript's regular
 expressions; the config has none.
+On 2026-10-16, with `vulnerabilityAlerts` on, it was validated again
+(Renovate 44.148.4) in a project created with every recommended add-on,
+whose `gate:full` and `pnpm lint:workflows` passed.
 
 **The Dockerfile check** was also run on the source project's own
 Dockerfile, which is written to these three rules: `PASS`, 1 file, 1 `FROM`.
@@ -579,9 +591,10 @@ On 2026-10-06, in projects with every add-on and the scope
 - **`dependabot.yml`, `renovate.json5` and `SECURITY.md` are not updated**
   when the add-on is. Each is the project's file from the first install. When
   the add-on's version of one changes, the update shows the lines.
-- **The Renovate config was not run.** Its form was checked by Renovate's own
-  validator (see "How it was tested"); no repository with the app installed
-  has used it, so no pull request it opens has been seen.
+- **No pull request from the shipped Renovate config has been seen.** Its
+  form was checked by Renovate's own validator (see "How it was tested"). In
+  origamic on 2026-10-16 the app had read it (the two groups, waiting for
+  Monday); its first pull requests, and a security fix from it, are not seen.
 - **The Dockerfile check reads text.** It does not build, and it does not
   know an image by its content: a digest that names the wrong image passes.
   It does not follow an `ARG` to its value; it asks for the image written

@@ -33,7 +33,7 @@ node <plugin root>/scripts/add-to-project.mts --list
 | `e2e` | End-to-end tests: Playwright drives the built client in a real browser, on the simulator and against the real server |
 | `performance` | A static check of animations and transitions, a runtime motion audit, a guide |
 | `format-lint` | Biome: a formatter, a general linter and import sorting, and `pnpm fix` |
-| `ci-security` | Workflow lint, Dependency Review, `pnpm audit`, a Scorecard report, a Dockerfile check, a security policy, and Dependabot's config or Renovate's |
+| `ci-security` | Workflow lint, Dependency Review, `pnpm audit`, a Scorecard report, a Dockerfile check, a security policy, and Renovate's config or Dependabot's |
 | `repo-hygiene` | One version of each dependency across the workspace, every markdown link resolving, CSS lint with colours taken from tokens |
 | `strict-lint` | The ESLint rules that need types, and knip for unused files, exports and dependencies |
 | `agent-workflow` | A hook that keeps each push and pull request step in a call of its own, a worktree script, a weekly tag, a checked changelog |
@@ -41,7 +41,7 @@ node <plugin root>/scripts/add-to-project.mts --list
 Adding a unit a project already has updates it.
 
 An add-on may offer a choice, which `--list` prints under it:
-`ci-security:renovate` takes Renovate's config in place of Dependabot's. Name
+`ci-security:dependabot` takes Dependabot's config in place of Renovate's. Name
 an option only when the user asked for it. The add-on's name alone keeps the
 option the project has. Moving to another option removes the old option's
 file only if the project never changed it; otherwise the script says what is
