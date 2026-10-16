@@ -195,9 +195,6 @@ Found while a project was set up with the plugin, on 2026-10-12 and 13.
   repository's two matrix jobs make twelve checks, and the ruleset the
   command printed asked for one. A matrix whose values are written out in
   the file could be read. The twelve names were added by hand.
-- **Nothing checks `docs/STATUS.md`.** That the page has its six sections,
-  that its date moved with an edit, that an entry links a file that exists:
-  each is decidable, and `repo-hygiene` already checks the links.
 - **About thirty mutants no longer apply.** The text each one looks for is
   not in its file once, so `mutation-check.mts` cannot run them. Counted on
   2026-10-16: 6 in `agent-workflow` (among them "creates a host's settings

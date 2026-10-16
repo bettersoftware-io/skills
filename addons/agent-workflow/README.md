@@ -28,15 +28,18 @@ Leave it out of a project where one of the three is not so.
 | Weekly tag | `.github/workflows/weekly-tag.yml`, `tools/agent-workflow/close-week.mts` | Monday 00:05 UTC: tags the finished ISO week, opens "Changelog: write `<week>`" |
 | `CHANGELOG.md` | project root | A starting file: the format, no week yet. The project owns it |
 | `docs/STATUS.md` | `docs/` | A starting file: the six sections of what is left, no entry yet. The project owns it |
+| `pnpm check:status` | `tools/agent-workflow/check-status.mts` | Joins `gate:fast`. The page has the six sections, each once, in order, one "Last updated" line with a real date that is not after today, and each entry starts with its name in bold. A page that differs from the last commit's has today's date |
 | `docs/IDEAS.md` | `docs/` | A starting file: what nobody has committed to. The project owns it |
 | Seven commands | `.claude/commands/workflow/*.md` | `/workflow:status`, `/workflow:docs`, `/workflow:worktrees`, `/workflow:changelog`, `/workflow:coverage-backfill`, `/workflow:visual-tolerance-audit`, `/workflow:perf-audit` |
 | The same for Codex | `.agents/skills/workflow-*/SKILL.md` | One small skill per command, which points at the command file |
 | `node tools/agent-workflow/requires.mts <add-on>` | same | Exit 0 when the add-on is installed, exit 2 with what to do when not |
 | `pnpm agent-workflow:check` | `tools/agent-workflow/check.mts` | The add-on's `verify`: runs the hook on three commands as each host starts it, and reads both settings files |
 
-Nothing joins `gate:fast` or `gate:full`. A host's settings file is the
-project's to change: a gate that failed when someone removed a permission
-rule would fight the owner of the file. The check is run by hand.
+Only `pnpm check:status` joins a gate, `gate:fast`. The hook check does
+not: a host's settings file is the project's to change, and a gate that
+failed when someone removed a permission rule would fight the owner of the
+file. It is run by hand. The status page's form is the add-on's own rule,
+written in its section of `AGENTS.md`, so its check is a gate.
 
 ## The shipping rules
 
@@ -108,10 +111,11 @@ From the source, with three differences:
   piece of work has come. "Waiting on a person" and "Known limits" are added,
   for what is left that is not a piece of work.
 - **Plain headings.** The source marks each with a coloured sign.
-- **No command and no check yet.** The source has a command that reports the
-  live position (branch, open pull requests, the last run on main) beside the
-  page's headings. Nothing here checks that the page has its sections or
-  that its date moved. Both are in this repository's `docs/STATUS.md`.
+- **A check of the page's form.** `pnpm check:status` holds the sections,
+  the date and the shape of an entry. The date is judged against the last
+  commit only while the page has changes not committed yet, so CI, which
+  checks out a commit, never judges it: the gate run before a session ends
+  does.
 
 ## The hook
 
