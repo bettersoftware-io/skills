@@ -18,6 +18,11 @@ export type Role =
   | "integration"
   | "e2e";
 
+/** The roles whose React lint rules a package of role `explicit` can take. */
+export type ReactRules = "client" | "bindings";
+
+export const REACT_RULES: readonly ReactRules[] = ["client", "bindings"];
+
 export interface PackageDeclaration {
   role: Role;
   /** Closed list of runtime npm dependencies. */
@@ -36,7 +41,9 @@ export interface PackageDeclaration {
   entry?: string[];
   /** client only: the file in `ui` that holds every test id. */
   testIds?: string;
-  /** client only: the build runs the React Compiler, so the lint bans manual memoization. */
+  /** explicit only: the role whose React lint rules this package takes. Any other role has its own, and naming this there is a configuration error. */
+  reactRules?: ReactRules;
+  /** client, or explicit with `reactRules: "client"`: the build runs the React Compiler, so the lint bans manual memoization. */
   reactCompiler?: boolean;
   /** client only: what relies on the compiler to memoize. `check-compiler.mts` holds the compiler to each. */
   compilerTracked?: CompilerTracked[];
@@ -247,6 +254,8 @@ export async function loadConfig(root: string, configFile?: string): Promise<Pro
       );
     }
 
+    checkReactRules(found, path, declaration);
+
     packages[stripSlashes(path)] =
       declaration.role === "client"
         ? { ...CLIENT_DEFAULTS, ...declaration }
@@ -269,6 +278,28 @@ export async function loadConfig(root: string, configFile?: string): Promise<Pro
     },
     workspace: discoverWorkspace(absoluteRoot),
   };
+}
+
+/** `reactRules` is for a package of role `explicit` and names a role that has React rules; anything else is refused, naming the package. */
+function checkReactRules(found: string, path: string, { role, reactRules }: PackageDeclaration): void {
+  if (reactRules === undefined) {
+    return;
+  }
+
+  if (role !== "explicit") {
+    throw new ConfigError(
+      `${found}: "${path}" has reactRules but the role "${role}", which has React rules of its own. Only a package of role "explicit" names the role whose React rules it takes; remove reactRules, or change the role.`,
+    );
+  }
+
+  if (!REACT_RULES.includes(reactRules)) {
+    throw new ConfigError(`${found}: "${path}" has reactRules "${String(reactRules)}" — expected "client" or "bindings"`);
+  }
+}
+
+/** The role whose React lint rules a package gets: its own, or for an `explicit` package the one its `reactRules` names (none without it). */
+export function reactRoleOf({ role, reactRules }: PackageDeclaration): Role | undefined {
+  return role === "explicit" ? reactRules : role;
 }
 
 /**

@@ -19,6 +19,9 @@ export default {
     "packages/client-named": { role: "client", reactCompiler: true },
     // Runs no compiler and bans no memoization.
     "packages/client-plain": { role: "client" },
+    // An explicit package takes the React rules of the role it names. Its build is another package's, so no vite.config.ts is read here.
+    "packages/catalog": { role: "explicit", reactRules: "client", reactCompiler: true },
+    "packages/catalog-bridge": { role: "explicit", reactRules: "bindings" },
     "packages/icons": { role: "leaf" },
   },
   reactWithoutPolicies: {

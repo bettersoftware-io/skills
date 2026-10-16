@@ -9,7 +9,7 @@ describe("a project whose React packages are all under their rules", () => {
   it("passes, and says how many packages it judged", () => {
     const run = runIn("react-clean");
 
-    expect(run.stdout).toBe("PASS react-policies — 5 package(s) import React, each under the rules its role asks for\n");
+    expect(run.stdout).toBe("PASS react-policies — 7 package(s) import React, each under the rules its role asks for\n");
     expect(run.status).toBe(0);
   });
 });
@@ -33,7 +33,7 @@ describe("a project whose React packages are not", () => {
 
   it("fails, with one line for each finding", () => {
     expect(status).toBe(1);
-    expect(findings).toHaveLength(12);
+    expect(findings).toHaveLength(13);
   });
 
   it("names a client that bans memoization while its build compiles nothing, and is not fooled by a comment or an import", () => {
@@ -53,6 +53,13 @@ describe("a project whose React packages are not", () => {
   it("names a package that imports React with a role that gets no React rule, declared or not", () => {
     expect(about("packages/ui-kit")).toEqual([expect.stringContaining('imports React (packages/ui-kit/src/Button.tsx) and has the role "leaf"')]);
     expect(about("packages/stray")).toEqual([expect.stringContaining("imports React (packages/stray/src/Stray.tsx) and has no declared role")]);
+  });
+
+  it("names an explicit package that imports React without reactRules, and says what would put it under a role's rules", () => {
+    expect(about("packages/catalog-bare")).toEqual([
+      expect.stringContaining('imports React (packages/catalog-bare/src/Card.tsx) and has the role "explicit"'),
+    ]);
+    expect(about("packages/catalog-bare")[0]).toContain('reactRules: "client" or reactRules: "bindings"');
   });
 
   it("leaves a package alone that is listed with the reason, and names a listed one that does not import React", () => {

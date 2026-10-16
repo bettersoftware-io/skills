@@ -84,9 +84,22 @@ imports what its own `mayImport` names, and another package imports it only
 by naming it in its own `mayImport`. A wrong edge fails `dependencies` with
 the rule `<package>-imports-inward-only`.
 
-The role carries no other rule. A package of it that imports React gets none
-of React's lint rules, so `check:react-policies` asks for it under
-`reactWithoutPolicies` with the reason.
+The role carries no other rule, and by itself no React lint rule: a package of
+it that imports React is asked for under `reactWithoutPolicies` with the
+reason, by `check:react-policies`. To put it under the React rules of a role
+instead, name the role:
+
+```ts
+"packages/catalog": { role: "explicit", mayImport: ["packages/spec"], reactRules: "client" },
+```
+
+`reactRules` is `"client"` (the hook rules, the inline-style ban, and with
+`reactCompiler: true` the memoization ban) or `"bindings"` (the memoization
+ban). It takes those rules and nothing else of the role: the edges stay the
+`mayImport` lists. `check:react-policies` asks ESLint whether the rules reach
+the package, as for a client. It does not read a `vite.config.ts` for an
+explicit package: the build that compiles it is another package's. Naming
+`reactRules` on a package of any other role is a configuration error.
 
 ### The integration role: where the two sides meet
 

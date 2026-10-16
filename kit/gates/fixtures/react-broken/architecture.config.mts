@@ -27,6 +27,8 @@ export default {
     // React in a package whose role gets no React rule.
     "packages/ui-kit": { role: "leaf" },
     "packages/icons": { role: "leaf" },
+    // Explicit, and it does not say whose React rules it takes.
+    "packages/catalog-bare": { role: "explicit" },
   },
   reactWithoutPolicies: {
     "packages/icons": "generated from the design files and never edited by hand",

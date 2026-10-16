@@ -33,7 +33,7 @@ import { noRealSleepsInTests } from "./eslint-rules/no-real-sleeps-in-tests.mts"
 import { noRenderFunctions } from "./eslint-rules/no-render-functions.mts";
 import { oneImportPerModule } from "./eslint-rules/one-import-per-module.mts";
 import { pageObjectsOwnTheirComponent } from "./eslint-rules/page-objects-own-their-component.mts";
-import { type ArchitectureConfig, CONFIG_FILES, type PackageDeclaration, type Role } from "./gates/lib/config.mts";
+import { type ArchitectureConfig, CONFIG_FILES, type PackageDeclaration, reactRoleOf, type Role } from "./gates/lib/config.mts";
 import { type LintDependency, REACT_HOOKS } from "./lint-dependencies.mts";
 
 export const architecturePlugin: TSESLint.FlatConfig.Plugin = {
@@ -223,6 +223,8 @@ function stripSlashes(path: string): string {
 }
 
 // The source files of every package with one of these roles, and, when asked, only those that pass `only`.
+// A package of role `explicit` counts as the role its `reactRules` names, so it is
+// under that role's React rules and nothing else of it.
 function sourceOf(
   config: ArchitectureConfig | undefined,
   roles: Role[],
@@ -230,7 +232,7 @@ function sourceOf(
   only: (declared: PackageDeclaration) => boolean = () => true,
 ): string[] {
   return Object.entries(config?.packages ?? {})
-    .filter(([, declared]) => roles.includes(declared.role) && only(declared))
+    .filter(([, declared]) => roles.includes(reactRoleOf(declared) ?? declared.role) && only(declared))
     .map(([path]) => `${stripSlashes(path)}/src/**/*.${extensions}`);
 }
 

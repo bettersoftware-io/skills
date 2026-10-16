@@ -171,12 +171,11 @@ Added on 2026-10-11 ([the record](documenting-architecture-2026-10-11.md)).
 Found while Origamic's dependency rule went into its gates, on 2026-10-16
 (skills #30 and #31, origamic #18).
 
-- **The role `explicit` carries none of React's lint rules.** A package of
-  it that imports React has to be listed under `reactWithoutPolicies`, so it
-  gets no hook rules, no inline-style ban and no memoization ban. Origamic's
-  catalog (React components, imported only by its runtime) is the first that
-  will. A field that picks the React rules of a role (`client` or
-  `bindings`) for an explicit package would close it.
+- **An explicit package that declares `reactCompiler: true` is not checked
+  against a build.** `reactRules: "client"` gives it the memoization ban when
+  it declares the compiler, but the build that compiles it is another
+  package's (the app's), so `check:react-policies` reads no `vite.config.ts`
+  for it and cannot tell a false declaration. Seen on 2026-10-16.
 - **The core's "no UI framework" rule sees only an import that resolves.**
   Its pattern is `node_modules/react/`, so `import "react"` in a core that
   cannot resolve React is not one of its findings. In Origamic the library
