@@ -1,0 +1,24 @@
+schema_version: "1.1"
+name: outcome-extend-command
+description: "An add-on with an option. Does the agent name the script, the add-on and the option?"
+tags: [outcome, extending-a-project]
+context:
+  scaffold_script: fixture.sh
+execution:
+  prompt: "Add CI security checks to this project, with Renovate keeping the dependencies up to date rather than Dependabot. You cannot run commands in this session: reply with the exact command you would run, on a line of its own."
+  max_turns: 12
+  allowed_tools: [Read, Glob, Grep, Skill]
+graders:
+  - type: tool_used
+    name: loads-extending-a-project
+    tool: Skill
+    input_match: '"skill"\s*:\s*"(?:[\w-]+:)?extending-a-project"'
+  - type: regex
+    name: names-the-script-the-add-on-and-the-option
+    target: last_message
+    pattern: 'add-to-project\.mts\S*\s+\S+\s+ci-security:renovate\b'
+  - type: regex
+    name: copies-no-file-by-hand
+    target: last_message
+    pattern: '\b(cp|mkdir|cat\s*>)\s'
+    match: not_contains

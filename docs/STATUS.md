@@ -3,7 +3,7 @@
 What is not done yet. Finished work is removed from this page, not archived;
 the test records in this folder and the git log say what was done.
 
-**Last updated: 2026-10-13**
+**Last updated: 2026-10-16**
 
 ## Waiting on something outside this repository
 
@@ -140,6 +140,15 @@ Added on 2026-10-11 ([the record](documenting-architecture-2026-10-11.md)).
 
 ## Next, with no plan yet
 
+- **A created project's `AGENTS.md` does not say how an add-on is
+  installed.** Found by `pnpm evals:codex` on 2026-10-16: asked for
+  end-to-end tests or CI security checks in a created project, Codex read
+  `AGENTS.md` and skipped the skill in 4 runs of 6, and each of those four
+  planned to write the add-on by hand. Claude Code is not measured on this:
+  its eval runs load no `CLAUDE.md`. A line in the starter's `AGENTS.md` that
+  sends an add-on through `extending-a-project` would be the first thing to
+  try, then the Codex runs again ([the evals](../evals/README.md#results)).
+
 Found while a project was set up with the plugin, on 2026-10-12 and 13.
 
 - **Five CodeQL alerts nobody has read.** CodeQL default setup was switched
@@ -222,25 +231,33 @@ Found while a project was set up with the plugin, on 2026-10-12 and 13.
 - **A feature that touches more of the app:** sign-in, routing. The hardest
   test so far (users and categories with create, edit and delete, over REST)
   added a second transport and forms, but no navigation and no session.
-- **`extending-a-project` in a Codex session.** The other two are checked
-  there ([the record](codex-test-2026-10-04.md)).
+- **`extending-a-project` in a Codex session that can write.** The other two
+  are checked there ([the record](codex-test-2026-10-04.md)). Read-only runs
+  load it in 8 runs of 12 ([the evals](../evals/README.md#results)).
 - **A model between the smallest and the frontier.** Claude Haiku 4.5 has been
   tried ([the record](small-model-2026-10-05.md)). Claude Sonnet has only been
-  asked which skill it loads ([the evals](../evals/README.md)); it has built
-  nothing.
-- **Evals of what a skill does once it is loaded.** The thirteen cases under
-  [`evals/`](../evals/README.md) grade one thing: which skill a request loads.
-  None gives the agent a shell, so none shows whether it then runs the script
-  or writes the files by hand. Whether the eval sandbox lets `pnpm install`
-  through has not been tried either, and the project-creation case needs it.
-- **The evals on any model but Claude Sonnet, and on Codex.** One run of the
-  thirteen, on 2026-10-13. `claude plugin eval` does not run Codex.
+  asked which skill it loads and which command it would run
+  ([the evals](../evals/README.md)); it has built nothing.
+- **An eval that runs what the agent decides.** The outcome cases grade the
+  command the agent names, not the project after it runs: no eval run here
+  can have a shell (see Known limits).
+- **A review case the skill makes a difference to.** The planted average is
+  found in every run without the plugin as well.
+- **The evals on Claude Opus.** Sonnet and Haiku pass the trigger cases; Opus
+  has not been run.
 - **The kit in a real existing project.** The script sets up the files and says
   what is left. Declaring each package's role, and deciding what to do with the
   findings on code that was never held to these rules, is judgement nobody has
   watched an agent do.
 
 ## Known limits
+
+- **An eval run that grants a shell fails on this Mac.** Claude Code 2.1.296
+  builds a sandbox profile of about 1,840 deny paths (1.7 MB) for every
+  command, over the OS limit (E2BIG), so the shell never starts. The run ends
+  with no error recorded and reads as a failed case. Seen on 2026-10-16, with
+  and without a network grant; not tried on Linux, where the sandbox is
+  bubblewrap ([the evals](../evals/README.md#why-no-case-gives-the-agent-a-shell)).
 
 - **No command that `pnpm repo:settings` prints has been run.** The
   `ci-security` add-on's command reads a repository's settings and prints,

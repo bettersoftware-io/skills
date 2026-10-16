@@ -1,172 +1,185 @@
 // The cases under evals/ are run by hand, against a model, and each run costs
-// money (`pnpm evals:trigger`). These tests cost nothing and run with the
-// rest. They hold what a case file can get wrong without any run noticing: a
-// skill with no case, a case naming a skill that was renamed, a prompt that
-// gives the answer away, a project the agent was meant to start in and did not.
-//
-// The case files are read with patterns, not a YAML parser: this repository
-// installs none, and every case is written in the one shape these patterns read.
+// money (`pnpm evals:trigger`, `pnpm evals:outcome`). These tests cost nothing
+// and run with the rest. They hold what a case file can get wrong without any
+// run noticing: a skill with no case, a case naming a skill that was renamed, a
+// prompt that gives the answer away, a project the agent was meant to start in
+// and did not, a planted change that no longer applies.
 
-import { existsSync, readdirSync, readFileSync } from "node:fs";
-import { dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
+import { execFileSync } from "node:child_process";
+import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
-const REPOSITORY = dirname(dirname(fileURLToPath(import.meta.url)));
-const EVALS = join(REPOSITORY, "evals");
-const NOT_A_CASE = new Set(["fixtures", "results"]);
-const NO_SKILL = "none";
+import { EVALS, expectedSkillsOf, NO_SKILL, readCases, readSkills, REPOSITORY } from "./lib/eval-cases.mts";
 
-// What a fixture.sh may run. The harness runs it as the person, with bash.
-const FIXTURE_COMMANDS = [
+const KINDS = ["trigger", "outcome"];
+
+// The skills with no outcome case, and why. A skill leaves this list when it gets one.
+const NO_OUTCOME_CASE: Record<string, string> = {
+  "documenting-architecture": "it starts readers of its own and fetches a 230 MB toolset; a run cannot hold that",
+};
+
+// What a fixture.sh may run, line by line. The harness runs it as the person, with bash.
+const PROJECT_COMMANDS = [
   'node "$(dirname "$0")/../../scripts/create-project.mts" . --scope @acme > /dev/null',
   'cp -R "$(dirname "$0")/../fixtures/plain-project/." .',
 ];
+const CHANGE_COMMAND = 'node "$(dirname "$0")/change.mts"';
 
-interface Grader {
-  skills: string[];
-  forbids: boolean;
-}
-
-interface Case {
-  folder: string;
-  name: string;
-  tags: string[];
-  prompt: string;
-  scaffold: string | undefined;
-  graders: Grader[];
-}
-
-const SKILLS = foldersIn(join(REPOSITORY, "skills"));
-const CASES = foldersIn(EVALS)
-  .filter((folder) => !NOT_A_CASE.has(folder))
-  .map(readCase);
+const SKILLS = readSkills();
+const CASES = readCases();
+const EACH = CASES.map((each) => [each.folder, each] as const);
+const TRIGGERS = CASES.filter((each) => each.kind === "trigger");
+const OUTCOMES = CASES.filter((each) => each.kind === "outcome");
 
 describe("the eval cases", () => {
-  it("are found", () => {
-    expect(CASES.length).toBeGreaterThan(0);
+  it("are found, of both kinds", () => {
+    expect(TRIGGERS.length).toBeGreaterThan(0);
+    expect(OUTCOMES.length).toBeGreaterThan(0);
   });
 
-  it.each(CASES.map((each) => [each.folder, each] as const))("%s is named after its folder", (folder, each) => {
+  it.each(EACH)("%s is named after its folder", (folder, each) => {
     expect(each.name).toBe(folder);
   });
 
-  it.each(CASES.map((each) => [each.folder, each] as const))("%s is tagged with what it is for: a skill, or none", (_folder, each) => {
+  it.each(EACH)("%s is tagged with its kind and what it is for", (_folder, each) => {
     expect(each.tags).toHaveLength(2);
-    expect(each.tags[0]).toBe("trigger");
-    expect([...SKILLS, NO_SKILL]).toContain(each.tags[1]);
+    expect(KINDS).toContain(each.kind);
+    expect(each.kind === "outcome" ? SKILLS : [...SKILLS, NO_SKILL]).toContain(each.skill);
   });
 
-  it.each(CASES.map((each) => [each.folder, each] as const))("%s grades what its tag says", (_folder, each) => {
-    const expected = each.tags[1] as string;
-    const loaded = each.graders.filter((grader) => !grader.forbids).flatMap((grader) => grader.skills);
-    const forbidden = each.graders.filter((grader) => grader.forbids).flatMap((grader) => grader.skills);
+  it.each(EACH)("%s counts the skill its tag names", (_folder, each) => {
+    const { loads: loaded, leaves: forbidden } = expectedSkillsOf(each);
 
-    if (expected === NO_SKILL) {
+    if (each.skill === NO_SKILL) {
       expect(loaded).toEqual([]);
       expect(forbidden.sort()).toEqual(SKILLS);
     } else {
-      expect(loaded).toEqual([expected]);
-      expect(forbidden).not.toContain(expected);
+      expect(loaded).toEqual([each.skill]);
+      expect(forbidden).not.toContain(each.skill);
     }
   });
 
-  it.each(CASES.map((each) => [each.folder, each] as const))("%s names only skills that exist", (_folder, each) => {
-    expect(each.graders.length).toBeGreaterThan(0);
-
-    for (const grader of each.graders) {
+  it.each(EACH)("%s names only skills that exist, one to a grader", (_folder, each) => {
+    for (const grader of each.graders.filter((candidate) => candidate.type === "tool_used")) {
       expect(grader.skills).toHaveLength(1);
-
-      for (const skill of grader.skills) {
-        expect(SKILLS).toContain(skill);
-      }
+      expect(SKILLS).toContain(grader.skills[0]);
     }
   });
 
-  it.each(CASES.map((each) => [each.folder, each] as const))("%s does not name a skill in its prompt", (_folder, each) => {
+  it.each(EACH)("%s grades with what this suite knows how to read", (_folder, each) => {
+    for (const grader of each.graders) {
+      expect(["tool_used", "regex", "llm"]).toContain(grader.type);
+    }
+  });
+
+  it.each(EACH)("%s does not name a skill in its prompt", (_folder, each) => {
     for (const skill of SKILLS) {
       expect(each.prompt).not.toContain(skill);
     }
   });
 
-  it.each(CASES.map((each) => [each.folder, each] as const))("%s has the fixture script it names, and no other", (folder, each) => {
+  it.each(EACH)("%s has the fixture script it names, and it runs only known commands", (folder, each) => {
     const script = join(EVALS, folder, "fixture.sh");
+    const change = join(EVALS, folder, "change.mts");
 
     if (each.scaffold === undefined) {
       expect(existsSync(script)).toBe(false);
+      expect(existsSync(change)).toBe(false);
 
       return;
     }
 
     expect(each.scaffold).toBe("fixture.sh");
-    expect(FIXTURE_COMMANDS).toContain(commandOf(readFileSync(script, "utf8")));
+
+    const [project, ...rest] = commandsOf(readFileSync(script, "utf8"));
+
+    expect(PROJECT_COMMANDS).toContain(project);
+    expect(rest).toEqual(existsSync(change) ? [CHANGE_COMMAND] : []);
+  });
+});
+
+describe("an outcome case", () => {
+  it.each(OUTCOMES.map((each) => [each.folder, each] as const))("%s grades the result, not only the skill it loaded", (_folder, each) => {
+    expect(each.graders.filter((grader) => grader.type !== "tool_used").length).toBeGreaterThan(0);
+  });
+
+  const changed = OUTCOMES.filter((each) => existsSync(join(EVALS, each.folder, "change.mts")));
+
+  it.each(changed.map((each) => [each.folder] as const))("%s has a change that applies to a project created now", (folder) => {
+    const project = mkdtempSync(join(tmpdir(), "eval-change-"));
+
+    try {
+      execFileSync(process.execPath, [join(REPOSITORY, "scripts", "create-project.mts"), project, "--scope", "@acme", "--name", "eval-change"], { stdio: "ignore" });
+      const before = contentsOf(project);
+
+      execFileSync(process.execPath, [join(EVALS, folder, "change.mts")], { cwd: project, stdio: "pipe" });
+
+      expect(contentsOf(project)).not.toEqual(before);
+    } finally {
+      rmSync(project, { recursive: true, force: true });
+    }
   });
 });
 
 describe("every skill", () => {
   it.each(SKILLS)("%s has two requests or more that should load it", (skill) => {
-    expect(CASES.filter((each) => each.tags[1] === skill).length).toBeGreaterThanOrEqual(2);
+    expect(TRIGGERS.filter((each) => each.skill === skill).length).toBeGreaterThanOrEqual(2);
+  });
+
+  it.each(SKILLS)("%s has an outcome case, or a reason it has none", (skill) => {
+    const cases = OUTCOMES.filter((each) => each.skill === skill).length;
+
+    expect(cases > 0 || skill in NO_OUTCOME_CASE).toBe(true);
+    expect(cases > 0 && skill in NO_OUTCOME_CASE).toBe(false);
   });
 
   it("is kept out by one request or more that should load none", () => {
-    expect(CASES.filter((each) => each.tags[1] === NO_SKILL).length).toBeGreaterThan(0);
+    expect(TRIGGERS.filter((each) => each.skill === NO_SKILL).length).toBeGreaterThan(0);
   });
 });
 
 describe("running them", () => {
-  const script = (JSON.parse(readFileSync(join(REPOSITORY, "package.json"), "utf8")) as { scripts: Record<string, string> }).scripts["evals:trigger"] ?? "";
+  const scripts = (JSON.parse(readFileSync(join(REPOSITORY, "package.json"), "utf8")) as { scripts: Record<string, string> }).scripts;
+  const trigger = scripts["evals:trigger"] ?? "";
+  const outcome = scripts["evals:outcome"] ?? "";
 
-  it("builds the project each case starts in: without --scaffold the agent starts in an empty folder and the run still passes", () => {
-    expect(script).toContain(" --scaffold");
+  it("runs each kind by its tag", () => {
+    expect(trigger).toContain(" --tag trigger");
+    expect(outcome).toContain(" --tag outcome");
   });
 
-  it("runs one arm: a second, with no plugin, can load no skill and would double the cost", () => {
-    expect(script).toContain(" --ablation none");
+  it("builds the project each case starts in: without --scaffold the agent starts in an empty folder and the run still passes", () => {
+    expect(trigger).toContain(" --scaffold");
+    expect(outcome).toContain(" --scaffold");
+  });
+
+  it("runs a trigger case in one arm: a second, with no plugin, can load no skill and would double the cost", () => {
+    expect(trigger).toContain(" --ablation none");
+  });
+
+  it("runs an outcome case in two arms, so the score says what the plugin added", () => {
+    expect(outcome).toContain(" --ablation with-without");
   });
 
   it("keeps the report on this machine, and out of git", () => {
-    expect(script).toContain(" --no-publish");
+    expect(trigger).toContain(" --no-publish");
+    expect(outcome).toContain(" --no-publish");
     expect(readFileSync(join(REPOSITORY, ".gitignore"), "utf8").split("\n")).toContain("evals/results/");
   });
 });
 
-function foldersIn(folder: string): string[] {
-  return readdirSync(folder, { withFileTypes: true })
-    .filter((entry) => entry.isDirectory())
-    .map((entry) => entry.name)
-    .sort();
+
+function commandsOf(script: string): string[] {
+  return script.split("\n").filter((line) => line !== "" && !line.startsWith("#"));
 }
 
-function readCase(folder: string): Case {
-  const text = readFileSync(join(EVALS, folder, "case.yaml"), "utf8");
-  const [head = "", ...graders] = text.split(/\n {2}- type: /);
-
-  return {
-    folder,
-    name: /^name: (.+)$/m.exec(head)?.[1] ?? "",
-    tags: (/^tags: \[(.+)\]$/m.exec(head)?.[1] ?? "").split(", "),
-    prompt: JSON.parse(/^ {2}prompt: (".*")$/m.exec(head)?.[1] ?? '""') as string,
-    scaffold: /^ {2}scaffold_script: (.+)$/m.exec(head)?.[1],
-    graders: graders.map(readGrader),
-  };
-}
-
-// A grader's pattern ends with the skill it counts: …)?extending-a-project"
-// One skill to a grader, so that a failed run says which skill it was.
-function readGrader(block: string): Grader {
-  const pattern = /^ {4}input_match: '(.*)'$/m.exec(block)?.[1] ?? "";
-  const named = pattern.slice(pattern.lastIndexOf(")?") + 2, -1);
-
-  return {
-    skills: named === "" ? [] : [named],
-    forbids: /^ {4}max: 0$/m.test(block),
-  };
-}
-
-function commandOf(script: string): string {
-  const commands = script.split("\n").filter((line) => line !== "" && !line.startsWith("#"));
-
-  expect(commands).toHaveLength(1);
-
-  return commands[0] as string;
+function contentsOf(folder: string): string {
+  return readdirSync(folder, { recursive: true, withFileTypes: true })
+    .filter((entry) => entry.isFile())
+    .map((entry) => join(entry.parentPath, entry.name))
+    .sort()
+    .map((file) => `${file}\n${readFileSync(file, "utf8")}`)
+    .join("\n");
 }

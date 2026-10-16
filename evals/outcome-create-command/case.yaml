@@ -1,0 +1,25 @@
+schema_version: "1.1"
+name: outcome-create-command
+description: "A new project with a name and a scope. Does the agent name the script and both values?"
+tags: [outcome, creating-a-project]
+execution:
+  prompt: "Start a new project in this folder called orders-desk, published under the npm scope @orders: a TypeScript monorepo on ports and adapters with RxJS streams feeding a React UI. You cannot run commands in this session: reply with the exact command you would run, on a line of its own."
+  max_turns: 12
+  allowed_tools: [Read, Glob, Grep, Skill]
+graders:
+  - type: tool_used
+    name: loads-creating-a-project
+    tool: Skill
+    input_match: '"skill"\s*:\s*"(?:[\w-]+:)?creating-a-project"'
+  - type: regex
+    name: names-the-script
+    target: last_message
+    pattern: 'create-project\.mts'
+  - type: regex
+    name: names-the-scope
+    target: last_message
+    pattern: '--scope[ =]@orders\b'
+  - type: regex
+    name: names-the-project
+    target: last_message
+    pattern: '--name[ =]orders-desk\b'
