@@ -175,22 +175,6 @@ Found while Origamic's dependency rule went into its gates, on 2026-10-16
 
 Found while a project was set up with the plugin, on 2026-10-12 and 13.
 
-- **Five CodeQL alerts nobody has read.** CodeQL default setup was switched
-  on for this repository on 2026-10-13 and found them at once. Three of
-  "incomplete multi-character sanitization", rated high:
-  `scripts/architecture-docs/lib/page.mts:34`,
-  `addons/repo-hygiene/files/tools/repo-hygiene/lib/markdown.mts:100` and
-  `addons/ci-security/tests/addon.test.mts:138` (a test). Two of "shell
-  command built from the environment", rated medium:
-  `kit/gates/quiet.mts:213` and
-  `addons/coverage/files/tools/coverage/mutation-check.mts:285`. Which are
-  true is not known.
-- **`pnpm repo:settings` prints a wrong fix while CodeQL is being set up.**
-  For the minute GitHub takes to find the languages, the state is
-  `configured` and the list is empty. The check says "set up without the
-  `actions` language (it has: none)" and prints a command that would set the
-  list to `actions` alone. Seen on this repository; the list filled in by
-  itself. It should say that the setup is running, and print nothing to run.
 - **`pnpm repo:settings` names no check of a job with a `strategy:`.** This
   repository's two matrix jobs make twelve checks, and the ruleset the
   command printed asked for one. A matrix whose values are written out in
@@ -198,13 +182,15 @@ Found while a project was set up with the plugin, on 2026-10-12 and 13.
 - **Nothing checks `docs/STATUS.md`.** That the page has its six sections,
   that its date moved with an edit, that an entry links a file that exists:
   each is decidable, and `repo-hygiene` already checks the links.
-- **Six mutants of `agent-workflow` no longer apply.** The text each one
-  looks for is not in its file once, so `mutation-check.mts` cannot run
-  them: "creates a host's settings file that is not there", "never merges
-  into a settings file that is a link out of the project", "counts a file
-  that is not JSON as unmerged", "does not write over the file that took its
-  place", and the two that begin "says nothing once". They went stale when
-  the installer changed. Nothing fails when a mutant goes stale.
+- **About thirty mutants no longer apply.** The text each one looks for is
+  not in its file once, so `mutation-check.mts` cannot run them. Counted on
+  2026-10-16: 6 in `agent-workflow` (among them "creates a host's settings
+  file that is not there" and the two that begin "says nothing once"), 4 in
+  `strict-lint` (the four "dead: does not report …"), 2 in `e2e`, 1 each in
+  `coverage` and `repo-hygiene`, and 16 in `scripts/mutants/` (`choice`,
+  `moved-to-project`, `project-paths`, `told-without-a-template`). Most
+  went stale when the installer changed. Nothing fails when a mutant goes
+  stale; whether a spec's `find` occurs once in its file is decidable.
 
 ## Open decisions
 
