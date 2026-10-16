@@ -265,9 +265,9 @@ Found while a project was set up with the plugin, on 2026-10-12 and 13.
   start a run: `E2BIG: argument list too long, posix_spawn`, score 0, no
   cost. Installing the starter in a clean worktree made it fail, and
   `git clean -fdX starter` made it pass, on 2026-10-16; reported to Claude
-  Code. Nothing here stops a run first and names that command: a check at
-  the start of `pnpm evals:trigger` and `pnpm evals:outcome` would
-  ([the evals](../evals/README.md#running-them)).
+  Code. `pnpm evals:trigger` and `pnpm evals:outcome` now stop first and name
+  that command ([the evals](../evals/README.md#running-them)); a run started
+  some other way, `claude plugin eval .` by hand, still fails.
 
 - **No command that `pnpm repo:settings` prints has been run.** The
   `ci-security` add-on's command reads a repository's settings and prints,
