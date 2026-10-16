@@ -35,6 +35,13 @@ The first two are `claude plugin eval` with the options each kind needs;
 `package.json` has the lines. Their first run in a checkout asks whether you
 trust the folder as a plugin. Answer yes: it is this repository.
 
+Run the first two in a checkout with nothing installed under `starter/`. The
+checkout is the plugin, and a run is given a rule for what it holds: with the
+starter's own `node_modules`, `.turbo` and `dist` in it, about 13,000 files,
+every run failed with `E2BIG: argument list too long, posix_spawn` before the
+agent started, on Claude Code 2.1.301, on 2026-10-16. `git clean -fdX starter`
+removes them; a fresh worktree has none.
+
 Anything after the script's name is passed on, so a run can be narrowed or
 changed:
 
@@ -154,28 +161,34 @@ command the agent names, not the result of running it.
 | 2026-10-13 | trigger | Claude Sonnet | 39 of 39 runs, $2.87 |
 | 2026-10-16 | trigger | Claude Haiku | 39 of 39 runs, $0.24 |
 | 2026-10-16 | outcome | Claude Sonnet | With the plugin 3 of 3 for each case. Without it: creating 0.11, extending 0.50, the review 1.00. $1.14 |
-| 2026-10-16 | Codex trigger | Codex's default | 30 of 39 runs. See below |
+| 2026-10-16 | trigger, one run each | Claude Opus | 13 of 13 runs, $3.01 |
+| 2026-10-16 | outcome, one run each | Claude Opus | With the plugin 3 of 3. Without it: creating 0.33, extending 0.50, the review 1.00. $0.91 |
+| 2026-10-16 | Codex trigger | Codex's default | 30 of 39 runs; 35 of 39 after `AGENTS.md` gained "Adding a check". See below |
 
-**The review scores the same without the plugin.** All seven runs without it
-reported the average as belonging in the core. In the one whose trace was
-kept, Sonnet read the component and a few lines of the core, and never opened
-the project's review questions. A starter whose code shows where things go makes this problem
-easy to see. A case where the skill's questions find what reading alone does
-not has not been written.
+**The review scores the same without the plugin.** All seven Sonnet runs
+without it, and the Opus one, reported the average as belonging in the core.
+In the one whose trace was kept, Sonnet read the component and a few lines of
+the core, and never opened the project's review questions. A starter whose
+code shows where things go makes this problem easy to see. A case where the
+skill's questions find what reading alone does not has not been written.
 
 **Codex works from the project before the plugin.** Unlike a
-`claude plugin eval` run, a Codex run reads the project's `AGENTS.md`. The
-nine failed runs:
+`claude plugin eval` run, a Codex run reads the project's `AGENTS.md`. Of the
+nine runs that failed at first:
 
 - **The add-on requests** (end-to-end tests, CI security checks): 4 of 6
   runs never opened the skill or the installer. All four read `AGENTS.md`,
   and planned to build the add-on themselves: a `packages/e2e` package, or
-  new steps in `.github/workflows/ci.yml`. `AGENTS.md` says nothing about how
-  an add-on is installed.
+  new steps in `.github/workflows/ci.yml`. `AGENTS.md` said nothing about how
+  an add-on is installed. A second run of the four add-on cases before the
+  change passed 7 of 12. With the section "Adding a check" in the starter's
+  `AGENTS.md`, which sends a check through the installer, they passed 12 of
+  12.
 - **The review requests**: 4 of 6 runs read the project's own
-  `tools/arch/docs/review.md` instead of the skill. That is the same seven
-  questions, so the review was the same.
-- **One diagram**: 1 of 3 runs loaded `documenting-architecture`.
+  `tools/arch/docs/review.md` instead of the skill, and 3 of 3 again after
+  the change. That is the same seven questions, so the review was the same.
+- **One diagram**: 1 of 3 runs loaded `documenting-architecture`, before
+  the change and after it.
 
 The cases that do not start in a project with the kit passed every run.
 
@@ -204,4 +217,5 @@ expectation no run can meet, the command exited 1.
   other plugin. The Codex runs show what a project's own instructions can do
   to which skill is reached for; a session where other plugins' skills
   compete for the same request is not covered.
-- **Claude Opus, or any other model.** `--model <name>` runs one.
+- **Claude Opus over three runs a case.** It has been run once a case.
+  `--model <name>` runs any model.
