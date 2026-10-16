@@ -131,17 +131,16 @@ Added on 2026-10-11 ([the record](documenting-architecture-2026-10-11.md)).
 
 ## Dated
 
-- **From 19 October 2026 `ubuntu-latest` means Ubuntu 26.** GitHub's notice:
-  [actions/runner-images#14748](https://github.com/actions/runner-images/issues/14748).
-  Every workflow here uses that label: this repository's `ci.yml`, the
-  starter's `ci.yml`, and the add-ons' `coverage.yml`, `visual.yml`,
-  `update-visual-goldens.yml`, `perf.yml`, `e2e.yml`, `ci-security.yml`,
-  `dependency-review.yml`, `scorecard.yml` and `weekly-tag.yml`. A project
-  created from the starter has the same label in every workflow it was given.
-  Decide whether to pin a version (`ubuntu-24.04`) or to move with the label.
-  Either way, re-run this repository's CI once the change lands. The visual
-  and end-to-end tests are the least exposed, since they run inside a pinned
-  Playwright container.
+- **`ubuntu-latest` moves to Ubuntu 26 between 19 October and 19 November
+  2026** ([actions/runner-images#14748](https://github.com/actions/runner-images/issues/14748)).
+  Decided on 2026-10-16: the workflows move with the label, none is pinned.
+  A trial on `ubuntu-26.04` the same day passed: this repository's CI,
+  16 checks of 16 (skills #40), and in skills-demo every workflow a pull
+  request runs (skills-demo #13). The one failure there was actionlint
+  1.7.12, which does not know the label `ubuntu-26.04`; only a workflow
+  that pins it meets that. Not run on Ubuntu 26: `scorecard.yml`,
+  `update-visual-goldens.yml` and `weekly-tag.yml`, which no pull request
+  starts. Look at the first runs after the switch.
 
 ## Next, with no plan yet
 
@@ -195,15 +194,6 @@ Found while a project was set up with the plugin, on 2026-10-12 and 13.
   repository's two matrix jobs make twelve checks, and the ruleset the
   command printed asked for one. A matrix whose values are written out in
   the file could be read. The twelve names were added by hand.
-- **About thirty mutants no longer apply.** The text each one looks for is
-  not in its file once, so `mutation-check.mts` cannot run them. Counted on
-  2026-10-16: 6 in `agent-workflow` (among them "creates a host's settings
-  file that is not there" and the two that begin "says nothing once"), 4 in
-  `strict-lint` (the four "dead: does not report …"), 2 in `e2e`, 1 each in
-  `coverage` and `repo-hygiene`, and 16 in `scripts/mutants/` (`choice`,
-  `moved-to-project`, `project-paths`, `told-without-a-template`). Most
-  went stale when the installer changed. Nothing fails when a mutant goes
-  stale; whether a spec's `find` occurs once in its file is decidable.
 
 ## Open decisions
 
@@ -272,9 +262,9 @@ Found while a project was set up with the plugin, on 2026-10-12 and 13.
   start a run: `E2BIG: argument list too long, posix_spawn`, score 0, no
   cost. Installing the starter in a clean worktree made it fail, and
   `git clean -fdX starter` made it pass, on 2026-10-16; reported to Claude
-  Code. Nothing here stops a run first and names that command: a check at
-  the start of `pnpm evals:trigger` and `pnpm evals:outcome` would
-  ([the evals](../evals/README.md#running-them)).
+  Code. `pnpm evals:trigger` and `pnpm evals:outcome` now stop first and name
+  that command ([the evals](../evals/README.md#running-them)); a run started
+  some other way, `claude plugin eval .` by hand, still fails.
 
 - **No command that `pnpm repo:settings` prints has been run.** The
   `ci-security` add-on's command reads a repository's settings and prints,

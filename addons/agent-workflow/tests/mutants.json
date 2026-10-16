@@ -1171,8 +1171,8 @@
   {
     "name": "creates a host's settings file that is not there",
     "file": "scripts/add-to-project.mts",
-    "find": "    const file = join(project, path);\n\n    try {\n      const current",
-    "replace": "    const file = join(project, path);\n\n    if (!existsSync(file)) {\n      continue;\n    }\n\n    try {\n      const current",
+    "find": "      const current = settings === undefined ? {} : parseSettings(settings, path);",
+    "replace": "      if (settings === undefined) {\n        continue;\n      }\n\n      const current = parseSettings(settings, path);",
     "test": "pnpm vitest run scripts/add-to-project.test.mts --testNamePattern=\"creates a host's settings file that is not there\""
   },
   {
@@ -1195,13 +1195,6 @@
     "find": "    if (writeUnlessProtected(destination, path, content)) {",
     "replace": "    if (writeProjectFile(destination, path, content) === undefined) {",
     "test": "pnpm vitest run scripts/add-to-project.test.mts --testNamePattern=\"goes on, and says what is missing, when the host does not let its settings file be written\""
-  },
-  {
-    "name": "never merges into a settings file that is a link out of the project",
-    "file": "scripts/add-to-project.mts",
-    "find": "    assertInside(project, path);\n\n    const file = join(project, path);",
-    "replace": "    const file = join(project, path);",
-    "test": "pnpm vitest run scripts/add-to-project.test.mts --testNamePattern=\"never merges into a settings file that is a link out of the project\""
   },
   {
     "name": "installs the rest, and records nothing for a file the host keeps it from writing",
@@ -1766,8 +1759,8 @@
   {
     "name": "counts a file that is not JSON as unmerged",
     "file": "scripts/add-to-project.mts",
-    "find": "    unmerged: settingsPlan.unmerged,\n    yours: findOwnedChanges(destination, templates",
-    "replace": "    unmerged: [],\n    yours: findOwnedChanges(destination, templates",
+    "find": "    unmerged: settingsPlan.unmerged,\n    // A file this run",
+    "replace": "    unmerged: [],\n    // A file this run",
     "test": "pnpm vitest run scripts/add-to-project.test.mts --testNamePattern=\"leaves a settings file it cannot read as it is\""
   },
   {
@@ -1787,7 +1780,7 @@
   {
     "name": "does not write over the file that took its place",
     "file": "scripts/add-to-project.mts",
-    "find": "const written = content !== undefined && !existsSync(join(destination, replacedBy));",
+    "find": "const written = content !== undefined && !projectHas(destination, replacedBy);",
     "replace": "const written = content !== undefined;",
     "test": "pnpm vitest run scripts/add-to-project.test.mts --testNamePattern=\"does not write over the file that took its place\""
   },
@@ -2160,14 +2153,14 @@
   {
     "name": "says nothing once the old one is gone",
     "file": "scripts/add-to-project.mts",
-    "find": "    if (!existsSync(join(destination, path))) {\n      continue;\n    }\n\n    if (replacedBy === undefined) {",
+    "find": "    if (!projectHas(destination, path)) {\n      continue;\n    }\n\n    if (replacedBy === undefined) {",
     "replace": "    if (replacedBy === undefined) {",
     "test": "pnpm vitest run scripts/add-to-project.test.mts --testNamePattern=\"does not write over the file that took its place\""
   },
   {
     "name": "says nothing once a file with nothing in its place is gone",
     "file": "scripts/add-to-project.mts",
-    "find": "    if (!existsSync(join(destination, path))) {\n      continue;\n    }\n\n    if (replacedBy === undefined) {",
+    "find": "    if (!projectHas(destination, path)) {\n      continue;\n    }\n\n    if (replacedBy === undefined) {",
     "replace": "    if (replacedBy === undefined) {",
     "test": "pnpm vitest run scripts/add-to-project.test.mts --testNamePattern=\"says a file is no longer read when nothing took its place\""
   },

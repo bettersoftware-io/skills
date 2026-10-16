@@ -14,8 +14,8 @@
     "test": "vitest run",
     "typecheck": "tsc6 -p tsconfig.json",
     "gates": "node kit/gates/run.mts",
-    "evals:trigger": "claude plugin eval . --tag trigger --ablation none --scaffold --model sonnet --no-publish",
-    "evals:outcome": "claude plugin eval . --tag outcome --ablation with-without --scaffold --model sonnet --judge-model haiku --no-publish",
+    "evals:trigger": "node scripts/evals-preflight.mts && claude plugin eval . --tag trigger --ablation none --scaffold --model sonnet --no-publish",
+    "evals:outcome": "node scripts/evals-preflight.mts && claude plugin eval . --tag outcome --ablation with-without --scaffold --model sonnet --judge-model haiku --no-publish",
     "evals:codex": "node scripts/evals-codex.mts"
   },
   "devDependencies": {

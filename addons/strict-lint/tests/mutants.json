@@ -240,29 +240,29 @@
   {
     "name": "dead: does not report dependency-cruiser, which",
     "file": "addons/strict-lint/files/tools/strict-lint/knip.jsonc",
-    "find": "\"ignoreDependencies\": [\"dependency-cruiser\", ",
-    "replace": "\"ignoreDependencies\": [",
+    "find": "        \"dependency-cruiser\",\n",
+    "replace": "",
     "test": "pnpm vitest run addons/strict-lint/tests/dead.test.mts -t \"does not report dependency-cruiser, which\""
   },
   {
     "name": "dead: does not report @manypkg/cli, which",
     "file": "addons/strict-lint/files/tools/strict-lint/knip.jsonc",
-    "find": "\"@manypkg/cli\", ",
+    "find": "        \"@manypkg/cli\",\n",
     "replace": "",
     "test": "pnpm vitest run addons/strict-lint/tests/dead.test.mts -t \"does not report @manypkg/cli, which\""
   },
   {
     "name": "dead: does not report stylelint, which",
     "file": "addons/strict-lint/files/tools/strict-lint/knip.jsonc",
-    "find": "\"stylelint\", \"syncpack\"]",
-    "replace": "\"syncpack\"]",
+    "find": "        \"stylelint\",\n",
+    "replace": "",
     "test": "pnpm vitest run addons/strict-lint/tests/dead.test.mts -t \"does not report stylelint, which\""
   },
   {
     "name": "dead: does not report syncpack, which",
     "file": "addons/strict-lint/files/tools/strict-lint/knip.jsonc",
-    "find": ", \"syncpack\"]",
-    "replace": "]",
+    "find": "        \"syncpack\",\n",
+    "replace": "",
     "test": "pnpm vitest run addons/strict-lint/tests/dead.test.mts -t \"does not report syncpack, which\""
   },
   {

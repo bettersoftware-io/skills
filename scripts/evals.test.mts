@@ -5,12 +5,13 @@
 // prompt that gives the answer away, a project the agent was meant to start in
 // and did not, a planted change that no longer applies.
 
-import { execFileSync } from "node:child_process";
-import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync } from "node:fs";
+import { execFileSync, spawnSync } from "node:child_process";
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { describe, expect, it } from "vitest";
 
+import { findInstalled, refusal } from "./evals-preflight.mts";
 import { EVALS, expectedSkillsOf, NO_SKILL, readCases, readSkills, REPOSITORY } from "./lib/eval-cases.mts";
 
 const KINDS = ["trigger", "outcome"];
@@ -163,6 +164,11 @@ describe("running them", () => {
     expect(outcome).toContain(" --ablation with-without");
   });
 
+  it("refuses to start in a checkout with the starter installed in it, before the harness runs", () => {
+    expect(trigger.startsWith("node scripts/evals-preflight.mts && claude plugin eval ")).toBe(true);
+    expect(outcome.startsWith("node scripts/evals-preflight.mts && claude plugin eval ")).toBe(true);
+  });
+
   it("keeps the report on this machine, and out of git", () => {
     expect(trigger).toContain(" --no-publish");
     expect(outcome).toContain(" --no-publish");
@@ -170,6 +176,56 @@ describe("running them", () => {
   });
 });
 
+
+describe("the check before a run", () => {
+  it("lets a run start when git ignores nothing under starter/", () => {
+    const root = createRepository({ "starter/package.json": "{}\n" });
+
+    expect(findInstalled(root)).toEqual([]);
+    expect(refusal(findInstalled(root))).toBeUndefined();
+  });
+
+  it("refuses a checkout where the starter was installed, and names what is there and the command that clears it", () => {
+    const root = createRepository({ "starter/package.json": "{}\n", "starter/node_modules/a/index.js": "", "starter/.turbo/log": "", "starter/packages/x/package.json": "{}\n", "starter/packages/x/dist/a.js": "", "starter/packages/y/package.json": "{}\n", "starter/packages/y/dist/b.js": "", "node_modules/root.js": "" });
+    const installed = findInstalled(root);
+
+    expect(installed).toEqual(["starter/.turbo/", "starter/node_modules/", "starter/packages/x/dist/", "starter/packages/y/dist/"]);
+    expect(refusal(installed)).toBe(
+      [
+        "evals: not started. starter/ holds what an install left there (starter/.turbo/, starter/node_modules/, starter/packages/x/dist/, and 1 more).",
+        "With it in the checkout every run fails before the agent starts (E2BIG at posix_spawn), and scores 0.",
+        "Remove it, then run this again:  git clean -fdX starter",
+      ].join("\n"),
+    );
+  });
+
+  it("exits 1 with that refusal when run, and 0 in a clean checkout", () => {
+    const run = (root: string) => spawnSync(process.execPath, [join(REPOSITORY, "scripts/evals-preflight.mts"), root], { encoding: "utf8" });
+    const clean = run(createRepository({ "starter/package.json": "{}\n" }));
+    const installed = run(createRepository({ "starter/package.json": "{}\n", "starter/node_modules/a.js": "" }));
+
+    expect([clean.status, clean.stderr]).toEqual([0, ""]);
+    expect(installed.status).toBe(1);
+    expect(installed.stderr).toContain("git clean -fdX starter");
+  });
+});
+
+/** A git repository that ignores what this repository's two .gitignore files ignore, holding these files. */
+function createRepository(files: Record<string, string>): string {
+  const root = mkdtempSync(join(tmpdir(), "evals-preflight-"));
+
+  execFileSync("git", ["init", "--quiet"], { cwd: root });
+  mkdirSync(join(root, "starter"));
+  writeFileSync(join(root, ".gitignore"), readFileSync(join(REPOSITORY, ".gitignore")));
+  writeFileSync(join(root, "starter/.gitignore"), readFileSync(join(REPOSITORY, "starter/.gitignore")));
+
+  for (const [path, content] of Object.entries(files)) {
+    mkdirSync(join(root, dirname(path)), { recursive: true });
+    writeFileSync(join(root, path), content);
+  }
+
+  return root;
+}
 
 function commandsOf(script: string): string[] {
   return script.split("\n").filter((line) => line !== "" && !line.startsWith("#"));
