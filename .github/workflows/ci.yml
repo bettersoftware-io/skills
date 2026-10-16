@@ -15,7 +15,7 @@ env:
 jobs:
   repository:
     name: typecheck · tests
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
@@ -51,7 +51,7 @@ jobs:
     # a person would, with a scope of its own, and holds it to its own gate:
     # first as created, then with each add-on in.
     name: a created project passes its gate (${{ matrix.addon }})
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     strategy:
       fail-fast: false
       matrix:
@@ -150,7 +150,7 @@ jobs:
     # package.json whose dependencies are in order for one scope only fails
     # the version check under the other.
     name: a project created with every add-on passes its gate (${{ matrix.scope }})
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     strategy:
       fail-fast: false
       matrix:
