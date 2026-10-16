@@ -19,6 +19,7 @@
   "include": [
     "kit/**/*.mts",
     "scripts/**/*.mts",
+    "evals/**/*.mts",
     "addons/*/tests/**/*.mts",
     "addons/*/files/tools/**/*.mts",
     "vitest.config.mts"

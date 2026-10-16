@@ -181,8 +181,9 @@ on two sets that had passed every check.
 - [`addons/`](addons/README.md): the add-ons above.
 - [`skills/`](skills): the four skills above.
 - [`scripts/architecture-docs/`](scripts/architecture-docs): what `documenting-architecture` runs. See [Architecture documents](#architecture-documents).
-- [`evals/`](evals/README.md): requests run against a model, to see whether
-  each one loads the right skill. Run by hand; they cost money.
+- [`evals/`](evals/README.md): requests run against a model, on Claude Code
+  and on Codex, to see whether each loads the right skill and names the right
+  command. Run by hand; they cost money.
 - [`docs/STATUS.md`](docs/STATUS.md): what is not done yet.
 
 How each part was tested:
