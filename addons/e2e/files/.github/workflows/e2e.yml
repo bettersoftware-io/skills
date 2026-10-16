@@ -4,6 +4,11 @@ name: End-to-end
 # on its simulator, and against the real server. A failing spec fails the job.
 # The HTML report, with the trace of each failure, is uploaded when it fails.
 #
+# Two jobs. Most modes run in the Playwright container. A mode that says
+# `host: true` in tools/e2e.config.mts needs what the container lacks (Docker,
+# for a local database), so it runs in a job on the runner itself. A project
+# with no such mode has nothing for that job: its run says so and passes.
+#
 # This is a job of its own, not part of `gate:full`: it needs a browser and a
 # port, which `pnpm install` does not bring and a sandbox may not allow.
 
@@ -27,6 +32,9 @@ env:
 
 jobs:
   e2e:
+    # The name is what a ruleset's required check is named after (ci-security
+    # builds them from the jobs' names). Renaming it leaves a required check
+    # that no job reports, and every pull request waits for good.
     name: end-to-end (chromium)
     runs-on: ubuntu-latest
     # The run takes well under a minute. A server that hangs must not hold a
@@ -57,14 +65,60 @@ jobs:
 
       # Not piped through anything: a filter on this output can hide the line
       # that says a spec failed.
-      - name: Build the client, serve it, and run every spec in both modes
-        run: pnpm e2e
+      - name: Build the client, serve it, and run every spec of the modes that run in the container
+        run: pnpm e2e --where container
 
       - name: Upload the report (each failure with its trace and screenshot)
         if: failure()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: e2e-report
+          path: packages/e2e/reports
+          if-no-files-found: warn
+          retention-days: 7
+
+  e2e-host:
+    name: end-to-end on the host (chromium)
+    # The runner itself, not the container: Docker is here, for a mode that
+    # starts a local database.
+    runs-on: ubuntu-latest
+    # Longer than the container's: a mode here may pull and start a database's
+    # images first. Still well short of the six hours a job is allowed.
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 26
+
+      # Node 25 and later ship without Corepack. This installs it from a
+      # lockfile, so its version is pinned like every other. After checkout: the
+      # script is in the repository.
+      - name: Enable Corepack (provisions the pnpm pinned by the packageManager field)
+        run: node tools/arch/ci/enable-corepack.mts
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # No image brings the browser here. The project's own Playwright, at the
+      # version packages/e2e pins, downloads the build it was released with,
+      # and the system libraries that build needs.
+      - name: Install Chromium and its system libraries, at the pinned Playwright's build
+        run: pnpm --dir packages/e2e exec playwright install --with-deps chromium
+
+      # Not piped through anything, as above. With no mode on the host this
+      # says so and exits 0.
+      - name: Build the client, serve it, and run every spec of the modes that run on the host
+        run: pnpm e2e --where host
+
+      - name: Upload the report (each failure with its trace and screenshot)
+        if: failure()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: e2e-report-host
           path: packages/e2e/reports
           if-no-files-found: warn
           retention-days: 7

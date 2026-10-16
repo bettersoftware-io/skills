@@ -4,10 +4,17 @@
 //
 //   node tools/e2e/run.mts                             every mode, every spec
 //   node tools/e2e/run.mts --mode sim                  one mode
+//   node tools/e2e/run.mts --where host                the modes that say host: true
+//   node tools/e2e/run.mts --where container           the others
 //   node tools/e2e/run.mts src/sim/priceList.spec.ts   one spec
 //   node tools/e2e/run.mts -g "selects the row"        the tests whose title matches
 //
-// Anything that is not `--mode` goes to `playwright test` as it is.
+// Anything that is not `--mode` or `--where` goes to `playwright test` as it is.
+//
+// A mode that says `host: true` needs what the Playwright container does not
+// have, such as Docker. CI runs `--where container` in the container and
+// `--where host` in a job of its own; a project with no such mode has nothing
+// for the second, which is said, and is exit 0.
 //
 // For each mode: its server is started, if it has one; the client is built
 // with that mode's variables; the build is served. Then the specs run. The
@@ -24,8 +31,8 @@ import { createServer } from "node:net";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { parseArguments, USAGE, UsageError } from "./lib/arguments.mts";
-import { type E2eConfig, E2eError, loadConfig, selectModes } from "./lib/config.mts";
+import { parseArguments, USAGE, UsageError, type Where } from "./lib/arguments.mts";
+import { type E2eConfig, E2eError, loadConfig, PROJECT_CONFIG, selectModes } from "./lib/config.mts";
 import { forgetResults, reportCounts } from "./lib/counts.mts";
 import { createGroups, exitCodeOfSignal, type Groups, StartError } from "./lib/processes.mts";
 import { MODES_VARIABLE, type RunningMode, startMode } from "./lib/stack.mts";
@@ -138,7 +145,13 @@ export async function runCommand(
 
     const request = parseArguments(argv);
     const config = await loadConfig(root);
-    const { modes } = selectModes(root, config, request.modes);
+    const { modes } = selectModes(root, config, request.modes, request.where);
+
+    if (modes.length === 0 && request.where !== undefined) {
+      say(describeNothingToRun(Object.keys(config.modes), request.where));
+
+      return 0;
+    }
 
     if (!(await probe())) {
       throw new E2eError(
@@ -158,6 +171,14 @@ export async function runCommand(
 
     return 2;
   }
+}
+
+/** What a run asked for one place says when every mode runs in the other. */
+function describeNothingToRun(modes: string[], where: Where): string {
+  const other: Where = where === "host" ? "container" : "host";
+  const which = where === "host" ? "runs on the host (host: true)" : "runs in the container (every one says host: true)";
+
+  return `[e2e] no mode in ${PROJECT_CONFIG} ${which}, so this run has nothing to start. That is not a failure: the modes are ${modes.join(", ")}, and they run with --where ${other}`;
 }
 
 /** The command with the signals: whatever ends the run, every program it started is stopped first. */

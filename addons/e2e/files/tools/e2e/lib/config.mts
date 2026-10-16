@@ -8,6 +8,8 @@ import { existsSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 
+import type { Where } from "./arguments.mts";
+
 /** In a build or serve command: the folder this mode's build is written to and served from. */
 export const OUT_DIR = "{outDir}";
 
@@ -49,14 +51,29 @@ export interface ClientCommands {
   ready: RegExp;
 }
 
+/**
+ * Reads a mode's variables from something already running, such as a local
+ * database's keys from its own status command. Called when the mode starts,
+ * before its server and its build, and only in a run that starts the mode.
+ */
+export type ReadEnv = () => Promise<Record<string, string>>;
+
 export interface Mode {
   /** What the client talks to in this mode. Left out: nothing, the client runs alone. */
   server?: ServerCommand;
   /**
-   * Variables the client's build is given. `SERVER_URL` stands for the
-   * server's address as it printed it, `SERVER_HOST` for its host and port.
+   * Variables the client's build is given: written here, or read by a
+   * function when the mode starts. `SERVER_URL` stands for the server's
+   * address as it printed it, `SERVER_HOST` for its host and port, in either.
    */
-  env?: Record<string, string>;
+  env?: Record<string, string> | ReadEnv;
+  /**
+   * True when the mode needs what the Playwright container does not have,
+   * such as Docker for a local database: it runs on the machine itself.
+   * `--where host` runs these modes and `--where container` the others; CI
+   * has a job for each. Left out: the container.
+   */
+  host?: boolean;
 }
 
 export interface E2eConfig {
@@ -106,6 +123,10 @@ export function checkConfig(config: unknown): E2eConfig {
     throw new E2eError(`${PROJECT_CONFIG}: "modes" is empty, so there is nothing to run`);
   }
 
+  for (const [name, mode] of Object.entries(modes)) {
+    checkMode(name, mode);
+  }
+
   const servers = Object.entries(modes).flatMap(([name, mode]) => (mode.server ? [{ what: `modes.${name}.server`, server: mode.server }] : []));
   const commands: [string, unknown][] = [
     ["client.build", client.build],
@@ -146,6 +167,26 @@ export function checkConfig(config: unknown): E2eConfig {
   return { tests, client, modes };
 }
 
+/** What the shape of a mode's own fields says, before its server is checked with the other commands. */
+function checkMode(name: string, mode: unknown): void {
+  if (!isRecord(mode)) {
+    throw new E2eError(`${PROJECT_CONFIG}: "modes.${name}" must be an object`);
+  }
+
+  if (mode.host !== undefined && typeof mode.host !== "boolean") {
+    throw new E2eError(`${PROJECT_CONFIG}: "modes.${name}.host" must be true or false`);
+  }
+
+  if (mode.env !== undefined && typeof mode.env !== "function" && !isVariables(mode.env)) {
+    throw new E2eError(`${PROJECT_CONFIG}: "modes.${name}.env" must be an object of strings, or a function that resolves to one`);
+  }
+}
+
+/** True when a value is variables for a build: an object whose every value is a string. */
+export function isVariables(value: unknown): value is Record<string, string> {
+  return isRecord(value) && Object.values(value).every((variable) => typeof variable === "string");
+}
+
 /** The package manager a command starts with, if it does. */
 export function findWrapper(command: string[]): string | undefined {
   const program = (command[0] ?? "").split("/").at(-1) ?? "";
@@ -159,11 +200,16 @@ export interface Selection {
 }
 
 /**
- * The modes to run: the ones asked for, or all. Fails on a mode that does not
- * exist, on a mode with no spec, and on a spec that is in no mode's folder:
- * each of those would otherwise be a run that passes having judged nothing.
+ * The modes to run: the ones asked for, or all, and of those the ones that
+ * run where the run was asked to (`--where`). Fails on a mode that does not
+ * exist, on a mode asked for that runs in the other place, on a mode with no
+ * spec, and on a spec that is in no mode's folder: each of those would
+ * otherwise be a run that passes having judged nothing.
+ *
+ * May select no mode when a place is asked for: a project whose modes all run
+ * in the container has nothing for the host's job. The caller says so.
  */
-export function selectModes(root: string, config: E2eConfig, asked: string[]): Selection {
+export function selectModes(root: string, config: E2eConfig, asked: string[], where?: Where): Selection {
   const known = Object.keys(config.modes);
   const unknown = asked.filter((name) => !known.includes(name));
 
@@ -186,7 +232,16 @@ export function selectModes(root: string, config: E2eConfig, asked: string[]): S
     );
   }
 
-  const modes = known.filter((name) => asked.length === 0 || asked.includes(name));
+  const elsewhere = asked.find((name) => where !== undefined && whereModeRuns(config.modes[name] as Mode) !== where);
+
+  if (elsewhere !== undefined) {
+    throw new E2eError(
+      `the mode "${elsewhere}" runs ${describeWhere(whereModeRuns(config.modes[elsewhere] as Mode))}, and this run is --where ${where as Where}. Leave out one of the two`,
+    );
+  }
+
+  const named = known.filter((name) => asked.length === 0 || asked.includes(name));
+  const modes = named.filter((name) => where === undefined || whereModeRuns(config.modes[name] as Mode) === where);
   const empty = modes.filter((name) => !specs.some((spec) => spec.startsWith(`${name}/`)));
 
   if (empty.length > 0) {
@@ -196,6 +251,16 @@ export function selectModes(root: string, config: E2eConfig, asked: string[]): S
   }
 
   return { modes };
+}
+
+/** Where a mode runs: on the host when it says so, else in the container. */
+function whereModeRuns(mode: Mode): Where {
+  return mode.host === true ? "host" : "container";
+}
+
+/** "on the host", "in the container". */
+function describeWhere(where: Where): string {
+  return where === "host" ? "on the host" : "in the container";
 }
 
 function listSpecs(directory: string, relative: string): string[] {

@@ -1,15 +1,18 @@
 // Builds the client for one mode and starts what the mode needs: its server,
 // if it has one, and a server for the build.
 //
-// The order matters. A client reads the server's address at build time, so
-// the server is started first and the build is given the address it printed.
+// The order matters. A mode's variables may be read by a function from
+// something already running (a local database's keys), so that is asked
+// first: when it fails, nothing of the mode has been started. A client reads
+// the server's address at build time, so the server is started next and the
+// build is given the address it printed.
 // Every address comes from the program that owns it: nothing here picks a
 // port, so two runs on one machine cannot collide and none can adopt the
 // other's server.
 
 import { join } from "node:path";
 
-import { type E2eConfig, E2eError, type Mode, OUT_DIR, SERVER_HOST, SERVER_URL } from "./config.mts";
+import { type E2eConfig, E2eError, isVariables, type Mode, OUT_DIR, SERVER_HOST, SERVER_URL } from "./config.mts";
 import type { Groups } from "./processes.mts";
 
 /** How long a program is given to say it is ready. */
@@ -52,6 +55,12 @@ export async function startMode(
   const mode = config.modes[name] as Mode;
   const clientFolder = join(root, config.client.cwd);
   const outDir = join(root, config.tests, "node_modules", ".cache", "e2e", name);
+  if (typeof mode.env === "function") {
+    // A first start of what it reads (a database pulling its images) can take minutes.
+    say(`[e2e] ${name}: reading its variables`);
+  }
+
+  const env = await readEnv(name, mode.env);
   let server: ServerAddress | undefined;
 
   if (mode.server !== undefined) {
@@ -70,7 +79,7 @@ export async function startMode(
     say(`[e2e] ${name}: server ready at ${server.url}`);
   }
 
-  const buildEnv = { ...environment, ...resolveEnv(name, mode.env ?? {}, server) };
+  const buildEnv = { ...environment, ...resolveEnv(name, env, server) };
   const build = await groups.finish({
     label: `the build of the client for mode "${name}"`,
     command: withOutDir(config.client.build, outDir),
@@ -96,6 +105,41 @@ export async function startMode(
   say(`[e2e] ${name}: client built and served at ${served.address}`);
 
   return { baseURL: served.address, ...(server === undefined ? {} : { serverURL: server.url, serverHost: server.host }) };
+}
+
+/**
+ * The mode's variables as written, or as its function resolves them. A
+ * function that fails, or gives anything but strings, stops the run with the
+ * mode named: a build given half its variables tests nothing.
+ */
+export async function readEnv(name: string, env: Mode["env"]): Promise<Record<string, string>> {
+  if (typeof env !== "function") {
+    return env ?? {};
+  }
+
+  let variables: unknown;
+
+  try {
+    variables = await env();
+  } catch (error) {
+    throw new E2eError(`the env function of mode "${name}" failed: ${error instanceof Error ? error.message : String(error)}`);
+  }
+
+  if (!isVariables(variables)) {
+    throw new E2eError(`the env function of mode "${name}" must resolve to an object of strings; ${describeNotVariables(variables)}`);
+  }
+
+  return variables;
+}
+
+function describeNotVariables(value: unknown): string {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+    return `it resolved to ${Array.isArray(value) ? "a list" : String(value)}`;
+  }
+
+  const [key, variable] = Object.entries(value).find(([, entry]) => typeof entry !== "string") ?? ["a value", undefined];
+
+  return `${key} is ${variable === null ? "null" : `a ${typeof variable}`}`;
 }
 
 /**

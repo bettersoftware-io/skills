@@ -2,7 +2,7 @@ import { mkdirSync, readFileSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
-import { checkConfig, E2eError, findWrapper, loadConfig, selectModes } from "../files/tools/e2e/lib/config.mts";
+import { checkConfig, type E2eConfig, E2eError, findWrapper, loadConfig, selectModes } from "../files/tools/e2e/lib/config.mts";
 import { createFakeProject, renderConfig, TOOLS, write } from "./support.mts";
 
 describe("the project's e2e config", () => {
@@ -76,6 +76,31 @@ describe("the project's e2e config", () => {
     expect(() => checkConfig({ ...config, client: { ...config.client, serve: ["vite", "preview"] } })).toThrow('"client.serve" does not name OUT_DIR');
   });
 
+  it("accepts a mode that runs on the host, and an env that is a function to call", () => {
+    const { config } = createFakeProject();
+    const read = (): Promise<Record<string, string>> => Promise.resolve({ CLIENT_API_URL: "http://127.0.0.1:54321" });
+    const modes = { sim: { ...config.modes.sim, host: false }, stack: { host: true, env: read } };
+
+    expect(checkConfig({ ...config, modes }).modes).toEqual(modes);
+  });
+
+  it("refuses a host that is not true or false", () => {
+    const { config } = createFakeProject();
+
+    expect(() => checkConfig({ ...config, modes: { sim: { host: "yes" } } })).toThrow('"modes.sim.host" must be true or false');
+  });
+
+  it.each([["a string", "VITE_SERVER_URL="], ["a list", ["VITE_SERVER_URL"]], ["a number among the variables", { VITE_PORT: 4000 }]])(
+    "refuses an env that is %s",
+    (_what, env) => {
+      const { config } = createFakeProject();
+
+      expect(() => checkConfig({ ...config, modes: { sim: { env } } })).toThrow(
+        '"modes.sim.env" must be an object of strings, or a function that resolves to one',
+      );
+    },
+  );
+
   it("accepts the config the add-on ships", async () => {
     const { root } = createFakeProject();
 
@@ -135,6 +160,45 @@ describe("the modes of a run", () => {
     expect(selectModes(root, config, [])).toEqual({ modes: ["sim", "fullstack"] });
   });
 
+  it("are the ones that say host, with --where host", () => {
+    const { root, config } = createFakeProject();
+
+    expect(selectModes(root, config, [], "host")).toEqual({ modes: [] });
+    expect(selectModes(root, withHost(config, "fullstack"), [], "host")).toEqual({ modes: ["fullstack"] });
+  });
+
+  it("are the others, with --where container, a mode that says host: false among them", () => {
+    const { root, config } = createFakeProject();
+    const sim = { ...config.modes.sim, host: false };
+
+    expect(selectModes(root, withHost(config, "fullstack"), [], "container")).toEqual({ modes: ["sim"] });
+    expect(selectModes(root, { ...config, modes: { ...config.modes, sim } }, [], "container")).toEqual({ modes: ["sim", "fullstack"] });
+  });
+
+  it("are every mode, wherever it runs, when no place is asked for", () => {
+    const { root, config } = createFakeProject();
+
+    expect(selectModes(root, withHost(config, "fullstack"), [])).toEqual({ modes: ["sim", "fullstack"] });
+  });
+
+  it("refuse a mode asked for by name that runs in the other place", () => {
+    const { root, config } = createFakeProject();
+
+    expect(() => selectModes(root, withHost(config, "fullstack"), ["fullstack"], "container")).toThrow(
+      'the mode "fullstack" runs on the host, and this run is --where container',
+    );
+    expect(() => selectModes(root, config, ["sim"], "host")).toThrow('the mode "sim" runs in the container, and this run is --where host');
+    expect(selectModes(root, withHost(config, "fullstack"), ["fullstack"], "host")).toEqual({ modes: ["fullstack"] });
+  });
+
+  it("still refuse a spec in no mode's folder when the place leaves no mode to run", () => {
+    const { root, config } = createFakeProject();
+
+    write(join(root, "packages/e2e/src/smoke/app.spec.ts"), "");
+
+    expect(() => selectModes(root, config, [], "host")).toThrow("packages/e2e/src/smoke/app.spec.ts is in no mode's folder");
+  });
+
   it("refuses a tests package with no src folder", () => {
     const { root, config } = createFakeProject();
 
@@ -152,3 +216,7 @@ describe("the config as a file", () => {
     );
   });
 });
+
+function withHost(config: E2eConfig, name: string): E2eConfig {
+  return { ...config, modes: { ...config.modes, [name]: { ...config.modes[name], host: true } } };
+}

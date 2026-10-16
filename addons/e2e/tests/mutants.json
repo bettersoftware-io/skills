@@ -569,9 +569,9 @@
   {
     "name": "addon: the workflow uploads another folder than the report is written to",
     "file": "addons/e2e/files/.github/workflows/e2e.yml",
-    "find": "path: packages/e2e/reports\n",
-    "replace": "path: packages/e2e/playwright-report\n",
-    "test": "pnpm vitest run addons/e2e/tests/addon.test.mts -t \"never retries, keeps a trace of each failure\""
+    "find": "name: e2e-report\n          path: packages/e2e/reports\n",
+    "replace": "name: e2e-report\n          path: packages/e2e/playwright-report\n",
+    "test": "pnpm vitest run addons/e2e/tests/addon.test.mts -t \"uploads each job's report only when its run failed\""
   },
   {
     "name": "addon: the results the runner counts from are written elsewhere",
@@ -590,8 +590,8 @@
   {
     "name": "addon: an action is named by its tag",
     "file": "addons/e2e/files/.github/workflows/e2e.yml",
-    "find": "actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7",
-    "replace": "actions/checkout@v7",
+    "find": "noble\n    steps:\n      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7",
+    "replace": "noble\n    steps:\n      - uses: actions/checkout@v7",
     "test": "pnpm vitest run addons/e2e/tests/addon.test.mts -t \"pins every action to a full commit hash\""
   },
   {
@@ -604,8 +604,8 @@
   {
     "name": "addon: the workflow leaves the token in the checkout",
     "file": "addons/e2e/files/.github/workflows/e2e.yml",
-    "find": "persist-credentials: false",
-    "replace": "persist-credentials: true",
+    "find": "noble\n    steps:\n      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7\n        with:\n          persist-credentials: false",
+    "replace": "noble\n    steps:\n      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7\n        with:\n          persist-credentials: true",
     "test": "pnpm vitest run addons/e2e/tests/addon.test.mts -t \"runs on pull requests and on main, with read access only\""
   },
   {
@@ -618,8 +618,8 @@
   {
     "name": "addon: the workflow filters the run's output",
     "file": "addons/e2e/files/.github/workflows/e2e.yml",
-    "find": "        run: pnpm e2e\n",
-    "replace": "        run: pnpm e2e | tail -20\n",
+    "find": "        run: pnpm e2e --where container\n",
+    "replace": "        run: pnpm e2e --where container | tail -20\n",
     "test": "pnpm vitest run addons/e2e/tests/addon.test.mts -t \"runs the script the add-on adds, unfiltered\""
   },
   {
@@ -632,9 +632,9 @@
   {
     "name": "addon: the report is uploaded after every run",
     "file": "addons/e2e/files/.github/workflows/e2e.yml",
-    "find": "if: failure()",
-    "replace": "if: always()",
-    "test": "pnpm vitest run addons/e2e/tests/addon.test.mts -t \"uploads the report only when the run failed\""
+    "find": "if: failure()\n        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1\n        with:\n          name: e2e-report\n",
+    "replace": "if: always()\n        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1\n        with:\n          name: e2e-report\n",
+    "test": "pnpm vitest run addons/e2e/tests/addon.test.mts -t \"uploads each job's report only when its run failed\""
   },
   {
     "name": "addon: a shipped spec imports the driver",
@@ -933,7 +933,7 @@
   {
     "name": "tools run: the build is not given the mode's variables",
     "file": "addons/e2e/files/tools/e2e/lib/stack.mts",
-    "find": "const buildEnv = { ...environment, ...resolveEnv(name, mode.env ?? {}, server) };",
+    "find": "const buildEnv = { ...environment, ...resolveEnv(name, env, server) };",
     "replace": "const buildEnv = { ...environment };",
     "test": "pnpm vitest run addons/e2e/tests/run.port.test.mts -t \"builds each mode with its own variables\""
   },
@@ -961,8 +961,8 @@
   {
     "name": "tools run: every mode is started whatever was asked",
     "file": "addons/e2e/files/tools/e2e/run.mts",
-    "find": "const { modes } = selectModes(root, config, request.modes);",
-    "replace": "const { modes } = selectModes(root, config, []);",
+    "find": "const { modes } = selectModes(root, config, request.modes, request.where);",
+    "replace": "const { modes } = selectModes(root, config, [], request.where);",
     "test": "pnpm vitest run addons/e2e/tests/run.port.test.mts -t \"starts only what one mode needs\""
   },
   {
@@ -1223,5 +1223,250 @@
     "find": "ready: /listening on (ws:\\/\\/\\S+)/,",
     "replace": "ready: /listening on ws:\\/\\/([^\\s\\/]+)/,",
     "test": "pnpm vitest run addons/e2e/tests/addon.test.mts -t \"the shipped config still reads the whole address\""
+  },
+  {
+    "name": "tools where: --where takes its value as an argument for the test runner",
+    "file": "addons/e2e/files/tools/e2e/lib/arguments.mts",
+    "find": "request.where = readWhere(argv[index + 1], request.where);\n      index += 1;",
+    "replace": "request.where = readWhere(argv[index + 1], request.where);",
+    "test": "pnpm vitest run addons/e2e/tests/arguments.test.mts -t \"takes --where, in either spelling\""
+  },
+  {
+    "name": "tools where: any word is taken as a place",
+    "file": "addons/e2e/files/tools/e2e/lib/arguments.mts",
+    "find": "if (value === undefined || !isWhere(value)) {",
+    "replace": "if (value === undefined) {",
+    "test": "pnpm vitest run addons/e2e/tests/arguments.test.mts -t \"refuses a --where that names neither place\""
+  },
+  {
+    "name": "tools where: two places, the last one wins",
+    "file": "addons/e2e/files/tools/e2e/lib/arguments.mts",
+    "find": "if (before !== undefined && before !== value) {",
+    "replace": "if (before === \"never\") {",
+    "test": "pnpm vitest run addons/e2e/tests/arguments.test.mts -t \"refuses two different places\""
+  },
+  {
+    "name": "tools where: --where= is read as --where",
+    "file": "addons/e2e/files/tools/e2e/lib/arguments.mts",
+    "find": "request.where = readWhere(argument.slice(\"--where=\".length), request.where);",
+    "replace": "request.forwarded.push(argument);",
+    "test": "pnpm vitest run addons/e2e/tests/arguments.test.mts -t \"takes --where, in either spelling\""
+  },
+  {
+    "name": "tools config: a host that is not true or false is let through",
+    "file": "addons/e2e/files/tools/e2e/lib/config.mts",
+    "find": "mode.host !== undefined && typeof mode.host !== \"boolean\"",
+    "replace": "false",
+    "test": "pnpm vitest run addons/e2e/tests/config.test.mts -t \"refuses a host that is not true or false\""
+  },
+  {
+    "name": "tools config: an env with a number in it is let through",
+    "file": "addons/e2e/files/tools/e2e/lib/config.mts",
+    "find": "typeof mode.env !== \"function\" && !isVariables(mode.env)",
+    "replace": "typeof mode.env !== \"function\" && !isRecord(mode.env)",
+    "test": "pnpm vitest run addons/e2e/tests/config.test.mts -t \"refuses an env that is\""
+  },
+  {
+    "name": "tools config: an env function is refused",
+    "file": "addons/e2e/files/tools/e2e/lib/config.mts",
+    "find": "typeof mode.env !== \"function\" && !isVariables(mode.env)",
+    "replace": "!isVariables(mode.env)",
+    "test": "pnpm vitest run addons/e2e/tests/config.test.mts -t \"accepts a mode that runs on the host\""
+  },
+  {
+    "name": "tools config: a mode that says host runs in the container",
+    "file": "addons/e2e/files/tools/e2e/lib/config.mts",
+    "find": "return mode.host === true ? \"host\" : \"container\";",
+    "replace": "return \"container\";",
+    "test": "pnpm vitest run addons/e2e/tests/config.test.mts -t \"are the ones that say host\""
+  },
+  {
+    "name": "tools config: a truthy host that is not true runs on the host",
+    "file": "addons/e2e/files/tools/e2e/lib/config.mts",
+    "find": "return mode.host === true ? \"host\" : \"container\";",
+    "replace": "return mode.host === false ? \"container\" : \"host\";",
+    "test": "pnpm vitest run addons/e2e/tests/config.test.mts -t \"are the others, with --where container\""
+  },
+  {
+    "name": "tools modes: --where picks nothing",
+    "file": "addons/e2e/files/tools/e2e/lib/config.mts",
+    "find": "const modes = named.filter((name) => where === undefined || whereModeRuns(config.modes[name] as Mode) === where);",
+    "replace": "const modes = named;",
+    "test": "pnpm vitest run addons/e2e/tests/config.test.mts -t \"are the ones that say host\""
+  },
+  {
+    "name": "tools modes: --where picks the other place",
+    "file": "addons/e2e/files/tools/e2e/lib/config.mts",
+    "find": "whereModeRuns(config.modes[name] as Mode) === where);",
+    "replace": "whereModeRuns(config.modes[name] as Mode) !== where);",
+    "test": "pnpm vitest run addons/e2e/tests/config.test.mts -t \"are the others, with --where container\""
+  },
+  {
+    "name": "tools modes: with no place asked for, no mode runs",
+    "file": "addons/e2e/files/tools/e2e/lib/config.mts",
+    "find": "named.filter((name) => where === undefined || whereModeRuns",
+    "replace": "named.filter((name) => (where ?? \"container\") === \"never\" || whereModeRuns",
+    "test": "pnpm vitest run addons/e2e/tests/config.test.mts -t \"are every mode, wherever it runs\""
+  },
+  {
+    "name": "tools modes: a mode asked for in the other place is dropped, not refused",
+    "file": "addons/e2e/files/tools/e2e/lib/config.mts",
+    "find": "  if (elsewhere !== undefined) {",
+    "replace": "  if (elsewhere === \"never\") {",
+    "test": "pnpm vitest run addons/e2e/tests/config.test.mts -t \"refuse a mode asked for by name that runs in the other place\""
+  },
+  {
+    "name": "tools modes: a spec in no mode's folder is let through when a place is asked for",
+    "file": "addons/e2e/files/tools/e2e/lib/config.mts",
+    "find": "const homeless = specs.filter((spec) => !known",
+    "replace": "const homeless = specs.filter((spec) => where === undefined && !known",
+    "test": "pnpm vitest run addons/e2e/tests/config.test.mts -t \"still refuse a spec in no mode\""
+  },
+  {
+    "name": "tools run: --where is not handed to the selection",
+    "file": "addons/e2e/files/tools/e2e/run.mts",
+    "find": "const { modes } = selectModes(root, config, request.modes, request.where);",
+    "replace": "const { modes } = selectModes(root, config, request.modes);",
+    "test": "pnpm vitest run addons/e2e/tests/run.port.test.mts -t \"where host runs only the modes that say host\""
+  },
+  {
+    "name": "tools run: no mode in the place asked for starts the test runner anyway",
+    "file": "addons/e2e/files/tools/e2e/run.mts",
+    "find": "if (modes.length === 0 && request.where !== undefined) {",
+    "replace": "if (modes.length === 0 && request.where === undefined) {",
+    "test": "pnpm vitest run addons/e2e/tests/run.port.test.mts -t \"a config whose modes are all in the container\""
+  },
+  {
+    "name": "tools run: no mode in the place asked for is a failure",
+    "file": "addons/e2e/files/tools/e2e/run.mts",
+    "find": "      say(describeNothingToRun(Object.keys(config.modes), request.where));\n\n      return 0;",
+    "replace": "      say(describeNothingToRun(Object.keys(config.modes), request.where));\n\n      return 2;",
+    "test": "pnpm vitest run addons/e2e/tests/run.port.test.mts -t \"a config whose modes are all in the container\""
+  },
+  {
+    "name": "tools run: an env function is never called",
+    "file": "addons/e2e/files/tools/e2e/lib/stack.mts",
+    "find": "  const env = await readEnv(name, mode.env);\n",
+    "replace": "  const env = typeof mode.env === \"function\" ? {} : (mode.env ?? {});\n",
+    "test": "pnpm vitest run addons/e2e/tests/run.port.test.mts -t \"where host runs only the modes that say host\""
+  },
+  {
+    "name": "tools run: an env function is called after the server is started",
+    "file": "addons/e2e/files/tools/e2e/lib/stack.mts",
+    "find": "  const env = await readEnv(name, mode.env);\n  let server: ServerAddress | undefined;\n\n  if (mode.server !== undefined) {\n    const started = await groups.start(\n      {\n        label: `the server of mode \"${name}\"`,\n        command: mode.server.command,\n        cwd: join(root, mode.server.cwd),\n        env: { ...environment, ...mode.server.env },\n      },\n      mode.server.ready,\n      readyTimeoutMs,\n    );\n\n    server = { url: started.address, host: readHost(name, started.address) };\n    say(`[e2e] ${name}: server ready at ${server.url}`);\n  }\n\n  const buildEnv = { ...environment, ...resolveEnv(name, env, server)",
+    "replace": "  let server: ServerAddress | undefined;\n\n  if (mode.server !== undefined) {\n    const started = await groups.start(\n      {\n        label: `the server of mode \"${name}\"`,\n        command: mode.server.command,\n        cwd: join(root, mode.server.cwd),\n        env: { ...environment, ...mode.server.env },\n      },\n      mode.server.ready,\n      readyTimeoutMs,\n    );\n\n    server = { url: started.address, host: readHost(name, started.address) };\n    say(`[e2e] ${name}: server ready at ${server.url}`);\n  }\n\n  const buildEnv = { ...environment, ...resolveEnv(name, await readEnv(name, mode.env), server)",
+    "test": "pnpm vitest run addons/e2e/tests/run.port.test.mts -t \"an env function runs before the server\""
+  },
+  {
+    "name": "tools run: an env function's failure is not said to be the mode's",
+    "file": "addons/e2e/files/tools/e2e/lib/stack.mts",
+    "find": "throw new E2eError(`the env function of mode \"${name}\" failed: ${error instanceof Error ? error.message : String(error)}`);",
+    "replace": "throw error;",
+    "test": "pnpm vitest run addons/e2e/tests/run.port.test.mts -t \"an env function runs before the server\""
+  },
+  {
+    "name": "tools run: what an env function gives is not checked",
+    "file": "addons/e2e/files/tools/e2e/lib/stack.mts",
+    "find": "  if (!isVariables(variables)) {",
+    "replace": "  if (variables === null) {",
+    "test": "pnpm vitest run addons/e2e/tests/run.port.test.mts -t \"could not run when an env function gives something other than variables\""
+  },
+  {
+    "name": "addon: the host job runs every mode",
+    "file": "addons/e2e/files/.github/workflows/e2e.yml",
+    "find": "        run: pnpm e2e --where host\n",
+    "replace": "        run: pnpm e2e\n",
+    "test": "pnpm vitest run addons/e2e/tests/addon.test.mts -t \"runs the modes that say host on the runner\""
+  },
+  {
+    "name": "addon: the container job runs every mode",
+    "file": "addons/e2e/files/.github/workflows/e2e.yml",
+    "find": "        run: pnpm e2e --where container\n",
+    "replace": "        run: pnpm e2e\n",
+    "test": "pnpm vitest run addons/e2e/tests/addon.test.mts -t \"runs the script the add-on adds, unfiltered\""
+  },
+  {
+    "name": "addon: the host job's browser comes without its system libraries",
+    "file": "addons/e2e/files/.github/workflows/e2e.yml",
+    "find": "playwright install --with-deps chromium",
+    "replace": "playwright install chromium",
+    "test": "pnpm vitest run addons/e2e/tests/addon.test.mts -t \"runs the modes that say host on the runner\""
+  },
+  {
+    "name": "addon: the host job has no limit of its own",
+    "file": "addons/e2e/files/.github/workflows/e2e.yml",
+    "find": "    timeout-minutes: 30\n",
+    "replace": "",
+    "test": "pnpm vitest run addons/e2e/tests/addon.test.mts -t \"runs the modes that say host on the runner\""
+  },
+  {
+    "name": "addon: the host job runs in the container",
+    "file": "addons/e2e/files/.github/workflows/e2e.yml",
+    "find": "    runs-on: ubuntu-latest\n    # Longer than",
+    "replace": "    runs-on: ubuntu-latest\n    container: mcr.microsoft.com/playwright:v1.63.0-noble\n    # Longer than",
+    "test": "pnpm vitest run addons/e2e/tests/addon.test.mts -t \"runs the modes that say host on the runner\""
+  },
+  {
+    "name": "addon: the host job uses the browser before installing it",
+    "file": "addons/e2e/files/.github/workflows/e2e.yml",
+    "find": "      - name: Install Chromium and its system libraries",
+    "replace": "      - name: Run first\n        run: pnpm e2e --where host\n\n      - name: Install Chromium and its system libraries",
+    "test": "pnpm vitest run addons/e2e/tests/addon.test.mts -t \"runs the modes that say host on the runner\""
+  },
+  {
+    "name": "addon: the host job's report has the container job's name",
+    "file": "addons/e2e/files/.github/workflows/e2e.yml",
+    "find": "name: e2e-report-host\n",
+    "replace": "name: e2e-report\n",
+    "test": "pnpm vitest run addons/e2e/tests/addon.test.mts -t \"uploads each job's report only when its run failed\""
+  },
+  {
+    "name": "addon: the host job's report is uploaded after every run",
+    "file": "addons/e2e/files/.github/workflows/e2e.yml",
+    "find": "if: failure()\n        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1\n        with:\n          name: e2e-report-host\n",
+    "replace": "if: always()\n        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1\n        with:\n          name: e2e-report-host\n",
+    "test": "pnpm vitest run addons/e2e/tests/addon.test.mts -t \"uploads each job's report only when its run failed\""
+  },
+  {
+    "name": "addon: the host job's checkout keeps the token",
+    "file": "addons/e2e/files/.github/workflows/e2e.yml",
+    "find": "timeout-minutes: 30\n    steps:\n      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7\n        with:\n          persist-credentials: false",
+    "replace": "timeout-minutes: 30\n    steps:\n      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7\n        with:\n          persist-credentials: true",
+    "test": "pnpm vitest run addons/e2e/tests/addon.test.mts -t \"runs on pull requests and on main, with read access only\""
+  },
+  {
+    "name": "addon: the host job's checkout is named by its tag",
+    "file": "addons/e2e/files/.github/workflows/e2e.yml",
+    "find": "timeout-minutes: 30\n    steps:\n      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7",
+    "replace": "timeout-minutes: 30\n    steps:\n      - uses: actions/checkout@v7",
+    "test": "pnpm vitest run addons/e2e/tests/addon.test.mts -t \"pins every action to a full commit hash\""
+  },
+  {
+    "name": "addon: the workflow has no host job",
+    "file": "addons/e2e/files/.github/workflows/e2e.yml",
+    "find": "\n  e2e-host:\n",
+    "replace": "\n  e2e-on-host:\n",
+    "test": "pnpm vitest run addons/e2e/tests/addon.test.mts -t \"has two jobs\""
+  },
+  {
+    "name": "addon: the container job is renamed, and a ruleset's required check is never reported",
+    "file": "addons/e2e/files/.github/workflows/e2e.yml",
+    "find": "    name: end-to-end (chromium)\n",
+    "replace": "    name: end-to-end in the container (chromium)\n",
+    "test": "pnpm vitest run addons/e2e/tests/addon.test.mts -t \"keeps the container job's name\""
+  },
+  {
+    "name": "tools run: nothing is said before an env function is called",
+    "file": "addons/e2e/files/tools/e2e/lib/stack.mts",
+    "find": "  if (typeof mode.env === \"function\") {\n    // A first start",
+    "replace": "  if (typeof mode.env === \"never\") {\n    // A first start",
+    "test": "pnpm vitest run addons/e2e/tests/run.port.test.mts -t \"says it is reading a mode's variables\""
+  },
+  {
+    "name": "tools run: the line comes only once the function has answered",
+    "file": "addons/e2e/files/tools/e2e/lib/stack.mts",
+    "find": "  if (typeof mode.env === \"function\") {\n    // A first start of what it reads (a database pulling its images) can take minutes.\n    say(`[e2e] ${name}: reading its variables`);\n  }\n\n  const env = await readEnv(name, mode.env);\n",
+    "replace": "  const env = await readEnv(name, mode.env);\n  if (typeof mode.env === \"function\") {\n    // A first start of what it reads (a database pulling its images) can take minutes.\n    say(`[e2e] ${name}: reading its variables`);\n  }\n\n",
+    "test": "pnpm vitest run addons/e2e/tests/run.port.test.mts -t \"says it is reading a mode's variables\""
   }
 ]

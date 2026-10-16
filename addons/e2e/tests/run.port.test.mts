@@ -1,15 +1,18 @@
 // The runner against real processes: fake programs that listen on real ports
 // and start children of their own. Named *.port.test: it needs to open ports.
 
-import { existsSync, readFileSync, rmSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it, onTestFinished } from "vitest";
 
+import { SERVER_URL } from "../files/tools/e2e/lib/config.mts";
 import { createGroups, isGroupAlive, StartError } from "../files/tools/e2e/lib/processes.mts";
 import { startMode } from "../files/tools/e2e/lib/stack.mts";
 import { runCommand } from "../files/tools/e2e/run.mts";
 import {
   createFakeProject,
+  envFunction,
+  type FakeProject,
   fileExists,
   findSurvivors,
   isPortFree,
@@ -218,6 +221,98 @@ describe("pnpm e2e, from start to end", { timeout: REAL_PROCESS_TIMEOUT }, () =>
   });
 });
 
+describe("a mode that runs on the host, with variables read from a running stack", { timeout: REAL_PROCESS_TIMEOUT }, () => {
+  it("--where host runs only the modes that say host", async () => {
+    const project = createProjectWithHostMode();
+
+    const { exitCode, output } = await startCli(project, ["--where", "host"], { FAKE_STACK_API: "http://127.0.0.1:54321" }).ended;
+
+    const [server] = Object.entries(readRecord(project.record)).flatMap(([name, { port }]) => (name.startsWith("server-") ? [port] : []));
+
+    expect(exitCode).toBe(0);
+    expect(output).not.toContain("[e2e] sim:");
+    expect(Object.keys(readRunnerRecord(project.record).modes)).toEqual(["fullstack"]);
+    // The function's variables reach the build: one a script printed, one written around the server's address.
+    expect(readBuilt(project.root, "fullstack")).toEqual({ serverUrl: `ws://127.0.0.1:${server}/ws`, apiUrl: "http://127.0.0.1:54321" });
+    expect(fileExists(project.root, "packages/e2e/node_modules/.cache/e2e/sim")).toBe(false);
+    expect(findSurvivors(project.record)).toEqual([]);
+  });
+
+  it("--where container runs the others, and never calls a host mode's env function", async () => {
+    const project = createProjectWithHostMode();
+
+    const { exitCode } = await startCli(project, ["--where", "container"]).ended;
+
+    expect(exitCode).toBe(0);
+    expect(Object.keys(readRunnerRecord(project.record).modes)).toEqual(["sim"]);
+    expect(Object.keys(readRecord(project.record)).filter((name) => name.startsWith("server-"))).toEqual([]);
+    expect(fileExists(project.record, ENV_CALLED)).toBe(false);
+    expect(findSurvivors(project.record)).toEqual([]);
+  });
+
+  it("an env function runs before the server, and its failure exits 2 with the mode named", async () => {
+    const project = createProjectWithHostMode();
+
+    const passed = await startCli(project, [], { FAKE_STACK_API: "http://127.0.0.1:54321" }).ended;
+
+    // What had been started when the function ran: the other mode's client, and not this mode's server.
+    expect(passed.exitCode).toBe(0);
+    expect(readFileSync(join(project.record, ENV_CALLED), "utf8").split("\n").map((name) => name.replace(/-\d+\.json$/, ""))).toEqual(["client"]);
+
+    rmSync(project.record, { recursive: true });
+    mkdirSync(project.record);
+
+    const failed = await startCli(project, ["--where", "host"], { FAKE_ENV_FAILS: "supabase is not running" }).ended;
+
+    expect(failed.exitCode).toBe(2);
+    expect(failed.output).toContain('e2e could not run: the env function of mode "fullstack" failed: supabase is not running');
+    expect(fileExists(project.record, ENV_CALLED)).toBe(true);
+    expect(readRecord(project.record)).toEqual({});
+  });
+
+  it("says it is reading a mode's variables before it calls the function, so a slow stack is not a silent wait", async () => {
+    const project = createProjectWithHostMode();
+
+    const { output } = await startCli(project, ["--where", "host"], { FAKE_ENV_FAILS: "slow" }).ended;
+
+    expect(output).toContain("[e2e] fullstack: reading its variables\n");
+    expect(output.indexOf("[e2e] fullstack: reading its variables")).toBeLessThan(output.indexOf("e2e could not run"));
+  });
+
+  it("stops the modes it had started when a later mode's env function fails, and names that mode", async () => {
+    const project = createProjectWithHostMode();
+
+    const { exitCode, output } = await startCli(project, [], { FAKE_ENV_FAILS: "supabase is not running" }).ended;
+
+    expect(exitCode).toBe(2);
+    expect(output).toContain("[e2e] sim: client built and served at");
+    expect(output).toContain('e2e could not run: the env function of mode "fullstack" failed: supabase is not running');
+    expect(Object.keys(readRecord(project.record)).map((name) => name.replace(/-\d+$/, ""))).toEqual(["client"]);
+    expect(findSurvivors(project.record)).toEqual([]);
+  });
+
+  it("could not run when an env function gives something other than variables, and names the mode", async () => {
+    const project = createProjectWithHostMode(`async () => ({ CLIENT_API_URL: 54321 })`);
+
+    const { exitCode, output } = await startCli(project, ["--where", "host"]).ended;
+
+    expect(exitCode).toBe(2);
+    expect(output).toContain('e2e could not run: the env function of mode "fullstack" must resolve to an object of strings; CLIENT_API_URL is a number');
+    expect(readRecord(project.record)).toEqual({});
+  });
+
+  it("a config whose modes are all in the container needs no host job", async () => {
+    const project = createFakeProject();
+
+    const { exitCode, output } = await startCli(project, ["--where", "host"]).ended;
+
+    expect(exitCode).toBe(0);
+    expect(output).toContain("[e2e] no mode in tools/e2e.config.mts runs on the host (host: true), so this run has nothing to start. That is not a failure: the modes are sim, fullstack, and they run with --where container");
+    expect(fileExists(project.record, "runner.json")).toBe(false);
+    expect(readRecord(project.record)).toEqual({});
+  });
+});
+
 describe("the command, without its signals", { timeout: REAL_PROCESS_TIMEOUT }, () => {
   it("could not run where no port can be opened: it starts nothing and does not report a pass", async () => {
     const project = createFakeProject();
@@ -361,3 +456,35 @@ describe("a program that misbehaves", { timeout: REAL_PROCESS_TIMEOUT }, () => {
     await groups.stopAll();
   });
 });
+
+/** The file a host mode's env function writes when it is called: what the record folder held at that moment. */
+const ENV_CALLED = "env-called.txt";
+
+// Runs a script and reads what it prints, as a project's function reads a
+// running stack's keys. FAKE_ENV_FAILS: throws that message instead.
+const READ_STACK = `async () => {
+  const { execFileSync } = await import("node:child_process");
+  const { readdirSync, writeFileSync } = await import("node:fs");
+  const { join } = await import("node:path");
+
+  writeFileSync(join(process.env.FAKE_RECORD, "${ENV_CALLED}"), readdirSync(process.env.FAKE_RECORD).sort().join("\\n"));
+
+  if (process.env.FAKE_ENV_FAILS !== undefined) {
+    throw new Error(process.env.FAKE_ENV_FAILS);
+  }
+
+  const api = execFileSync(process.execPath, ["-e", "console.log(process.env.FAKE_STACK_API)"], { encoding: "utf8" }).trim();
+
+  return { CLIENT_SERVER_URL: "${SERVER_URL}", CLIENT_API_URL: api };
+}`;
+
+/** The fake project, with its full-stack mode on the host and its variables read by a function. */
+function createProjectWithHostMode(source: string = READ_STACK): FakeProject {
+  const project = createFakeProject();
+  const { fullstack } = project.config.modes;
+  const config = { ...project.config, modes: { ...project.config.modes, fullstack: { ...fullstack, host: true, env: envFunction(source) } } };
+
+  write(join(project.root, "tools/e2e.config.mts"), renderConfig(config));
+
+  return { ...project, config };
+}
