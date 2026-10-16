@@ -143,9 +143,10 @@ Added on 2026-10-11 ([the record](documenting-architecture-2026-10-11.md)).
 - **Projects created before 0.16.0 have no "Adding a check" in their
   `AGENTS.md`.** Without it, Codex skipped `extending-a-project` and planned
   to write an add-on by hand in 4 runs of 6 ([the evals](../evals/README.md#results)).
-  An update never overwrites a project's `AGENTS.md`;
-  `add-to-project.mts <project> --compare` shows the section missing. The
-  demo project is one.
+  An update never overwrites a project's `AGENTS.md`, but the kit's update
+  lists the section under "Yours to change", with a `cp` when the file is
+  the old template word for word (tried on 2026-10-16). The demo has it
+  (skills-demo #12). `condo-ledger` and `origamic` did not, on 2026-10-16.
 
 Found while Origamic's dependency rule went into its gates, on 2026-10-16
 (skills #30 and #31, origamic #18).
@@ -279,6 +280,15 @@ Found while a project was set up with the plugin, on 2026-10-12 and 13.
   with no error recorded and reads as a failed case. Seen on 2026-10-16, with
   and without a network grant; not tried on Linux, where the sandbox is
   bubblewrap ([the evals](../evals/README.md#why-no-case-gives-the-agent-a-shell)).
+- **Every eval run fails in a checkout with the starter installed in it.**
+  With the starter's own `node_modules`, `.turbo` and `dist` under
+  `starter/`, about 13,000 git-ignored files, Claude Code 2.1.301 cannot
+  start a run: `E2BIG: argument list too long, posix_spawn`, score 0, no
+  cost. Installing the starter in a clean worktree made it fail, and
+  `git clean -fdX starter` made it pass, on 2026-10-16; reported to Claude
+  Code. Nothing here stops a run first and names that command: a check at
+  the start of `pnpm evals:trigger` and `pnpm evals:outcome` would
+  ([the evals](../evals/README.md#running-them)).
 
 - **No command that `pnpm repo:settings` prints has been run.** The
   `ci-security` add-on's command reads a repository's settings and prints,
