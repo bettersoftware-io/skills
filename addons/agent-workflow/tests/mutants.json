@@ -5224,6 +5224,13 @@
     "test": "pnpm vitest run addons/agent-workflow/tests/check-status.test.mts -t \"fails an entry that does not start with its name in bold\""
   },
   {
+    "name": "status: a bold name may wrap",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/check-status.mts",
+    "find": "[{ text: withContinuation(lines, index), line: index + 1 }]",
+    "replace": "[{ text: line, line: index + 1 }]",
+    "test": "pnpm vitest run addons/agent-workflow/tests/check-status.test.mts -t \"passes a bold name that wraps onto the next line\""
+  },
+  {
     "name": "status: one date line",
     "file": "addons/agent-workflow/files/tools/agent-workflow/check-status.mts",
     "find": "  if (dates.length !== 1) {",

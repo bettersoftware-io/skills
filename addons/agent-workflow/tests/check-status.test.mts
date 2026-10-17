@@ -31,6 +31,18 @@ describe("a page with entries", () => {
     expect(messagesOf(text)).toEqual(["an entry starts with its name in bold: `- **Name** — what is left`"]);
   });
 
+  it("passes a bold name that wraps onto the next line, as a long one does", () => {
+    const text = createPage({ "Known limits": ["- **Row order under a control account is by label with the Italian", "  collation**, which depends on the Node's ICU"] }, TODAY);
+
+    expect(messagesOf(text)).toEqual([]);
+  });
+
+  it("still fails an entry whose wrapped lines never close a bold name it opened", () => {
+    const text = createPage({ "Known limits": ["- **Row order under a control account", "  is by label"] }, TODAY);
+
+    expect(messagesOf(text)).toEqual(["an entry starts with its name in bold: `- **Name** — what is left`"]);
+  });
+
   it("fails a page with entries that still says no entry yet", () => {
     expect(messagesOf(createPage({ "In progress": ["- **Login** — left"] }, "no entry yet"))).toEqual([
       `it says "no entry yet", and the page has entries. Write today's date: ${TODAY}`,
