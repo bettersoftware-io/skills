@@ -9,7 +9,8 @@
 // - The six sections are there, each once, in their order, and no other.
 // - One "Last updated" line: a date that is a real day and not after today,
 //   or "no entry yet" while no section has an entry.
-// - Each entry is a bullet that starts with its name in bold.
+// - Each entry is a bullet that starts with its name in bold, which may wrap
+//   onto the indented line under it.
 // - A page that differs from the last commit's has today's date: an edit
 //   moves it. On a checkout with nothing changed, as in CI, there is nothing
 //   to compare, and the date is not judged against the commit.
@@ -78,7 +79,9 @@ export function checkStatus({ text, committed, today }: StatusOptions): Finding[
     findings.push({ line: 0, message: `the sections are out of order. They go: ${SECTIONS.join("; ")}` });
   }
 
-  const entries = lines.flatMap((line, index) => (/^[-*] /.test(line) && headings.some((heading) => heading.line < index + 1) ? [{ text: line, line: index + 1 }] : []));
+  // An entry is its bullet and the indented lines under it: a long bold name
+  // wraps onto the next line.
+  const entries = lines.flatMap((line, index) => (/^[-*] /.test(line) && headings.some((heading) => heading.line < index + 1) ? [{ text: withContinuation(lines, index), line: index + 1 }] : []));
 
   for (const entry of entries) {
     if (!/^- \*\*[^*]+\*\*/.test(entry.text)) {
@@ -113,6 +116,14 @@ export function checkStatus({ text, committed, today }: StatusOptions): Finding[
   }
 
   return findings;
+}
+
+/** The line at `index` and the indented, non-blank lines that follow it, joined. */
+function withContinuation(lines: string[], index: number): string {
+  const next = lines.slice(index + 1);
+  const end = next.findIndex((line) => !/^\s+\S/.test(line));
+
+  return [lines[index] as string, ...next.slice(0, end === -1 ? next.length : end)].join("\n");
 }
 
 /** True for YYYY-MM-DD naming a day the calendar has. */
