@@ -229,5 +229,33 @@
     "find": "// biome-ignore format: this file is the add-on's, and an update compares it byte for byte. The scope in this line is the project's, and a longer one would have the formatter wrap it.\n",
     "replace": "",
     "test": "pnpm vitest run scripts/scope-stable-files.test.mts -t \"under the scope @skills-demo\""
+  },
+  {
+    "name": "picture: the default capture is the root for a page too",
+    "file": "addons/visual/files/packages/client-react/tests/visual/host/picture.ts",
+    "find": "(level === \"page\" ? \"viewport\" : \"root\")",
+    "replace": "(level === \"page\" ? \"root\" : \"root\")",
+    "test": "pnpm vitest run addons/visual/tests/picture.test.mts -t \"makes a scenario with no picture field a page\""
+  },
+  {
+    "name": "picture: the root width ignores the framing",
+    "file": "addons/visual/files/packages/client-react/tests/visual/host/picture.ts",
+    "find": "width: width ?? framing.rootWidth",
+    "replace": "width: width ?? 480",
+    "test": "pnpm vitest run addons/visual/tests/picture.test.mts -t \"reads the root width from the framing\""
+  },
+  {
+    "name": "picture: strict keeps the global threshold",
+    "file": "addons/visual/files/packages/client-react/tests/visual/host/picture.ts",
+    "find": "return { threshold: 0, maxDiffPixels: 0 };",
+    "replace": "return { threshold: global.threshold, maxDiffPixels: 0 };",
+    "test": "pnpm vitest run addons/visual/tests/picture.test.mts -t \"zero pixels and zero threshold for strict\""
+  },
+  {
+    "name": "picture: a per-scenario cap need not be above the global",
+    "file": "addons/visual/files/packages/client-react/tests/visual/host/picture.ts",
+    "find": "if (maxDiffPixels <= cap) {",
+    "replace": "if (false) {",
+    "test": "pnpm vitest run addons/visual/tests/picture.test.mts -t \"maxDiffPixels not above the global\""
   }
 ]

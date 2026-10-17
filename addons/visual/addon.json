@@ -37,6 +37,7 @@
     "packages/client-react/tests/visual/scenarios.ts",
     "packages/client-react/tests/visual/seeding.ts",
     "packages/client-react/tests/visual/tolerance.ts",
+    "packages/client-react/tests/visual/framing.ts",
     "packages/client-react/tests/visual/goldens/"
   ],
   "movedToProject": {

@@ -8,11 +8,9 @@ import { join, relative, sep } from "node:path";
 import { comparePixels, type PixelDifference } from "./pixelDiff.mts";
 import { decodePng } from "./png.mts";
 
-/** The two knobs of the tier's tolerance, as `tolerance.ts` declares them. */
-export interface Tolerance {
-  maxDiffPixelRatio: number;
-  threshold: number;
-}
+// Until the measurement reads `maxDiffPixels`, it judges the ratio only; a
+// tolerance without one (the new shape) reads as 0.
+import type { Tolerance } from "../../../packages/client-react/tests/visual/host/picture.ts";
 
 export interface ImageNoise extends PixelDifference {
   /** The image's path inside each capture, e.g. `row-stale.png`. */
@@ -128,12 +126,13 @@ export function judgeNoise(measurement: Measurement, tolerance: Tolerance): Verd
     };
   }
 
+  const maxDiffPixelRatio = tolerance.maxDiffPixelRatio ?? 0;
   const resized = measurement.images.filter((image) => image.sizeChanged);
   const worstRatio = Math.max(...measurement.images.map((image) => image.ratio));
   const largestMove = Math.max(...measurement.images.map((image) => image.largestColourMove));
 
   lines.push(
-    `Noise floor for maxDiffPixelRatio: ${formatRatio(worstRatio)} (set: ${tolerance.maxDiffPixelRatio})`,
+    `Noise floor for maxDiffPixelRatio: ${formatRatio(worstRatio)} (set: ${maxDiffPixelRatio})`,
     `Noise floor for threshold:         ${formatThreshold(largestMove)} (set: ${tolerance.threshold})`,
     "",
   );
@@ -148,7 +147,7 @@ export function judgeNoise(measurement: Measurement, tolerance: Tolerance): Verd
     };
   }
 
-  if (worstRatio > tolerance.maxDiffPixelRatio) {
+  if (worstRatio > maxDiffPixelRatio) {
     return {
       exitCode: 1,
       lines: [
