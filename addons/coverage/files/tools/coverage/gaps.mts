@@ -19,7 +19,7 @@ import { portTestsAreSkipped } from "./lib/listening.mts";
 import { isMainModule } from "./lib/main.mts";
 import type { FileCoverage } from "./lib/measure.mts";
 import { formatDate, formatPercent } from "./lib/report.mts";
-import type { VisualReach } from "./lib/visualReach.mts";
+import type { UnreadableVisualReach, VisualReach } from "./lib/visualReach.mts";
 import { readVisualReach } from "./lib/visualReach.mts";
 import { checkCoverage } from "./run.mts";
 
@@ -75,7 +75,7 @@ export function findUnmeasured(results: PackageResult[]): PackageResult[] {
   return results.filter((result) => result.verdict === "ERROR" || result.failedTests.length > 0);
 }
 
-export function formatGaps(results: PackageResult[], limit: number, visualReach?: VisualReach): string {
+export function formatGaps(results: PackageResult[], limit: number, visualReach?: VisualReach | UnreadableVisualReach): string {
   const gaps = rankGaps(results);
   const measured = results.reduce((sum, result) => sum + result.measured.length, 0);
   const lines: string[] = [];
@@ -104,7 +104,7 @@ export function formatGaps(results: PackageResult[], limit: number, visualReach?
   }
 
   if (visualReach !== undefined) {
-    lines.push("", ...formatVisualReach(visualReach, limit));
+    lines.push("", ...("unreadable" in visualReach ? [visualReach.unreadable] : formatVisualReach(visualReach, limit)));
   }
 
   return lines.join("\n");
@@ -202,7 +202,11 @@ if (isMainModule(import.meta.url)) {
             {
               gaps: rankGaps(results).slice(0, limit),
               unmeasured,
-              ...(visualReach === undefined ? {} : { visualReach: { writtenAt: visualReach.writtenAt, gaps: rankVisualGaps(visualReach).slice(0, limit) } }),
+              ...(visualReach === undefined
+                ? {}
+                : "unreadable" in visualReach
+                  ? { visualReach }
+                  : { visualReach: { writtenAt: visualReach.writtenAt, gaps: rankVisualGaps(visualReach).slice(0, limit) } }),
             },
             null,
             2,

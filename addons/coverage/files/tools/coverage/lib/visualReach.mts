@@ -15,15 +15,29 @@ export interface VisualReach {
   writtenAt: Date;
 }
 
+/** A summary that is there and could not be read: its section is left out, and this line says so. */
+export interface UnreadableVisualReach {
+  unreadable: string;
+}
+
 type SummaryEntry = Partial<Record<Metric, { total?: number; covered?: number; pct?: number | string }>>;
 
-export function readVisualReach(root: string): VisualReach | undefined {
+export function readVisualReach(root: string): VisualReach | UnreadableVisualReach | undefined {
   const path = join(root, VISUAL_SUMMARY);
 
   if (!existsSync(path)) {
     return undefined;
   }
 
+  // A summary cut short by a run that stopped must not cost the units' report.
+  try {
+    return readSummary(root, path);
+  } catch {
+    return { unreadable: `${VISUAL_SUMMARY} could not be read, so what the visual scenarios render is left out. Run pnpm visual:coverage again to write it.` };
+  }
+}
+
+function readSummary(root: string, path: string): VisualReach {
   const summary = JSON.parse(readFileSync(path, "utf8")) as Record<string, SummaryEntry>;
   const files = Object.entries(summary)
     .filter(([key]) => key !== "total")

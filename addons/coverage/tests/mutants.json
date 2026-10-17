@@ -1248,8 +1248,8 @@
   {
     "name": "gaps: the visual section is printed although no summary was written",
     "file": "addons/coverage/files/tools/coverage/gaps.mts",
-    "find": "if (visualReach !== undefined) {\n    lines.push(\"\", ...formatVisualReach(visualReach, limit));",
-    "replace": "{\n    lines.push(\"\", ...formatVisualReach(visualReach ?? { files: [], writtenAt: new Date(0) }, limit));",
+    "find": "if (visualReach !== undefined) {\n    lines.push(\"\", ...(\"unreadable\" in visualReach",
+    "replace": "{\n    lines.push(\"\", ...(visualReach === undefined ? formatVisualReach({ files: [], writtenAt: new Date(0) }, limit) : \"unreadable\" in visualReach",
     "test": "pnpm vitest run addons/coverage/tests/visualReach.test.mts -t \"prints no section\""
   },
   {
@@ -1272,5 +1272,19 @@
     "find": "return inProject.startsWith(\"..\") ? absolute : inProject.split(sep).join(\"/\");",
     "replace": "return absolute;",
     "test": "pnpm vitest run addons/coverage/tests/visualReach.test.mts -t \"gives files from the project root\""
+  },
+  {
+    "name": "visual reach: a corrupt summary throws and loses the units' report",
+    "file": "addons/coverage/files/tools/coverage/lib/visualReach.mts",
+    "find": "  } catch {\n    return { unreadable",
+    "replace": "  } catch (error) {\n    throw error;\n    return { unreadable",
+    "test": "pnpm vitest run addons/coverage/tests/visualReach.test.mts -t \"cannot be read\""
+  },
+  {
+    "name": "gaps: a summary that could not be read is left out without a word",
+    "file": "addons/coverage/files/tools/coverage/gaps.mts",
+    "find": "(\"unreadable\" in visualReach ? [visualReach.unreadable] :",
+    "replace": "(\"unreadable\" in visualReach ? [] :",
+    "test": "pnpm vitest run addons/coverage/tests/visualReach.test.mts -t \"keeps the units' report\""
   }
 ]

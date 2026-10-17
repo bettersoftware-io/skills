@@ -40,11 +40,43 @@ describe("reading what the visual scenarios render", () => {
 
   it("gives files from the project root, without the total, and the date the summary was written", () => {
     const writtenAt = new Date("2026-10-17T09:30:00Z");
-    const reach = readVisualReach(createVisualProject(writtenAt));
+    const read = readVisualReach(createVisualProject(writtenAt));
+    const reach = read !== undefined && "files" in read ? read : undefined;
 
     expect(reach?.files.map(({ file }) => file)).toEqual(["packages/client-react/src/Seen.tsx", "packages/client-react/src/Unseen.tsx"]);
     expect(reach?.files[1]?.lines).toEqual({ total: 10, covered: 5, pct: 50 });
     expect(reach?.writtenAt.toISOString()).toBe(writtenAt.toISOString());
+  });
+});
+
+describe("a visual summary that cannot be read", () => {
+  /** A project whose visual summary holds `text`. */
+  function createProjectWithSummary(text: string): string {
+    const root = createFolder();
+    const path = join(root, VISUAL_SUMMARY);
+
+    mkdirSync(dirname(path), { recursive: true });
+    writeFileSync(path, text);
+
+    return root;
+  }
+
+  it.each([
+    ["cut short", '{"total": {'],
+    ["not an object", "null"],
+  ])("is left out with a note naming the file, when it is %s", (_case, text) => {
+    expect(readVisualReach(createProjectWithSummary(text))).toEqual({
+      unreadable: `${VISUAL_SUMMARY} could not be read, so what the visual scenarios render is left out. Run pnpm visual:coverage again to write it.`,
+    });
+  });
+
+  it("keeps the units' report, and puts the note where the section would be", () => {
+    const results = [createResult({ measured: [createFileCoverage("packages/a/src/weak.ts", { lines: [1, 10] })] })];
+    const text = formatGaps(results, 30, readVisualReach(createProjectWithSummary("{")));
+
+    expect(text).toContain("packages/a/src/weak.ts");
+    expect(text).toContain(`${VISUAL_SUMMARY} could not be read`);
+    expect(text.indexOf("could not be read")).toBeGreaterThan(text.indexOf("measured."));
   });
 });
 
