@@ -177,8 +177,8 @@
   {
     "name": "check-server: in gate:fast",
     "file": "addons/visual/addon.json",
-    "find": "      \"pnpm visual:check\",\n      \"pnpm visual:check:server\"\n",
-    "replace": "      \"pnpm visual:check\"\n",
+    "find": "      \"pnpm visual:check:server\",\n",
+    "replace": "",
     "test": "pnpm vitest run addons/visual/tests/check-server.test.mts -t \"runs the check in gate:fast\""
   },
   {
@@ -544,5 +544,26 @@
     "find": "  row?: PriceRow;\n",
     "replace": "",
     "test": "pnpm vitest run addons/visual/tests/addon.test.mts -t \"reads the fields of a scenario\""
+  },
+  {
+    "name": "check-styles: any .css passes",
+    "file": "addons/visual/files/tools/visual/check-styles.mts",
+    "find": "const STYLE_OR_FONT = /\\.(css|scss|woff2?)$|@fontsource/;",
+    "replace": "const STYLE_OR_FONT = /\\.(scss|woff2?)$|@fontsource/;",
+    "test": "pnpm vitest run addons/visual/tests/check-styles.test.mts -t \"fails a stylesheet\""
+  },
+  {
+    "name": "check-styles: @fontsource is skipped",
+    "file": "addons/visual/files/tools/visual/check-styles.mts",
+    "find": "|@fontsource/;",
+    "replace": "/;",
+    "test": "pnpm vitest run addons/visual/tests/check-styles.test.mts -t \"@fontsource-variable\""
+  },
+  {
+    "name": "check-styles: the query suffix is not stripped",
+    "file": "addons/visual/files/tools/visual/check-styles.mts",
+    "find": "specifier.split(\"?\")[0] ?? specifier",
+    "replace": "specifier",
+    "test": "pnpm vitest run addons/visual/tests/check-styles.test.mts -t \"fonts.css.inline\""
   }
 ]

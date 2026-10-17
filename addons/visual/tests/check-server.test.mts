@@ -152,7 +152,7 @@ describe("the add-on's manifest", () => {
 
   it("runs the check in gate:fast, as a script of its own", () => {
     expect(manifest.packageJson["."]?.scripts?.["visual:check:server"]).toBe("node tools/visual/check-server.mts");
-    expect(manifest.gates.fast).toEqual(["pnpm visual:check", "pnpm visual:check:server"]);
+    expect(manifest.gates.fast).toEqual(["pnpm visual:check", "pnpm visual:check:server", "pnpm visual:check:styles"]);
   });
 });
 

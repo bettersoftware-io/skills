@@ -25,6 +25,7 @@ cd <project> && pnpm install && pnpm visual
 | `pnpm visual:jitter` | `tools/visual/jitter.mts` | Capture the same commit N times and report the largest difference: the noise floor |
 | `pnpm visual:check` | typecheck of `tests/visual/` | Joins `gate:fast` |
 | `pnpm visual:check:server` | `tools/visual/check-server.mts` | Fails a Playwright config that starts its server through pnpm. Joins `gate:fast` |
+| `pnpm visual:check:styles` | `tools/visual/check-styles.mts` | Fails when `main.tsx` imports a stylesheet or font other than `index.css`; the host loads only that one. Joins `gate:fast` |
 | CI | `.github/workflows/visual.yml`, `update-visual-goldens.yml` | Compare on pull requests and on main; redraw the Linux set by hand |
 | Job summary | `tools/visual/summary.mts` | Names the scenarios that failed and what to do |
 

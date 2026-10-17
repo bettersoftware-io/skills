@@ -12,7 +12,8 @@
         "visual:update": "pnpm --dir packages/client-react exec playwright test --config tests/visual/playwright.config.ts --update-snapshots=all",
         "visual:jitter": "node tools/visual/jitter.mts",
         "visual:check": "pnpm --dir packages/client-react run typecheck:visual",
-        "visual:check:server": "node tools/visual/check-server.mts"
+        "visual:check:server": "node tools/visual/check-server.mts",
+        "visual:check:styles": "node tools/visual/check-styles.mts"
       }
     },
     "packages/client-react": {
@@ -29,7 +30,8 @@
   "gates": {
     "fast": [
       "pnpm visual:check",
-      "pnpm visual:check:server"
+      "pnpm visual:check:server",
+      "pnpm visual:check:styles"
     ],
     "full": []
   },

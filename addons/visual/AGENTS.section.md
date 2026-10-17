@@ -11,6 +11,7 @@ pnpm visual:update   # redraw this system's goldens
 pnpm visual:jitter   # measure how much the same commit differs from itself
 pnpm visual:check    # in gate:fast: typecheck of the tier
 pnpm visual:check:server   # in gate:fast: no Playwright server is started through pnpm
+pnpm visual:check:styles   # in gate:fast: main.tsx imports no stylesheet or font besides index.css
 ```
 
 `pnpm visual` is not part of `gate:full`: it needs a browser and goldens drawn
