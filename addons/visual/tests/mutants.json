@@ -257,5 +257,19 @@
     "find": "if (maxDiffPixels <= cap) {",
     "replace": "if (false) {",
     "test": "pnpm vitest run addons/visual/tests/picture.test.mts -t \"maxDiffPixels not above the global\""
+  },
+  {
+    "name": "budget: a pixel cap of 100 (RTC's) hides the smallest regression",
+    "file": "addons/visual/files/packages/client-react/tests/visual/tolerance.ts",
+    "find": "maxDiffPixels: 8,",
+    "replace": "maxDiffPixels: 100,",
+    "test": "pnpm vitest run addons/visual/tests/budget.test.mts"
+  },
+  {
+    "name": "budget: a threshold of 0.2 (Playwright's default) hides the colour change",
+    "file": "addons/visual/files/packages/client-react/tests/visual/tolerance.ts",
+    "find": "threshold: 0.01,",
+    "replace": "threshold: 0.2,",
+    "test": "pnpm vitest run addons/visual/tests/budget.test.mts"
   }
 ]

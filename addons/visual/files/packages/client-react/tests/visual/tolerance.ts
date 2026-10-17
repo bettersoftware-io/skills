@@ -18,6 +18,17 @@
 // These are the starting values: a small insurance budget above a noise floor
 // that measured zero (the same commit captured 5 times on darwin-arm64 and on
 // linux-x64 in the pinned Playwright container, every image byte-identical).
+// Why 8 and 0.01: a step of 1 or 2 levels on every channel moves a pixel by
+// less than the threshold limit (about 3.5 on pixelmatch's scale at 0.01), so
+// it is hidden; 3 levels or more counts. The budget is held by reference
+// regressions in addons/visual/tests/budget.test.mts, built as 480x48 images
+// with text-like strokes. Changed pixels, counted at these values:
+//   up colour #1a8f4c to #1a4c8f over an 83-pixel glyph area   83 changed, 83 counted
+//   a 1x120 line of #d9d9d9 on white removed                   120 changed, 120 counted
+//   a 4x4 icon removed                                          16 changed, 16 counted
+//   a 60x20 box with a 1px #888 border moved right by one       76 changed, 76 counted
+//   40 pixels moved by 2 levels on each channel                 40 changed, 0 counted
+// The smallest regression is 16, and the budget is at most half of it.
 // If a machine nobody measured draws a pixel differently, a test will fail with
 // nothing changed. Do not raise a number to make it pass. Measure first:
 // capture one commit several times (`pnpm visual:jitter --runs 5` on your
