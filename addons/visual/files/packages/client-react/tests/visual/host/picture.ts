@@ -7,7 +7,7 @@
 // viewport, captured as the viewport.
 
 export type Level = "component" | "section" | "page";
-export type Capture = "root" | "viewport";
+type Capture = "root" | "viewport";
 
 /** The fields of a scenario this add-on reads. The project's own state fields sit beside them. */
 export interface Picture {

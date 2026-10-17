@@ -12,6 +12,7 @@ const ADDON = dirname(dirname(fileURLToPath(import.meta.url)));
 const VISUAL = "packages/client-react/tests/visual";
 const MANIFEST = JSON.parse(readFileSync(join(ADDON, "addon.json"), "utf8")) as {
   startingFiles: string[];
+  examples: string[];
   movedToProject: Record<string, { to: string; note: string }>;
 };
 
@@ -25,6 +26,47 @@ function scenarioFields(): string[] {
 
   return [...body.matchAll(/^ {2}(\w+)\??:/gm)].map((match) => match[1] as string);
 }
+
+/** Each shipped scenario's name, level and mount, read from the text of `scenarios.ts`. A scenario with no `level` is a page. */
+function shippedScenarios(): { name: string; level: string; mount: string | undefined }[] {
+  const body = /export const scenarios: Record<string, Scenario> = \{([\s\S]*?)\n\};/.exec(readShipped("scenarios.ts"))?.[1] ?? "";
+
+  return [...body.matchAll(/^ {2}"?([\w-]+)"?: \{\n([\s\S]*?)^ {2}\},?$/gm)].map((match) => {
+    const fields = match[2] as string;
+
+    return {
+      name: match[1] as string,
+      level: /^ {4}level: "(\w+)",$/m.exec(fields)?.[1] ?? "page",
+      mount: /^ {4}mount: "([\w-]+)",$/m.exec(fields)?.[1],
+    };
+  });
+}
+
+/** The keys of the shipped registry, read from the text of `registry.tsx`. */
+function registryKeys(): string[] {
+  const body = /^const registry\b[^\n]*= \{([\s\S]*?)\n\};/m.exec(readShipped("registry.tsx"))?.[1] ?? "";
+
+  return [...body.matchAll(/^ {2}"([\w-]+)":/gm)].map((match) => match[1] as string);
+}
+
+describe("the shipped examples", () => {
+  it("cover all three levels, with components the most numerous and at most two pages", () => {
+    const count = (level: string): number => shippedScenarios().filter((scenario) => scenario.level === level).length;
+
+    expect(new Set(shippedScenarios().map((scenario) => scenario.level))).toEqual(new Set(["component", "section", "page"]));
+    expect(count("component")).toBeGreaterThan(count("section"));
+    expect(count("component")).toBeGreaterThan(count("page"));
+    expect(count("page")).toBeLessThanOrEqual(2);
+  });
+
+  it("mount only what the registry has", () => {
+    const mounts = shippedScenarios().flatMap((scenario) => (scenario.mount === undefined ? [] : [scenario.mount]));
+
+    expect(mounts.length).toBeGreaterThan(0);
+    expect(registryKeys().length).toBeGreaterThan(0);
+    expect(mounts.filter((mount) => !registryKeys().includes(mount))).toEqual([]);
+  });
+});
 
 describe("who owns what in the visual tier", () => {
   it("gives the project the scenarios and the seeding, and keeps the host", () => {
@@ -76,7 +118,7 @@ describe("who owns what in the visual tier", () => {
   });
 
   it("reads the fields of a scenario from the shipped file", () => {
-    expect(scenarioFields()).toEqual(["stalePrices", "prices", "selected"]);
+    expect(scenarioFields()).toEqual(["stalePrices", "prices", "selected", "row"]);
     expect(readShipped("scenarios.ts")).toMatch(/export interface Scenario extends Picture \{/);
   });
 
@@ -154,6 +196,18 @@ describe("who owns what in the visual tier", () => {
   it("ships no host stylesheet: a body margin of 0 made pages differ from the app", () => {
     expect(existsSync(join(ADDON, "files", VISUAL, "host", "host.css"))).toBe(false);
     expect(readShipped("host/main.tsx")).not.toContain("host.css");
+  });
+
+  it("gives the registry and the goldens as examples, written at first install only", () => {
+    expect(MANIFEST.startingFiles).toContain(`${VISUAL}/registry.tsx`);
+    expect(MANIFEST.examples).toEqual([`${VISUAL}/goldens/`, `${VISUAL}/registry.tsx`]);
+  });
+
+  it("has the seeding render a scenario's mount through the registry, and nothing for a page", () => {
+    const seeding = readShipped("seeding.ts");
+
+    expect(seeding).toContain('import { Mount } from "./registry.tsx";');
+    expect(seeding).toMatch(/render:\s+scenario\.mount === undefined\s+\? undefined\s+: \(\) => \{\s+return createElement\(Mount, \{ scenario \}\);/);
   });
 
   it("has the seeding export what the host imports, with the host's types", () => {

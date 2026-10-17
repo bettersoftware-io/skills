@@ -1,3 +1,5 @@
+import { createElement } from "react";
+
 import type { App as Application } from "@app/client-core";
 import { STALE_AFTER_MS } from "@app/client-core/presenters/pricesPresenter.ts";
 import {
@@ -6,6 +8,7 @@ import {
 } from "@app/client-core/testing/appHarness.ts";
 
 import type { HostClock, Seeded } from "./host/seeded.ts";
+import { Mount } from "./registry.tsx";
 import type { Scenario } from "./scenarios.ts";
 
 // How a scenario's data becomes app state. This file is the project's: when a
@@ -22,6 +25,10 @@ import type { Scenario } from "./scenarios.ts";
 //   through its own intent.
 // - `deliver`: what arrives after the UI is on screen, in order. A wait is
 //   `clock.tick(...)`, never a real one.
+//
+// What is shown is `render`: the registry entry a scenario names in its
+// `mount`, in the app's surround (`Mount`, in `registry.tsx`). With no `mount`
+// it is undefined, and the host shows the whole app.
 
 /** The application and the deliveries of one scenario. Called once, before the first render. */
 export function seedScenario(scenario: Scenario, clock: HostClock): Seeded {
@@ -29,6 +36,12 @@ export function seedScenario(scenario: Scenario, clock: HostClock): Seeded {
 
   return {
     app: selectFromTheStart(harness.app, scenario.selected),
+    render:
+      scenario.mount === undefined
+        ? undefined
+        : () => {
+            return createElement(Mount, { scenario });
+          },
     deliver: () => {
       deliverAll(harness, scenario.stalePrices ?? []);
 

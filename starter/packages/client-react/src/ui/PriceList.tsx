@@ -1,8 +1,8 @@
 import type { ReactElement } from "react";
 
-import type { PriceRow } from "@app/client-core";
 import { useViewModel } from "@app/react-bindings";
 
+import { PriceRow } from "./PriceRow.tsx";
 import { TESTIDS } from "./testids.ts";
 
 /**
@@ -25,7 +25,7 @@ export function PriceList(): ReactElement {
       <tbody>
         {rows.map((row) => {
           return (
-            <PriceRowView
+            <PriceRow
               key={row.symbol}
               row={row}
               selected={selection.state.selected === row.symbol}
@@ -35,33 +35,5 @@ export function PriceList(): ReactElement {
         })}
       </tbody>
     </table>
-  );
-}
-
-interface PriceRowViewProps {
-  row: PriceRow;
-  selected: boolean;
-  onSelect: (symbol: string) => void;
-}
-
-function PriceRowView({
-  row,
-  selected,
-  onSelect,
-}: PriceRowViewProps): ReactElement {
-  function selectRow(): void {
-    onSelect(row.symbol);
-  }
-
-  return (
-    <tr
-      data-testid={TESTIDS.priceRow}
-      data-selected={selected}
-      data-stale={row.stale}
-      onClick={selectRow}
-    >
-      <th scope="row">{row.symbol}</th>
-      <td data-movement={row.movement}>{row.mid.toFixed(4)}</td>
-    </tr>
   );
 }

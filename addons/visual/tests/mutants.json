@@ -488,5 +488,61 @@
     "find": "spec.title !== ORPHAN_CHECK",
     "replace": "true",
     "test": "pnpm vitest run addons/visual/tests/summary.test.mts"
+  },
+  {
+    "name": "examples: the goldens are not an example",
+    "file": "addons/visual/addon.json",
+    "find": "\"examples\": [\n    \"packages/client-react/tests/visual/goldens/\",\n",
+    "replace": "\"examples\": [\n",
+    "test": "pnpm vitest run addons/visual/tests/addon.test.mts -t \"gives the registry and the goldens as examples\""
+  },
+  {
+    "name": "examples: the registry is not a starting file",
+    "file": "addons/visual/addon.json",
+    "find": "    \"packages/client-react/tests/visual/registry.tsx\",\n    \"packages/client-react/tests/visual/goldens/\"\n  ],",
+    "replace": "    \"packages/client-react/tests/visual/goldens/\"\n  ],",
+    "test": "pnpm vitest run addons/visual/tests/addon.test.mts -t \"gives the registry and the goldens as examples\""
+  },
+  {
+    "name": "examples: no section is shipped",
+    "file": "addons/visual/files/packages/client-react/tests/visual/scenarios.ts",
+    "find": "  \"price-list-moving\": {\n    level: \"section\",\n    mount: \"price-list\",\n    prices: [...MOVES, USDJPY],\n  },\n  \"price-list-selected\": {\n    level: \"section\",",
+    "replace": "  \"price-list-moving\": {\n    level: \"component\",\n    mount: \"price-list\",\n    prices: [...MOVES, USDJPY],\n  },\n  \"price-list-selected\": {\n    level: \"component\",",
+    "test": "pnpm vitest run addons/visual/tests/addon.test.mts -t \"cover all three levels\""
+  },
+  {
+    "name": "examples: as many sections as components",
+    "file": "addons/visual/files/packages/client-react/tests/visual/scenarios.ts",
+    "find": "  \"price-row-stale\": {\n    level: \"component\",\n    mount: \"price-row\",\n    prices: [],\n    row: { symbol: \"USDJPY\", mid: 151.2, movement: \"flat\", stale: true },\n  },\n  \"price-list-empty\": {\n    level: \"component\",",
+    "replace": "  \"price-row-stale\": {\n    level: \"section\",\n    mount: \"price-row\",\n    prices: [],\n    row: { symbol: \"USDJPY\", mid: 151.2, movement: \"flat\", stale: true },\n  },\n  \"price-list-empty\": {\n    level: \"section\",",
+    "test": "pnpm vitest run addons/visual/tests/addon.test.mts -t \"cover all three levels\""
+  },
+  {
+    "name": "examples: three pages",
+    "file": "addons/visual/files/packages/client-react/tests/visual/scenarios.ts",
+    "find": "  \"price-row-up\": {\n    level: \"component\",\n    mount: \"price-row\",\n    prices: [],\n    row: { symbol: \"EURUSD\", mid: 1.1012, movement: \"up\", stale: false },\n  },\n  \"price-row-down\": {\n    level: \"component\",\n",
+    "replace": "  \"price-row-up\": {\n    mount: \"price-row\",\n    prices: [],\n    row: { symbol: \"EURUSD\", mid: 1.1012, movement: \"up\", stale: false },\n  },\n  \"price-row-down\": {\n",
+    "test": "pnpm vitest run addons/visual/tests/addon.test.mts -t \"cover all three levels\""
+  },
+  {
+    "name": "examples: a mount the registry does not have",
+    "file": "addons/visual/files/packages/client-react/tests/visual/registry.tsx",
+    "find": "  \"price-list\": (): ReactElement => {",
+    "replace": "  \"price-lists\": (): ReactElement => {",
+    "test": "pnpm vitest run addons/visual/tests/addon.test.mts -t \"mount only what the registry has\""
+  },
+  {
+    "name": "examples: the seeding renders a page's mount too",
+    "file": "addons/visual/files/packages/client-react/tests/visual/seeding.ts",
+    "find": "      scenario.mount === undefined\n        ? undefined",
+    "replace": "      scenario.mount !== undefined\n        ? undefined",
+    "test": "pnpm vitest run addons/visual/tests/addon.test.mts -t \"has the seeding render a scenario's mount\""
+  },
+  {
+    "name": "examples: the scenario has no row",
+    "file": "addons/visual/files/packages/client-react/tests/visual/scenarios.ts",
+    "find": "  row?: PriceRow;\n",
+    "replace": "",
+    "test": "pnpm vitest run addons/visual/tests/addon.test.mts -t \"reads the fields of a scenario\""
   }
 ]

@@ -13,7 +13,8 @@ cd <project> && pnpm install && pnpm visual
 
 | Part | Where | What it does |
 |---|---|---|
-| Scenario list | `packages/client-react/tests/visual/scenarios.ts` | A name and the seeded state, as typed data. Four to start: `empty`, `rows-up-and-down`, `row-selected`, `row-stale` |
+| Scenario list | `packages/client-react/tests/visual/scenarios.ts` | A name, what is pictured and the seeded state, as typed data. Nine to start: the row in five states and the empty list (components), the list moving and with a row selected (sections), and `app` (the page) |
+| Registry | `tests/visual/registry.tsx` | What a scenario's `mount` names: `price-row` and `price-list` to start. The project's file, written at first install only, like the goldens |
 | Seeding | `tests/visual/seeding.ts` | How a scenario's data becomes app state: `seedScenario(scenario, clock)` builds the app harness and returns the application and the deliveries. The project's file, like the scenario list |
 | Visual host | `tests/visual/host/` | A second Vite root. It renders `App` from `src/ui` on the application the seeding returns, with the app's own `index.css`. It imports both through the client's `#/` alias, so the client's `package.json` must declare `"imports": { "#/*": "./src/*" }`, as the starter's does. It knows no field of a scenario; time is a clock the page owns |
 | Spec | `tests/visual/visual.pw.ts` | One Playwright test per scenario, plus one that fails on a golden no scenario owns |
@@ -178,7 +179,7 @@ with the add-on installed by `add-to-project.mts`:
 | Check | Result |
 |---|---|
 | `pnpm gate:full` before the add-on | passes |
-| `pnpm visual` with the shipped `darwin-arm64` goldens | 5 of 5 pass (4 scenarios, 1 orphan check) |
+| `pnpm visual` with the shipped `darwin-arm64` goldens | 10 of 10 pass (9 scenarios, 1 orphan check), twice; a second drawing was byte-identical |
 | `pnpm gate:full` with the add-on in | passes; the gates report `PASS playwright-pin` |
 | One colour changed clearly (`#1a8f4c` to `#1a4c8f`) | fails: 3 scenarios, 83 pixels each |
 | Low contrast, +1 on each channel (`#1b904d`) | fails: 82 pixels |

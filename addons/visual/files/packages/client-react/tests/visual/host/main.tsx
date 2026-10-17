@@ -1,7 +1,7 @@
 import { READY_ATTRIBUTE } from "./address.ts";
 import { type Shown, showScenario } from "./render.tsx";
 
-// Shows the one scenario named in the address (`/?scenario=row-stale`), then
+// Shows the one scenario named in the address (`/?scenario=app`), then
 // says it is ready.
 //
 // A failure is not caught here. A scenario that is unknown, contradicts

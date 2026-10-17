@@ -187,7 +187,8 @@ What no check decides:
   out of a value (`const { usePrices } = useViewModel()`), and the compiler
   skips such a function. Keep that component thin: it reads, and hands plain
   props to components that take only props. Those are compiled.
-  `packages/client-react/src/ui/PriceList.tsx` shows both.
+  `packages/client-react/src/ui/PriceList.tsx` reads, and `PriceRow.tsx`
+  beside it takes only props.
 - **When to add an entry to `compilerTracked`.** When a component depends on
   the compiler to keep something stable or cheap: a costly derived value, a
   callback a child compares. Skip it for a component whose render is cheap

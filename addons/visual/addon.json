@@ -38,7 +38,12 @@
     "packages/client-react/tests/visual/seeding.ts",
     "packages/client-react/tests/visual/tolerance.ts",
     "packages/client-react/tests/visual/framing.ts",
+    "packages/client-react/tests/visual/registry.tsx",
     "packages/client-react/tests/visual/goldens/"
+  ],
+  "examples": [
+    "packages/client-react/tests/visual/goldens/",
+    "packages/client-react/tests/visual/registry.tsx"
   ],
   "movedToProject": {
     "packages/client-react/tests/visual/host/main.tsx": {
