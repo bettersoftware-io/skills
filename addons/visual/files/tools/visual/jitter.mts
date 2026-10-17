@@ -23,10 +23,7 @@ import { existsSync, realpathSync, rmSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { FRAMING } from "../../packages/client-react/tests/visual/framing.ts";
-import { PictureError } from "../../packages/client-react/tests/visual/host/picture.ts";
-import { scenarios } from "../../packages/client-react/tests/visual/scenarios.ts";
-import { TOLERANCE } from "../../packages/client-react/tests/visual/tolerance.ts";
+import { type Framing, PictureError, type Tolerance } from "../../packages/client-react/tests/visual/host/picture.ts";
 import { grepFor, type JitterRequest, parseArguments, UsageError } from "./lib/arguments.mts";
 import { createToleranceOf, judgeNoise, measureNoise, scenarioNameOf } from "./lib/measure.mts";
 
@@ -82,7 +79,38 @@ function captureRuns(runs: number, chosen: string[]): string[] | undefined {
   return directories;
 }
 
-function runJitter(argv: string[]): number {
+/** Why a project file Node could not load stops the measurement: its imports and syntax are the project's to fix. */
+const NODE_LOADS_THEM =
+  "pnpm visual:jitter runs them in plain Node, so their imports must be type-only or Node-loadable, name their file with `.ts`, and use only erasable syntax (no `enum`, `namespace` or parameter property).";
+
+interface ProjectFiles {
+  scenarios: Record<string, unknown>;
+  FRAMING: Framing;
+  TOLERANCE: Tolerance;
+}
+
+/**
+ * Loads the project's `scenarios.ts`, `framing.ts` and `tolerance.ts` in plain
+ * Node, as they are. A failure is the project's to fix, so it is said in a
+ * sentence and not thrown.
+ */
+async function loadProjectFiles(): Promise<ProjectFiles | string> {
+  try {
+    const [{ scenarios }, { FRAMING }, { TOLERANCE }] = await Promise.all([
+      import("../../packages/client-react/tests/visual/scenarios.ts"),
+      import("../../packages/client-react/tests/visual/framing.ts"),
+      import("../../packages/client-react/tests/visual/tolerance.ts"),
+    ]);
+
+    return { scenarios, FRAMING, TOLERANCE };
+  } catch (error) {
+    const reason = (error instanceof Error ? error.message : String(error)).split("\n")[0];
+
+    return `No measurement: Node could not load the project's visual files (scenarios.ts, framing.ts, tolerance.ts): ${reason}\n${NODE_LOADS_THEM}`;
+  }
+}
+
+async function runJitter(argv: string[]): Promise<number> {
   let request: JitterRequest;
 
   try {
@@ -97,6 +125,15 @@ function runJitter(argv: string[]): number {
     return 2;
   }
 
+  const project = await loadProjectFiles();
+
+  if (typeof project === "string") {
+    console.error(project);
+
+    return 2;
+  }
+
+  const { scenarios, FRAMING, TOLERANCE } = project;
   const unknown = request.mode === "capture" ? request.scenarios.filter((name) => !(name in scenarios)) : [];
 
   if (unknown.length > 0) {
@@ -146,5 +183,5 @@ function isMainModule(): boolean {
 }
 
 if (isMainModule()) {
-  process.exit(runJitter(process.argv.slice(2)));
+  process.exit(await runJitter(process.argv.slice(2)));
 }

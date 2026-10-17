@@ -351,7 +351,11 @@ fewer.
 
 `pnpm visual:jitter` judges each image by the tolerance its own scenario
 resolves to. It is written with Node built-ins only, PNG reading included, so
-it needs nothing installed. Its count was checked against Playwright's own on
+it needs nothing installed. It loads the project's `scenarios.ts`,
+`framing.ts` and `tolerance.ts` in plain Node, so their imports must be
+type-only or ones Node can load, name their file with `.ts`, and use only
+erasable syntax (no `enum`, `namespace` or parameter property). When Node
+cannot load them, it stops with exit 2 and says this. Its count was checked against Playwright's own on
 a real failure: both said 83.
 
 ## Visual reach: `pnpm visual:coverage`

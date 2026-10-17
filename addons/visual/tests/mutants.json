@@ -775,5 +775,26 @@
     "find": "\"firstRun\": \"pnpm -r update --no-save vitest @vitest/browser-playwright @vitest/coverage-v8\",",
     "replace": "\"firstRun\": \"pnpm -r update --no-save vitest @vitest/browser-playwright\",",
     "test": "pnpm vitest run addons/visual/tests/addon.test.mts -t \"asks once after installing\""
+  },
+  {
+    "name": "jitter: a project file Node cannot load is thrown, not said",
+    "file": "addons/visual/files/tools/visual/jitter.mts",
+    "find": "  } catch (error) {\n    const reason",
+    "replace": "  } catch (error) {\n    throw error;\n    const reason",
+    "test": "pnpm vitest run addons/visual/tests/jitter.test.mts -t \"Node cannot load\""
+  },
+  {
+    "name": "jitter: a project file Node cannot load exits 1",
+    "file": "addons/visual/files/tools/visual/jitter.mts",
+    "find": "    console.error(project);\n\n    return 2;",
+    "replace": "    console.error(project);\n\n    return 1;",
+    "test": "pnpm vitest run addons/visual/tests/jitter.test.mts -t \"Node cannot load\""
+  },
+  {
+    "name": "jitter: the failure does not say what Node needs of the project's files",
+    "file": "addons/visual/files/tools/visual/jitter.mts",
+    "find": "${reason}\\n${NODE_LOADS_THEM}",
+    "replace": "${reason}",
+    "test": "pnpm vitest run addons/visual/tests/jitter.test.mts -t \"for an import without its extension\""
   }
 ]

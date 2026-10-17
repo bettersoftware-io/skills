@@ -1,5 +1,5 @@
 import { spawnSync } from "node:child_process";
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { cpSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 
@@ -116,5 +116,43 @@ describe("pnpm visual:jitter on folders already captured", () => {
   it("judges a scenario's image by the project's tolerance.ts", () => {
     expect(run(capture("price-row-up", 5)).status).toBe(0);
     expect(run(capture("price-row-up", 30)).status).toBe(1);
+  });
+});
+
+describe("pnpm visual:jitter with a scenarios.ts Node cannot load", () => {
+  const scratch: string[] = [];
+
+  afterEach(() => {
+    for (const directory of scratch.splice(0)) {
+      rmSync(directory, { recursive: true, force: true });
+    }
+  });
+
+  /** A copy of the add-on's files laid out as a project, with this `scenarios.ts`. Returns jitter's exit and output on two empty folders. */
+  function runWith(scenarios: string): { status: number | null; output: string } {
+    const project = mkdtempSync(join(tmpdir(), "visual-jitter-project-"));
+
+    scratch.push(project);
+    cpSync(resolve(import.meta.dirname, "../files"), project, { recursive: true, filter: (source) => !source.includes("goldens") });
+    writeFileSync(join(project, "packages/client-react/tests/visual/scenarios.ts"), scenarios);
+
+    const result = spawnSync(process.execPath, [join(project, "tools/visual/jitter.mts"), join(project, "a"), join(project, "b")], { encoding: "utf8" });
+
+    return { status: result.status, output: `${result.stdout}${result.stderr}` };
+  }
+
+  it("exits 2 and says what Node needs, for an import without its extension", () => {
+    const { status, output } = runWith('import { prices } from "./prices";\n\nexport const scenarios = { a: { prices } };\n');
+
+    expect(status).toBe(2);
+    expect(output).toContain("No measurement: Node could not load the project's visual files");
+    expect(output).toContain("imports must be type-only or Node-loadable, name their file with `.ts`, and use only erasable syntax");
+  });
+
+  it("exits 2 for syntax Node cannot erase", () => {
+    const { status, output } = runWith("enum Side { Up }\n\nexport const scenarios = { a: { prices: [], side: Side.Up } };\n");
+
+    expect(status).toBe(2);
+    expect(output).toContain("No measurement: Node could not load the project's visual files");
   });
 });

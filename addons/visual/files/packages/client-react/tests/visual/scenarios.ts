@@ -1,3 +1,8 @@
+// `pnpm visual:jitter` loads this file in plain Node, as it does framing.ts and
+// tolerance.ts. So an import here is type-only or one Node can load, names its
+// file with `.ts`, and the file uses only erasable syntax: no `enum`,
+// `namespace` or parameter property. Otherwise jitter stops with exit 2.
+
 import type { PriceRow } from "@app/client-core";
 import type { Price } from "@app/domain";
 
