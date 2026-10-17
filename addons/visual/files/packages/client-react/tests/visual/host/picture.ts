@@ -255,6 +255,33 @@ export function resolvePicture(
   };
 }
 
+/** The root element's widths, as the browser measured them after the scenario rendered. */
+interface RootWidths {
+  scrollWidth: number;
+  clientWidth: number;
+}
+
+/**
+ * The failure for a root capture whose content is wider than its root, or
+ * undefined when it fits. The picture is of the root's box, so the rest would
+ * be cut off without a word. Chromium's `scrollWidth` of the root counts its
+ * start padding and the content, not the end padding (measured, Playwright
+ * 1.63), so the content takes `scrollWidth` less one padding.
+ */
+export function describeClippedRoot(
+  name: string,
+  measured: RootWidths,
+  root: NonNullable<ResolvedPicture["root"]>,
+): string | undefined {
+  if (measured.scrollWidth <= measured.clientWidth) {
+    return undefined;
+  }
+
+  const needed = measured.scrollWidth - root.padding;
+
+  return `Scenario "${name}" is ${needed} pixels wide, more than its root width of ${root.width}, so the picture would cut it off. Set \`width: ${needed}\` on the scenario, or make it fit in ${root.width}.`;
+}
+
 /** The failure for a scenario with a `mount` when the project's seeding returns no `render`. */
 export function describeMissingRender(name: string): string {
   return `Scenario "${name}" has a \`mount\`, but \`seedScenario\` in seeding.ts returns no \`render\`. An older seeding does not; copy the \`render\` part from tools/templates/visual.packages__client-react__tests__visual__seeding.ts.txt.`;

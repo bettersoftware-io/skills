@@ -14,8 +14,10 @@ import { FRAMING } from "../framing.ts";
 import { type Scenario, scenarios } from "../scenarios.ts";
 import { seedScenario } from "../seeding.ts";
 import { TOLERANCE } from "../tolerance.ts";
+import { ROOT_TESTID } from "./address.ts";
 import { loadEveryFace } from "./fonts.ts";
 import {
+  describeClippedRoot,
   describeMissingRender,
   PictureError,
   resolvePicture,
@@ -101,7 +103,7 @@ export async function showScenario(
 
     // The executor runs at once, so the render starts here; the promise
     // resolves when the frame has put the state in.
-    const ready = new Promise<void>((resolve) => {
+    const framed = new Promise<void>((resolve) => {
       root.render(
         <ViewModelProvider viewModel={createViewModel(seeded.app)}>
           <ScenarioFrame
@@ -113,6 +115,31 @@ export async function showScenario(
           </ScenarioFrame>
         </ViewModelProvider>,
       );
+    });
+
+    // A root capture pictures the root's box. Content wider than the root
+    // would be cut off without a word, so the scenario fails instead.
+    const ready = framed.then(() => {
+      const element = container.querySelector<HTMLElement>(
+        `[data-testid="${ROOT_TESTID}"]`,
+      );
+
+      if (picture.root === undefined || element === null) {
+        return;
+      }
+
+      const clipped = describeClippedRoot(
+        name,
+        {
+          scrollWidth: element.scrollWidth,
+          clientWidth: element.clientWidth,
+        },
+        picture.root,
+      );
+
+      if (clipped !== undefined) {
+        throw new PictureError(clipped);
+      }
     });
 
     return {

@@ -98,7 +98,11 @@ is a word for people and agents to reason with.
   is in the picture. The spec pictures that element. The width is fixed
   because a box sized by its content takes its width from the glyphs: in RTC,
   such widths moved by 46 to 66 pixels between runs on x86, and Playwright
-  cannot compare images of two sizes.
+  cannot compare images of two sizes. Content wider than the root's box would
+  be cut off, so the host fails that scenario once it has rendered and names
+  the width the content takes: `Scenario "x" is 600 pixels wide, more than its
+  root width of 480`. Set that `width` on the scenario. Content that reaches
+  only into the padding is in the picture and passes.
 - **Viewport capture** (pages and overlays). The spec sets the viewport to the
   scenario's width and height before the page loads, the host renders the
   element straight into `#root` with no frame, padding or margin, and the spec

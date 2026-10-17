@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { FRAMING } from "../files/packages/client-react/tests/visual/framing.ts";
-import { describeMissingRender, PictureError, resolvePicture } from "../files/packages/client-react/tests/visual/host/picture.ts";
+import { describeClippedRoot, describeMissingRender, PictureError, resolvePicture } from "../files/packages/client-react/tests/visual/host/picture.ts";
 
 // What a scenario says about its picture, resolved against the project's
 // framing and tolerance. Pure, so the Playwright spec and the browser host
@@ -134,6 +134,25 @@ describe("resolvePicture", () => {
       expect(() => resolvePicture("price-row", scenario, FRAMING, GLOBAL)).toThrow(PictureError);
       expect(() => resolvePicture("price-row", scenario, FRAMING, GLOBAL)).toThrow(/price-row/);
     });
+  });
+});
+
+describe("describeClippedRoot", () => {
+  const ROOT = { width: 480, padding: 8 };
+
+  it("says nothing when the content fits the root", () => {
+    expect(describeClippedRoot("x", { scrollWidth: 496, clientWidth: 496 }, ROOT)).toBeUndefined();
+  });
+
+  it("names the scenario, its root width and the width its content takes, when the picture would cut it off", () => {
+    // Chromium's scrollWidth counts the start padding and the content, not the end padding (measured, Playwright 1.63).
+    expect(describeClippedRoot("wide", { scrollWidth: 608, clientWidth: 496 }, ROOT)).toBe(
+      'Scenario "wide" is 600 pixels wide, more than its root width of 480, so the picture would cut it off. Set `width: 600` on the scenario, or make it fit in 480.',
+    );
+  });
+
+  it("fails one pixel past the box", () => {
+    expect(describeClippedRoot("x", { scrollWidth: 497, clientWidth: 496 }, ROOT)).toContain("`width: 489`");
   });
 });
 

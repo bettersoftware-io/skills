@@ -164,6 +164,17 @@ describe("who owns what in the visual tier", () => {
     expect(render.indexOf("describeMissingRender(")).toBeLessThan(render.indexOf(".render("));
   });
 
+  it("fails a root capture whose content is wider than the root, after the frame is ready and before it says so", () => {
+    const render = readShipped("host/render.tsx");
+
+    expect(render).toContain("describeClippedRoot(");
+    expect(render).toMatch(/describeClippedRoot\(\s*name,\s*\{\s*scrollWidth: element\.scrollWidth,\s*clientWidth: element\.clientWidth,?\s*\},\s*picture\.root,?\s*\)/);
+    expect(render).toMatch(/if \(clipped !== undefined\) \{\s*throw new PictureError\(clipped\);/);
+    expect(render.indexOf("describeClippedRoot(")).toBeGreaterThan(render.indexOf("onReady={resolve}"));
+    expect(render).toMatch(/const ready = framed\.then\(\(\) => \{/);
+    expect(render).toMatch(/return \{\s*ready,/);
+  });
+
   it("renders what the seeding returns, or App, in the root or bare", () => {
     const render = readShipped("host/render.tsx");
     const frame = readShipped("host/ScenarioFrame.tsx");
