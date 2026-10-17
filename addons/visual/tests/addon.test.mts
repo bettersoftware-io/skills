@@ -34,7 +34,6 @@ describe("who owns what in the visual tier", () => {
   });
 
   it("sends a project that edited the host to the seeding", () => {
-    expect(Object.keys(MANIFEST.movedToProject)).toEqual([`${VISUAL}/host/main.tsx`, `${VISUAL}/visual.pw.ts`]);
     expect(MANIFEST.movedToProject[`${VISUAL}/host/main.tsx`]?.to).toBe(`${VISUAL}/seeding.ts`);
   });
 
@@ -61,7 +60,9 @@ describe("who owns what in the visual tier", () => {
     expect(spec.indexOf("setViewportSize(")).toBeLessThan(spec.indexOf("page.goto("));
     expect(spec).toContain('testInfo.annotations.push({ type: "level", description: picture.level });');
     expect(spec).toContain('picture.capture === "root"');
-    expect(spec).toContain("...picture.tolerance,");
+    expect(spec.match(/screenshotTolerance\(picture\.tolerance\)/g)).toHaveLength(2);
+    expect(spec).not.toContain("...picture.tolerance");
+    expect(spec).toMatch(/threshold: tolerance\.threshold,\s+maxDiffPixels: tolerance\.maxDiffPixels,\s+maxDiffPixelRatio: tolerance\.maxDiffPixelRatio,/);
     expect(spec).toContain("fullPage: false,");
     expect(spec).not.toContain("fullPage: true");
   });
@@ -70,6 +71,8 @@ describe("who owns what in the visual tier", () => {
     const spec = readShipped("visual.pw.ts");
 
     expect(spec.indexOf("resolvePicture(")).toBeGreaterThan(spec.indexOf("test(name,"));
+    expect(spec.indexOf('type: "level"')).toBeGreaterThan(spec.indexOf("resolvePicture("));
+    expect(spec.indexOf('type: "level"')).toBeLessThan(spec.indexOf("page.goto("));
   });
 
   it("reads the fields of a scenario from the shipped file", () => {

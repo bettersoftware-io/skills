@@ -55,10 +55,12 @@ export default defineConfig({
     deviceScaleFactor: 1,
     // Chromium redraws only the changed part of a tile (partial raster), so
     // one rounded corner was shaded a level or two apart from frame to
-    // frame. Measured in condo-ledger on linux-x64 in this container: with
-    // the flag all eleven scenarios were byte-identical across three
-    // runners, and a scrolling list in a dialog held still; without it that
-    // list never did. Drop the flag only after measuring again.
+    // frame. Measured in condo-ledger on linux-x64 in this container, eight
+    // runs on separate runners: with the flag every frame held still and ten
+    // of eleven scenarios were byte-identical; without it a scrolling list in
+    // a dialog never held still. The one scenario left varied in a native
+    // select's own text, and matched once that text was drawn as ordinary
+    // text. Drop the flag only after measuring again.
     launchOptions: { args: ["--disable-partial-raster"] },
     // Pinned, so the picture does not follow the settings of whoever runs it.
     colorScheme: "light",

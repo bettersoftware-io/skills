@@ -394,7 +394,7 @@
   {
     "name": "spec: the scenario's tolerance is left out of the comparison",
     "file": "addons/visual/files/packages/client-react/tests/visual/visual.pw.ts",
-    "find": "        ...picture.tolerance,\n",
+    "find": "        ...screenshotTolerance(picture.tolerance),\n",
     "replace": "",
     "test": "pnpm vitest run addons/visual/tests/addon.test.mts"
   },
@@ -460,5 +460,33 @@
     "find": "\"to\": \"packages/client-react/tests/visual/scenarios.ts\"",
     "replace": "\"to\": \"packages/client-react/tests/visual/seeding.ts\"",
     "test": "pnpm vitest run addons/visual/tests/addon.test.mts"
+  },
+  {
+    "name": "picture: a scenario's cap keeps the old global's ratio",
+    "file": "addons/visual/files/packages/client-react/tests/visual/host/picture.ts",
+    "find": "    delete resolved.maxDiffPixelRatio;\n",
+    "replace": "",
+    "test": "pnpm vitest run addons/visual/tests/picture.test.mts"
+  },
+  {
+    "name": "spec: a tolerance key is left to the config's default",
+    "file": "addons/visual/files/packages/client-react/tests/visual/visual.pw.ts",
+    "find": "    maxDiffPixelRatio: tolerance.maxDiffPixelRatio,\n",
+    "replace": "",
+    "test": "pnpm vitest run addons/visual/tests/addon.test.mts"
+  },
+  {
+    "name": "spec: the root capture passes the tolerance unsifted",
+    "file": "addons/visual/files/packages/client-react/tests/visual/visual.pw.ts",
+    "find": "        screenshotTolerance(picture.tolerance),\n      );",
+    "replace": "        picture.tolerance,\n      );",
+    "test": "pnpm vitest run addons/visual/tests/addon.test.mts"
+  },
+  {
+    "name": "summary: the orphan check is counted as a page",
+    "file": "addons/visual/files/tools/visual/summary.mts",
+    "find": "spec.title !== ORPHAN_CHECK",
+    "replace": "true",
+    "test": "pnpm vitest run addons/visual/tests/summary.test.mts"
   }
 ]

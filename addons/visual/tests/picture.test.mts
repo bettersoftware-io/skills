@@ -84,6 +84,14 @@ describe("resolvePicture", () => {
       expect(resolvePicture("t", { pixelThreshold: 0.005 }, FRAMING, GLOBAL).tolerance).toEqual({ threshold: 0.005, maxDiffPixels: 8 });
     });
 
+    it("drops an old global's ratio when the scenario sets its own cap", () => {
+      expect(resolvePicture("t", { maxDiffPixels: 50 }, FRAMING, { maxDiffPixelRatio: 0, threshold: 0 }).tolerance).toStrictEqual({ threshold: 0, maxDiffPixels: 50 });
+    });
+
+    it("keeps an old global's ratio when the scenario sets only a threshold", () => {
+      expect(resolvePicture("t", { pixelThreshold: 0.005 }, FRAMING, { maxDiffPixelRatio: 0, threshold: 0.01 }).tolerance).toStrictEqual({ threshold: 0.005, maxDiffPixelRatio: 0 });
+    });
+
     it("reads an old global (a ratio, no maxDiffPixels) unchanged", () => {
       expect(resolvePicture("t", {}, FRAMING, { maxDiffPixelRatio: 0, threshold: 0 }).tolerance).toEqual({ threshold: 0, maxDiffPixelRatio: 0 });
     });

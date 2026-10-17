@@ -80,6 +80,13 @@ describe("summarise", () => {
     expect(summary.markdown).toContain("Pictures: 1 components, 0 sections, 1 pages");
   });
 
+  it("does not count the orphan check as a picture", () => {
+    const summary = summarise(createReport([{ title: "button", level: "component" }, { title: "empty", level: "page" }, { title: "every golden belongs to a scenario" }]));
+
+    expect(summary.levels).toEqual({ component: 1, section: 0, page: 1 });
+    expect(summary.markdown).toContain("Pictures: 1 components, 0 sections, 1 pages");
+  });
+
   it("gives no verdict when there is no results file", () => {
     const summary = summarise(undefined);
 

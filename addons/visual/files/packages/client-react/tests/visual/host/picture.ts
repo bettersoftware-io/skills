@@ -150,6 +150,9 @@ function resolveTolerance(
     }
 
     resolved.maxDiffPixels = maxDiffPixels;
+    // The scenario's absolute cap replaces an older global's ratio. Kept, a
+    // ratio of 0 would still cap the scenario at 0 pixels.
+    delete resolved.maxDiffPixelRatio;
   }
 
   if (pixelThreshold !== undefined) {

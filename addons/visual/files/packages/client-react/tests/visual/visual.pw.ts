@@ -10,7 +10,7 @@ import {
   locateGolden,
 } from "./goldens.ts";
 import { HOST_URL, READY_ATTRIBUTE, ROOT_TESTID } from "./host/address.ts";
-import { resolvePicture } from "./host/picture.ts";
+import { resolvePicture, type Tolerance } from "./host/picture.ts";
 import { scenarios } from "./scenarios.ts";
 import { TOLERANCE } from "./tolerance.ts";
 
@@ -23,6 +23,10 @@ for (const name of Object.keys(scenarios)) {
     // Resolved here, in the test, so a scenario that contradicts itself fails
     // only its own test, with the message that names it and the field.
     const picture = resolvePicture(name, scenarios[name], FRAMING, TOLERANCE);
+
+    // At once, so a scenario that fails later still counts under its level.
+    testInfo.annotations.push({ type: "level", description: picture.level });
+
     const trouble = recordTrouble(page);
 
     // Before the page loads, so the host lays out at the picture's size from
@@ -63,8 +67,6 @@ for (const name of Object.keys(scenarios)) {
       throw new Error(describeMissingGolden(name));
     }
 
-    testInfo.annotations.push({ type: "level", description: picture.level });
-
     // A root capture pictures the root; a viewport capture pictures the
     // viewport, never the whole scrolling page. The scenario's own tolerance
     // is passed as resolved: it may be the project's, or a stricter or looser
@@ -72,11 +74,11 @@ for (const name of Object.keys(scenarios)) {
     if (picture.capture === "root") {
       await expect(page.getByTestId(ROOT_TESTID)).toHaveScreenshot(
         `${name}.png`,
-        { ...picture.tolerance },
+        screenshotTolerance(picture.tolerance),
       );
     } else {
       await expect(page).toHaveScreenshot(`${name}.png`, {
-        ...picture.tolerance,
+        ...screenshotTolerance(picture.tolerance),
         fullPage: false,
       });
     }
@@ -95,6 +97,20 @@ test("every golden belongs to a scenario", () => {
     "these images have no scenario of the same name: delete them, or restore the scenario",
   ).toEqual([]);
 });
+
+/**
+ * Every key of the tolerance, set or not. Playwright merges the options of a
+ * call with the config's `expect.toHaveScreenshot` key by key, so a key left
+ * out here would take the config's value. An old project's ratio of 0 would
+ * then cap a scenario that asked for a larger `maxDiffPixels` at 0 pixels.
+ */
+function screenshotTolerance(tolerance: Tolerance): Tolerance {
+  return {
+    threshold: tolerance.threshold,
+    maxDiffPixels: tolerance.maxDiffPixels,
+    maxDiffPixelRatio: tolerance.maxDiffPixelRatio,
+  };
+}
 
 interface Trouble {
   crashes: string[];

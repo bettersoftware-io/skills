@@ -15,6 +15,9 @@ import { fileURLToPath } from "node:url";
 
 import type { Level } from "../../packages/client-react/tests/visual/host/picture.ts";
 
+/** The spec's one test that is not a scenario. It has no picture, so it has no level. */
+const ORPHAN_CHECK = "every golden belongs to a scenario";
+
 const RESULTS = "packages/client-react/tests/visual/reports/results.json";
 
 /** The parts of Playwright's JSON report this reads. */
@@ -31,7 +34,10 @@ interface ReportSuite {
 interface ReportSpec {
   title: string;
   ok: boolean;
-  tests?: { annotations?: { type?: string; description?: string }[]; results?: { error?: { message?: string } }[] }[];
+  tests?: {
+    annotations?: { type?: string; description?: string }[];
+    results?: { error?: { message?: string } }[];
+  }[];
 }
 
 export interface Summary {
@@ -110,7 +116,9 @@ function countLevels(specs: ReportSpec[]): Record<Level, number> {
   const levels: Record<Level, number> = { component: 0, section: 0, page: 0 };
 
   for (const spec of specs) {
-    levels[readLevel(spec)] += 1;
+    if (spec.title !== ORPHAN_CHECK) {
+      levels[readLevel(spec)] += 1;
+    }
   }
 
   return levels;
