@@ -9,7 +9,11 @@
 export type Level = "component" | "section" | "page";
 type Capture = "root" | "viewport";
 
-/** The fields of a scenario this add-on reads. The project's own state fields sit beside them. */
+/**
+ * The fields of a scenario this add-on reads. The project's own state fields sit beside them.
+ *
+ * @public Only the project's `scenarios.ts` extends it, and that file is the project's. Without the tag, knip reports it unused until the project has made that edit.
+ */
 export interface Picture {
   level?: Level;
   mount?: string;

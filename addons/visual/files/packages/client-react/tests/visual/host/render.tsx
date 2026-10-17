@@ -21,6 +21,7 @@ import {
   resolvePicture,
 } from "./picture.ts";
 import { ScenarioFrame } from "./ScenarioFrame.tsx";
+import type { HostClock, Seeded } from "./seeded.ts";
 
 // The visual host's one job: show a scenario, faithfully, and say when it is
 // ready.
@@ -80,11 +81,13 @@ export async function showScenario(
 
   try {
     // After the clock is installed: whatever the seeding builds reads this clock.
-    const seeded = seedScenario(scenario, {
+    const hostClock: HostClock = {
       tick: (milliseconds: number): void => {
         clock.tick(milliseconds);
       },
-    });
+    };
+
+    const seeded: Seeded = seedScenario(scenario, hostClock);
 
     if (picture.mount !== undefined && seeded.render === undefined) {
       throw new PictureError(describeMissingRender(name));

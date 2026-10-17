@@ -198,8 +198,8 @@
   {
     "name": "ownership: the host reads no field of a scenario",
     "file": "addons/visual/files/packages/client-react/tests/visual/host/render.tsx",
-    "find": "const seeded = seedScenario(scenario, {",
-    "replace": "void scenario.prices;\nconst seeded = seedScenario(scenario, {",
+    "find": "const seeded: Seeded = seedScenario(scenario, hostClock);",
+    "replace": "void scenario.prices;\nconst seeded: Seeded = seedScenario(scenario, hostClock);",
     "test": "pnpm vitest run addons/visual/tests/addon.test.mts -t \"render.tsx names no field of a scenario\""
   },
   {
@@ -747,5 +747,26 @@
     "find": "scenarios.push(name);",
     "replace": "scenarios.splice(0, scenarios.length, name);",
     "test": "pnpm vitest run addons/visual/tests/jitter.test.mts -t \"captures only the scenarios named\""
+  },
+  {
+    "name": "lint:dead after an update: Picture without its @public tag is reported until the project's scenarios.ts extends it",
+    "file": "addons/visual/files/packages/client-react/tests/visual/host/picture.ts",
+    "find": " * @public Only the project's",
+    "replace": " * Only the project's",
+    "test": "pnpm vitest run addons/visual/tests/dead.test.mts"
+  },
+  {
+    "name": "lint:dead after an update: the host does not import Seeded, so Seeded is used only by the project's seeding",
+    "file": "addons/visual/files/packages/client-react/tests/visual/host/render.tsx",
+    "find": "import type { HostClock, Seeded } from",
+    "replace": "import type { HostClock } from",
+    "test": "pnpm vitest run addons/visual/tests/dead.test.mts"
+  },
+  {
+    "name": "lint:dead after an update: the host does not import HostClock, so HostClock is used only by the project's seeding",
+    "file": "addons/visual/files/packages/client-react/tests/visual/host/render.tsx",
+    "find": "import type { HostClock, Seeded } from",
+    "replace": "import type { Seeded } from",
+    "test": "pnpm vitest run addons/visual/tests/dead.test.mts"
   }
 ]
