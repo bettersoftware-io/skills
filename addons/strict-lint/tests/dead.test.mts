@@ -139,6 +139,20 @@ describe("what knip leaves alone", { timeout: REAL_TOOL_TIMEOUT }, () => {
     expect(formatResult(checkDead(project))).toContain(CLEAN);
   });
 
+  it("follows a Vitest config kept under tests/ to the test file it names", () => {
+    const project = createWorkspace();
+
+    writeFiles(project, {
+      "packages/app/package.json": createPackageJson({ ...APP, devDependencies: { ...APP.devDependencies, vitest: "^5.0.3" } }),
+      // As the visual add-on's reach config: its root is the package, and its one test is not a `*.test` file.
+      "packages/app/tests/visual/reach/vitest.config.ts":
+        'import { fileURLToPath } from "node:url";\n\nexport default { root: fileURLToPath(new URL("../../..", import.meta.url)), test: { include: ["tests/visual/reach/reach.browser.tsx"] } };\n',
+      "packages/app/tests/visual/reach/reach.browser.tsx": 'import { it } from "vitest";\n\nit("renders", () => {});\n',
+    });
+
+    expect(formatResult(checkDead(project))).toContain(CLEAN);
+  });
+
   it("follows a Vite config kept under tests/ to the page it serves", () => {
     const project = createWorkspace();
 

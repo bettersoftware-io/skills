@@ -78,6 +78,7 @@ Here one line covers every package, so a new package needs no edit.
 |---|---|
 | `packages/*`: `includeEntryExports: true` | The starter's packages export their TypeScript source: `"./*": "./src/*"`. knip takes every file that map names as an entry, and does not judge an entry's exports unless told to. Without this line no export of a library package is ever reported (measured: a new unused export in `packages/domain` was not reported). With it, every export needs an importer: a file in the package, a test, or another package |
 | `packages/*`: Playwright and Vite configs also under `tests/**` | The visual add-on keeps `playwright.config.ts` and the host's `vite.config.ts` under `tests/visual/`. knip looks for them at the package root only. Without these two lines eight files and two dependencies of that add-on are reported |
+| `packages/*`: Vitest configs also under `tests/**` | The visual add-on's `pnpm visual:coverage` runs Vitest in a browser from `tests/visual/reach/vitest.config.ts`, and that config names its one test file, `reach.browser.tsx`. Without this line both files are reported as unused |
 | Root: `entry` is `architecture.config.mts` and `tools/**/*.mts` | The kit loads `architecture.config.mts` by name. Every script under `tools/` is an entry, so nothing in `tools/` is reported and what those scripts import counts as used |
 | Root: the stylelint config is `tools/repo-hygiene/stylelint.json` and `stylelint.base.json` beside it | The repo-hygiene add-on keeps its rules there. The first extends the second, which extends `stylelint-config-standard` and loads a plugin. knip does not follow an `extends` to a file, so both are named |
 | Root: `ignoreDependencies` names `dependency-cruiser`, `@manypkg/cli`, `stylelint`, `syncpack` | Each is run as a program by a script in `tools/` that names it in a string (the kit's dependencies gate, repo-hygiene's checks). knip follows imports and `package.json` scripts, not that |
@@ -139,7 +140,7 @@ out. No behaviour changed.
 
 ## How it was tested
 
-`pnpm vitest run addons/strict-lint`: 65 tests in six files.
+`pnpm vitest run addons/strict-lint`: 66 tests in six files.
 
 - `tests/check-types.test.mts`, `tests/check-dead.test.mts`,
   `tests/files.test.mts`: the two wrappers and their library, with the tool

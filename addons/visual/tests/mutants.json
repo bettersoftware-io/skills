@@ -565,5 +565,75 @@
     "find": "specifier.split(\"?\")[0] ?? specifier",
     "replace": "specifier",
     "test": "pnpm vitest run addons/visual/tests/check-styles.test.mts -t \"fonts.css.inline\""
+  },
+  {
+    "name": "reach: ranks the fewest uncovered statements first",
+    "file": "addons/visual/files/tools/visual/lib/reach.mts",
+    "find": "b.uncoveredStatements - a.uncoveredStatements ||",
+    "replace": "a.uncoveredStatements - b.uncoveredStatements ||",
+    "test": "pnpm vitest run addons/visual/tests/reach.test.mts -t \"puts the file with the most statements no scenario renders first\""
+  },
+  {
+    "name": "reach: breaks a tie by the higher percentage",
+    "file": "addons/visual/files/tools/visual/lib/reach.mts",
+    "find": "a.statementsPct - b.statementsPct ||",
+    "replace": "b.statementsPct - a.statementsPct ||",
+    "test": "pnpm vitest run addons/visual/tests/reach.test.mts -t \"breaks a tie on statements by the lower percentage, then by path\""
+  },
+  {
+    "name": "reach: breaks a tie by path the wrong way round",
+    "file": "addons/visual/files/tools/visual/lib/reach.mts",
+    "find": "a.file.localeCompare(b.file)",
+    "replace": "b.file.localeCompare(a.file)",
+    "test": "pnpm vitest run addons/visual/tests/reach.test.mts -t \"breaks a tie on statements by the lower percentage, then by path\""
+  },
+  {
+    "name": "reach: lists a file whose every statement, branch and function is reached",
+    "file": "addons/visual/files/tools/visual/lib/reach.mts",
+    "find": "    .filter((gap) => gap.uncoveredStatements + gap.branchLines.length + gap.functions.length > 0)\n",
+    "replace": "",
+    "test": "pnpm vitest run addons/visual/tests/reach.test.mts -t \"leaves out a file whose every statement, branch and function is reached\""
+  },
+  {
+    "name": "reach: leaves out a file with only a branch never taken",
+    "file": "addons/visual/files/tools/visual/lib/reach.mts",
+    "find": "gap.uncoveredStatements + gap.branchLines.length + gap.functions.length > 0",
+    "replace": "gap.uncoveredStatements + gap.functions.length > 0",
+    "test": "pnpm vitest run addons/visual/tests/reach.test.mts -t \"keeps a file whose statements all run but has a branch never taken\""
+  },
+  {
+    "name": "reach: branch lines unsorted",
+    "file": "addons/visual/files/tools/visual/lib/reach.mts",
+    "find": "[...branchLines].sort((a, b) => a - b)",
+    "replace": "[...branchLines]",
+    "test": "pnpm vitest run addons/visual/tests/reach.test.mts -t \"names each line with a branch never taken once, in order\""
+  },
+  {
+    "name": "reach: a branch line named twice",
+    "file": "addons/visual/files/tools/visual/lib/reach.mts",
+    "find": "const branchLines = new Set<number>();",
+    "replace": "const branchLines = { items: [] as number[], add(line: number) { this.items.push(line); }, [Symbol.iterator]() { return this.items[Symbol.iterator](); } };",
+    "test": "pnpm vitest run addons/visual/tests/reach.test.mts -t \"names each line with a branch never taken once, in order\""
+  },
+  {
+    "name": "reach: names the functions that were called",
+    "file": "addons/visual/files/tools/visual/lib/reach.mts",
+    "find": ".filter(([, count]) => count === 0)\n      .map",
+    "replace": ".filter(([, count]) => count !== 0)\n      .map",
+    "test": "pnpm vitest run addons/visual/tests/reach.test.mts -t \"names the functions never called\""
+  },
+  {
+    "name": "reach: paths are absolute",
+    "file": "addons/visual/files/tools/visual/lib/reach.mts",
+    "find": "toGap(relative(root, path).split(sep).join(\"/\"), file)",
+    "replace": "toGap(path, file)",
+    "test": "pnpm vitest run addons/visual/tests/reach.test.mts -t \"puts the file with the most statements no scenario renders first\""
+  },
+  {
+    "name": "reach: the limit is not kept",
+    "file": "addons/visual/files/tools/visual/lib/reach.mts",
+    "find": "gaps.slice(0, limit)",
+    "replace": "gaps",
+    "test": "pnpm vitest run addons/visual/tests/reach.test.mts -t \"stops at the limit and says how many more there are\""
   }
 ]

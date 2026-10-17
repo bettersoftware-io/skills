@@ -294,6 +294,13 @@
     "test": "pnpm vitest run addons/strict-lint/tests/dead.test.mts -t \"follows a Vite config kept under tests/\""
   },
   {
+    "name": "dead: follows a Vitest config kept under tests/",
+    "file": "addons/strict-lint/files/tools/strict-lint/knip.jsonc",
+    "find": "\"tests/**/vitest.config.ts\"",
+    "replace": "\"e2e/**/vitest.config.ts\"",
+    "test": "pnpm vitest run addons/strict-lint/tests/dead.test.mts -t \"follows a Vitest config kept under tests/\""
+  },
+  {
     "name": "files: are the .ts, .tsx and .mts files, in order",
     "file": "addons/strict-lint/files/tools/strict-lint/lib/files.mts",
     "find": "/\\.(ts|tsx|mts)$/",
