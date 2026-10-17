@@ -69,6 +69,8 @@ node <plugin root>/scripts/add-to-project.mts <project> <unit>
 - If it prints "Still to do by hand", those steps are the user's to decide
   (which role each package plays, how to merge hook settings). Do them with
   the user, not for them.
+- If it prints "Release notes", show them to the user unchanged: they say what
+  the new version changes and what to do.
 
 - If it prints "Yours to change", the update changed the template of a file
   the project owns and left the project's file alone. Show the section

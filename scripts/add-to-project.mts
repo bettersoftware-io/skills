@@ -43,6 +43,7 @@ import {
   type InstallOutcome,
   InstallError,
   installedChoice,
+  installedReleases,
   installedStarting,
   installedUnits,
   installFiles,
@@ -53,6 +54,7 @@ import {
   readProjectFile,
   readProjectText,
   readProjectTextIfThere,
+  recordReleases,
   recordStarting,
   removeProjectFile,
   renameScope,
@@ -229,6 +231,8 @@ export interface AddResult {
   choiceSays?: string;
   /** Files of the option the project had before, removed because the project never changed them. */
   choiceRemoved?: string[];
+  /** The notes of the releases this project has not seen, oldest first. Empty at first install: a new project is owed no change. */
+  releaseNotes: { id: string; notes: string[] }[];
 }
 
 interface PackagePatch {
@@ -254,6 +258,12 @@ interface AddonManifest {
    * Each must also be a starting file. Same syntax as `startingFiles`.
    */
   examples?: string[];
+  /**
+   * What each release changes for a project that has the add-on, and what to
+   * do about it. Oldest first. A release's notes are printed to a project
+   * once: the first update after it, never at first install.
+   */
+  releaseNotes?: { id: string; notes: string[] }[];
   verify?: string;
   /**
    * A command to run once after the add-on is installed, before its check: a
@@ -373,6 +383,7 @@ export function addToProject({ project, unit, force = false, scope, repository =
         gatesBefore !== undefined && name in gatesBefore ? [] : [{ name, options, ...(failsOn[name] === undefined ? {} : { failsOn: failsOn[name] }) }],
       ),
       ...(gatesBefore === undefined && Object.keys(gatesNow).length > 0 ? { gatesUnknownBefore: true } : {}),
+      releaseNotes: [],
       ...setup,
     };
   }
@@ -679,6 +690,13 @@ function addAddon(destination: string, project: string, asked: string, force: bo
 
   recordStarting(destination, unit, [...starting.keys()].sort());
 
+  // A new project is owed no notes. An old record that has no list is owed every release.
+  const releases = manifest.releaseNotes ?? [];
+  const seen = firstTime ? releases.map(({ id }) => id) : (installedReleases(destination, unit) ?? []);
+  const releaseNotes = releases.filter(({ id }) => !seen.includes(id));
+
+  recordReleases(destination, unit, releases.map(({ id }) => id));
+
   const retired: string[] = [];
 
   for (const [path, { replacedBy, note }] of Object.entries(manifest.retiredFiles ?? {})) {
@@ -785,6 +803,7 @@ function addAddon(destination: string, project: string, asked: string, force: bo
     choice: chosen,
     choiceSays: chosen === undefined ? undefined : manifest.choice?.options[chosen],
     choiceRemoved,
+    releaseNotes,
   };
 }
 
@@ -1313,6 +1332,10 @@ export function describe(result: AddResult, project: string): string {
 
   if (result.unmerged.length > 0) {
     lines.push("", `Not merged: ${result.unmerged.length} place(s) in a host's settings file. The add-on is not whole until they are (exit 3):`, ...result.unmerged.map((entry) => `  - ${entry}`));
+  }
+
+  if (result.releaseNotes.length > 0) {
+    lines.push("", "Release notes:", ...result.releaseNotes.flatMap(({ id, notes }) => [`  ${id}`, ...notes.map((note) => `    - ${note}`)]));
   }
 
   const notes = result.notes.filter((note) => !result.unmerged.includes(note));

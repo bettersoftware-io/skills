@@ -57,6 +57,8 @@ interface InstalledRecord {
      * is new to the project; one that is here and gone was deleted by it.
      */
     starting?: string[];
+    /** The ids of the add-on's releases whose notes the project has been shown, or was never owed. */
+    releasesSeen?: string[];
   };
 }
 
@@ -285,6 +287,7 @@ export function installFiles(
     ...(choice === undefined ? {} : { choice }),
     // Kept through the install: it is read after it, to tell a new starting file from a deleted one.
     ...(record[unit]?.starting === undefined ? {} : { starting: record[unit].starting }),
+    ...(record[unit]?.releasesSeen === undefined ? {} : { releasesSeen: record[unit].releasesSeen }),
   };
   writeRecord(project, record);
 
@@ -447,6 +450,22 @@ export function recordStarting(project: string, unit: string, starting: string[]
 
   if (entry !== undefined && JSON.stringify(entry.starting) !== JSON.stringify(starting)) {
     record[unit] = { ...entry, starting };
+    writeRecord(project, record);
+  }
+}
+
+/** The releases of the unit whose notes the project has seen. Undefined: the record is from before release notes. */
+export function installedReleases(project: string, unit: string): string[] | undefined {
+  return readRecord(project)[unit]?.releasesSeen;
+}
+
+/** Records the releases whose notes the project has now seen. Called after an install, which made the unit's entry. */
+export function recordReleases(project: string, unit: string, ids: string[]): void {
+  const record = readRecord(project);
+  const entry = record[unit];
+
+  if (entry !== undefined && JSON.stringify(entry.releasesSeen) !== JSON.stringify(ids)) {
+    record[unit] = { ...entry, releasesSeen: ids };
     writeRecord(project, record);
   }
 }

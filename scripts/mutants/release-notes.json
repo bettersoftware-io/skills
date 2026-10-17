@@ -1,0 +1,44 @@
+[
+  {
+    "name": "release notes: a first install records no release as seen",
+    "file": "scripts/add-to-project.mts",
+    "find": "const seen = firstTime ? releases.map(({ id }) => id) : (installedReleases(destination, unit) ?? []);",
+    "replace": "const seen = firstTime ? [] : (installedReleases(destination, unit) ?? []);",
+    "test": "pnpm vitest run scripts/add-to-project.test.mts -t \"prints no notes at first install\""
+  },
+  {
+    "name": "release notes: the releases are never recorded",
+    "file": "scripts/add-to-project.mts",
+    "find": "  recordReleases(destination, unit, releases.map(({ id }) => id));",
+    "replace": "",
+    "test": "pnpm vitest run scripts/add-to-project.test.mts -t \"notes of a release the project has not seen, once\""
+  },
+  {
+    "name": "release notes: a release already seen is printed again",
+    "file": "scripts/add-to-project.mts",
+    "find": "const releaseNotes = releases.filter(({ id }) => !seen.includes(id));",
+    "replace": "const releaseNotes = releases;",
+    "test": "pnpm vitest run scripts/add-to-project.test.mts -t \"notes of a release the project has not seen, once\""
+  },
+  {
+    "name": "release notes: an old record with no list is owed nothing",
+    "file": "scripts/add-to-project.mts",
+    "find": "(installedReleases(destination, unit) ?? [])",
+    "replace": "(installedReleases(destination, unit) ?? releases.map(({ id }) => id))",
+    "test": "pnpm vitest run scripts/add-to-project.test.mts -t \"before release notes\""
+  },
+  {
+    "name": "release notes: an install drops the seen list of the record",
+    "file": "scripts/lib/install.mts",
+    "find": "    ...(record[unit]?.releasesSeen === undefined ? {} : { releasesSeen: record[unit].releasesSeen }),\n",
+    "replace": "",
+    "test": "pnpm vitest run scripts/add-to-project.test.mts -t \"keeps releasesSeen\""
+  },
+  {
+    "name": "release notes: the notes are not printed",
+    "file": "scripts/add-to-project.mts",
+    "find": "  if (result.releaseNotes.length > 0) {",
+    "replace": "  if (false) {",
+    "test": "pnpm vitest run scripts/add-to-project.test.mts -t \"under 'Release notes:'\""
+  }
+]

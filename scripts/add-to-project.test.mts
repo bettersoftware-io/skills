@@ -1582,6 +1582,66 @@ describe("a starting file that a later version of an add-on is the first to ship
   });
 });
 
+describe("an add-on's release notes", () => {
+  it("prints no notes at first install, and records them as seen", () => {
+    const { repository, project } = createWorldWithKit();
+    withReleases(repository, ["a"]);
+
+    const result = addToProject({ project, unit: "demo", repository });
+
+    expect(result.releaseNotes).toEqual([]);
+    expect(readJson(project, "tools/installed.json").demo.releasesSeen).toEqual(["a"]);
+  });
+
+  it("prints the notes of a release the project has not seen, once", () => {
+    const { repository, project } = createWorldWithKit();
+    withReleases(repository, ["a"]);
+    addToProject({ project, unit: "demo", repository });
+    withReleases(repository, ["a", "b"]);
+
+    expect(addToProject({ project, unit: "demo", repository }).releaseNotes).toEqual([{ id: "b", notes: ["note of b"] }]);
+    expect(addToProject({ project, unit: "demo", repository }).releaseNotes).toEqual([]);
+  });
+
+  it("prints every release to a project whose record is from before release notes", () => {
+    const { repository, project } = createWorldWithKit();
+    withReleases(repository, ["a", "b"]);
+    addToProject({ project, unit: "demo", repository });
+    const record = readJson(project, "tools/installed.json");
+
+    delete record.demo.releasesSeen;
+    write(project, "tools/installed.json", `${JSON.stringify(record, null, 2)}\n`);
+
+    expect(addToProject({ project, unit: "demo", repository }).releaseNotes.map(({ id }) => id)).toEqual(["a", "b"]);
+  });
+
+  it("keeps releasesSeen through an update that changes other files", () => {
+    const { repository, project } = createWorldWithKit();
+    withReleases(repository, ["a"]);
+    addToProject({ project, unit: "demo", repository });
+    write(repository, "addons/demo/files/packages/web/tests/other.ts", "// new\n");
+
+    const result = addToProject({ project, unit: "demo", repository });
+
+    expect(result.files.written).toContain("packages/web/tests/other.ts");
+    expect(result.releaseNotes).toEqual([]);
+    expect(readJson(project, "tools/installed.json").demo.releasesSeen).toEqual(["a"]);
+  });
+
+  it("shows the notes under 'Release notes:' before what is still to do", () => {
+    const { repository, project } = createWorldWithKit();
+    withReleases(repository, ["a"]);
+    addToProject({ project, unit: "demo", repository });
+    withReleases(repository, ["a", "b"]);
+    const result = addToProject({ project, unit: "demo", repository });
+
+    const printed = describeResult({ ...result, notes: ["do this by hand"] }, project);
+
+    expect(printed).toContain("Release notes:\n  b\n    - note of b");
+    expect(printed.indexOf("Release notes:")).toBeLessThan(printed.indexOf("Still to do by hand:"));
+  });
+});
+
 describe("an example starting file", () => {
   it("is written at first install", () => {
     const { repository, project } = createWorldWithKit();
@@ -2017,6 +2077,13 @@ function withStartingFiles(repository: string): void {
   write(repository, "addons/demo/addon.json", JSON.stringify(manifest));
   write(repository, "addons/demo/files/packages/web/tests/scenarios.ts", "// scenarios, as shipped\n");
   write(repository, "addons/demo/files/packages/web/tests/goldens/a.png", "an image, as shipped");
+}
+
+/** Gives the demo add-on these releases, oldest first, each with one note. Its files are not changed. */
+function withReleases(repository: string, ids: string[]): void {
+  const manifest = readJson(repository, "addons/demo/addon.json");
+
+  write(repository, "addons/demo/addon.json", JSON.stringify({ ...manifest, releaseNotes: ids.map((id) => ({ id, notes: [`note of ${id}`] })) }));
 }
 
 /** Gives the demo add-on a registry and a golden folder as examples: starting files that only a first install writes. */
