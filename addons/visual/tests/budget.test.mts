@@ -2,6 +2,11 @@
 // both sides, without a browser: it must hide a one- or two-level shading
 // wobble, and it must still count each reference regression. Raising a default
 // until a regression slips through fails here.
+//
+// The pairs are drawn images, not browser captures. Some have hard edges (every
+// changed pixel counts); two have smoothed edges, where the comparison drops the
+// rim pixels it takes for anti-aliasing and counts fewer than changed. Both
+// kinds are here so the half-rule is held by the counted number, not the changed.
 
 import { describe, expect, it } from "vitest";
 
@@ -18,7 +23,6 @@ const GREEN: Rgba = [0x1a, 0x8f, 0x4c, 255];
 const BLUE: Rgba = [0x1a, 0x4c, 0x8f, 255];
 const LOW_CONTRAST: Rgba = [0xd9, 0xd9, 0xd9, 255];
 const BORDER: Rgba = [0x88, 0x88, 0x88, 255];
-const BUDGET = TOLERANCE.maxDiffPixels ?? 0;
 
 /** The colour a layer paints at a pixel, or nothing to let the layer below show. */
 type Paint = (x: number, y: number) => Rgba | undefined;
@@ -57,6 +61,36 @@ function glyphArea(colour: Rgba): Paint {
 const line = (colour: Rgba): Paint => (x, y) => (within(x, y, [100, 44, 120, 1]) ? colour : undefined);
 const icon: Paint = (x, y) => (within(x, y, [420, 20, 4, 4]) ? INK : undefined);
 
+/**
+ * A round mark with a smoothed edge: each pixel on the rim is the colour mixed
+ * with white by how much of the pixel the shape covers (4x4 samples), so the
+ * rim has several grey levels, as a drawn glyph or icon does. With `hole` it is
+ * a ring, like an "o".
+ */
+function round(centreX: number, centreY: number, radius: number, colour: Rgba, hole = 0): Paint {
+  return (x, y) => {
+    let covered = 0;
+
+    for (let sy = 0; sy < 4; sy += 1) {
+      for (let sx = 0; sx < 4; sx += 1) {
+        const distance = Math.hypot(x + (sx + 0.5) / 4 - centreX, y + (sy + 0.5) / 4 - centreY);
+
+        if (distance <= radius && distance >= hole) {
+          covered += 1;
+        }
+      }
+    }
+
+    if (covered === 0) {
+      return undefined;
+    }
+
+    const mix = (channel: number): number => Math.round(255 + (channel - 255) * (covered / 16));
+
+    return [mix(colour[0]), mix(colour[1]), mix(colour[2]), 255];
+  };
+}
+
 /** A 60x20 box with a 1 px border, its left edge at `left`. */
 function box(left: number): Paint {
   return (x, y) => {
@@ -86,6 +120,16 @@ function counted(before: Image, after: Image): number {
   return comparePixels(before, after, TOLERANCE.threshold).different;
 }
 
+/** The shipped pixel cap. A tolerance with no cap would pass every check below for the wrong reason. */
+function budget(): number {
+  const cap = TOLERANCE.maxDiffPixels;
+
+  expect(cap).toBeDefined();
+  expect(cap).toBeGreaterThan(0);
+
+  return cap as number;
+}
+
 /** Pixels that differ at all, whatever the threshold. */
 function changed(before: Image, after: Image): number {
   let total = 0;
@@ -105,19 +149,36 @@ const regressions = [
     before: picture(glyphArea(GREEN), text),
     after: picture(glyphArea(BLUE), text),
     changed: 83,
+    counted: 83,
+  },
+  {
+    name: "catches the up colour turned blue on smoothed glyphs",
+    before: picture(round(372, 33, 7, GREEN, 3.5), round(396, 33, 7, GREEN, 3.5), text),
+    after: picture(round(372, 33, 7, BLUE, 3.5), round(396, 33, 7, BLUE, 3.5), text),
+    changed: 280,
+    counted: 160,
+  },
+  {
+    name: "catches a 6x6 smoothed icon removed",
+    before: picture(round(440, 12, 3, INK), text),
+    after: picture(text),
+    changed: 32,
+    counted: 16,
   },
   {
     name: "catches a one-pixel line of low contrast removed",
     before: picture(line(LOW_CONTRAST), text),
     after: picture(text),
     changed: 120,
+    counted: 120,
   },
-  { name: "catches a 4x4 icon removed", before: picture(icon, text), after: picture(text), changed: 16 },
+  { name: "catches a 4x4 icon removed", before: picture(icon, text), after: picture(text), changed: 16, counted: 16 },
   {
     name: "catches a bordered box moved by one pixel",
     before: picture(box(400), text),
     after: picture(box(401), text),
     changed: 76,
+    counted: 76,
   },
 ];
 
@@ -126,10 +187,11 @@ describe("the default tolerance", () => {
     it(regression.name, () => {
       const count = counted(regression.before, regression.after);
 
-      process.stdout.write(`budget: ${regression.name}: changed ${changed(regression.before, regression.after)}, counted ${count}\n`);
-
-      expect(changed(regression.before, regression.after)).toBe(regression.changed);
-      expect(count).toBeGreaterThan(BUDGET);
+      expect({ changed: changed(regression.before, regression.after), counted: count }).toEqual({
+        changed: regression.changed,
+        counted: regression.counted,
+      });
+      expect(count).toBeGreaterThan(budget());
     });
   }
 
@@ -145,6 +207,6 @@ describe("the default tolerance", () => {
   it("keeps the budget at most half the smallest regression", () => {
     const counts = regressions.map(({ before, after }) => counted(before, after));
 
-    expect(BUDGET * 2).toBeLessThanOrEqual(Math.min(...counts));
+    expect(budget() * 2).toBeLessThanOrEqual(Math.min(...counts));
   });
 });
