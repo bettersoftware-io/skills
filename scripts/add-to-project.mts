@@ -248,6 +248,12 @@ interface AddonManifest {
    * again, not even by --force. A path ending in `/` names a whole folder.
    */
   startingFiles?: string[];
+  /**
+   * Starting files that are only an example: written when the add-on is first
+   * added, and never by an update, not even into a project that lacks them.
+   * Each must also be a starting file. Same syntax as `startingFiles`.
+   */
+  examples?: string[];
   verify?: string;
   /**
    * A command to run once after the add-on is installed, before its check: a
@@ -561,6 +567,13 @@ function addAddon(destination: string, project: string, asked: string, force: bo
   assertKitHasGates(destination, project, manifest);
 
   const packagePlan = planPackageChanges(destination, manifest, force);
+  // An example is written once; so it must be a file the project owns.
+  for (const example of manifest.examples ?? []) {
+    if (!matchesPattern(example, manifest.startingFiles ?? [])) {
+      throw new InstallError(`the add-on "${manifest.name}" cannot be installed: ${example} is an example and not a starting file`);
+    }
+  }
+
   const settingsPlan = planHostSettings(destination, manifest);
   const architecturePlan = planArchitecture(destination, manifest);
   const source = join(addon, "files");
@@ -644,9 +657,15 @@ function addAddon(destination: string, project: string, asked: string, force: bo
     (keepsTemplates && templates.some(({ owned, template }) => owned === path && !templatesBefore.has(template)));
   /** Shipped, not in the project, not written, and not text: no template speaks for it under "Yours to change". */
   const unseen: string[] = [];
+  const isExample = (path: string): boolean => matchesPattern(path, manifest.examples ?? []);
 
   for (const [path, content] of starting) {
     if (projectHas(destination, path)) {
+      continue;
+    }
+
+    // An example is for the first install: later it is neither written nor told of, whether or not the record can say it was given.
+    if (!firstTime && isExample(path)) {
       continue;
     }
 
@@ -758,7 +777,8 @@ function addAddon(destination: string, project: string, asked: string, force: bo
     notes,
     unmerged: settingsPlan.unmerged,
     // A file this run has just written is the template word for word, and so is not among these.
-    yours: findOwnedChanges(destination, templates, templatesBefore, outcome.written),
+    // An example the project lacks is not offered back: it was not given on purpose.
+    yours: findOwnedChanges(destination, templates, templatesBefore, outcome.written).filter(({ owned, state }) => state !== "never-seen" || !isExample(owned)),
     newGates: [],
     firstRun: manifest.firstRun,
     verify: manifest.verify,
@@ -1062,12 +1082,17 @@ function keepTemplates(files: Map<string, Buffer>, starting: Map<string, Buffer>
 
 const TEXT_STARTING_FILE = /\.(ts|tsx|mts|json|jsonc|json5|md|yaml|yml|html|css)$|(^|\/)\.gitignore$/;
 
+/** Whether a path is one of the patterns, or in one that names a folder (ends in `/`). */
+function matchesPattern(path: string, patterns: string[]): boolean {
+  return patterns.some((pattern) => (pattern.endsWith("/") ? path.startsWith(pattern) : path === pattern));
+}
+
 /** Moves the files the project will own out of `files`, and returns them. */
 function takeStartingFiles(files: Map<string, Buffer>, patterns: string[]): Map<string, Buffer> {
   const starting = new Map<string, Buffer>();
 
   for (const [path, content] of files) {
-    if (patterns.some((pattern) => (pattern.endsWith("/") ? path.startsWith(pattern) : path === pattern))) {
+    if (matchesPattern(path, patterns)) {
       starting.set(path, content);
       files.delete(path);
     }

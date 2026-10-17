@@ -1582,6 +1582,87 @@ describe("a starting file that a later version of an add-on is the first to ship
   });
 });
 
+describe("an example starting file", () => {
+  it("is written at first install", () => {
+    const { repository, project } = createWorldWithKit();
+    withExamples(repository);
+
+    addToProject({ project, unit: "demo", repository });
+
+    expect(read(project, "packages/web/tests/registry.tsx")).toBe("// registry, as shipped\n");
+    expect(read(project, "packages/web/tests/goldens/a.png")).toBe("an image, as shipped");
+  });
+
+  it("never comes in with an update, even one this version is the first to ship", () => {
+    const { repository, project } = createWorldWithKit();
+    withExamples(repository);
+    addToProject({ project, unit: "demo", repository });
+    write(repository, "addons/demo/files/packages/web/tests/goldens/b.png", "a second image");
+
+    const result = addToProject({ project, unit: "demo", repository });
+
+    expect(existsSync(join(project, "packages/web/tests/goldens/b.png"))).toBe(false);
+    expect(result.created).toEqual([]);
+    expect(readJson(project, "tools/installed.json").demo.starting).toContain("packages/web/tests/goldens/b.png");
+  });
+
+  it("is neither written nor named in a project whose record has no starting list", () => {
+    const { repository, project } = createWorldWithKit();
+    withExamples(repository);
+    addToProject({ project, unit: "demo", repository });
+    forgetStartingFiles(project);
+    write(repository, "addons/demo/files/packages/web/tests/goldens/b.png", "a second image");
+    write(repository, "addons/demo/files/packages/web/tests/goldens/c.json", "{}\n");
+
+    const result = addToProject({ project, unit: "demo", repository });
+
+    expect(existsSync(join(project, "packages/web/tests/goldens/b.png"))).toBe(false);
+    expect(existsSync(join(project, "packages/web/tests/goldens/c.json"))).toBe(false);
+    expect(result.created).toEqual([]);
+    expect(describeResult(result, project)).not.toContain("goldens/b.png");
+    expect(describeResult(result, project)).not.toContain("goldens/c.json");
+  });
+
+  it("is not named in a project that keeps templates, when its template is new there", () => {
+    const { repository, project } = createWorldWithKit();
+    withExamples(repository);
+    addToProject({ project, unit: "demo", repository });
+    write(repository, "addons/demo/files/packages/web/tests/registry2.tsx", "// another\n");
+    const manifest = readJson(repository, "addons/demo/addon.json");
+
+    write(repository, "addons/demo/addon.json", JSON.stringify({ ...manifest, startingFiles: [...manifest.startingFiles, "packages/web/tests/registry2.tsx"], examples: [...manifest.examples, "packages/web/tests/registry2.tsx"] }));
+    forgetStartingFiles(project);
+
+    const result = addToProject({ project, unit: "demo", repository });
+
+    expect(existsSync(join(project, "packages/web/tests/registry2.tsx"))).toBe(false);
+    expect(result.created).toEqual([]);
+  });
+
+  it("does not stop a new starting file that is not an example from being written", () => {
+    const { repository, project } = createWorldWithKit();
+    withExamples(repository);
+    addToProject({ project, unit: "demo", repository });
+    withPolicyFile(repository);
+
+    expect(addToProject({ project, unit: "demo", repository }).created).toEqual(["POLICY.md"]);
+  });
+
+  it("is refused when it is not a starting file, and nothing is written", () => {
+    const { repository, project } = createWorldWithKit();
+    withExamples(repository);
+    const manifest = readJson(repository, "addons/demo/addon.json");
+
+    write(repository, "addons/demo/addon.json", JSON.stringify({ ...manifest, examples: [...manifest.examples, "packages/web/tests/other.tsx"] }));
+    const before = snapshot(project);
+
+    expect(() => addToProject({ project, unit: "demo", repository })).toThrow(
+      'the add-on "demo" cannot be installed: packages/web/tests/other.tsx is an example and not a starting file',
+    );
+    expect(snapshot(project)).toEqual(before);
+  });
+});
+
 describe("an add-on update in a project that kept no copy of a template", () => {
   it("shows where the project's starting file differs from the template, and says it cannot tell which side changed", () => {
     const { repository, project } = createWorldWithKit();
@@ -1936,6 +2017,16 @@ function withStartingFiles(repository: string): void {
   write(repository, "addons/demo/addon.json", JSON.stringify(manifest));
   write(repository, "addons/demo/files/packages/web/tests/scenarios.ts", "// scenarios, as shipped\n");
   write(repository, "addons/demo/files/packages/web/tests/goldens/a.png", "an image, as shipped");
+}
+
+/** Gives the demo add-on a registry and a golden folder as examples: starting files that only a first install writes. */
+function withExamples(repository: string): void {
+  withStartingFiles(repository);
+
+  const manifest = readJson(repository, "addons/demo/addon.json");
+
+  write(repository, "addons/demo/addon.json", JSON.stringify({ ...manifest, startingFiles: [...manifest.startingFiles, "packages/web/tests/registry.tsx"], examples: ["packages/web/tests/registry.tsx", "packages/web/tests/goldens/"] }));
+  write(repository, "addons/demo/files/packages/web/tests/registry.tsx", "// registry, as shipped\n");
 }
 
 /** Gives the demo add-on a setting file, and the name of the file that held the setting before. */

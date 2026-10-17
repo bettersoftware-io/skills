@@ -1,0 +1,30 @@
+[
+  {
+    "name": "examples: an update writes a new example",
+    "file": "scripts/add-to-project.mts",
+    "find": "if (!firstTime && isExample(path)) {",
+    "replace": "if (false) {",
+    "test": "pnpm vitest run scripts/add-to-project.test.mts -t \"never comes in with an update\""
+  },
+  {
+    "name": "examples: a record with no starting list reports an example as unseen",
+    "file": "scripts/add-to-project.mts",
+    "find": "if (!firstTime && isExample(path)) {",
+    "replace": "if (false) {",
+    "test": "pnpm vitest run scripts/add-to-project.test.mts -t \"neither written nor named\""
+  },
+  {
+    "name": "examples: a template the project lacks is offered back for an example",
+    "file": "scripts/add-to-project.mts",
+    "find": ".filter(({ owned, state }) => state !== \"never-seen\" || !isExample(owned)),",
+    "replace": ",",
+    "test": "pnpm vitest run scripts/add-to-project.test.mts -t \"neither written nor named\""
+  },
+  {
+    "name": "examples: an example that is not a starting file is accepted",
+    "file": "scripts/add-to-project.mts",
+    "find": "    if (!matchesPattern(example, manifest.startingFiles ?? [])) {",
+    "replace": "    if (false) {",
+    "test": "pnpm vitest run scripts/add-to-project.test.mts -t \"is refused when it is not a starting file\""
+  }
+]
