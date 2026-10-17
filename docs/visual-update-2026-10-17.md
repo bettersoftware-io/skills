@@ -1,0 +1,286 @@
+# An update of visual from 0.18.1 to 0.19.0, 2026-10-17
+
+The visual add-on 0.19.0 must update the projects installed from 0.18.1,
+condo-ledger first, without touching their scenarios or seeding. This is that
+update tried on a project built to the same shape, then taken the way
+`extending-a-project` says.
+
+## Setup
+
+- `main` at `d9e338c` (plugin 0.18.1), unpacked with `git archive` into a
+  scratch folder. The update was run from this branch at `3bc6a63`.
+- macOS 27.0.1 on arm64, Node 26.11.1, pnpm 12.6.0.
+- A project created from the old copy:
+
+  ```
+  node scripts/create-project.mts <scratch>/t13-demo --scope @demo --with visual,strict-lint
+  ```
+
+  It has the kit (create-project always installs it), `visual`, and
+  `strict-lint`, so `gate:full` runs `lint:dead` (knip) over what the update
+  adds. `git init`, `pnpm install`.
+- Then the two edits condo-ledger has:
+  - `visual.pw.ts`: the loop reads each scenario, and
+    `await page.setViewportSize({ width: scenario.width, height: 720 })` comes
+    before `goto`. `scenarios.ts` gained `width: number` on `Scenario` and
+    `width: 1280` on each of its four scenarios.
+  - `playwright.config.ts`: `launchOptions: { args: ["--disable-partial-raster"] }`
+    under `use`, with a comment.
+- With the edits the four pictures changed (the frame grew at 1280 wide), so
+  they were redrawn once with `pnpm visual:update`: 5 passed, then
+  `pnpm visual` 5 passed. The pictures were the frame element: `empty` 184x144,
+  the other three 236x236. `pnpm gate:full` passed. The `linux-x64` goldens
+  were left as the old ones; they are not run on a Mac.
+- All of it committed in the project, so `git status` shows only what the
+  update does.
+
+## The update without `--force`
+
+```
+node scripts/add-to-project.mts <project> visual
+```
+
+Exit 1, and `git status` clean afterwards:
+
+```
+2 file(s) in the project differ from what was installed and would be overwritten:
+  packages/client-react/tests/visual/playwright.config.ts
+  packages/client-react/tests/visual/visual.pw.ts
+      What a project changes in this file now goes in packages/client-react/tests/visual/scenarios.ts, which is the project's own: no update replaces it. A width or height a scenario needs now goes on the scenario: `width` and `height` set the viewport of a page.
+      Run this again with --force. It replaces this file, keeps your version as tools/templates/visual.replaced.packages__client-react__tests__visual__visual.pw.ts.txt,
+      and writes packages/client-react/tests/visual/scenarios.ts if the project has none. Then move your lines from the copy into packages/client-react/tests/visual/scenarios.ts, and delete the copy.
+Nothing was changed. Move your edits out of these files, or pass --force to replace them.
+```
+
+Both files are named, and under `visual.pw.ts` it says where the edit goes.
+The `playwright.config.ts` edit is the flag and its comment only, so nothing in
+it needed copying aside before `--force`.
+
+## The update with `--force`
+
+```
+node scripts/add-to-project.mts <project> visual --force
+```
+
+Exit 0. The summary, trimmed:
+
+```
+visual: 24 file(s) written, 10 already up to date, 1 removed
+  wrote    packages/client-react/tests/visual/host/{ScenarioFrame.tsx,address.ts,fonts.ts,main.tsx,picture.ts,render.tsx,seeded.ts}
+  wrote    packages/client-react/tests/visual/playwright.config.ts
+  wrote    packages/client-react/tests/visual/reach/{reach.browser.tsx,vite.config.ts}
+  wrote    packages/client-react/tests/visual/visual.pw.ts
+  wrote    tools/visual/{check-styles,coverage,jitter,summary}.mts, tools/visual/lib/{arguments,measure,reach,vitestVersions}.mts
+  wrote    tools/templates/visual.…{framing.ts,registry.tsx,scenarios.ts,seeding.ts,tolerance.ts}.txt
+  removed  packages/client-react/tests/visual/host/host.css
+  created  packages/client-react/tests/visual/framing.ts
+  changed  package.json: scripts.visual:check:styles
+  changed  package.json: scripts.visual:coverage
+  changed  packages/client-react/package.json: devDependencies.@vitest/browser-playwright
+  changed  packages/client-react/package.json: devDependencies.@vitest/coverage-v8
+  changed  packages/client-react/package.json: devDependencies.playwright
+  changed  packages/client-react/package.json: devDependencies.vitest
+  changed  package.json: scripts.gate:fast now also runs "pnpm visual:check:styles"
+  updated  AGENTS.md: the section for visual
+```
+
+The release notes, as printed:
+
+```
+Release notes:
+  0.19.0
+    - Every scenario you have is still the whole app, now pictured as a page: the viewport (1920x1080 unless the scenario sets `width` or `height`), with no frame or padding, so anything below the viewport is no longer in the picture unless the scenario sets a larger `height`. Every golden changes once: run `pnpm visual:update` and open each image before you commit it.
+    - A page now defaults to 1080 pixels tall: a scenario that was drawn 720 tall sets `height: 720`.
+    - For `linux-x64`, run the `Update visual goldens` workflow: it uploads the images as an artifact and commits nothing, and its job summary gives the commands.
+    - If you edited `visual.pw.ts` to size the viewport, a scenario's `width` and `height` now do that. Take the update with `--force`, then move anything else you changed from the copy it keeps in `tools/templates/`.
+    - Chromium now starts with `--disable-partial-raster`, so a scenario given up for shading or a flickering list can come back, as a component. If you added that flag to `playwright.config.ts`, `--force` replaces the file and keeps no copy: copy yours aside first if it differs by more than that line.
+    - A native control's own text (a `<select>`) still draws two ways on linux-x64: draw its shown value as ordinary text.
+    - `tests/visual/framing.ts` is new and yours: the root width (480), root padding (8) and viewport (1920x1080) a scenario falls back on.
+    - A set of only whole-app pictures is the shape to avoid: picture each component's states first, then a reasonable number of sections, and keep pages for new screens and sizes (AGENTS.md, "The pyramid").
+    - No example scenario, golden or registry is added to your project. To picture components and sections, copy `registry.tsx` from `tools/templates/visual.packages__client-react__tests__visual__registry.tsx.txt` with your own entries, return `render` from `seedScenario` as `tools/templates/visual.packages__client-react__tests__visual__seeding.ts.txt` does, and put the app's theme root in its `Surround`.
+    - The shipped tolerance is now `{ maxDiffPixels: 8, threshold: 0.01 }`: your `tolerance.ts` is kept and keeps working, and the new one is in `tools/templates/visual.packages__client-react__tests__visual__tolerance.ts.txt` to copy from. A scenario may set `strict`, `maxDiffPixels` or `pixelThreshold` only with a `pnpm visual:jitter --scenario <name>` measurement and its cause written beside it.
+    - `pnpm visual:check:styles` joins `gate:fast`: it fails when `packages/client-react/src/main.tsx` imports a stylesheet or font other than `index.css`. Move such an import into `index.css`, the one file the visual host loads.
+    - `pnpm visual:coverage` lists the UI no scenario renders. It adds `vitest`, `@vitest/browser-playwright` and `@vitest/coverage-v8` to `packages/client-react`, which must be on one version: if it says they differ, run `pnpm -r update --no-save vitest @vitest/browser-playwright @vitest/coverage-v8`.
+```
+
+Then "Still to do by hand" (the kept copy of `visual.pw.ts`, and to move the
+edit into `scenarios.ts`), and "Yours to change" for the three project files:
+
+- `scenarios.ts`: "yours has changes of its own, so it was left as it is. Make
+  this change in it by hand", with the template's diff.
+- `seeding.ts`: "yours is still the old template, word for word. Take the new
+  one", with a `cp`.
+- `tolerance.ts`: the same, with a `cp`.
+
+What `git status` showed:
+
+```
+ M AGENTS.md
+ M package.json
+ M packages/client-react/package.json
+ M packages/client-react/tests/visual/host/ScenarioFrame.tsx
+ M packages/client-react/tests/visual/host/address.ts
+ D packages/client-react/tests/visual/host/host.css
+ M packages/client-react/tests/visual/host/main.tsx
+ M packages/client-react/tests/visual/host/seeded.ts
+ M packages/client-react/tests/visual/playwright.config.ts
+ M packages/client-react/tests/visual/visual.pw.ts
+ M tools/installed.json
+ M tools/templates/visual.packages__client-react__tests__visual__scenarios.ts.txt
+ M tools/templates/visual.packages__client-react__tests__visual__seeding.ts.txt
+ M tools/templates/visual.packages__client-react__tests__visual__tolerance.ts.txt
+ M tools/visual/jitter.mts
+ M tools/visual/lib/arguments.mts
+ M tools/visual/lib/measure.mts
+ M tools/visual/summary.mts
+?? packages/client-react/tests/visual/framing.ts
+?? packages/client-react/tests/visual/host/fonts.ts
+?? packages/client-react/tests/visual/host/picture.ts
+?? packages/client-react/tests/visual/host/render.tsx
+?? packages/client-react/tests/visual/reach/reach.browser.tsx
+?? packages/client-react/tests/visual/reach/vite.config.ts
+?? tools/templates/visual.packages__client-react__tests__visual__framing.ts.txt
+?? tools/templates/visual.packages__client-react__tests__visual__registry.tsx.txt
+?? tools/templates/visual.replaced.packages__client-react__tests__visual__visual.pw.ts.txt
+?? tools/visual/check-styles.mts
+?? tools/visual/coverage.mts
+?? tools/visual/lib/reach.mts
+?? tools/visual/lib/vitestVersions.mts
+```
+
+Checked against it:
+
+- No example written: no new PNG, no `tests/visual/registry.tsx`. The
+  registry's template is in `tools/templates/`, as the notes say.
+- `framing.ts` written, with `rootWidth: 480`, `rootPadding: 8`,
+  `viewport: { width: 1920, height: 1080 }`.
+- `scenarios.ts`, `seeding.ts` and `tolerance.ts` have the same SHA-256 before
+  and after.
+- The kept copy of `visual.pw.ts` has the SHA-256 of the project's edited file.
+- The new `playwright.config.ts` carries
+  `launchOptions: { args: ["--disable-partial-raster"] }`, the viewport from
+  `FRAMING`, and one worker when `CI` is set.
+- `tools/installed.json` records `releasesSeen: ["0.19.0"]`.
+
+## Moving the edit, and the redraw
+
+`pnpm install`: 25 packages added, and a warning of unmet peers:
+`vitest 5.0.3` beside `@vitest/browser-playwright` and `@vitest/coverage-v8`
+at 5.0.5.
+
+`pnpm visual`: 4 failed, 1 passed (the orphan check). Each scenario is now a
+page, captured as the viewport:
+
+```
+empty             Expected an image 184px by 144px, received 1280px by 1080px.
+rows-up-and-down  Expected an image 236px by 236px, received 1280px by 1080px.
+row-selected      Expected an image 236px by 236px, received 1280px by 1080px.
+row-stale         Expected an image 236px by 236px, received 1280px by 1080px.
+```
+
+The width came through from the scenario's own `width: 1280`; the height is
+the new default. The old pictures were drawn in a window 720 tall, so, as the
+second note says, each scenario got `height: 720`. In `scenarios.ts`:
+
+- `import type { Picture } from "./host/picture.ts";` and
+  `export interface Scenario extends Picture`, so `height` is a field the type
+  knows. The project's `width: number` stays, as a required field.
+- `height: 720` on each of the four scenarios.
+
+The kept copy of `visual.pw.ts` held nothing else, so it was deleted.
+`seeding.ts` and `tolerance.ts` were left as they are (see Concerns).
+
+`pnpm visual:update`: 5 passed. Every image is 1280x720. Each was opened:
+
+| Image | What it shows |
+|---|---|
+| `empty.png` | The heading "Prices" and the table's header row, Symbol and Mid, on white |
+| `rows-up-and-down.png` | EURUSD 1.1012 in green, GBPUSD 1.2488 in red, USDJPY 151.2000 in black |
+| `row-selected.png` | The same three rows, GBPUSD on a grey band |
+| `row-stale.png` | EURUSD and GBPUSD in their colours, USDJPY faded |
+
+Each is the whole app in the viewport: the heading sits 8 pixels from the top
+and left, which is the browser's own body margin (the app's `index.css` sets
+none), with no host frame or padding around it. Below the table the window is
+empty, as the app is.
+
+`pnpm visual`: 5 passed.
+
+## The other checks
+
+`pnpm visual:coverage`, first run, exit 2:
+
+```
+visual:coverage: Vitest's packages are on different versions in packages/client-react: vitest 5.0.3, @vitest/browser-playwright 5.0.5, @vitest/coverage-v8 5.0.5. Vitest does not support a mix. Put them on one version with:
+  pnpm -r update --no-save vitest @vitest/browser-playwright @vitest/coverage-v8
+```
+
+That command moved `vitest` to 5.0.5 (lockfile only). Then:
+
+```
+Not rendered by any visual scenario (reports in packages/client-react/tests/visual/reports/coverage/):
+
+  statements not rendered   statements %   file
+                        1          87.5%   packages/client-react/src/ui/PriceList.tsx
+      functions never called: selectRow
+
+1 UI file(s) with code no scenario renders. Those are states no scenario shows yet.
+```
+
+`pnpm gate:full`: pass. Every gate PASS, then
+
+```
+PASS web-server: 1 server command(s) in 1 Playwright config(s), none through pnpm.
+PASS lint:types — 79 file(s) linted with type information
+PASS lint:dead — knip found nothing unused (79 TypeScript file(s) in the project)
+PASS visual-styles: main.tsx loads no stylesheet or font besides index.css.
+```
+
+then 57 tests in 7 packages and the build. Before the update the same gate
+linted 73 files. Knip found nothing unused in what the update added,
+`reach/vite.config.ts` included, with the project's `tools/strict-lint/knip.jsonc` untouched.
+
+The update, the moved edit and the redrawn goldens were committed in the
+project.
+
+## A second update
+
+```
+node scripts/add-to-project.mts <project> visual
+```
+
+```
+visual: 0 file(s) written, 34 already up to date, 0 removed
+
+Next:
+  cd <project>
+  pnpm install
+  pnpm visual
+  pnpm gate:full
+```
+
+No release notes, no "Yours to change", and `git status` clean.
+
+## Concerns
+
+- "Yours to change" gives a bare `cp` for `seeding.ts`. The new template
+  imports `./registry.tsx`, which an updated project does not have. Taken on
+  its own, the `cp` breaks `pnpm visual:check`:
+  `tests/visual/seeding.ts(11,23): error TS2307: Cannot find module './registry.tsx'`.
+  The release notes say to copy the registry with it, and the skill says to
+  run a `cp` only when the user agrees, so this run left `seeding.ts` alone
+  (and undid the `cp` after trying it).
+- `tools/installed.json` now lists the example goldens and `registry.tsx`
+  under `starting`, though neither was written. The second update wrote
+  nothing, so the record does not bring them in later.
+- The `linux-x64` goldens are still the 0.18.1 pictures. On a Linux runner
+  they fail until the `Update visual goldens` workflow draws them, as the third
+  note says. That is not run here.
+
+## skills-demo (Task 14)
+
+Pending.
+
+## linux-x64 run ids (Task 15)
+
+Pending.
