@@ -70,7 +70,7 @@
         "A page now defaults to 1080 pixels tall: a scenario that was drawn 720 tall sets `height: 720`.",
         "For `linux-x64`, run the `Update visual goldens` workflow: it uploads the images as an artifact and commits nothing, and its job summary gives the commands.",
         "If you edited `visual.pw.ts` to size the viewport, a scenario's `width` and `height` now do that. Take the update with `--force`, then move anything else you changed from the copy it keeps in `tools/templates/`.",
-        "Chromium now starts with `--disable-partial-raster`, so a scenario given up for shading or a flickering list can come back, as a component. If you added that flag to `playwright.config.ts`, `--force` replaces the file and keeps no copy: copy yours aside first if it differs by more than that line.",
+        "Chromium now starts with `--disable-partial-raster`, so a scenario given up for shading or a flickering list can come back, as a component. If you added that flag to `playwright.config.ts`, `--force` replaced the file and kept no copy: if yours differed by more than that line, `git show HEAD:packages/client-react/tests/visual/playwright.config.ts` has it.",
         "A native control's own text (a `<select>`) still draws two ways on linux-x64: draw its shown value as ordinary text.",
         "`tests/visual/framing.ts` is new and yours: the root width (480), root padding (8) and viewport (1920x1080) a scenario falls back on.",
         "A set of only whole-app pictures is the shape to avoid: picture each component's states first, then a reasonable number of sections, and keep pages for new screens and sizes (AGENTS.md, \"The pyramid\").",

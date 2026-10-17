@@ -411,8 +411,10 @@ and seeding unedited. Four mechanisms:
   and `height` now do that; take the update with `--force`, and move anything
   else from the kept copy;
 - a project that added `--disable-partial-raster` to `playwright.config.ts`:
-  the add-on's config now has it. `--force` keeps no copy of that file, so a
-  project whose config differs by more than that line copies it aside first;
+  the add-on's config now has it. `--force` keeps no copy of that file, and
+  the notes print after it has run, so they point a config that differed by
+  more than that line at
+  `git show HEAD:packages/client-react/tests/visual/playwright.config.ts`;
 - to add component and section scenarios: copy the registry from
   `tools/templates/`, return `render` from the seeding as the new template
   does, wrap isolated components in the app's theme root;
