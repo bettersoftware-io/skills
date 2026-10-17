@@ -40,14 +40,24 @@ function createSet(faces: FakeFace[], log: string[]): Iterable<FakeFace> & { rea
 }
 
 describe("loadEveryFace", () => {
-  it("loads each of the three faces, then waits for ready", async () => {
+  it("loads each of the three faces at once, and finishes only when ready is released", async () => {
     const log: string[] = [];
-    const set = createSet([createFace("Inter", "400", log), createFace("Inter", "700", log), createFace("Mono", "400", log)], log);
+    let release: () => void = () => undefined;
+    const ready = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const faces = [createFace("Inter", "400", log), createFace("Inter", "700", log), createFace("Mono", "400", log)];
+    let done = false;
+    const pending = loadEveryFace({ [Symbol.iterator]: () => faces[Symbol.iterator](), ready }).then(() => {
+      done = true;
+    });
 
-    await loadEveryFace(set);
-
-    expect(log.filter((entry) => entry.startsWith("load")).sort()).toEqual(["load Inter 400", "load Inter 700", "load Mono 400"]);
-    expect(log.at(-1)).toBe("ready");
+    await new Promise((resolve) => setTimeout(resolve, 5));
+    expect([...log].sort()).toEqual(["load Inter 400", "load Inter 700", "load Mono 400"]);
+    expect(done).toBe(false);
+    release();
+    await pending;
+    expect(done).toBe(true);
   });
 
   it("does not resolve before ready does", async () => {

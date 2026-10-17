@@ -100,6 +100,20 @@ describe("who owns what in the visual tier", () => {
     expect(main.lastIndexOf("READY_ATTRIBUTE")).toBeGreaterThan(main.indexOf("await shown.ready"));
   });
 
+  it("says ready from a second effect, after the seeded state has rendered", () => {
+    const frame = readShipped("host/ScenarioFrame.tsx");
+    const start = frame.indexOf("seed();");
+
+    expect(frame.slice(start, start + 40)).toContain("setSeeded(true);");
+    expect(frame.slice(start, start + 40)).not.toContain("onReady()");
+    expect(frame).toMatch(/useEffect\(\(\) => \{\s*if \(seeded\) \{\s*onReady\(\);\s*\}\s*\}, \[seeded, onReady\]\);/);
+    expect(frame.match(/onReady\(\)/g)).toHaveLength(1);
+  });
+
+  it("names the scenarios when the address has none", () => {
+    expect(readShipped("host/main.tsx")).toContain('showScenario(name ?? "", container)');
+  });
+
   it("ships no host stylesheet: a body margin of 0 made pages differ from the app", () => {
     expect(existsSync(join(ADDON, "files", VISUAL, "host", "host.css"))).toBe(false);
     expect(readShipped("host/main.tsx")).not.toContain("host.css");

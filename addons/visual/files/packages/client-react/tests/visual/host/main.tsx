@@ -19,11 +19,7 @@ if (container === null) {
   throw new Error("the visual host's index.html has no #root element");
 }
 
-if (name === null) {
-  throw new Error("The address needs ?scenario=<name>");
-}
-
-const shown: Shown = await showScenario(name, container);
+const shown: Shown = await showScenario(name ?? "", container);
 
 await shown.ready;
 

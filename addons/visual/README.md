@@ -119,8 +119,8 @@ wrote nothing.
   `Date` with a clock it owns. The stale row is made by moving that clock past
   `STALE_AFTER_MS` between deliveries. No timer fires by itself, so a slow
   machine takes the same picture.
-- **One ready signal.** The frame sets `data-visual-ready="true"` after the
-  seed and after the fonts have loaded. The spec waits for that and nothing
+- **One ready signal.** The host sets `data-visual-ready="true"` on `<html>`
+  once every font has loaded and the seeded scenario has rendered. The spec waits for that and nothing
   else.
 - **Animations are off** (`animations: "disabled"`, reduced motion), and the
   colour scheme, locale, time zone and scale are fixed in the config.

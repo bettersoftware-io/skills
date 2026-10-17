@@ -296,8 +296,8 @@
   {
     "name": "host: a failed scenario is caught, so the page never errors",
     "file": "addons/visual/files/packages/client-react/tests/visual/host/main.tsx",
-    "find": "const shown: Shown = await showScenario(name, container);",
-    "replace": "const shown: Shown = await showScenario(name, container).catch(() => ({ ready: Promise.resolve() }));",
+    "find": "const shown: Shown = await showScenario(name ?? \"\", container);",
+    "replace": "const shown: Shown = await showScenario(name ?? \"\", container).catch(() => ({ ready: Promise.resolve() }));",
     "test": "pnpm vitest run addons/visual/tests/addon.test.mts"
   },
   {
@@ -334,5 +334,33 @@
     "find": "return face.load();",
     "replace": "return Promise.resolve();",
     "test": "pnpm vitest run addons/visual/tests/fonts.test.mts"
+  },
+  {
+    "name": "host: onReady is called in the seeding effect again",
+    "file": "addons/visual/files/packages/client-react/tests/visual/host/ScenarioFrame.tsx",
+    "find": "    setSeeded(true);",
+    "replace": "    setSeeded(true);\n    onReady();",
+    "test": "pnpm vitest run addons/visual/tests/addon.test.mts"
+  },
+  {
+    "name": "host: the second effect fires without the seeded flag",
+    "file": "addons/visual/files/packages/client-react/tests/visual/host/ScenarioFrame.tsx",
+    "find": "    if (seeded) {\n      onReady();",
+    "replace": "    {\n      onReady();",
+    "test": "pnpm vitest run addons/visual/tests/addon.test.mts"
+  },
+  {
+    "name": "host: fonts load after the first render",
+    "file": "addons/visual/files/packages/client-react/tests/visual/host/render.tsx",
+    "find": "    await loadEveryFace(document.fonts);\n\n    const root = createRoot(container);",
+    "replace": "    const root = createRoot(container);\n    root.render(<App />);\n    await loadEveryFace(document.fonts);",
+    "test": "pnpm vitest run addons/visual/tests/addon.test.mts"
+  },
+  {
+    "name": "host: a missing scenario name is not passed on, so the names are not listed",
+    "file": "addons/visual/files/packages/client-react/tests/visual/host/main.tsx",
+    "find": "showScenario(name ?? \"\", container)",
+    "replace": "showScenario(name as string, container)",
+    "test": "pnpm vitest run addons/visual/tests/addon.test.mts"
   }
 ]

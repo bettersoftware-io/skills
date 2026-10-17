@@ -1,4 +1,10 @@
-import { type ReactElement, type ReactNode, useEffect, useRef } from "react";
+import {
+  type ReactElement,
+  type ReactNode,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 
 import { ROOT_TESTID } from "./address.ts";
 
@@ -13,7 +19,8 @@ interface ScenarioFrameProps {
 }
 
 /**
- * Seeds the scenario once its children are mounted, then says it is ready. The
+ * Seeds the scenario once its children are mounted, then says it is ready once
+ * the seeded state has rendered. The
  * spec waits for that signal and for nothing else: no sleep, no "wait for the
  * network".
  *
@@ -32,17 +39,26 @@ export function ScenarioFrame({
   onReady,
   children,
 }: ScenarioFrameProps): ReactElement {
-  const seeded = useRef(false);
+  const seeding = useRef(false);
+  const [seeded, setSeeded] = useState(false);
 
   useEffect(() => {
-    if (seeded.current) {
+    if (seeding.current) {
       return;
     }
 
-    seeded.current = true;
+    seeding.current = true;
     seed();
-    onReady();
-  }, [seed, onReady]);
+    setSeeded(true);
+  }, [seed]);
+
+  // A second effect, run after the commit that follows the deliveries: ready
+  // means the seeded state is on the page, not that it was handed to React.
+  useEffect(() => {
+    if (seeded) {
+      onReady();
+    }
+  }, [seeded, onReady]);
 
   if (root === undefined) {
     return <>{children}</>;

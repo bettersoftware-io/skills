@@ -31,7 +31,7 @@ describe("summarise", () => {
       createReport([
         {
           title: "row-stale",
-          error: "Error: expect(locator).toHaveScreenshot(expected) failed\n\nLocator: getByTestId('visual-frame')\n  83 pixels (ratio 0.01 of all image pixels) are different.\n\n  Snapshot: row-stale.png",
+          error: "Error: expect(locator).toHaveScreenshot(expected) failed\n\nLocator: getByTestId('scenario-root')\n  83 pixels (ratio 0.01 of all image pixels) are different.\n\n  Snapshot: row-stale.png",
         },
       ]),
     );
