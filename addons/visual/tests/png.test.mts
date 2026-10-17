@@ -26,7 +26,7 @@ describe("decodePng", () => {
 
     expect(image.width).toBeGreaterThan(100);
     expect(image.data).toHaveLength(image.width * image.height * 4);
-    // The frame's top-left corner is page background.
+    // The top-left corner of the page is its background.
     expect([...image.data.subarray(0, 4)]).toEqual([...WHITE]);
     // The heading is black text, so the image is not one flat colour.
     expect(new Set(image.data).size).toBeGreaterThan(2);
@@ -46,7 +46,7 @@ describe("decodePng", () => {
 });
 
 const GOLDEN = fileURLToPath(
-  new URL("../files/packages/client-react/tests/visual/goldens/darwin-arm64/empty.png", import.meta.url),
+  new URL("../files/packages/client-react/tests/visual/goldens/darwin-arm64/app.png", import.meta.url),
 );
 
 /**

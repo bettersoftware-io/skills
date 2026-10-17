@@ -139,6 +139,26 @@ describe("what knip leaves alone", { timeout: REAL_TOOL_TIMEOUT }, () => {
     expect(formatResult(checkDead(project))).toContain(CLEAN);
   });
 
+  it("follows a Vite config kept under tests/ that holds a Vitest run to the test file and coverage provider it names", () => {
+    const project = createWorkspace();
+
+    writeFiles(project, {
+      "packages/app/package.json": createPackageJson({
+        ...APP,
+        devDependencies: { ...APP.devDependencies, "@vitest/coverage-v8": "^5.0.3", vitest: "^5.0.3" },
+      }),
+      // As the visual add-on's reach config: its root is the package, its one
+      // test is not a `*.test` file, and its coverage provider is a package
+      // nothing imports. The add-on names it vite.config.ts so that the line
+      // every strict-lint project has had since its first release finds it.
+      "packages/app/tests/visual/reach/vite.config.ts":
+        'import { fileURLToPath } from "node:url";\n\nexport default { root: fileURLToPath(new URL("../../..", import.meta.url)), test: { include: ["tests/visual/reach/reach.browser.tsx"], coverage: { provider: "v8" } } };\n',
+      "packages/app/tests/visual/reach/reach.browser.tsx": 'import { it } from "vitest";\n\nit("renders", () => {});\n',
+    });
+
+    expect(formatResult(checkDead(project))).toContain(CLEAN);
+  });
+
   it("follows a Vite config kept under tests/ to the page it serves", () => {
     const project = createWorkspace();
 

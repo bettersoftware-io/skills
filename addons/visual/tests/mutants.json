@@ -177,8 +177,8 @@
   {
     "name": "check-server: in gate:fast",
     "file": "addons/visual/addon.json",
-    "find": "      \"pnpm visual:check\",\n      \"pnpm visual:check:server\"\n",
-    "replace": "      \"pnpm visual:check\"\n",
+    "find": "      \"pnpm visual:check:server\",\n",
+    "replace": "",
     "test": "pnpm vitest run addons/visual/tests/check-server.test.mts -t \"runs the check in gate:fast\""
   },
   {
@@ -197,21 +197,21 @@
   },
   {
     "name": "ownership: the host reads no field of a scenario",
-    "file": "addons/visual/files/packages/client-react/tests/visual/host/main.tsx",
-    "find": "const seeded = seedScenario(scenario, {",
-    "replace": "void scenario.prices;\nconst seeded = seedScenario(scenario, {",
-    "test": "pnpm vitest run addons/visual/tests/addon.test.mts -t \"main.tsx names no field of a scenario\""
+    "file": "addons/visual/files/packages/client-react/tests/visual/host/render.tsx",
+    "find": "const seeded: Seeded = seedScenario(scenario, hostClock);",
+    "replace": "void scenario.prices;\nconst seeded: Seeded = seedScenario(scenario, hostClock);",
+    "test": "pnpm vitest run addons/visual/tests/addon.test.mts -t \"render.tsx names no field of a scenario\""
   },
   {
     "name": "ownership: the host renders on the application the seeding gives",
-    "file": "addons/visual/files/packages/client-react/tests/visual/host/main.tsx",
+    "file": "addons/visual/files/packages/client-react/tests/visual/host/render.tsx",
     "find": "createViewModel(seeded.app)",
     "replace": "createViewModel(seedScenario(scenario, { tick: (): void => {} }).app)",
     "test": "pnpm vitest run addons/visual/tests/addon.test.mts -t \"has the host take the application and the deliveries\""
   },
   {
     "name": "ownership: the seeding is called after the clock is installed",
-    "file": "addons/visual/files/packages/client-react/tests/visual/host/main.tsx",
+    "file": "addons/visual/files/packages/client-react/tests/visual/host/render.tsx",
     "find": "const clock = FakeTimers.install({",
     "replace": "const clock = FakeTimers.withGlobal(window).install({",
     "test": "pnpm vitest run addons/visual/tests/addon.test.mts -t \"has the host take the application and the deliveries\""
@@ -225,9 +225,611 @@
   },
   {
     "name": "scope: the host's import is not wrapped under a longer scope",
-    "file": "addons/visual/files/packages/client-react/tests/visual/host/main.tsx",
+    "file": "addons/visual/files/packages/client-react/tests/visual/host/render.tsx",
     "find": "// biome-ignore format: this file is the add-on's, and an update compares it byte for byte. The scope in this line is the project's, and a longer one would have the formatter wrap it.\n",
     "replace": "",
     "test": "pnpm vitest run scripts/scope-stable-files.test.mts -t \"under the scope @skills-demo\""
+  },
+  {
+    "name": "picture: the default capture is the root for a page too",
+    "file": "addons/visual/files/packages/client-react/tests/visual/host/picture.ts",
+    "find": "(level === \"page\" ? \"viewport\" : \"root\")",
+    "replace": "(level === \"page\" ? \"root\" : \"root\")",
+    "test": "pnpm vitest run addons/visual/tests/picture.test.mts -t \"makes a scenario with no picture field a page\""
+  },
+  {
+    "name": "picture: the root width ignores the framing",
+    "file": "addons/visual/files/packages/client-react/tests/visual/host/picture.ts",
+    "find": "width: width ?? framing.rootWidth",
+    "replace": "width: width ?? 480",
+    "test": "pnpm vitest run addons/visual/tests/picture.test.mts -t \"reads the root width from the framing\""
+  },
+  {
+    "name": "picture: strict keeps the global threshold",
+    "file": "addons/visual/files/packages/client-react/tests/visual/host/picture.ts",
+    "find": "return { threshold: 0, maxDiffPixels: 0 };",
+    "replace": "return { threshold: global.threshold, maxDiffPixels: 0 };",
+    "test": "pnpm vitest run addons/visual/tests/picture.test.mts -t \"zero pixels and zero threshold for strict\""
+  },
+  {
+    "name": "picture: a per-scenario cap need not be above the global",
+    "file": "addons/visual/files/packages/client-react/tests/visual/host/picture.ts",
+    "find": "if (maxDiffPixels <= cap) {",
+    "replace": "if (false) {",
+    "test": "pnpm vitest run addons/visual/tests/picture.test.mts -t \"maxDiffPixels not above the global\""
+  },
+  {
+    "name": "budget: a pixel cap of 100 (RTC's) hides the smallest regression",
+    "file": "addons/visual/files/packages/client-react/tests/visual/tolerance.ts",
+    "find": "maxDiffPixels: 8,",
+    "replace": "maxDiffPixels: 100,",
+    "test": "pnpm vitest run addons/visual/tests/budget.test.mts"
+  },
+  {
+    "name": "budget: a threshold of 0.2 (Playwright's default) hides the colour change",
+    "file": "addons/visual/files/packages/client-react/tests/visual/tolerance.ts",
+    "find": "threshold: 0.01,",
+    "replace": "threshold: 0.2,",
+    "test": "pnpm vitest run addons/visual/tests/budget.test.mts"
+  },
+  {
+    "name": "host: a face is loaded without being awaited, so the first render does not wait for it",
+    "file": "addons/visual/files/packages/client-react/tests/visual/host/render.tsx",
+    "find": "await loadEveryFace(document.fonts);",
+    "replace": "void loadEveryFace(document.fonts);",
+    "test": "pnpm vitest run addons/visual/tests/addon.test.mts"
+  },
+  {
+    "name": "host: a scenario with a mount skips the check that the seeding returns a render",
+    "file": "addons/visual/files/packages/client-react/tests/visual/host/render.tsx",
+    "find": "if (picture.mount !== undefined && seeded.render === undefined) {",
+    "replace": "if (picture.mount === undefined && seeded.render === undefined) {",
+    "test": "pnpm vitest run addons/visual/tests/addon.test.mts"
+  },
+  {
+    "name": "host: the ready attribute is set without awaiting the scenario",
+    "file": "addons/visual/files/packages/client-react/tests/visual/host/main.tsx",
+    "find": "await shown.ready;",
+    "replace": "",
+    "test": "pnpm vitest run addons/visual/tests/addon.test.mts"
+  },
+  {
+    "name": "host: a failed scenario is caught, so the page never errors",
+    "file": "addons/visual/files/packages/client-react/tests/visual/host/main.tsx",
+    "find": "const shown: Shown = await showScenario(name ?? \"\", container);",
+    "replace": "const shown: Shown = await showScenario(name ?? \"\", container).catch(() => ({ ready: Promise.resolve() }));",
+    "test": "pnpm vitest run addons/visual/tests/addon.test.mts"
+  },
+  {
+    "name": "host: the root is border-box, so its padding eats the fixed width",
+    "file": "addons/visual/files/packages/client-react/tests/visual/host/ScenarioFrame.tsx",
+    "find": "boxSizing: \"content-box\"",
+    "replace": "boxSizing: \"border-box\"",
+    "test": "pnpm vitest run addons/visual/tests/addon.test.mts"
+  },
+  {
+    "name": "host: main.tsx loads the stylesheet as well",
+    "file": "addons/visual/files/packages/client-react/tests/visual/host/main.tsx",
+    "find": "import { READY_ATTRIBUTE } from \"./address.ts\";",
+    "replace": "import \"#/index.css\";\nimport { READY_ATTRIBUTE } from \"./address.ts\";",
+    "test": "pnpm vitest run addons/visual/tests/addon.test.mts"
+  },
+  {
+    "name": "fonts: a face that rejects is swallowed",
+    "file": "addons/visual/files/packages/client-react/tests/visual/host/fonts.ts",
+    "find": "result.status === \"rejected\" && face !== undefined",
+    "replace": "result.status === \"fulfilled\" && face !== undefined",
+    "test": "pnpm vitest run addons/visual/tests/fonts.test.mts"
+  },
+  {
+    "name": "fonts: ready is not awaited",
+    "file": "addons/visual/files/packages/client-react/tests/visual/host/fonts.ts",
+    "find": "  await fonts.ready;\n",
+    "replace": "",
+    "test": "pnpm vitest run addons/visual/tests/fonts.test.mts"
+  },
+  {
+    "name": "fonts: the faces are not loaded",
+    "file": "addons/visual/files/packages/client-react/tests/visual/host/fonts.ts",
+    "find": "return face.load();",
+    "replace": "return Promise.resolve();",
+    "test": "pnpm vitest run addons/visual/tests/fonts.test.mts"
+  },
+  {
+    "name": "host: onReady is called in the seeding effect again",
+    "file": "addons/visual/files/packages/client-react/tests/visual/host/ScenarioFrame.tsx",
+    "find": "    setSeeded(true);",
+    "replace": "    setSeeded(true);\n    onReady();",
+    "test": "pnpm vitest run addons/visual/tests/addon.test.mts"
+  },
+  {
+    "name": "host: the second effect fires without the seeded flag",
+    "file": "addons/visual/files/packages/client-react/tests/visual/host/ScenarioFrame.tsx",
+    "find": "    if (seeded) {\n      onReady();",
+    "replace": "    {\n      onReady();",
+    "test": "pnpm vitest run addons/visual/tests/addon.test.mts"
+  },
+  {
+    "name": "host: fonts load after the first render",
+    "file": "addons/visual/files/packages/client-react/tests/visual/host/render.tsx",
+    "find": "    await loadEveryFace(document.fonts);\n\n    const root = createRoot(container);",
+    "replace": "    const root = createRoot(container);\n    root.render(<App />);\n    await loadEveryFace(document.fonts);",
+    "test": "pnpm vitest run addons/visual/tests/addon.test.mts"
+  },
+  {
+    "name": "host: a missing scenario name is not passed on, so the names are not listed",
+    "file": "addons/visual/files/packages/client-react/tests/visual/host/main.tsx",
+    "find": "showScenario(name ?? \"\", container)",
+    "replace": "showScenario(name as string, container)",
+    "test": "pnpm vitest run addons/visual/tests/addon.test.mts"
+  },
+  {
+    "name": "spec: a page is captured as the root",
+    "file": "addons/visual/files/packages/client-react/tests/visual/visual.pw.ts",
+    "find": "picture.capture === \"root\"",
+    "replace": "picture.capture !== \"viewport\"",
+    "test": "pnpm vitest run addons/visual/tests/addon.test.mts"
+  },
+  {
+    "name": "spec: the viewport capture takes the whole page",
+    "file": "addons/visual/files/packages/client-react/tests/visual/visual.pw.ts",
+    "find": "fullPage: false,",
+    "replace": "fullPage: true,",
+    "test": "pnpm vitest run addons/visual/tests/addon.test.mts"
+  },
+  {
+    "name": "spec: the viewport is set after the page loads",
+    "file": "addons/visual/files/packages/client-react/tests/visual/visual.pw.ts",
+    "find": "    await page.setViewportSize(picture.viewport);\n    await page.goto(`/?scenario=${encodeURIComponent(name)}`);",
+    "replace": "    await page.goto(`/?scenario=${encodeURIComponent(name)}`);\n    await page.setViewportSize(picture.viewport);",
+    "test": "pnpm vitest run addons/visual/tests/addon.test.mts"
+  },
+  {
+    "name": "spec: the viewport is never set",
+    "file": "addons/visual/files/packages/client-react/tests/visual/visual.pw.ts",
+    "find": "    await page.setViewportSize(picture.viewport);\n",
+    "replace": "",
+    "test": "pnpm vitest run addons/visual/tests/addon.test.mts"
+  },
+  {
+    "name": "spec: the scenario's tolerance is left out of the comparison",
+    "file": "addons/visual/files/packages/client-react/tests/visual/visual.pw.ts",
+    "find": "        ...screenshotTolerance(picture.tolerance),\n",
+    "replace": "",
+    "test": "pnpm vitest run addons/visual/tests/addon.test.mts"
+  },
+  {
+    "name": "spec: the level is not annotated",
+    "file": "addons/visual/files/packages/client-react/tests/visual/visual.pw.ts",
+    "find": "type: \"level\"",
+    "replace": "type: \"levels\"",
+    "test": "pnpm vitest run addons/visual/tests/addon.test.mts"
+  },
+  {
+    "name": "config: Chromium starts with partial raster",
+    "file": "addons/visual/files/packages/client-react/tests/visual/playwright.config.ts",
+    "find": "\"--disable-partial-raster\"",
+    "replace": "\"--disable-gpu\"",
+    "test": "pnpm vitest run addons/visual/tests/addon.test.mts"
+  },
+  {
+    "name": "config: CI runs more than one worker",
+    "file": "addons/visual/files/packages/client-react/tests/visual/playwright.config.ts",
+    "find": "process.env.CI === undefined ? undefined : 1",
+    "replace": "undefined",
+    "test": "pnpm vitest run addons/visual/tests/addon.test.mts"
+  },
+  {
+    "name": "config: the browser starts at a size of its own, not the framing's",
+    "file": "addons/visual/files/packages/client-react/tests/visual/playwright.config.ts",
+    "find": "viewport: FRAMING.viewport,",
+    "replace": "viewport: { width: 800, height: 600 },",
+    "test": "pnpm vitest run addons/visual/tests/addon.test.mts"
+  },
+  {
+    "name": "summary: a test with no annotation is not a page",
+    "file": "addons/visual/files/tools/visual/summary.mts",
+    "find": "  return \"page\";\n}",
+    "replace": "  return \"section\";\n}",
+    "test": "pnpm vitest run addons/visual/tests/summary.test.mts"
+  },
+  {
+    "name": "summary: any annotation type counts as a level",
+    "file": "addons/visual/files/tools/visual/summary.mts",
+    "find": "annotation.type === \"level\" && ",
+    "replace": "",
+    "test": "pnpm vitest run addons/visual/tests/summary.test.mts"
+  },
+  {
+    "name": "summary: a section is counted as a component",
+    "file": "addons/visual/files/tools/visual/summary.mts",
+    "find": "annotation.description === \"component\" || annotation.description === \"section\"",
+    "replace": "annotation.description === \"component\"",
+    "test": "pnpm vitest run addons/visual/tests/summary.test.mts"
+  },
+  {
+    "name": "summary: the levels line is left out of a failed run",
+    "file": "addons/visual/files/tools/visual/summary.mts",
+    "find": "      pictures,\n      \"\",\n",
+    "replace": "",
+    "test": "pnpm vitest run addons/visual/tests/summary.test.mts"
+  },
+  {
+    "name": "summary: one of a level is still plural",
+    "file": "addons/visual/files/tools/visual/summary.mts",
+    "find": "${n === 1 ? \"\" : \"s\"}",
+    "replace": "s",
+    "test": "pnpm vitest run addons/visual/tests/summary.test.mts"
+  },
+  {
+    "name": "summary: no level is ever plural",
+    "file": "addons/visual/files/tools/visual/summary.mts",
+    "find": "${n === 1 ? \"\" : \"s\"}",
+    "replace": "",
+    "test": "pnpm vitest run addons/visual/tests/summary.test.mts"
+  },
+  {
+    "name": "manifest: the spec's edits go to the seeding",
+    "file": "addons/visual/addon.json",
+    "find": "\"to\": \"packages/client-react/tests/visual/scenarios.ts\"",
+    "replace": "\"to\": \"packages/client-react/tests/visual/seeding.ts\"",
+    "test": "pnpm vitest run addons/visual/tests/addon.test.mts"
+  },
+  {
+    "name": "picture: a scenario's cap keeps the old global's ratio",
+    "file": "addons/visual/files/packages/client-react/tests/visual/host/picture.ts",
+    "find": "    delete resolved.maxDiffPixelRatio;\n",
+    "replace": "",
+    "test": "pnpm vitest run addons/visual/tests/picture.test.mts"
+  },
+  {
+    "name": "spec: a tolerance key is left to the config's default",
+    "file": "addons/visual/files/packages/client-react/tests/visual/visual.pw.ts",
+    "find": "    maxDiffPixelRatio: tolerance.maxDiffPixelRatio,\n",
+    "replace": "",
+    "test": "pnpm vitest run addons/visual/tests/addon.test.mts"
+  },
+  {
+    "name": "spec: the root capture passes the tolerance unsifted",
+    "file": "addons/visual/files/packages/client-react/tests/visual/visual.pw.ts",
+    "find": "        screenshotTolerance(picture.tolerance),\n      );",
+    "replace": "        picture.tolerance,\n      );",
+    "test": "pnpm vitest run addons/visual/tests/addon.test.mts"
+  },
+  {
+    "name": "summary: the orphan check is counted as a page",
+    "file": "addons/visual/files/tools/visual/summary.mts",
+    "find": "spec.title !== ORPHAN_CHECK",
+    "replace": "true",
+    "test": "pnpm vitest run addons/visual/tests/summary.test.mts"
+  },
+  {
+    "name": "examples: the goldens are not an example",
+    "file": "addons/visual/addon.json",
+    "find": "\"examples\": [\n    \"packages/client-react/tests/visual/goldens/\",\n",
+    "replace": "\"examples\": [\n",
+    "test": "pnpm vitest run addons/visual/tests/addon.test.mts -t \"gives the registry and the goldens as examples\""
+  },
+  {
+    "name": "examples: the registry is not a starting file",
+    "file": "addons/visual/addon.json",
+    "find": "    \"packages/client-react/tests/visual/registry.tsx\",\n    \"packages/client-react/tests/visual/goldens/\"\n  ],",
+    "replace": "    \"packages/client-react/tests/visual/goldens/\"\n  ],",
+    "test": "pnpm vitest run addons/visual/tests/addon.test.mts -t \"gives the registry and the goldens as examples\""
+  },
+  {
+    "name": "examples: no section is shipped",
+    "file": "addons/visual/files/packages/client-react/tests/visual/scenarios.ts",
+    "find": "  \"price-list-moving\": {\n    level: \"section\",\n    mount: \"price-list\",\n    prices: [...MOVES, USDJPY],\n  },\n  \"price-list-selected\": {\n    level: \"section\",",
+    "replace": "  \"price-list-moving\": {\n    level: \"component\",\n    mount: \"price-list\",\n    prices: [...MOVES, USDJPY],\n  },\n  \"price-list-selected\": {\n    level: \"component\",",
+    "test": "pnpm vitest run addons/visual/tests/addon.test.mts -t \"cover all three levels\""
+  },
+  {
+    "name": "examples: as many sections as components",
+    "file": "addons/visual/files/packages/client-react/tests/visual/scenarios.ts",
+    "find": "  \"price-row-stale\": {\n    level: \"component\",\n    mount: \"price-row\",\n    prices: [],\n    row: { symbol: \"USDJPY\", mid: 151.2, movement: \"flat\", stale: true },\n  },\n  \"price-list-empty\": {\n    level: \"component\",",
+    "replace": "  \"price-row-stale\": {\n    level: \"section\",\n    mount: \"price-row\",\n    prices: [],\n    row: { symbol: \"USDJPY\", mid: 151.2, movement: \"flat\", stale: true },\n  },\n  \"price-list-empty\": {\n    level: \"section\",",
+    "test": "pnpm vitest run addons/visual/tests/addon.test.mts -t \"cover all three levels\""
+  },
+  {
+    "name": "examples: three pages",
+    "file": "addons/visual/files/packages/client-react/tests/visual/scenarios.ts",
+    "find": "  \"price-row-up\": {\n    level: \"component\",\n    mount: \"price-row\",\n    prices: [],\n    row: { symbol: \"EURUSD\", mid: 1.1012, movement: \"up\", stale: false },\n  },\n  \"price-row-down\": {\n    level: \"component\",\n",
+    "replace": "  \"price-row-up\": {\n    mount: \"price-row\",\n    prices: [],\n    row: { symbol: \"EURUSD\", mid: 1.1012, movement: \"up\", stale: false },\n  },\n  \"price-row-down\": {\n",
+    "test": "pnpm vitest run addons/visual/tests/addon.test.mts -t \"cover all three levels\""
+  },
+  {
+    "name": "examples: a mount the registry does not have",
+    "file": "addons/visual/files/packages/client-react/tests/visual/registry.tsx",
+    "find": "  \"price-list\": (): ReactElement => {",
+    "replace": "  \"price-lists\": (): ReactElement => {",
+    "test": "pnpm vitest run addons/visual/tests/addon.test.mts -t \"mount only what the registry has\""
+  },
+  {
+    "name": "examples: the seeding renders a page's mount too",
+    "file": "addons/visual/files/packages/client-react/tests/visual/seeding.ts",
+    "find": "      scenario.mount === undefined\n        ? undefined",
+    "replace": "      scenario.mount !== undefined\n        ? undefined",
+    "test": "pnpm vitest run addons/visual/tests/addon.test.mts -t \"has the seeding render a scenario's mount\""
+  },
+  {
+    "name": "examples: the scenario has no row",
+    "file": "addons/visual/files/packages/client-react/tests/visual/scenarios.ts",
+    "find": "  row?: PriceRow;\n",
+    "replace": "",
+    "test": "pnpm vitest run addons/visual/tests/addon.test.mts -t \"reads the fields of a scenario\""
+  },
+  {
+    "name": "check-styles: any .css passes",
+    "file": "addons/visual/files/tools/visual/check-styles.mts",
+    "find": "const STYLE_OR_FONT = /\\.(css|scss|woff2?)$|@fontsource/;",
+    "replace": "const STYLE_OR_FONT = /\\.(scss|woff2?)$|@fontsource/;",
+    "test": "pnpm vitest run addons/visual/tests/check-styles.test.mts -t \"fails a stylesheet\""
+  },
+  {
+    "name": "check-styles: @fontsource is skipped",
+    "file": "addons/visual/files/tools/visual/check-styles.mts",
+    "find": "|@fontsource/;",
+    "replace": "/;",
+    "test": "pnpm vitest run addons/visual/tests/check-styles.test.mts -t \"@fontsource-variable\""
+  },
+  {
+    "name": "check-styles: the query suffix is not stripped",
+    "file": "addons/visual/files/tools/visual/check-styles.mts",
+    "find": "specifier.split(\"?\")[0] ?? specifier",
+    "replace": "specifier",
+    "test": "pnpm vitest run addons/visual/tests/check-styles.test.mts -t \"fonts.css.inline\""
+  },
+  {
+    "name": "reach: ranks the fewest uncovered statements first",
+    "file": "addons/visual/files/tools/visual/lib/reach.mts",
+    "find": "b.uncoveredStatements - a.uncoveredStatements ||",
+    "replace": "a.uncoveredStatements - b.uncoveredStatements ||",
+    "test": "pnpm vitest run addons/visual/tests/reach.test.mts -t \"puts the file with the most statements no scenario renders first\""
+  },
+  {
+    "name": "reach: breaks a tie by the higher percentage",
+    "file": "addons/visual/files/tools/visual/lib/reach.mts",
+    "find": "a.statementsPct - b.statementsPct ||",
+    "replace": "b.statementsPct - a.statementsPct ||",
+    "test": "pnpm vitest run addons/visual/tests/reach.test.mts -t \"breaks a tie on statements by the lower percentage, then by path\""
+  },
+  {
+    "name": "reach: breaks a tie by path the wrong way round",
+    "file": "addons/visual/files/tools/visual/lib/reach.mts",
+    "find": "a.file.localeCompare(b.file)",
+    "replace": "b.file.localeCompare(a.file)",
+    "test": "pnpm vitest run addons/visual/tests/reach.test.mts -t \"breaks a tie on statements by the lower percentage, then by path\""
+  },
+  {
+    "name": "reach: lists a file whose every statement, branch and function is reached",
+    "file": "addons/visual/files/tools/visual/lib/reach.mts",
+    "find": "    .filter((gap) => gap.uncoveredStatements + gap.branchLines.length + gap.functions.length > 0)\n",
+    "replace": "",
+    "test": "pnpm vitest run addons/visual/tests/reach.test.mts -t \"leaves out a file whose every statement, branch and function is reached\""
+  },
+  {
+    "name": "reach: leaves out a file with only a branch never taken",
+    "file": "addons/visual/files/tools/visual/lib/reach.mts",
+    "find": "gap.uncoveredStatements + gap.branchLines.length + gap.functions.length > 0",
+    "replace": "gap.uncoveredStatements + gap.functions.length > 0",
+    "test": "pnpm vitest run addons/visual/tests/reach.test.mts -t \"keeps a file whose statements all run but has a branch never taken\""
+  },
+  {
+    "name": "reach: branch lines unsorted",
+    "file": "addons/visual/files/tools/visual/lib/reach.mts",
+    "find": "[...branchLines].sort((a, b) => a - b)",
+    "replace": "[...branchLines]",
+    "test": "pnpm vitest run addons/visual/tests/reach.test.mts -t \"names each line with a branch never taken once, in order\""
+  },
+  {
+    "name": "reach: a branch line named twice",
+    "file": "addons/visual/files/tools/visual/lib/reach.mts",
+    "find": "const branchLines = new Set<number>();",
+    "replace": "const branchLines = { items: [] as number[], add(line: number) { this.items.push(line); }, [Symbol.iterator]() { return this.items[Symbol.iterator](); } };",
+    "test": "pnpm vitest run addons/visual/tests/reach.test.mts -t \"names each line with a branch never taken once, in order\""
+  },
+  {
+    "name": "reach: names the functions that were called",
+    "file": "addons/visual/files/tools/visual/lib/reach.mts",
+    "find": ".filter(([, count]) => count === 0)\n      .map",
+    "replace": ".filter(([, count]) => count !== 0)\n      .map",
+    "test": "pnpm vitest run addons/visual/tests/reach.test.mts -t \"names the functions never called\""
+  },
+  {
+    "name": "reach: paths are absolute",
+    "file": "addons/visual/files/tools/visual/lib/reach.mts",
+    "find": "toGap(relative(root, path).split(sep).join(\"/\"), file)",
+    "replace": "toGap(path, file)",
+    "test": "pnpm vitest run addons/visual/tests/reach.test.mts -t \"puts the file with the most statements no scenario renders first\""
+  },
+  {
+    "name": "reach: the limit is not kept",
+    "file": "addons/visual/files/tools/visual/lib/reach.mts",
+    "find": "gaps.slice(0, limit)",
+    "replace": "gaps",
+    "test": "pnpm vitest run addons/visual/tests/reach.test.mts -t \"stops at the limit and says how many more there are\""
+  },
+  {
+    "name": "vitest-versions: different versions pass",
+    "file": "addons/visual/files/tools/visual/lib/vitestVersions.mts",
+    "find": "new Set(VITEST_PACKAGES.map((name) => installed[name])).size > 1",
+    "replace": "false",
+    "test": "pnpm vitest run addons/visual/tests/vitestVersions.test.mts -t \"stops when the packages are on different versions\""
+  },
+  {
+    "name": "vitest-versions: a missing package passes",
+    "file": "addons/visual/files/tools/visual/lib/vitestVersions.mts",
+    "find": "if (missing.length > 0) {",
+    "replace": "if (false) {",
+    "test": "pnpm vitest run addons/visual/tests/vitestVersions.test.mts -t \"stops when a package is not installed\""
+  },
+  {
+    "name": "vitest-versions: the same versions stop",
+    "file": "addons/visual/files/tools/visual/lib/vitestVersions.mts",
+    "find": "  return undefined;\n}",
+    "replace": "  return \"stop\";\n}",
+    "test": "pnpm vitest run addons/visual/tests/vitestVersions.test.mts -t \"passes when all three are on one version\""
+  },
+  {
+    "name": "jitter: every image judged by the global",
+    "file": "addons/visual/files/tools/visual/lib/measure.mts",
+    "find": "return (image) => resolved.get(scenarioNameOf(image)) ?? global;",
+    "replace": "return () => global;",
+    "test": "pnpm vitest run addons/visual/tests/measure.test.mts -t \"resolves each image by its own scenario\""
+  },
+  {
+    "name": "jitter: an orphan image gets no tolerance of the global",
+    "file": "addons/visual/files/tools/visual/lib/measure.mts",
+    "find": "?? global;",
+    "replace": "?? { threshold: 0, maxDiffPixels: 1000000 };",
+    "test": "pnpm vitest run addons/visual/tests/measure.test.mts -t \"judges an image no scenario owns by the global tolerance\""
+  },
+  {
+    "name": "jitter: the pixel cap is ignored",
+    "file": "addons/visual/files/tools/visual/lib/measure.mts",
+    "find": "(maxDiffPixels !== undefined && noise.different > maxDiffPixels) ||",
+    "replace": "(false) ||",
+    "test": "pnpm vitest run addons/visual/tests/measure.test.mts -t \"lets 30 differing pixels pass for the image\""
+  },
+  {
+    "name": "jitter: the ratio cap of an old tolerance is ignored",
+    "file": "addons/visual/files/tools/visual/lib/measure.mts",
+    "find": "(maxDiffPixelRatio !== undefined && noise.ratio > maxDiffPixelRatio)",
+    "replace": "(false)",
+    "test": "pnpm vitest run addons/visual/tests/measure.test.mts -t \"judges an old-shape tolerance\""
+  },
+  {
+    "name": "jitter: a tolerance with no cap allows anything",
+    "file": "addons/visual/files/tools/visual/lib/measure.mts",
+    "find": "return noise.different > 0;",
+    "replace": "return false;",
+    "test": "pnpm vitest run addons/visual/tests/measure.test.mts -t \"lets a tolerance with no cap at all allow nothing\""
+  },
+  {
+    "name": "jitter: every image counted at one threshold",
+    "file": "addons/visual/files/tools/visual/lib/measure.mts",
+    "find": "typeof threshold === \"number\" ? threshold : threshold(image)",
+    "replace": "typeof threshold === \"number\" ? threshold : 0.2",
+    "test": "pnpm vitest run addons/visual/tests/measure.test.mts -t \"counts each image at the threshold its function gives\""
+  },
+  {
+    "name": "jitter: the grep is not anchored at the end",
+    "file": "addons/visual/files/tools/visual/lib/arguments.mts",
+    "find": "(?:${names.join(\"|\")})$`",
+    "replace": "(?:${names.join(\"|\")})`",
+    "test": "pnpm vitest run addons/visual/tests/jitter.test.mts -t \"selects the scenario\""
+  },
+  {
+    "name": "jitter: the grep is not anchored at the start",
+    "file": "addons/visual/files/tools/visual/lib/arguments.mts",
+    "find": "`(?:^|\\\\s)(?:",
+    "replace": "`(?:",
+    "test": "pnpm vitest run addons/visual/tests/jitter.test.mts -t \"selects the scenario\""
+  },
+  {
+    "name": "jitter: regex characters of a scenario name are not escaped",
+    "file": "addons/visual/files/tools/visual/lib/arguments.mts",
+    "find": "name.replace(/[.*+?^${}()|[\\]\\\\]/g, \"\\\\$&\")",
+    "replace": "name",
+    "test": "pnpm vitest run addons/visual/tests/jitter.test.mts -t \"takes regex characters literally\""
+  },
+  {
+    "name": "jitter: --scenario goes with folders",
+    "file": "addons/visual/files/tools/visual/lib/arguments.mts",
+    "find": "if (scenarios.length > 0) {",
+    "replace": "if (false) {",
+    "test": "pnpm vitest run addons/visual/tests/jitter.test.mts -t \"refuses --scenario with no name\""
+  },
+  {
+    "name": "jitter: --scenario given twice keeps only the last",
+    "file": "addons/visual/files/tools/visual/lib/arguments.mts",
+    "find": "scenarios.push(name);",
+    "replace": "scenarios.splice(0, scenarios.length, name);",
+    "test": "pnpm vitest run addons/visual/tests/jitter.test.mts -t \"captures only the scenarios named\""
+  },
+  {
+    "name": "lint:dead after an update: Picture without its @public tag is reported until the project's scenarios.ts extends it",
+    "file": "addons/visual/files/packages/client-react/tests/visual/host/picture.ts",
+    "find": " * @public Only the project's",
+    "replace": " * Only the project's",
+    "test": "pnpm vitest run addons/visual/tests/dead.test.mts"
+  },
+  {
+    "name": "lint:dead after an update: the host does not import Seeded, so Seeded is used only by the project's seeding",
+    "file": "addons/visual/files/packages/client-react/tests/visual/host/render.tsx",
+    "find": "import type { HostClock, Seeded } from",
+    "replace": "import type { HostClock } from",
+    "test": "pnpm vitest run addons/visual/tests/dead.test.mts"
+  },
+  {
+    "name": "lint:dead after an update: the host does not import HostClock, so HostClock is used only by the project's seeding",
+    "file": "addons/visual/files/packages/client-react/tests/visual/host/render.tsx",
+    "find": "import type { HostClock, Seeded } from",
+    "replace": "import type { Seeded } from",
+    "test": "pnpm vitest run addons/visual/tests/dead.test.mts"
+  },
+  {
+    "name": "firstRun: a new project is asked once to put Vitest's packages on one version",
+    "file": "addons/visual/addon.json",
+    "find": "\"firstRun\": \"pnpm -r update --no-save vitest @vitest/browser-playwright @vitest/coverage-v8\",",
+    "replace": "\"firstRun\": \"pnpm -r update --no-save vitest @vitest/browser-playwright\",",
+    "test": "pnpm vitest run addons/visual/tests/addon.test.mts -t \"asks once after installing\""
+  },
+  {
+    "name": "jitter: a project file Node cannot load is thrown, not said",
+    "file": "addons/visual/files/tools/visual/jitter.mts",
+    "find": "  } catch (error) {\n    const reason",
+    "replace": "  } catch (error) {\n    throw error;\n    const reason",
+    "test": "pnpm vitest run addons/visual/tests/jitter.test.mts -t \"Node cannot load\""
+  },
+  {
+    "name": "jitter: a project file Node cannot load exits 1",
+    "file": "addons/visual/files/tools/visual/jitter.mts",
+    "find": "    console.error(project);\n\n    return 2;",
+    "replace": "    console.error(project);\n\n    return 1;",
+    "test": "pnpm vitest run addons/visual/tests/jitter.test.mts -t \"Node cannot load\""
+  },
+  {
+    "name": "jitter: the failure does not say what Node needs of the project's files",
+    "file": "addons/visual/files/tools/visual/jitter.mts",
+    "find": "${reason}\\n${NODE_LOADS_THEM}",
+    "replace": "${reason}",
+    "test": "pnpm vitest run addons/visual/tests/jitter.test.mts -t \"for an import without its extension\""
+  },
+  {
+    "name": "picture: content one pixel past the root is let through",
+    "file": "addons/visual/files/packages/client-react/tests/visual/host/picture.ts",
+    "find": "  if (measured.scrollWidth <= measured.clientWidth) {",
+    "replace": "  if (measured.scrollWidth <= measured.clientWidth + 1) {",
+    "test": "pnpm vitest run addons/visual/tests/picture.test.mts -t \"fails one pixel past the box\""
+  },
+  {
+    "name": "picture: content that fits the root fails it",
+    "file": "addons/visual/files/packages/client-react/tests/visual/host/picture.ts",
+    "find": "  if (measured.scrollWidth <= measured.clientWidth) {",
+    "replace": "  if (measured.scrollWidth < measured.clientWidth) {",
+    "test": "pnpm vitest run addons/visual/tests/picture.test.mts -t \"says nothing when the content fits\""
+  },
+  {
+    "name": "picture: the width a clipped root needs counts the start padding",
+    "file": "addons/visual/files/packages/client-react/tests/visual/host/picture.ts",
+    "find": "  const needed = measured.scrollWidth - root.padding;",
+    "replace": "  const needed = measured.scrollWidth;",
+    "test": "pnpm vitest run addons/visual/tests/picture.test.mts -t \"when the picture would cut it off\""
+  },
+  {
+    "name": "host: a root capture whose content is wider than the root is pictured, cut off",
+    "file": "addons/visual/files/packages/client-react/tests/visual/host/render.tsx",
+    "find": "      if (clipped !== undefined) {\n        throw new PictureError(clipped);\n      }",
+    "replace": "      if (clipped !== undefined) {\n        console.warn(clipped);\n      }",
+    "test": "pnpm vitest run addons/visual/tests/addon.test.mts -t \"fails a root capture whose content is wider\""
+  },
+  {
+    "name": "host: ready does not wait for the width check",
+    "file": "addons/visual/files/packages/client-react/tests/visual/host/render.tsx",
+    "find": "    return {\n      ready,",
+    "replace": "    return {\n      ready: framed,",
+    "test": "pnpm vitest run addons/visual/tests/addon.test.mts -t \"fails a root capture whose content is wider\""
   }
 ]

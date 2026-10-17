@@ -32,7 +32,7 @@ const config: ArchitectureConfig = {
       entry: ["main.tsx", "index.css", "*.d.ts"],
       noNodeBuiltins: true,
       reactCompiler: true,
-      compilerTracked: [{ file: "src/ui/PriceList.tsx", fn: "PriceRowView" }],
+      compilerTracked: [{ file: "src/ui/PriceRow.tsx", fn: "PriceRow" }],
     },
     "packages/server": { role: "server" },
     "packages/integration": { role: "integration" },

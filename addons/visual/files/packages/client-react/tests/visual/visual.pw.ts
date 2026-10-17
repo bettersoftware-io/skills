@@ -2,30 +2,47 @@ import { existsSync } from "node:fs";
 
 import { expect, type Page, test } from "@playwright/test";
 
+import { FRAMING } from "./framing.ts";
 import {
   describeMissingGolden,
   findOrphanGoldens,
   GOLDENS_DIRECTORY,
   locateGolden,
 } from "./goldens.ts";
-import { FRAME_TESTID, HOST_URL } from "./host/address.ts";
+import { HOST_URL, READY_ATTRIBUTE, ROOT_TESTID } from "./host/address.ts";
+import { resolvePicture, type Tolerance } from "./host/picture.ts";
 import { scenarios } from "./scenarios.ts";
+import { TOLERANCE } from "./tolerance.ts";
 
-// One test per scenario: open the visual host on it, wait until the host says
-// it is ready, and compare the frame with the committed image.
+// One test per scenario: read what the scenario says about its picture, size
+// the browser to it, open the visual host on it, wait until the host says it
+// is ready, and compare the root (or the viewport) with the committed image.
 
 for (const name of Object.keys(scenarios)) {
   test(name, async ({ page }, testInfo) => {
+    // Resolved here, in the test, so a scenario that contradicts itself fails
+    // only its own test, with the message that names it and the field.
+    const picture = resolvePicture(name, scenarios[name], FRAMING, TOLERANCE);
+
+    // At once, so a scenario that fails later still counts under its level.
+    testInfo.annotations.push({ type: "level", description: picture.level });
+
     const trouble = recordTrouble(page);
 
+    // Before the page loads, so the host lays out at the picture's size from
+    // the first frame, and a `vh` or a media query reads it.
+    await page.setViewportSize(picture.viewport);
     await page.goto(`/?scenario=${encodeURIComponent(name)}`);
 
-    const frame = page.getByTestId(FRAME_TESTID);
-
     // The one wait. The host sets this after the scenario is seeded and the
-    // fonts are loaded; nothing on the page moves after it.
-    await expect(frame, "the visual host never said it was ready")
-      .toHaveAttribute("data-visual-ready", "true")
+    // fonts are loaded; nothing on the page moves after it. A scenario that
+    // fails in the host (a font that did not load, a mount the seeding cannot
+    // render) is an uncaught error there and never says it is ready.
+    await expect(
+      page.locator("html"),
+      "the visual host never said it was ready",
+    )
+      .toHaveAttribute(READY_ATTRIBUTE, "true")
       .catch((error: unknown) => {
         throw trouble.crashes.length === 0
           ? error
@@ -50,7 +67,21 @@ for (const name of Object.keys(scenarios)) {
       throw new Error(describeMissingGolden(name));
     }
 
-    await expect(frame).toHaveScreenshot(`${name}.png`);
+    // A root capture pictures the root; a viewport capture pictures the
+    // viewport, never the whole scrolling page. The scenario's own tolerance
+    // is passed as resolved: it may be the project's, or a stricter or looser
+    // one the scenario asked for.
+    if (picture.capture === "root") {
+      await expect(page.getByTestId(ROOT_TESTID)).toHaveScreenshot(
+        `${name}.png`,
+        screenshotTolerance(picture.tolerance),
+      );
+    } else {
+      await expect(page).toHaveScreenshot(`${name}.png`, {
+        ...screenshotTolerance(picture.tolerance),
+        fullPage: false,
+      });
+    }
   });
 }
 
@@ -66,6 +97,20 @@ test("every golden belongs to a scenario", () => {
     "these images have no scenario of the same name: delete them, or restore the scenario",
   ).toEqual([]);
 });
+
+/**
+ * Every key of the tolerance, set or not. Playwright merges the options of a
+ * call with the config's `expect.toHaveScreenshot` key by key, so a key left
+ * out here would take the config's value. An old project's ratio of 0 would
+ * then cap a scenario that asked for a larger `maxDiffPixels` at 0 pixels.
+ */
+function screenshotTolerance(tolerance: Tolerance): Tolerance {
+  return {
+    threshold: tolerance.threshold,
+    maxDiffPixels: tolerance.maxDiffPixels,
+    maxDiffPixelRatio: tolerance.maxDiffPixelRatio,
+  };
+}
 
 interface Trouble {
   crashes: string[];

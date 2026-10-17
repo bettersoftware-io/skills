@@ -43,6 +43,7 @@ import {
   type InstallOutcome,
   InstallError,
   installedChoice,
+  installedReleases,
   installedStarting,
   installedUnits,
   installFiles,
@@ -53,6 +54,7 @@ import {
   readProjectFile,
   readProjectText,
   readProjectTextIfThere,
+  recordReleases,
   recordStarting,
   removeProjectFile,
   renameScope,
@@ -216,6 +218,8 @@ export interface AddResult {
   unmerged: string[];
   /** The project's own files whose template this update changed. None was touched. */
   yours: OwnedChange[];
+  /** The examples, a folder once, that this project was never given. A template under `yours` may import one. */
+  examplesNotGiven?: string[];
   /** Gates this update of the kit brought, each with the options of the architecture config it reads and what it fails on. */
   newGates: { name: string; options: string[]; failsOn?: string }[];
   /** True when the project's kit kept no list of its gates, so `newGates` is every gate: which are new cannot be told. */
@@ -229,6 +233,8 @@ export interface AddResult {
   choiceSays?: string;
   /** Files of the option the project had before, removed because the project never changed them. */
   choiceRemoved?: string[];
+  /** The notes of the releases this project has not seen, oldest first. Empty at first install: a new project is owed no change. */
+  releaseNotes: { id: string; notes: string[] }[];
 }
 
 interface PackagePatch {
@@ -248,6 +254,18 @@ interface AddonManifest {
    * again, not even by --force. A path ending in `/` names a whole folder.
    */
   startingFiles?: string[];
+  /**
+   * Starting files that are only an example: written when the add-on is first
+   * added, and never by an update, not even into a project that lacks them.
+   * Each must also be a starting file. Same syntax as `startingFiles`.
+   */
+  examples?: string[];
+  /**
+   * What each release changes for a project that has the add-on, and what to
+   * do about it. Oldest first. A release's notes are printed to a project
+   * once: the first update after it, never at first install.
+   */
+  releaseNotes?: { id: string; notes: string[] }[];
   verify?: string;
   /**
    * A command to run once after the add-on is installed, before its check: a
@@ -367,6 +385,7 @@ export function addToProject({ project, unit, force = false, scope, repository =
         gatesBefore !== undefined && name in gatesBefore ? [] : [{ name, options, ...(failsOn[name] === undefined ? {} : { failsOn: failsOn[name] }) }],
       ),
       ...(gatesBefore === undefined && Object.keys(gatesNow).length > 0 ? { gatesUnknownBefore: true } : {}),
+      releaseNotes: [],
       ...setup,
     };
   }
@@ -561,6 +580,13 @@ function addAddon(destination: string, project: string, asked: string, force: bo
   assertKitHasGates(destination, project, manifest);
 
   const packagePlan = planPackageChanges(destination, manifest, force);
+  // An example is written once; so it must be a file the project owns.
+  for (const example of manifest.examples ?? []) {
+    if (!matchesPattern(example, manifest.startingFiles ?? [])) {
+      throw new InstallError(`the add-on "${manifest.name}" cannot be installed: ${example} is an example and not a starting file`);
+    }
+  }
+
   const settingsPlan = planHostSettings(destination, manifest);
   const architecturePlan = planArchitecture(destination, manifest);
   const source = join(addon, "files");
@@ -644,9 +670,21 @@ function addAddon(destination: string, project: string, asked: string, force: bo
     (keepsTemplates && templates.some(({ owned, template }) => owned === path && !templatesBefore.has(template)));
   /** Shipped, not in the project, not written, and not text: no template speaks for it under "Yours to change". */
   const unseen: string[] = [];
+  const isExample = (path: string): boolean => matchesPattern(path, manifest.examples ?? []);
+  /** Examples an update leaves out that the project is known never to have had. */
+  const examplesLeftOut: string[] = [];
 
   for (const [path, content] of starting) {
     if (projectHas(destination, path)) {
+      continue;
+    }
+
+    // An example is for the first install: later it is neither written nor told of, whether or not the record can say it was given.
+    if (!firstTime && isExample(path)) {
+      if (neverGiven(path)) {
+        examplesLeftOut.push(path);
+      }
+
       continue;
     }
 
@@ -659,6 +697,13 @@ function addAddon(destination: string, project: string, asked: string, force: bo
   }
 
   recordStarting(destination, unit, [...starting.keys()].sort());
+
+  // A new project is owed no notes. An old record that has no list is owed every release.
+  const releases = manifest.releaseNotes ?? [];
+  const seen = firstTime ? releases.map(({ id }) => id) : (installedReleases(destination, unit) ?? []);
+  const releaseNotes = releases.filter(({ id }) => !seen.includes(id));
+
+  recordReleases(destination, unit, releases.map(({ id }) => id));
 
   const retired: string[] = [];
 
@@ -758,13 +803,17 @@ function addAddon(destination: string, project: string, asked: string, force: bo
     notes,
     unmerged: settingsPlan.unmerged,
     // A file this run has just written is the template word for word, and so is not among these.
-    yours: findOwnedChanges(destination, templates, templatesBefore, outcome.written),
+    // An example the project lacks is not offered back: it was not given on purpose.
+    yours: findOwnedChanges(destination, templates, templatesBefore, outcome.written).filter(({ owned, state }) => state !== "never-seen" || !isExample(owned)),
+    // Named by the example as the manifest lists it, so a folder of images is one entry.
+    examplesNotGiven: (manifest.examples ?? []).filter((example) => examplesLeftOut.some((path) => matchesPattern(path, [example]))),
     newGates: [],
     firstRun: manifest.firstRun,
     verify: manifest.verify,
     choice: chosen,
     choiceSays: chosen === undefined ? undefined : manifest.choice?.options[chosen],
     choiceRemoved,
+    releaseNotes,
   };
 }
 
@@ -1062,12 +1111,17 @@ function keepTemplates(files: Map<string, Buffer>, starting: Map<string, Buffer>
 
 const TEXT_STARTING_FILE = /\.(ts|tsx|mts|json|jsonc|json5|md|yaml|yml|html|css)$|(^|\/)\.gitignore$/;
 
+/** Whether a path is one of the patterns, or in one that names a folder (ends in `/`). */
+function matchesPattern(path: string, patterns: string[]): boolean {
+  return patterns.some((pattern) => (pattern.endsWith("/") ? path.startsWith(pattern) : path === pattern));
+}
+
 /** Moves the files the project will own out of `files`, and returns them. */
 function takeStartingFiles(files: Map<string, Buffer>, patterns: string[]): Map<string, Buffer> {
   const starting = new Map<string, Buffer>();
 
   for (const [path, content] of files) {
-    if (patterns.some((pattern) => (pattern.endsWith("/") ? path.startsWith(pattern) : path === pattern))) {
+    if (matchesPattern(path, patterns)) {
       starting.set(path, content);
       files.delete(path);
     }
@@ -1290,6 +1344,10 @@ export function describe(result: AddResult, project: string): string {
     lines.push("", `Not merged: ${result.unmerged.length} place(s) in a host's settings file. The add-on is not whole until they are (exit 3):`, ...result.unmerged.map((entry) => `  - ${entry}`));
   }
 
+  if (result.releaseNotes.length > 0) {
+    lines.push("", "Release notes:", ...result.releaseNotes.flatMap(({ id, notes }) => [`  ${id}`, ...notes.map((note) => `    - ${note}`)]));
+  }
+
   const notes = result.notes.filter((note) => !result.unmerged.includes(note));
 
   if (notes.length > 0) {
@@ -1312,7 +1370,12 @@ export function describe(result: AddResult, project: string): string {
 }
 
 /** The section that says what the update left to the project. Empty when it left nothing. */
-export function describeYours({ yours, newGates, gatesUnknownBefore = false }: Pick<AddResult, "yours" | "newGates" | "gatesUnknownBefore">): string[] {
+export function describeYours({
+  yours,
+  newGates,
+  gatesUnknownBefore = false,
+  examplesNotGiven = [],
+}: Pick<AddResult, "yours" | "newGates" | "gatesUnknownBefore" | "examplesNotGiven">): string[] {
   const gates = newGates.map(({ name, options, failsOn }) => [
     `architecture.config.mts: ${gatesUnknownBefore ? "the kit has the gate" : "the kit has a new gate,"} ${name}. ${
       options.length === 0 ? "It reads no option of this file." : `It reads ${options.join(", ")}: set what this project needs.`
@@ -1322,6 +1385,14 @@ export function describeYours({ yours, newGates, gatesUnknownBefore = false }: P
   ]);
   const entries = [
     ...yours.map(describeOwnedChange),
+    // A template above may import an example the project never had: copying the template alone would not compile.
+    ...(yours.length > 0 && examplesNotGiven.length > 0
+      ? [
+          [
+            `Examples this project was never given: ${examplesNotGiven.join(", ")}. A template above may import one. Start it from its template in tools/templates/, with this project's own entries.`,
+          ],
+        ]
+      : []),
     // Which gates are new cannot be told, and that is said once, before all of them.
     ...(gatesUnknownBefore && gates.length > 0
       ? [

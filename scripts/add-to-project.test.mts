@@ -1582,6 +1582,188 @@ describe("a starting file that a later version of an add-on is the first to ship
   });
 });
 
+describe("an add-on's release notes", () => {
+  it("prints no notes at first install, and records them as seen", () => {
+    const { repository, project } = createWorldWithKit();
+    withReleases(repository, ["a"]);
+
+    const result = addToProject({ project, unit: "demo", repository });
+
+    expect(result.releaseNotes).toEqual([]);
+    expect(readJson(project, "tools/installed.json").demo.releasesSeen).toEqual(["a"]);
+  });
+
+  it("prints the notes of a release the project has not seen, once", () => {
+    const { repository, project } = createWorldWithKit();
+    withReleases(repository, ["a"]);
+    addToProject({ project, unit: "demo", repository });
+    withReleases(repository, ["a", "b"]);
+
+    expect(addToProject({ project, unit: "demo", repository }).releaseNotes).toEqual([{ id: "b", notes: ["note of b"] }]);
+    expect(addToProject({ project, unit: "demo", repository }).releaseNotes).toEqual([]);
+  });
+
+  it("prints every release to a project whose record is from before release notes", () => {
+    const { repository, project } = createWorldWithKit();
+    withReleases(repository, ["a", "b"]);
+    addToProject({ project, unit: "demo", repository });
+    const record = readJson(project, "tools/installed.json");
+
+    delete record.demo.releasesSeen;
+    write(project, "tools/installed.json", `${JSON.stringify(record, null, 2)}\n`);
+
+    expect(addToProject({ project, unit: "demo", repository }).releaseNotes.map(({ id }) => id)).toEqual(["a", "b"]);
+  });
+
+  it("keeps releasesSeen through an update that changes other files", () => {
+    const { repository, project } = createWorldWithKit();
+    withReleases(repository, ["a"]);
+    addToProject({ project, unit: "demo", repository });
+    write(repository, "addons/demo/files/packages/web/tests/other.ts", "// new\n");
+
+    const result = addToProject({ project, unit: "demo", repository });
+
+    expect(result.files.written).toContain("packages/web/tests/other.ts");
+    expect(result.releaseNotes).toEqual([]);
+    expect(readJson(project, "tools/installed.json").demo.releasesSeen).toEqual(["a"]);
+  });
+
+  it("shows the notes under 'Release notes:' before what is still to do", () => {
+    const { repository, project } = createWorldWithKit();
+    withReleases(repository, ["a"]);
+    addToProject({ project, unit: "demo", repository });
+    withReleases(repository, ["a", "b"]);
+    const result = addToProject({ project, unit: "demo", repository });
+
+    const printed = describeResult({ ...result, notes: ["do this by hand"] }, project);
+
+    expect(printed).toContain("Release notes:\n  b\n    - note of b");
+    expect(printed.indexOf("Release notes:")).toBeLessThan(printed.indexOf("Still to do by hand:"));
+  });
+});
+
+describe("an example starting file", () => {
+  it("is written at first install", () => {
+    const { repository, project } = createWorldWithKit();
+    withExamples(repository);
+
+    addToProject({ project, unit: "demo", repository });
+
+    expect(read(project, "packages/web/tests/registry.tsx")).toBe("// registry, as shipped\n");
+    expect(read(project, "packages/web/tests/goldens/a.png")).toBe("an image, as shipped");
+  });
+
+  it("never comes in with an update, even one this version is the first to ship", () => {
+    const { repository, project } = createWorldWithKit();
+    withExamples(repository);
+    addToProject({ project, unit: "demo", repository });
+    write(repository, "addons/demo/files/packages/web/tests/goldens/b.png", "a second image");
+
+    const result = addToProject({ project, unit: "demo", repository });
+
+    expect(existsSync(join(project, "packages/web/tests/goldens/b.png"))).toBe(false);
+    expect(result.created).toEqual([]);
+    expect(readJson(project, "tools/installed.json").demo.starting).toContain("packages/web/tests/goldens/b.png");
+  });
+
+  it("is neither written nor named in a project whose record has no starting list", () => {
+    const { repository, project } = createWorldWithKit();
+    withExamples(repository);
+    addToProject({ project, unit: "demo", repository });
+    forgetStartingFiles(project);
+    write(repository, "addons/demo/files/packages/web/tests/goldens/b.png", "a second image");
+    write(repository, "addons/demo/files/packages/web/tests/goldens/c.json", "{}\n");
+
+    const result = addToProject({ project, unit: "demo", repository });
+
+    expect(existsSync(join(project, "packages/web/tests/goldens/b.png"))).toBe(false);
+    expect(existsSync(join(project, "packages/web/tests/goldens/c.json"))).toBe(false);
+    expect(result.created).toEqual([]);
+    expect(describeResult(result, project)).not.toContain("goldens/b.png");
+    expect(describeResult(result, project)).not.toContain("goldens/c.json");
+  });
+
+  it("is not named in a project that keeps templates, when its template is new there", () => {
+    const { repository, project } = createWorldWithKit();
+    withExamples(repository);
+    addToProject({ project, unit: "demo", repository });
+    write(repository, "addons/demo/files/packages/web/tests/registry2.tsx", "// another\n");
+    const manifest = readJson(repository, "addons/demo/addon.json");
+
+    write(repository, "addons/demo/addon.json", JSON.stringify({ ...manifest, startingFiles: [...manifest.startingFiles, "packages/web/tests/registry2.tsx"], examples: [...manifest.examples, "packages/web/tests/registry2.tsx"] }));
+    forgetStartingFiles(project);
+
+    const result = addToProject({ project, unit: "demo", repository });
+
+    expect(existsSync(join(project, "packages/web/tests/registry2.tsx"))).toBe(false);
+    expect(result.created).toEqual([]);
+  });
+
+  it("is named once under \"Yours to change\" when it was never given, since a template there may import it", () => {
+    const { repository, project } = createWorldWithKit();
+    withStartingFiles(repository);
+    addToProject({ project, unit: "demo", repository });
+    withExamples(repository);
+    write(repository, "addons/demo/files/packages/web/tests/goldens/b.png", "a second image");
+    write(repository, "addons/demo/files/packages/web/tests/goldens/c.png", "a third image");
+    write(repository, "addons/demo/files/packages/web/tests/scenarios.ts", 'import "./registry.tsx";\n// scenarios, as shipped\n');
+
+    const result = addToProject({ project, unit: "demo", repository });
+
+    expect(result.yours.map(({ owned, state }) => ({ owned, state }))).toEqual([{ owned: "packages/web/tests/scenarios.ts", state: "untouched" }]);
+    expect(describeYours(result).slice(-1)).toEqual([
+      "  - Examples this project was never given: packages/web/tests/registry.tsx, packages/web/tests/goldens/. A template above may import one. Start it from its template in tools/templates/, with this project's own entries.",
+    ]);
+  });
+
+  it("is not named when no template changed", () => {
+    const { repository, project } = createWorldWithKit();
+    withStartingFiles(repository);
+    addToProject({ project, unit: "demo", repository });
+    withExamples(repository);
+
+    const result = addToProject({ project, unit: "demo", repository });
+
+    expect(result.examplesNotGiven).toEqual(["packages/web/tests/registry.tsx"]);
+    expect(describeYours(result)).toEqual([]);
+  });
+
+  it("is not named when the project deleted it", () => {
+    const { repository, project } = createWorldWithKit();
+    withExamples(repository);
+    addToProject({ project, unit: "demo", repository });
+    rmSync(join(project, "packages/web/tests/registry.tsx"));
+    write(repository, "addons/demo/files/packages/web/tests/scenarios.ts", "// scenarios, version 2\n");
+    const result = addToProject({ project, unit: "demo", repository });
+
+    expect(result.yours.map(({ owned }) => owned)).toEqual(["packages/web/tests/scenarios.ts"]);
+    expect(describeYours(result).join("\n")).not.toContain("never given");
+  });
+
+  it("does not stop a new starting file that is not an example from being written", () => {
+    const { repository, project } = createWorldWithKit();
+    withExamples(repository);
+    addToProject({ project, unit: "demo", repository });
+    withPolicyFile(repository);
+
+    expect(addToProject({ project, unit: "demo", repository }).created).toEqual(["POLICY.md"]);
+  });
+
+  it("is refused when it is not a starting file, and nothing is written", () => {
+    const { repository, project } = createWorldWithKit();
+    withExamples(repository);
+    const manifest = readJson(repository, "addons/demo/addon.json");
+
+    write(repository, "addons/demo/addon.json", JSON.stringify({ ...manifest, examples: [...manifest.examples, "packages/web/tests/other.tsx"] }));
+    const before = snapshot(project);
+
+    expect(() => addToProject({ project, unit: "demo", repository })).toThrow(
+      'the add-on "demo" cannot be installed: packages/web/tests/other.tsx is an example and not a starting file',
+    );
+    expect(snapshot(project)).toEqual(before);
+  });
+});
+
 describe("an add-on update in a project that kept no copy of a template", () => {
   it("shows where the project's starting file differs from the template, and says it cannot tell which side changed", () => {
     const { repository, project } = createWorldWithKit();
@@ -1936,6 +2118,23 @@ function withStartingFiles(repository: string): void {
   write(repository, "addons/demo/addon.json", JSON.stringify(manifest));
   write(repository, "addons/demo/files/packages/web/tests/scenarios.ts", "// scenarios, as shipped\n");
   write(repository, "addons/demo/files/packages/web/tests/goldens/a.png", "an image, as shipped");
+}
+
+/** Gives the demo add-on these releases, oldest first, each with one note. Its files are not changed. */
+function withReleases(repository: string, ids: string[]): void {
+  const manifest = readJson(repository, "addons/demo/addon.json");
+
+  write(repository, "addons/demo/addon.json", JSON.stringify({ ...manifest, releaseNotes: ids.map((id) => ({ id, notes: [`note of ${id}`] })) }));
+}
+
+/** Gives the demo add-on a registry and a golden folder as examples: starting files that only a first install writes. */
+function withExamples(repository: string): void {
+  withStartingFiles(repository);
+
+  const manifest = readJson(repository, "addons/demo/addon.json");
+
+  write(repository, "addons/demo/addon.json", JSON.stringify({ ...manifest, startingFiles: [...manifest.startingFiles, "packages/web/tests/registry.tsx"], examples: ["packages/web/tests/registry.tsx", "packages/web/tests/goldens/"] }));
+  write(repository, "addons/demo/files/packages/web/tests/registry.tsx", "// registry, as shipped\n");
 }
 
 /** Gives the demo add-on a setting file, and the name of the file that held the setting before. */

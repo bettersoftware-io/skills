@@ -12,7 +12,9 @@
         "visual:update": "pnpm --dir packages/client-react exec playwright test --config tests/visual/playwright.config.ts --update-snapshots=all",
         "visual:jitter": "node tools/visual/jitter.mts",
         "visual:check": "pnpm --dir packages/client-react run typecheck:visual",
-        "visual:check:server": "node tools/visual/check-server.mts"
+        "visual:check:server": "node tools/visual/check-server.mts",
+        "visual:check:styles": "node tools/visual/check-styles.mts",
+        "visual:coverage": "node tools/visual/coverage.mts"
       }
     },
     "packages/client-react": {
@@ -22,14 +24,19 @@
       "devDependencies": {
         "@playwright/test": "1.63.0",
         "@sinonjs/fake-timers": "^15.4.0",
-        "@types/node": "^26.2.0"
+        "@types/node": "^26.2.0",
+        "@vitest/browser-playwright": "^5.0.3",
+        "@vitest/coverage-v8": "^5.0.3",
+        "playwright": "1.63.0",
+        "vitest": "^5.0.3"
       }
     }
   },
   "gates": {
     "fast": [
       "pnpm visual:check",
-      "pnpm visual:check:server"
+      "pnpm visual:check:server",
+      "pnpm visual:check:styles"
     ],
     "full": []
   },
@@ -37,13 +44,43 @@
     "packages/client-react/tests/visual/scenarios.ts",
     "packages/client-react/tests/visual/seeding.ts",
     "packages/client-react/tests/visual/tolerance.ts",
+    "packages/client-react/tests/visual/framing.ts",
+    "packages/client-react/tests/visual/registry.tsx",
     "packages/client-react/tests/visual/goldens/"
+  ],
+  "examples": [
+    "packages/client-react/tests/visual/goldens/",
+    "packages/client-react/tests/visual/registry.tsx"
   ],
   "movedToProject": {
     "packages/client-react/tests/visual/host/main.tsx": {
       "to": "packages/client-react/tests/visual/seeding.ts",
       "note": "It holds how a scenario's data becomes app state: what the harness is built with, the machines that start with a value, and what is delivered once the UI is on screen."
+    },
+    "packages/client-react/tests/visual/visual.pw.ts": {
+      "to": "packages/client-react/tests/visual/scenarios.ts",
+      "note": "A width or height a scenario needs now goes on the scenario: `width` and `height` set the viewport of a page."
     }
   },
+  "releaseNotes": [
+    {
+      "id": "0.19.0",
+      "notes": [
+        "Every scenario you have is still the whole app, now pictured as a page: the viewport (1920x1080 unless the scenario sets `width` or `height`), with no frame or padding, so anything below the viewport is no longer in the picture unless the scenario sets a larger `height`. Every golden changes once: run `pnpm visual:update` and open each image before you commit it.",
+        "A page now defaults to 1080 pixels tall: a scenario that was drawn 720 tall sets `height: 720`.",
+        "For `linux-x64`, run the `Update visual goldens` workflow: it uploads the images as an artifact and commits nothing, and its job summary gives the commands.",
+        "If you edited `visual.pw.ts` to size the viewport, a scenario's `width` and `height` now do that. Take the update with `--force`, then move anything else you changed from the copy it keeps in `tools/templates/`.",
+        "Chromium now starts with `--disable-partial-raster`, so a scenario given up for shading or a flickering list can come back, as a component. If you added that flag to `playwright.config.ts`, `--force` replaced the file and kept no copy: if yours differed by more than that line, `git show HEAD:packages/client-react/tests/visual/playwright.config.ts` has it.",
+        "A native control's own text (a `<select>`) still draws two ways on linux-x64: draw its shown value as ordinary text.",
+        "`tests/visual/framing.ts` is new and yours: the root width (480), root padding (8) and viewport (1920x1080) a scenario falls back on.",
+        "A set of only whole-app pictures is the shape to avoid: picture each component's states first, then a reasonable number of sections, and keep pages for new screens and sizes (AGENTS.md, \"The pyramid\").",
+        "No example scenario, golden or registry is added to your project. To picture components and sections, copy `registry.tsx` from `tools/templates/visual.packages__client-react__tests__visual__registry.tsx.txt` with your own entries, return `render` from `seedScenario` as `tools/templates/visual.packages__client-react__tests__visual__seeding.ts.txt` does, and put the app's theme root in its `Surround`.",
+        "The shipped tolerance is now `{ maxDiffPixels: 8, threshold: 0.01 }`: your `tolerance.ts` is kept and keeps working, and the new one is in `tools/templates/visual.packages__client-react__tests__visual__tolerance.ts.txt` to copy from. A scenario may set `strict`, `maxDiffPixels` or `pixelThreshold` only with a `pnpm visual:jitter --scenario <name>` measurement and its cause written beside it.",
+        "`pnpm visual:check:styles` joins `gate:fast`: it fails when `packages/client-react/src/main.tsx` imports a stylesheet or font other than `index.css`. Move such an import into `index.css`, the one file the visual host loads.",
+        "`pnpm visual:coverage` lists the UI no scenario renders. It adds `vitest`, `@vitest/browser-playwright` and `@vitest/coverage-v8` to `packages/client-react`; the `pnpm -r update` command under \"Next\" puts them on one version, which Vitest needs."
+      ]
+    }
+  ],
+  "firstRun": "pnpm -r update --no-save vitest @vitest/browser-playwright @vitest/coverage-v8",
   "verify": "pnpm visual"
 }

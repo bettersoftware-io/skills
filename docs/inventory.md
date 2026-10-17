@@ -59,7 +59,7 @@ For any TypeScript pnpm monorepo.
 | Coverage gates in CI (≥95% lines, ≥85% branches where set) | `ci.yml` coverage steps |
 | Per-file gap ranking from a fresh local run | `scripts/coverage-gaps.mts`, `/rtc:backfill-test-coverage` |
 | Published multi-tier coverage report, plus a job-summary rendering | `coverage-report.yml`, `scripts/pages/publish-to-pages.mts` |
-| "Visual reach" coverage: which UI no golden scenario ever renders | the vitest-browser coverage-only tier |
+| "Visual reach" coverage: which UI no golden scenario ever renders | the vitest-browser coverage-only tier. Built: `pnpm visual:coverage` in the `visual` add-on |
 | Visual diff report, published and uploaded as an artifact on failure | `visual.yml` report job, `scripts/pages/build-visual-report.mts` |
 | e2e report uploaded as an artifact on failure | `ci.yml` e2e job |
 | Tolerance audit: measure real cross-run noise before setting a pixel budget | `visual:jitter`, `/rtc:visual-tolerance-audit` |

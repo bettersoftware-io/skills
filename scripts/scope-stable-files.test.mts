@@ -46,7 +46,7 @@ describe("a file an add-on owns that names the project's scope", () => {
   const owned = listOwnedFilesThatNameTheScope();
 
   it("is found: the visual host, for one", () => {
-    expect(owned.map(({ addon, path }) => `${addon} ${path}`)).toContain("visual packages/client-react/tests/visual/host/main.tsx");
+    expect(owned.map(({ addon, path }) => `${addon} ${path}`)).toContain("visual packages/client-react/tests/visual/host/render.tsx");
   });
 
   it.each(["@app", "@skills-demo", "@ci-organisation-with-a-long-name"])("comes out of the formatter as it went in, under the scope %s", (scope) => {

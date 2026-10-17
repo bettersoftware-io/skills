@@ -36,7 +36,7 @@
   },
   {
     "name": "visual host: its stylesheets are in their groups",
-    "file": "addons/visual/files/packages/client-react/tests/visual/host/main.tsx",
+    "file": "addons/visual/files/packages/client-react/tests/visual/host/render.tsx",
     "find": "import \"#/index.css\";\nimport { App } from \"#/ui/App.tsx\";",
     "replace": "import { App } from \"#/ui/App.tsx\";\nimport \"#/index.css\";",
     "test": "pnpm vitest run addons/format-lint/tests/addon.test.mts -t \"finds nothing in what the visual add-on\""

@@ -1,0 +1,58 @@
+[
+  {
+    "name": "examples: an update writes a new example",
+    "file": "scripts/add-to-project.mts",
+    "find": "if (!firstTime && isExample(path)) {",
+    "replace": "if (false) {",
+    "test": "pnpm vitest run scripts/add-to-project.test.mts -t \"never comes in with an update\""
+  },
+  {
+    "name": "examples: a record with no starting list reports an example as unseen",
+    "file": "scripts/add-to-project.mts",
+    "find": "if (!firstTime && isExample(path)) {",
+    "replace": "if (false) {",
+    "test": "pnpm vitest run scripts/add-to-project.test.mts -t \"neither written nor named\""
+  },
+  {
+    "name": "examples: a template the project lacks is offered back for an example",
+    "file": "scripts/add-to-project.mts",
+    "find": ".filter(({ owned, state }) => state !== \"never-seen\" || !isExample(owned)),",
+    "replace": ",",
+    "test": "pnpm vitest run scripts/add-to-project.test.mts -t \"neither written nor named\""
+  },
+  {
+    "name": "examples: an example that is not a starting file is accepted",
+    "file": "scripts/add-to-project.mts",
+    "find": "    if (!matchesPattern(example, manifest.startingFiles ?? [])) {",
+    "replace": "    if (false) {",
+    "test": "pnpm vitest run scripts/add-to-project.test.mts -t \"is refused when it is not a starting file\""
+  },
+  {
+    "name": "examples: a template that may import an example the project never had says nothing of it",
+    "file": "scripts/add-to-project.mts",
+    "find": "    ...(yours.length > 0 && examplesNotGiven.length > 0",
+    "replace": "    ...(false",
+    "test": "pnpm vitest run scripts/add-to-project.test.mts -t \"is named once under\""
+  },
+  {
+    "name": "examples: an example the project deleted is named as never given",
+    "file": "scripts/add-to-project.mts",
+    "find": "      if (neverGiven(path)) {\n        examplesLeftOut.push(path);",
+    "replace": "      if (true) {\n        examplesLeftOut.push(path);",
+    "test": "pnpm vitest run scripts/add-to-project.test.mts -t \"is not named when the project deleted it\""
+  },
+  {
+    "name": "examples: the never-given note is printed when no template changed",
+    "file": "scripts/add-to-project.mts",
+    "find": "    ...(yours.length > 0 && examplesNotGiven.length > 0",
+    "replace": "    ...(examplesNotGiven.length > 0",
+    "test": "pnpm vitest run scripts/add-to-project.test.mts -t \"is not named when no template changed\""
+  },
+  {
+    "name": "examples: a folder of examples is named once per image",
+    "file": "scripts/add-to-project.mts",
+    "find": "examplesNotGiven: (manifest.examples ?? []).filter((example) => examplesLeftOut.some((path) => matchesPattern(path, [example]))),",
+    "replace": "examplesNotGiven: examplesLeftOut,",
+    "test": "pnpm vitest run scripts/add-to-project.test.mts -t \"is named once under\""
+  }
+]

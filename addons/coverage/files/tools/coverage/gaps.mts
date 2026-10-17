@@ -17,7 +17,10 @@ import type { PackageResult } from "./lib/judge.mts";
 import { uncovered } from "./lib/judge.mts";
 import { portTestsAreSkipped } from "./lib/listening.mts";
 import { isMainModule } from "./lib/main.mts";
-import { formatPercent } from "./lib/report.mts";
+import type { FileCoverage } from "./lib/measure.mts";
+import { formatDate, formatPercent } from "./lib/report.mts";
+import type { UnreadableVisualReach, VisualReach } from "./lib/visualReach.mts";
+import { readVisualReach } from "./lib/visualReach.mts";
 import { checkCoverage } from "./run.mts";
 
 export interface Gap {
@@ -32,17 +35,22 @@ export interface Gap {
 
 /** Every measured file with something not covered, the most uncovered lines first. */
 export function rankGaps(results: PackageResult[]): Gap[] {
-  return results
-    .flatMap((result) =>
-      result.measured.map((file) => ({
-        file: file.file,
-        uncoveredLines: uncovered(file.lines),
-        uncoveredBranches: uncovered(file.branches),
-        uncoveredFunctions: uncovered(file.functions),
-        linesPct: file.lines.pct,
-        under: result.underTheBar.find((entry) => entry.file === file.file)?.shortfalls.map(({ metric }) => metric) ?? [],
-      })),
-    )
+  return rankFiles(
+    results.flatMap((result) => result.measured),
+    results.flatMap((result) => result.underTheBar),
+  );
+}
+
+function rankFiles(files: FileCoverage[], underTheBar: PackageResult["underTheBar"]): Gap[] {
+  return files
+    .map((file) => ({
+      file: file.file,
+      uncoveredLines: uncovered(file.lines),
+      uncoveredBranches: uncovered(file.branches),
+      uncoveredFunctions: uncovered(file.functions),
+      linesPct: file.lines.pct,
+      under: underTheBar.find((entry) => entry.file === file.file)?.shortfalls.map(({ metric }) => metric) ?? [],
+    }))
     .filter((gap) => gap.uncoveredLines + gap.uncoveredBranches + gap.uncoveredFunctions > 0)
     .sort(
       (a, b) =>
@@ -54,34 +62,26 @@ export function rankGaps(results: PackageResult[]): Gap[] {
     );
 }
 
+/** The files no visual scenario renders: some line or statement never ran, ranked like the gaps. */
+export function rankVisualGaps({ files }: VisualReach): Gap[] {
+  return rankFiles(
+    files.filter((file) => uncovered(file.lines) > 0 || uncovered(file.statements) > 0),
+    [],
+  );
+}
+
 /** Packages whose files are missing from the ranking, and why. */
 export function findUnmeasured(results: PackageResult[]): PackageResult[] {
   return results.filter((result) => result.verdict === "ERROR" || result.failedTests.length > 0);
 }
 
-export function formatGaps(results: PackageResult[], limit: number): string {
+export function formatGaps(results: PackageResult[], limit: number, visualReach?: VisualReach | UnreadableVisualReach): string {
   const gaps = rankGaps(results);
   const measured = results.reduce((sum, result) => sum + result.measured.length, 0);
   const lines: string[] = [];
 
   if (gaps.length > 0) {
-    lines.push("  lines not covered   line %   branches   functions   file");
-
-    for (const gap of gaps.slice(0, limit)) {
-      const numbers = [
-        String(gap.uncoveredLines).padStart(19),
-        formatPercent(gap.linesPct).padStart(8),
-        String(gap.uncoveredBranches).padStart(10),
-        String(gap.uncoveredFunctions).padStart(11),
-      ].join("");
-
-      lines.push(`${numbers}   ${gap.file}${gap.under.length > 0 ? `  (under the bar: ${gap.under.join(", ")})` : ""}`);
-    }
-
-    if (gaps.length > limit) {
-      lines.push(`  … ${gaps.length - limit} more (raise --limit)`);
-    }
-
+    lines.push(...formatTable(gaps, limit));
     lines.push("");
   }
 
@@ -103,7 +103,39 @@ export function formatGaps(results: PackageResult[], limit: number): string {
     lines.push("Nothing was measured in any package. That is not a clean result.");
   }
 
+  if (visualReach !== undefined) {
+    lines.push("", ...("unreadable" in visualReach ? [visualReach.unreadable] : formatVisualReach(visualReach, limit)));
+  }
+
   return lines.join("\n");
+}
+
+function formatTable(gaps: Gap[], limit: number): string[] {
+  const lines = ["  lines not covered   line %   branches   functions   file"];
+
+  for (const gap of gaps.slice(0, limit)) {
+    const numbers = [
+      String(gap.uncoveredLines).padStart(19),
+      formatPercent(gap.linesPct).padStart(8),
+      String(gap.uncoveredBranches).padStart(10),
+      String(gap.uncoveredFunctions).padStart(11),
+    ].join("");
+
+    lines.push(`${numbers}   ${gap.file}${gap.under.length > 0 ? `  (under the bar: ${gap.under.join(", ")})` : ""}`);
+  }
+
+  if (gaps.length > limit) {
+    lines.push(`  … ${gaps.length - limit} more (raise --limit)`);
+  }
+
+  return lines;
+}
+
+function formatVisualReach(visualReach: VisualReach, limit: number): string[] {
+  const heading = `Not rendered by any visual scenario (pnpm visual:coverage, written ${formatDate(visualReach.writtenAt)}):`;
+  const gaps = rankVisualGaps(visualReach);
+
+  return gaps.length > 0 ? [heading, ...formatTable(gaps, limit)] : [heading, "  every file has its lines rendered."];
 }
 
 interface CommandLine {
@@ -162,11 +194,24 @@ if (isMainModule(import.meta.url)) {
       },
     });
     const unmeasured = findUnmeasured(results);
+    const visualReach = readVisualReach(root);
 
     console.log(
       json
-        ? JSON.stringify({ gaps: rankGaps(results).slice(0, limit), unmeasured }, null, 2)
-        : `\n${formatGaps(results, limit)}`,
+        ? JSON.stringify(
+            {
+              gaps: rankGaps(results).slice(0, limit),
+              unmeasured,
+              ...(visualReach === undefined
+                ? {}
+                : "unreadable" in visualReach
+                  ? { visualReach }
+                  : { visualReach: { writtenAt: visualReach.writtenAt, gaps: rankVisualGaps(visualReach).slice(0, limit) } }),
+            },
+            null,
+            2,
+          )
+        : `\n${formatGaps(results, limit, visualReach)}`,
     );
     process.exit(unmeasured.length > 0 || results.every((result) => result.measured.length === 0) ? 2 : 0);
   } catch (error) {

@@ -660,8 +660,8 @@
   {
     "name": "gaps: marks the metrics that put a file under the bar, and leaves a file above it unmarked",
     "file": "addons/coverage/files/tools/coverage/gaps.mts",
-    "find": "result.underTheBar.find((entry) => entry.file === file.file)",
-    "replace": "result.underTheBar.find((entry) => entry.file !== file.file)",
+    "find": "underTheBar.find((entry) => entry.file === file.file)",
+    "replace": "underTheBar.find((entry) => entry.file !== file.file)",
     "test": "pnpm vitest run addons/coverage/tests/gaps.test.mts -t \"marks the metrics that put a file under the bar\""
   },
   {
@@ -990,7 +990,7 @@
     "name": "addon: writes its reports only where the starter's .gitignore already covers them",
     "file": "addons/coverage/files/tools/coverage/lib/site.mts",
     "find": "export const REPORT_DIRECTORY = \"coverage/report\";",
-    "replace": "export const REPORT_DIRECTORY = \"reports/merged\";",
+    "replace": "export const REPORT_DIRECTORY = \"site/merged\";",
     "test": "pnpm vitest run addons/coverage/tests/addon.test.mts -t \"writes its reports only where the starter\""
   },
   {
@@ -1244,5 +1244,47 @@
     "find": "/^test(:|$)/.test(name)",
     "replace": "/^test$/.test(name)",
     "test": "pnpm vitest run addons/coverage/tests/run.test.mts -t \"measures a package that has a Playwright config and a test script\""
+  },
+  {
+    "name": "gaps: the visual section is printed although no summary was written",
+    "file": "addons/coverage/files/tools/coverage/gaps.mts",
+    "find": "if (visualReach !== undefined) {\n    lines.push(\"\", ...(\"unreadable\" in visualReach",
+    "replace": "{\n    lines.push(\"\", ...(visualReach === undefined ? formatVisualReach({ files: [], writtenAt: new Date(0) }, limit) : \"unreadable\" in visualReach",
+    "test": "pnpm vitest run addons/coverage/tests/visualReach.test.mts -t \"prints no section\""
+  },
+  {
+    "name": "gaps: the visual section lists a file whose lines all ran",
+    "file": "addons/coverage/files/tools/coverage/gaps.mts",
+    "find": "files.filter((file) => uncovered(file.lines) > 0 || uncovered(file.statements) > 0)",
+    "replace": "files",
+    "test": "pnpm vitest run addons/coverage/tests/visualReach.test.mts -t \"lists only the files\""
+  },
+  {
+    "name": "visual reach: the summary's total is listed as a file",
+    "file": "addons/coverage/files/tools/coverage/lib/visualReach.mts",
+    "find": ".filter(([key]) => key !== \"total\")",
+    "replace": "",
+    "test": "pnpm vitest run addons/coverage/tests/visualReach.test.mts -t \"gives files from the project root\""
+  },
+  {
+    "name": "visual reach: a path is kept absolute instead of from the project root",
+    "file": "addons/coverage/files/tools/coverage/lib/visualReach.mts",
+    "find": "return inProject.startsWith(\"..\") ? absolute : inProject.split(sep).join(\"/\");",
+    "replace": "return absolute;",
+    "test": "pnpm vitest run addons/coverage/tests/visualReach.test.mts -t \"gives files from the project root\""
+  },
+  {
+    "name": "visual reach: a corrupt summary throws and loses the units' report",
+    "file": "addons/coverage/files/tools/coverage/lib/visualReach.mts",
+    "find": "  } catch {\n    return { unreadable",
+    "replace": "  } catch (error) {\n    throw error;\n    return { unreadable",
+    "test": "pnpm vitest run addons/coverage/tests/visualReach.test.mts -t \"cannot be read\""
+  },
+  {
+    "name": "gaps: a summary that could not be read is left out without a word",
+    "file": "addons/coverage/files/tools/coverage/gaps.mts",
+    "find": "(\"unreadable\" in visualReach ? [visualReach.unreadable] :",
+    "replace": "(\"unreadable\" in visualReach ? [] :",
+    "test": "pnpm vitest run addons/coverage/tests/visualReach.test.mts -t \"keeps the units' report\""
   }
 ]

@@ -1,3 +1,5 @@
+import type { ReactElement } from "react";
+
 import type { App as Application } from "@app/client-core";
 
 /**
@@ -17,4 +19,9 @@ export interface Seeded {
    * calls it once, after the UI has subscribed, so no delivery is lost.
    */
   deliver: () => void;
+  /**
+   * The element to show. With none the host shows the whole `App`. A seeding
+   * made before this field existed has none.
+   */
+  render?: () => ReactElement;
 }

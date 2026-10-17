@@ -8,11 +8,7 @@ import { join, relative, sep } from "node:path";
 import { comparePixels, type PixelDifference } from "./pixelDiff.mts";
 import { decodePng } from "./png.mts";
 
-/** The two knobs of the tier's tolerance, as `tolerance.ts` declares them. */
-export interface Tolerance {
-  maxDiffPixelRatio: number;
-  threshold: number;
-}
+import { type Framing, resolvePicture, type Tolerance } from "../../../packages/client-react/tests/visual/host/picture.ts";
 
 export interface ImageNoise extends PixelDifference {
   /** The image's path inside each capture, e.g. `row-stale.png`. */
@@ -58,14 +54,36 @@ export function listPngs(directory: string): Map<string, string> {
   return found;
 }
 
-export function measureNoise(directories: string[], threshold: number): Measurement {
+/** The name of the scenario an image belongs to: the golden's file name without `.png`. */
+export function scenarioNameOf(image: string): string {
+  return image.endsWith(".png") ? image.slice(0, -".png".length) : image;
+}
+
+/**
+ * The tolerance each image is judged by: the one its scenario resolves to, as
+ * the Playwright spec resolves it. An image no scenario owns (an orphan, or a
+ * folder of another layout) is judged by the global one. Throws `PictureError`
+ * for a scenario that contradicts itself, naming it.
+ */
+export function createToleranceOf(scenarios: Record<string, unknown>, framing: Framing, global: Tolerance): (image: string) => Tolerance {
+  const resolved = new Map<string, Tolerance>();
+
+  for (const [name, scenario] of Object.entries(scenarios)) {
+    resolved.set(name, resolvePicture(name, scenario, framing, global).tolerance);
+  }
+
+  return (image) => resolved.get(scenarioNameOf(image)) ?? global;
+}
+
+/** Counts pixels at one threshold, or at the threshold of each image's own scenario. */
+export function measureNoise(directories: string[], threshold: number | ((image: string) => number)): Measurement {
   const captures = directories.map(listPngs);
   const everyImage = [...new Set(captures.flatMap((capture) => [...capture.keys()]))].sort();
   const shared = everyImage.filter((image) => captures.every((capture) => capture.has(image)));
 
   return {
     captures: directories.length,
-    images: shared.map((image) => worstDifference(image, captures, threshold)),
+    images: shared.map((image) => worstDifference(image, captures, typeof threshold === "number" ? threshold : threshold(image))),
     incomplete: everyImage.filter((image) => !shared.includes(image)),
   };
 }
@@ -98,11 +116,47 @@ function worstDifference(image: string, captures: Map<string, string>[], thresho
   return { image, ...worst, ratio: worst.total === 0 ? 0 : worst.different / worst.total };
 }
 
+/** True when the image's worst difference is more than its tolerance allows. A tolerance with neither cap allows nothing. */
+function exceeds(noise: ImageNoise, tolerance: Tolerance): boolean {
+  const { maxDiffPixels, maxDiffPixelRatio } = tolerance;
+
+  if (maxDiffPixels === undefined && maxDiffPixelRatio === undefined) {
+    return noise.different > 0;
+  }
+
+  return (
+    (maxDiffPixels !== undefined && noise.different > maxDiffPixels) ||
+    (maxDiffPixelRatio !== undefined && noise.ratio > maxDiffPixelRatio)
+  );
+}
+
+/** The caps a tolerance sets, in words. */
+function describeAllowed(tolerance: Tolerance): string {
+  const caps: string[] = [];
+
+  if (tolerance.maxDiffPixels !== undefined) {
+    caps.push(`${tolerance.maxDiffPixels} pixels`);
+  }
+
+  if (tolerance.maxDiffPixelRatio !== undefined) {
+    caps.push(`ratio ${tolerance.maxDiffPixelRatio}`);
+  }
+
+  return `allows ${caps.length === 0 ? "0 pixels" : caps.join(" and ")}`;
+}
+
+/** The image with the largest value of `measure`, the first one on a tie. */
+function worstOf(images: ImageNoise[], measure: (noise: ImageNoise) => number): ImageNoise {
+  return images.reduce((worst, noise) => (measure(noise) > measure(worst) ? noise : worst));
+}
+
 /**
- * Says whether the tolerance stands on the measurement. A measurement of
- * nothing is exit 2, never a pass.
+ * Says whether each image's tolerance stands on the measurement. Every image is
+ * judged by the tolerance `toleranceOf` gives it, so a scenario that asked for
+ * more (or less) than the global is held to what it asked for. A measurement
+ * of nothing is exit 2, never a pass.
  */
-export function judgeNoise(measurement: Measurement, tolerance: Tolerance): Verdict {
+export function judgeNoise(measurement: Measurement, toleranceOf: (image: string) => Tolerance): Verdict {
   if (measurement.captures < 2) {
     return { exitCode: 2, lines: ["No measurement: noise is a difference between captures, so at least two are needed."] };
   }
@@ -112,9 +166,9 @@ export function judgeNoise(measurement: Measurement, tolerance: Tolerance): Verd
   }
 
   const lines = [
-    `${measurement.captures} captures, ${measurement.images.length} image(s) compared at threshold ${tolerance.threshold}.`,
+    `${measurement.captures} captures, ${measurement.images.length} image(s) compared, each at its own scenario's threshold.`,
     "",
-    ...measurement.images.map(describeImage),
+    ...measurement.images.map((noise) => describeImage(noise, toleranceOf(noise.image))),
     "",
   ];
 
@@ -129,12 +183,21 @@ export function judgeNoise(measurement: Measurement, tolerance: Tolerance): Verd
   }
 
   const resized = measurement.images.filter((image) => image.sizeChanged);
-  const worstRatio = Math.max(...measurement.images.map((image) => image.ratio));
-  const largestMove = Math.max(...measurement.images.map((image) => image.largestColourMove));
+  const over = measurement.images.filter((image) => exceeds(image, toleranceOf(image.image)));
+  const worstPixels = worstOf(measurement.images, (noise) => noise.different);
+  const worstRatio = worstOf(measurement.images, (noise) => noise.ratio);
+  const largestMove = worstOf(measurement.images, (noise) => noise.largestColourMove);
+  const pixelsSet = toleranceOf(worstPixels.image).maxDiffPixels;
+  const ratioSet = toleranceOf(worstRatio.image).maxDiffPixelRatio;
+
+  lines.push(`Noise floor in pixels:              ${worstPixels.different}${pixelsSet === undefined ? "" : ` (set: ${pixelsSet})`}`);
+
+  if (measurement.images.some((image) => toleranceOf(image.image).maxDiffPixelRatio !== undefined)) {
+    lines.push(`Noise floor for maxDiffPixelRatio: ${formatRatio(worstRatio.ratio)}${ratioSet === undefined ? "" : ` (set: ${ratioSet})`}`);
+  }
 
   lines.push(
-    `Noise floor for maxDiffPixelRatio: ${formatRatio(worstRatio)} (set: ${tolerance.maxDiffPixelRatio})`,
-    `Noise floor for threshold:         ${formatThreshold(largestMove)} (set: ${tolerance.threshold})`,
+    `Noise floor for threshold:         ${formatThreshold(largestMove.largestColourMove)} (set: ${toleranceOf(largestMove.image).threshold})`,
     "",
   );
 
@@ -148,14 +211,14 @@ export function judgeNoise(measurement: Measurement, tolerance: Tolerance): Verd
     };
   }
 
-  if (worstRatio > tolerance.maxDiffPixelRatio) {
+  if (over.length > 0) {
     return {
       exitCode: 1,
       lines: [
         ...lines,
-        "FAIL: the same commit differs from itself by more than the tolerance allows, so the tier can fail with no change to the UI.",
+        `FAIL: ${over.map((image) => image.image).join(", ")} differ(s) from itself by more than its tolerance allows, so the tier can fail with no change to the UI.`,
         "Look at the images that differ first. If one scenario moves, pin its frame; a tolerance cannot make it trustworthy.",
-        "Only if the difference is rendering noise on every image, raise tolerance.ts to just above these floors and write this measurement beside it.",
+        "Only if the difference is rendering noise, raise that scenario's `maxDiffPixels` (or the global in tolerance.ts) to just above its floor and write this measurement beside it.",
       ],
     };
   }
@@ -164,15 +227,15 @@ export function judgeNoise(measurement: Measurement, tolerance: Tolerance): Verd
     exitCode: 0,
     lines: [
       ...lines,
-      worstRatio === 0 && largestMove === 0
+      worstPixels.different === 0 && largestMove.largestColourMove === 0
         ? "PASS: no pixel differed between captures. The tolerance is not hiding any noise here; anything above zero is headroom for machines this run did not see."
-        : "PASS: the tolerance sits above the measured noise.",
+        : "PASS: every image's tolerance sits above its measured noise.",
       "This is the floor on this machine only. CI's floor is measured from several runs of the update workflow on one commit.",
     ],
   };
 }
 
-function describeImage(noise: ImageNoise): string {
+function describeImage(noise: ImageNoise, tolerance: Tolerance): string {
   if (noise.sizeChanged) {
     return `  ${noise.image}: size changed between captures`;
   }
@@ -181,7 +244,7 @@ function describeImage(noise: ImageNoise): string {
     return `  ${noise.image}: identical in every capture`;
   }
 
-  return `  ${noise.image}: ${noise.different} of ${noise.total} pixels differ (ratio ${formatRatio(noise.ratio)}); largest colour move ${formatThreshold(noise.largestColourMove)}`;
+  return `  ${noise.image}: ${noise.different} of ${noise.total} pixels differ (ratio ${formatRatio(noise.ratio)}, ${describeAllowed(tolerance)}); largest colour move ${formatThreshold(noise.largestColourMove)}`;
 }
 
 function formatRatio(ratio: number): string {

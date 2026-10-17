@@ -2,6 +2,7 @@ import { fileURLToPath } from "node:url";
 
 import { defineConfig, devices } from "@playwright/test";
 
+import { FRAMING } from "./framing.ts";
 import { GOLDENS_DIRECTORY } from "./goldens.ts";
 import { HOST_URL } from "./host/address.ts";
 import { TOLERANCE } from "./tolerance.ts";
@@ -20,6 +21,9 @@ export default defineConfig({
   // second run pass. Only `pnpm visual:update` writes.
   updateSnapshots: "none",
   fullyParallel: true,
+  // One worker in CI. RTC found that two browser stacks on one 2-core runner
+  // made the stable-frame check capture early. Locally Playwright picks.
+  workers: process.env.CI === undefined ? undefined : 1,
   forbidOnly: process.env.CI !== undefined,
   // A retry would hide a picture that only sometimes matches. That is a
   // scenario to fix, not to run twice.
@@ -45,8 +49,19 @@ export default defineConfig({
   use: {
     ...devices["Desktop Chrome"],
     baseURL: HOST_URL,
-    viewport: { width: 800, height: 600 },
+    // The browser window a scenario falls back on. The spec sets each
+    // scenario's own size before it opens the page.
+    viewport: FRAMING.viewport,
     deviceScaleFactor: 1,
+    // Chromium redraws only the changed part of a tile (partial raster), so
+    // one rounded corner was shaded a level or two apart from frame to
+    // frame. Measured in condo-ledger on linux-x64 in this container, eight
+    // runs on separate runners: with the flag every frame held still and ten
+    // of eleven scenarios were byte-identical; without it a scrolling list in
+    // a dialog never held still. The one scenario left varied in a native
+    // select's own text, and matched once that text was drawn as ordinary
+    // text. Drop the flag only after measuring again.
+    launchOptions: { args: ["--disable-partial-raster"] },
     // Pinned, so the picture does not follow the settings of whoever runs it.
     colorScheme: "light",
     reducedMotion: "reduce",
