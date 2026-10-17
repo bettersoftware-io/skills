@@ -197,21 +197,21 @@
   },
   {
     "name": "ownership: the host reads no field of a scenario",
-    "file": "addons/visual/files/packages/client-react/tests/visual/host/main.tsx",
+    "file": "addons/visual/files/packages/client-react/tests/visual/host/render.tsx",
     "find": "const seeded = seedScenario(scenario, {",
     "replace": "void scenario.prices;\nconst seeded = seedScenario(scenario, {",
-    "test": "pnpm vitest run addons/visual/tests/addon.test.mts -t \"main.tsx names no field of a scenario\""
+    "test": "pnpm vitest run addons/visual/tests/addon.test.mts -t \"render.tsx names no field of a scenario\""
   },
   {
     "name": "ownership: the host renders on the application the seeding gives",
-    "file": "addons/visual/files/packages/client-react/tests/visual/host/main.tsx",
+    "file": "addons/visual/files/packages/client-react/tests/visual/host/render.tsx",
     "find": "createViewModel(seeded.app)",
     "replace": "createViewModel(seedScenario(scenario, { tick: (): void => {} }).app)",
     "test": "pnpm vitest run addons/visual/tests/addon.test.mts -t \"has the host take the application and the deliveries\""
   },
   {
     "name": "ownership: the seeding is called after the clock is installed",
-    "file": "addons/visual/files/packages/client-react/tests/visual/host/main.tsx",
+    "file": "addons/visual/files/packages/client-react/tests/visual/host/render.tsx",
     "find": "const clock = FakeTimers.install({",
     "replace": "const clock = FakeTimers.withGlobal(window).install({",
     "test": "pnpm vitest run addons/visual/tests/addon.test.mts -t \"has the host take the application and the deliveries\""
@@ -225,7 +225,7 @@
   },
   {
     "name": "scope: the host's import is not wrapped under a longer scope",
-    "file": "addons/visual/files/packages/client-react/tests/visual/host/main.tsx",
+    "file": "addons/visual/files/packages/client-react/tests/visual/host/render.tsx",
     "find": "// biome-ignore format: this file is the add-on's, and an update compares it byte for byte. The scope in this line is the project's, and a longer one would have the formatter wrap it.\n",
     "replace": "",
     "test": "pnpm vitest run scripts/scope-stable-files.test.mts -t \"under the scope @skills-demo\""
@@ -271,5 +271,68 @@
     "find": "threshold: 0.01,",
     "replace": "threshold: 0.2,",
     "test": "pnpm vitest run addons/visual/tests/budget.test.mts"
+  },
+  {
+    "name": "host: a face is loaded without being awaited, so the first render does not wait for it",
+    "file": "addons/visual/files/packages/client-react/tests/visual/host/render.tsx",
+    "find": "await loadEveryFace(document.fonts);",
+    "replace": "void loadEveryFace(document.fonts);",
+    "test": "pnpm vitest run addons/visual/tests/addon.test.mts"
+  },
+  {
+    "name": "host: a scenario with a mount skips the check that the seeding returns a render",
+    "file": "addons/visual/files/packages/client-react/tests/visual/host/render.tsx",
+    "find": "if (picture.mount !== undefined && seeded.render === undefined) {",
+    "replace": "if (picture.mount === undefined && seeded.render === undefined) {",
+    "test": "pnpm vitest run addons/visual/tests/addon.test.mts"
+  },
+  {
+    "name": "host: the ready attribute is set without awaiting the scenario",
+    "file": "addons/visual/files/packages/client-react/tests/visual/host/main.tsx",
+    "find": "await shown.ready;",
+    "replace": "",
+    "test": "pnpm vitest run addons/visual/tests/addon.test.mts"
+  },
+  {
+    "name": "host: a failed scenario is caught, so the page never errors",
+    "file": "addons/visual/files/packages/client-react/tests/visual/host/main.tsx",
+    "find": "const shown: Shown = await showScenario(name, container);",
+    "replace": "const shown: Shown = await showScenario(name, container).catch(() => ({ ready: Promise.resolve() }));",
+    "test": "pnpm vitest run addons/visual/tests/addon.test.mts"
+  },
+  {
+    "name": "host: the root is border-box, so its padding eats the fixed width",
+    "file": "addons/visual/files/packages/client-react/tests/visual/host/ScenarioFrame.tsx",
+    "find": "boxSizing: \"content-box\"",
+    "replace": "boxSizing: \"border-box\"",
+    "test": "pnpm vitest run addons/visual/tests/addon.test.mts"
+  },
+  {
+    "name": "host: main.tsx loads the stylesheet as well",
+    "file": "addons/visual/files/packages/client-react/tests/visual/host/main.tsx",
+    "find": "import { READY_ATTRIBUTE } from \"./address.ts\";",
+    "replace": "import \"#/index.css\";\nimport { READY_ATTRIBUTE } from \"./address.ts\";",
+    "test": "pnpm vitest run addons/visual/tests/addon.test.mts"
+  },
+  {
+    "name": "fonts: a face that rejects is swallowed",
+    "file": "addons/visual/files/packages/client-react/tests/visual/host/fonts.ts",
+    "find": "result.status === \"rejected\" && face !== undefined",
+    "replace": "result.status === \"fulfilled\" && face !== undefined",
+    "test": "pnpm vitest run addons/visual/tests/fonts.test.mts"
+  },
+  {
+    "name": "fonts: ready is not awaited",
+    "file": "addons/visual/files/packages/client-react/tests/visual/host/fonts.ts",
+    "find": "  await fonts.ready;\n",
+    "replace": "",
+    "test": "pnpm vitest run addons/visual/tests/fonts.test.mts"
+  },
+  {
+    "name": "fonts: the faces are not loaded",
+    "file": "addons/visual/files/packages/client-react/tests/visual/host/fonts.ts",
+    "find": "return face.load();",
+    "replace": "return Promise.resolve();",
+    "test": "pnpm vitest run addons/visual/tests/fonts.test.mts"
   }
 ]

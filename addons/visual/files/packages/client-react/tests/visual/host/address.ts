@@ -3,5 +3,8 @@ export const HOST = "127.0.0.1";
 export const PORT = 4319;
 export const HOST_URL = `http://${HOST}:${PORT}`;
 
-/** The element the picture is taken of. It carries `data-visual-ready="true"` once the scenario is seeded. */
-export const FRAME_TESTID = "visual-frame";
+/** The element a component or section is pictured in: a fixed width, a content height. Absent for a viewport capture. */
+export const ROOT_TESTID = "scenario-root";
+
+/** Set on `<html>` to "true" once the scenario is seeded and the fonts are loaded. A failed scenario never sets it. */
+export const READY_ATTRIBUTE = "data-visual-ready";

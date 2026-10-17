@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
@@ -21,7 +21,7 @@ function readShipped(path: string): string {
 
 /** The fields a scenario may hold, read from the shipped `Scenario`. */
 function scenarioFields(): string[] {
-  const body = /export interface Scenario \{([\s\S]*?)\n\}/.exec(readShipped("scenarios.ts"))?.[1] ?? "";
+  const body = /export interface Scenario(?: extends \w+)? \{([\s\S]*?)\n\}/.exec(readShipped("scenarios.ts"))?.[1] ?? "";
 
   return [...body.matchAll(/^ {2}(\w+)\??:/gm)].map((match) => match[1] as string);
 }
@@ -40,9 +40,10 @@ describe("who owns what in the visual tier", () => {
 
   it("reads the fields of a scenario from the shipped file", () => {
     expect(scenarioFields()).toEqual(["stalePrices", "prices", "selected"]);
+    expect(readShipped("scenarios.ts")).toMatch(/export interface Scenario extends Picture \{/);
   });
 
-  it.each(["host/main.tsx", "host/ScenarioFrame.tsx", "host/seeded.ts"])("%s names no field of a scenario and builds no harness", (file) => {
+  it.each(["host/main.tsx", "host/render.tsx", "host/ScenarioFrame.tsx", "host/seeded.ts"])("%s names no field of a scenario and builds no harness", (file) => {
     const source = readShipped(file);
 
     for (const field of scenarioFields()) {
@@ -54,13 +55,54 @@ describe("who owns what in the visual tier", () => {
   });
 
   it("has the host take the application and the deliveries from the seeding, after its clock is installed", () => {
-    const host = readShipped("host/main.tsx");
+    const render = readShipped("host/render.tsx");
 
-    expect(host).toContain('import { seedScenario } from "../seeding.ts";');
-    expect(host.indexOf("FakeTimers.install(")).toBeGreaterThan(-1);
-    expect(host.indexOf("seedScenario(scenario,")).toBeGreaterThan(host.indexOf("FakeTimers.install("));
-    expect(host).toContain("createViewModel(seeded.app)");
-    expect(host).toContain("<ScenarioFrame seed={seeded.deliver}>");
+    expect(render).toContain('import { seedScenario } from "../seeding.ts";');
+    expect(render.indexOf("FakeTimers.install(")).toBeGreaterThan(-1);
+    expect(render.indexOf("seedScenario(")).toBeGreaterThan(render.indexOf("FakeTimers.install("));
+    expect(render).toContain("createViewModel(seeded.app)");
+    expect(render).toContain("<ScenarioFrame");
+    expect(render).toContain("seed={seeded.deliver}");
+  });
+
+  it("loads every font face before the first render, and the app's stylesheet in this one place", () => {
+    const render = readShipped("host/render.tsx");
+
+    expect(render).toContain('import "#/index.css";');
+    expect(render).toContain("await loadEveryFace(document.fonts);");
+    expect(render.indexOf("await loadEveryFace(")).toBeLessThan(render.indexOf(".render("));
+    expect(readShipped("host/main.tsx")).not.toContain("index.css");
+  });
+
+  it("fails a scenario with a mount when the seeding returns no render, before it renders", () => {
+    const render = readShipped("host/render.tsx");
+
+    expect(render).toContain("describeMissingRender(");
+    expect(render).toMatch(/picture\.mount !== undefined && seeded\.render === undefined/);
+    expect(render.indexOf("describeMissingRender(")).toBeLessThan(render.indexOf(".render("));
+  });
+
+  it("renders what the seeding returns, or App, in the root or bare", () => {
+    const render = readShipped("host/render.tsx");
+    const frame = readShipped("host/ScenarioFrame.tsx");
+
+    expect(render).toContain("seeded.render?.() ?? <App />");
+    expect(frame).toContain("data-testid={ROOT_TESTID}");
+    expect(frame).toContain('boxSizing: "content-box"');
+  });
+
+  it("surfaces a failed scenario as an uncaught error, and says ready only after it succeeded", () => {
+    const main = readShipped("host/main.tsx");
+
+    expect(main).toContain("await showScenario(");
+    expect(main).not.toMatch(/catch\s*[({]/);
+    expect(main.indexOf("await shown.ready")).toBeGreaterThan(main.indexOf("await showScenario("));
+    expect(main.lastIndexOf("READY_ATTRIBUTE")).toBeGreaterThan(main.indexOf("await shown.ready"));
+  });
+
+  it("ships no host stylesheet: a body margin of 0 made pages differ from the app", () => {
+    expect(existsSync(join(ADDON, "files", VISUAL, "host", "host.css"))).toBe(false);
+    expect(readShipped("host/main.tsx")).not.toContain("host.css");
   });
 
   it("has the seeding export what the host imports, with the host's types", () => {

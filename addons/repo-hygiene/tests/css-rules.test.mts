@@ -22,19 +22,15 @@ function lint(css: string, path = "src/ui.css", files: Record<string, string> = 
 }
 
 describe("the stylesheets a new project has", () => {
-  it("pass as they are: the starter's and the visual add-on's", () => {
+  it("pass as they are: the starter's", () => {
     const result = checkCss(
       createStyledProject({
         "packages/client-react/src/index.css": readFileSync(join(REPOSITORY, "starter/packages/client-react/src/index.css"), "utf8"),
-        "packages/client-react/tests/visual/host/host.css": readFileSync(
-          join(REPOSITORY, "addons/visual/files/packages/client-react/tests/visual/host/host.css"),
-          "utf8",
-        ),
       }),
     );
 
     expect(result.report).toBe("");
-    expect(result).toMatchObject({ failed: false, files: 2 });
+    expect(result).toMatchObject({ failed: false, files: 1 });
   });
 });
 

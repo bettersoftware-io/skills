@@ -1,11 +1,13 @@
 import type { Price } from "@app/domain";
 
+import type { Picture } from "./host/picture.ts";
+
 /**
  * One picture: a name and the state the screen is in when it is taken. The
  * state is data, never a click. The visual host turns it into deliveries on
  * the app harness, so the real presenters decide what the rows look like.
  */
-export interface Scenario {
+export interface Scenario extends Picture {
   /**
    * Prices that arrived long enough ago for their rows to have gone stale.
    * Delivered first, in order; then the stale wait passes on the host's clock.

@@ -2,17 +2,20 @@ import { existsSync } from "node:fs";
 
 import { expect, type Page, test } from "@playwright/test";
 
+import { FRAMING } from "./framing.ts";
 import {
   describeMissingGolden,
   findOrphanGoldens,
   GOLDENS_DIRECTORY,
   locateGolden,
 } from "./goldens.ts";
-import { FRAME_TESTID, HOST_URL } from "./host/address.ts";
+import { HOST_URL, READY_ATTRIBUTE, ROOT_TESTID } from "./host/address.ts";
+import { resolvePicture } from "./host/picture.ts";
 import { scenarios } from "./scenarios.ts";
+import { TOLERANCE } from "./tolerance.ts";
 
 // One test per scenario: open the visual host on it, wait until the host says
-// it is ready, and compare the frame with the committed image.
+// it is ready, and compare the root (or the page) with the committed image.
 
 for (const name of Object.keys(scenarios)) {
   test(name, async ({ page }, testInfo) => {
@@ -20,12 +23,17 @@ for (const name of Object.keys(scenarios)) {
 
     await page.goto(`/?scenario=${encodeURIComponent(name)}`);
 
-    const frame = page.getByTestId(FRAME_TESTID);
+    const picture = resolvePicture(name, scenarios[name], FRAMING, TOLERANCE);
 
     // The one wait. The host sets this after the scenario is seeded and the
-    // fonts are loaded; nothing on the page moves after it.
-    await expect(frame, "the visual host never said it was ready")
-      .toHaveAttribute("data-visual-ready", "true")
+    // fonts are loaded; nothing on the page moves after it. A scenario that
+    // fails in the host (a font that did not load, a mount the seeding cannot
+    // render) is an uncaught error there and never says it is ready.
+    await expect(
+      page.locator("html"),
+      "the visual host never said it was ready",
+    )
+      .toHaveAttribute(READY_ATTRIBUTE, "true")
       .catch((error: unknown) => {
         throw trouble.crashes.length === 0
           ? error
@@ -50,7 +58,14 @@ for (const name of Object.keys(scenarios)) {
       throw new Error(describeMissingGolden(name));
     }
 
-    await expect(frame).toHaveScreenshot(`${name}.png`);
+    // A root capture pictures the root; a viewport capture pictures the page.
+    if (picture.capture === "root") {
+      await expect(page.getByTestId(ROOT_TESTID)).toHaveScreenshot(
+        `${name}.png`,
+      );
+    } else {
+      await expect(page).toHaveScreenshot(`${name}.png`);
+    }
   });
 }
 
