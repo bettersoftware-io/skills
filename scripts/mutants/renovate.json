@@ -44,8 +44,15 @@
   {
     "name": "renovate here: the release-id rule turns off every manager's id",
     "file": ".github/renovate.json5",
-    "find": "\"matchManagers\": [\"custom.regex\"],\n      \"matchPackageNames\": [\"id\"],",
-    "replace": "\"matchPackageNames\": [\"id\"],",
+    "find": "\"matchManagers\": [\"custom.regex\"],\n      \"matchFileNames\"",
+    "replace": "\"matchFileNames\"",
+    "test": "pnpm vitest run scripts/renovate.test.mts -t \"does not take an add-on's release id\""
+  },
+  {
+    "name": "renovate here: the release-id rule is for another file",
+    "file": ".github/renovate.json5",
+    "find": "\"matchFileNames\": [\"addons/*/addon.json\"],",
+    "replace": "\"matchFileNames\": [\"addons/*/package.json\"],",
     "test": "pnpm vitest run scripts/renovate.test.mts -t \"does not take an add-on's release id\""
   },
   {

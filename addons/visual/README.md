@@ -21,7 +21,7 @@ cd <project> && pnpm install && pnpm visual
 | Tolerance | `tests/visual/tolerance.ts` | The global tolerance, with what was measured. The project's file |
 | Visual host | `tests/visual/host/` | A second Vite root. It renders what the seeding returns (or `App` from `src/ui`) with the app's own `index.css`, after every declared font face has loaded. It imports both through the client's `#/` alias, so the client's `package.json` must declare `"imports": { "#/*": "./src/*" }`, as the starter's does. It knows no field of a project's own state; time is a clock the page owns |
 | Spec | `tests/visual/visual.pw.ts` | One Playwright test per scenario, plus one that fails on a golden no scenario owns |
-| Goldens | `tests/visual/goldens/<platform>/` | One PNG per scenario, per system (`darwin-arm64`, `linux-x64`) |
+| Goldens | `tests/visual/goldens/<platform>/` | One PNG per scenario, per system (`darwin-arm64`, `linux-x64`). The nine examples ship for `darwin-arm64` only; the `linux-x64` set is drawn by the update workflow (see [Limits](#limits)) |
 | `pnpm visual` | root script | Compare. Never writes a golden |
 | `pnpm visual:update` | root script | Redraw this system's goldens |
 | `pnpm visual:jitter` | `tools/visual/jitter.mts` | Capture the same commit N times and report the largest difference: the noise floor. `--scenario <name>` measures one |
@@ -79,9 +79,13 @@ is optional:
 
 A scenario with none of them is a page: the whole `App` in a 1920x1080
 viewport, pictured as the viewport. A contradiction fails that scenario alone,
-with its name and the field: `height` on a root capture, `strict` with
-`maxDiffPixels`, a `maxDiffPixels` not above the global, a `level` or `width`
-of the wrong kind, a `mount` while the seeding returns no `render`.
+with its name and the field: `height` on a root capture; `strict` with
+`maxDiffPixels` or `pixelThreshold`, or `strict` set to anything but `true`; a
+`maxDiffPixels` not above the global; a `pixelThreshold` not below the global;
+a `level` or `capture` that is not one of its words; an empty `mount`; a
+`width` or `height` that is not a whole number above 0; a `maxDiffPixels` or
+`pixelThreshold` that is not a number of 0 or more; a `mount` while the seeding
+returns no `render`.
 
 `level` decides the default capture and is counted in the summary. Otherwise it
 is a word for people and agents to reason with.
@@ -438,6 +442,7 @@ The installer's side has its own: `examples` (4 mutants in
 - **No `linux-x64` goldens ship yet.** The set is drawn on GitHub's runners in
   the pinned container. Until it is, CI's `Visual goldens` fails on the
   missing images; the update workflow draws them.
+  <!-- Pending: the Linux set and its five-run measurement replace this entry. -->
 - **`linux-x64` means the container.** A Linux desktop outside it uses the same
   folder name and may draw different pixels.
 - **A native control's own text is not steady** in the headless Linux

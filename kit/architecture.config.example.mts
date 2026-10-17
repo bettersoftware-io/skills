@@ -60,7 +60,7 @@ const config: ArchitectureConfig = {
       role: "client",
       testIds: "testids.ts",
       reactCompiler: true,
-      compilerTracked: [{ file: "src/ui/PriceRow.tsx", fn: "PriceRow" }],
+      compilerTracked: [{ file: "src/ui/PriceList.tsx", fn: "PriceRowView" }],
     },
 
     "packages/server": { role: "server" },

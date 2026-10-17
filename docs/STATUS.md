@@ -444,8 +444,9 @@ Found while a project was set up with the plugin, on 2026-10-12 and 13.
   at files that are not copied.
 - **The visual add-on has no theme matrix and no published diff site.** The
   Playwright report, as an artifact, is what shows a failure.
-  `pnpm visual:coverage` lists the UI no scenario renders; nothing gates on
-  it, and nothing counts pictures per level.
+  `pnpm visual:coverage` lists the UI no scenario renders, and nothing gates
+  on it. The job summary counts the pictures at each level; no gate holds the
+  pyramid's shape.
 - **No skill exists for placing logic, adding a port, streaming state or
   testing.** On purpose: one is written when a task fails in a way the gates do
   not catch, and across four feature runs none has.

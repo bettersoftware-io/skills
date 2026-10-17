@@ -66,15 +66,17 @@
     {
       "id": "0.19.0",
       "notes": [
-        "Every scenario you have is now a page: the whole app in a 1920x1080 viewport, pictured as the viewport, with no margin or padding added. Every golden changes once: run `pnpm visual:update`, open each image before you commit it, and redraw `linux-x64` with the `Update visual goldens` workflow.",
+        "Every scenario you have is still the whole app, now pictured as a page: the viewport (1920x1080 unless the scenario sets `width` or `height`), with no frame or padding, so anything below the viewport is no longer in the picture unless the scenario sets a larger `height`. Every golden changes once: run `pnpm visual:update` and open each image before you commit it.",
         "A page now defaults to 1080 pixels tall: a scenario that was drawn 720 tall sets `height: 720`.",
+        "For `linux-x64`, run the `Update visual goldens` workflow: it uploads the images as an artifact and commits nothing, and its job summary gives the commands.",
         "If you edited `visual.pw.ts` to size the viewport, a scenario's `width` and `height` now do that. Take the update with `--force`, then move anything else you changed from the copy it keeps in `tools/templates/`.",
-        "If you added `--disable-partial-raster` to `playwright.config.ts`, the add-on's config now has it. `--force` keeps no copy of that file, so if yours differs by more than that line, copy it aside first.",
+        "Chromium now starts with `--disable-partial-raster`, so a scenario given up for shading or a flickering list can come back, as a component. If you added that flag to `playwright.config.ts`, `--force` replaces the file and keeps no copy: copy yours aside first if it differs by more than that line.",
+        "A native control's own text (a `<select>`) still draws two ways on linux-x64: draw its shown value as ordinary text.",
         "`tests/visual/framing.ts` is new and yours: the root width (480), root padding (8) and viewport (1920x1080) a scenario falls back on.",
+        "A set of only whole-app pictures is the shape to avoid: picture each component's states first, then a reasonable number of sections, and keep pages for new screens and sizes (AGENTS.md, \"The pyramid\").",
         "No example scenario, golden or registry is added to your project. To picture components and sections, copy `registry.tsx` from `tools/templates/visual.packages__client-react__tests__visual__registry.tsx.txt` with your own entries, return `render` from `seedScenario` as `tools/templates/visual.packages__client-react__tests__visual__seeding.ts.txt` does, and put the app's theme root in its `Surround`.",
-        "Chromium now starts with `--disable-partial-raster`, so a scenario given up for shading or a flickering list can come back, as a component. A native control's own text (a `<select>`) still draws two ways on linux-x64: draw its shown value as ordinary text.",
-        "The shipped tolerance is now `{ maxDiffPixels: 8, threshold: 0.01 }`; your `tolerance.ts` is kept and keeps working, and the new one is under \"Yours to change\". A scenario may set `strict`, `maxDiffPixels` or `pixelThreshold`, only with a `pnpm visual:jitter --scenario <name>` measurement and its cause written beside it.",
-        "`pnpm visual:check:styles` joins `gate:fast`: it fails when `src/main.tsx` imports a stylesheet or font other than `index.css`. Move such an import into `index.css`, the one file the visual host loads.",
+        "The shipped tolerance is now `{ maxDiffPixels: 8, threshold: 0.01 }`: your `tolerance.ts` is kept and keeps working, and the new one is in `tools/templates/visual.packages__client-react__tests__visual__tolerance.ts.txt` to copy from. A scenario may set `strict`, `maxDiffPixels` or `pixelThreshold` only with a `pnpm visual:jitter --scenario <name>` measurement and its cause written beside it.",
+        "`pnpm visual:check:styles` joins `gate:fast`: it fails when `packages/client-react/src/main.tsx` imports a stylesheet or font other than `index.css`. Move such an import into `index.css`, the one file the visual host loads.",
         "`pnpm visual:coverage` lists the UI no scenario renders. It adds `vitest`, `@vitest/browser-playwright` and `@vitest/coverage-v8` to `packages/client-react`, which must be on one version: if it says they differ, run `pnpm -r update --no-save vitest @vitest/browser-playwright @vitest/coverage-v8`."
       ]
     }

@@ -12,6 +12,7 @@ interface Rule {
   matchPackageNames?: string[];
   matchDatasources?: string[];
   matchManagers?: string[];
+  matchFileNames?: string[];
   dependencyDashboardApproval?: boolean;
   enabled?: boolean;
 }
@@ -65,7 +66,7 @@ describe("this repository's Renovate config", () => {
         ["dependencies", "devDependencies"].flatMap((field) => Object.entries(fields[field] ?? {}).map(([name, version]) => `${name}@${version}`)),
       );
       const read = readAsVersions(text, manager)
-        .filter(({ depName }) => !disabledForTheAddonManager().includes(depName))
+        .filter(({ depName }) => !disabledForTheAddonManager(path).includes(depName))
         .map(({ depName, currentValue }) => `${depName}@${currentValue}`);
 
       expect(managerFor(path)).toBe(manager);
@@ -81,7 +82,7 @@ describe("this repository's Renovate config", () => {
     expect(ids.length).toBeGreaterThan(0);
     // The manager does read each id as a version of a package called `id`; the rule turns that package off.
     expect(readAsVersions(text, managerFor(path)).filter(({ depName }) => depName === "id").map(({ currentValue }) => currentValue)).toEqual(ids);
-    expect(disabledForTheAddonManager()).toContain("id");
+    expect(disabledForTheAddonManager(path)).toContain("id");
   });
 
   it("moves each workflow's Playwright image with @playwright/test, never as an image of its own", () => {
@@ -125,9 +126,21 @@ function readAsVersions(text: string, manager: Config["customManagers"][number])
   }));
 }
 
-/** The package names a rule turns off for the custom regex managers, so what they read under those names never moves. */
-function disabledForTheAddonManager(): string[] {
-  return config.packageRules.filter((rule) => rule.enabled === false && (rule.matchManagers ?? []).includes("custom.regex")).flatMap((rule) => rule.matchPackageNames ?? []);
+/** The package names a rule turns off for the custom regex managers in this file, so what they read there under those names never moves. */
+function disabledForTheAddonManager(path: string): string[] {
+  return config.packageRules
+    .filter((rule) => rule.enabled === false && (rule.matchManagers ?? []).includes("custom.regex") && (rule.matchFileNames ?? ["**"]).some((glob) => matchesGlob(glob, path)))
+    .flatMap((rule) => rule.matchPackageNames ?? []);
+}
+
+/** A file glob as Renovate's `matchFileNames` reads one: `*` within a folder, `**` across folders. */
+function matchesGlob(glob: string, path: string): boolean {
+  const pattern = glob
+    .split("**")
+    .map((part) => part.split("*").map((text) => text.replace(/[.+?^${}()|[\]\\]/g, "\\$&")).join("[^/]*"))
+    .join(".*");
+
+  return new RegExp(`^${pattern}$`).test(path);
 }
 
 /** Every workflow git knows of that is not a test's fixture. */
