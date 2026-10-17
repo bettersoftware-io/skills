@@ -452,11 +452,11 @@ workflow gave byte-identical artifacts, and `Visual goldens` failed with no
 Linux set and passed with it.
 
 `pnpm vitest run addons/visual` from this repository's root runs the add-on's
-199 tests in 13 files, without a browser: the picture fields, the per-scenario
+207 tests in 14 files, without a browser: the picture fields, the per-scenario
 tolerance, the budget, the font loading, the level counts, the styles check,
 the reach ranking, the Vitest versions, the jitter measurement and who owns
-what. `tests/mutants.json` holds 107 mutants, each one shown failing a test.
-The installer's side has its own: `examples` (4 mutants in
+what. `tests/mutants.json` holds 119 mutants, each one shown failing a test.
+The installer's side has its own: `examples` (8 mutants in
 `scripts/mutants/examples.json`), `releaseNotes` (6 in
 `scripts/mutants/release-notes.json`) and `movedToProject` (11 in
 `scripts/mutants/moved-to-project.json`), all killed.
