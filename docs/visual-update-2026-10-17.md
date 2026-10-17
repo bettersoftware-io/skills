@@ -279,7 +279,99 @@ No release notes, no "Yours to change", and `git status` clean.
 
 ## skills-demo (Task 14)
 
-Pending.
+skills-demo is a real project made from these skills, at 0.17.0 for the
+visual add-on, with its own UI: a price list and a directory of categories
+and users. The update was taken on a branch, `update-visual-0.19.0`, from this
+branch at `d9a0549`, the way `extending-a-project` says. Run on the same Mac
+as above.
+
+### The update
+
+`git status` clean, then
+`node scripts/add-to-project.mts ../skills-demo visual`: exit 0, no refusal.
+skills-demo never edited an add-on file, so no `--force`. The summary was the
+same 24 written, 10 up to date, 1 removed (`host.css`), `framing.ts` created,
+the four devDependencies and two scripts, `visual:check:styles` in
+`gate:fast`. The twelve release notes printed once, as above. "Yours to
+change": `scenarios.ts` and `seeding.ts` have changes of their own (diffs
+shown), `tolerance.ts` is the old template word for word (a `cp`).
+`pnpm install`: the same unmet peer, `vitest` 5.0.3 beside
+`@vitest/browser-playwright` 5.0.5.
+
+Before any scenario was touched, `pnpm visual` failed 7 of 7 (an 800-wide
+frame against a 1920x1080 page), as the first note says, and `lint:dead`
+failed:
+
+```
+Unused exported types (1)
+Picture  interface  packages/client-react/tests/visual/host/picture.ts:13:18
+```
+
+Nothing in the add-on imports `Picture`; only the template's `scenarios.ts`
+does. It passed once `Scenario extends Picture` (the "Yours to change" diff).
+
+### The demo's own scenarios
+
+Three changes to the demo's UI came first, each its own commit: the price row
+as its own component (`PriceRow.tsx`, as in the starter); a dialog of a
+category's members, opened from each category row; and its two selects
+(`Show`, and the user form's `Category`) drawn as ordinary text over a native
+select, as the sixth note says to do. Then `registry.tsx` from the template
+with eight entries (the directory's parts wrapped in `.directory`, the
+element the app puts around them and its styles read), `seeding.ts` with the
+template's `render` taken by hand and three more pieces of state, and
+`Scenario extends Picture`. `tolerance.ts` was kept: zero, the old shape. The
+seven old goldens (darwin-arm64 and linux-x64) were deleted.
+
+24 scenarios. The summary: `Pictures: 14 components, 8 sections, 2 pages`.
+
+- Components: `price-row-{up,down,flat,selected,stale}`, `price-list-empty`,
+  `refusal-message`, `user-fields-{blank,email-refused,category-refused}`,
+  `directory-{loading,unavailable}`, `members-dialog-{long,empty}`.
+- Sections: `price-list-moving`, `category-list-{listed,delete-refused,renaming}`,
+  `user-list-{listed,editing,email-refused}` (width 960), `directory-listed`
+  (width 1280).
+- Pages: `app` (1920x1080), `app-narrow` (390x844).
+
+The hard case of spec §6 is `members-dialog-long`: the dialog mounted alone,
+`capture: "viewport"`, 800x600. Measured in the host: the card at x 247.5,
+y 168.5, 305x263, `border-radius` 12px, in a `position: fixed` layer; its list
+386 pixels tall in 160, `overflow-y: auto`.
+
+`pnpm visual:update`: 25 passed. Each image was opened. Root pictures are 496
+wide (480 plus 8 on each side), 976 and 1296 for the wider sections; the
+pages and dialogs are their viewport. The font is the system face the app
+asks for (`system-ui`), the up and down colours green and red, the selected
+row on a grey band, the stale row faded, refused fields outlined in red. The
+pages have only the app's own 8-pixel body margin. The first drawing showed
+the selects with no box: their border mixed `currentcolor`, which is the
+select's transparent text. Fixed in the demo's CSS, then redrawn.
+
+### The checks
+
+- `pnpm visual`: 25 passed, and 25 passed with `CI=1` (one worker).
+- `pnpm visual:jitter --runs 5`: 24 images, identical in every capture; noise
+  floor 0 pixels, judged against the kept zero tolerance.
+- `pnpm visual:coverage`: first exit 2, Vitest 5.0.3 beside 5.0.5, as the last
+  note says. The command it names moved `vitest` and `@vitest/coverage-v8` to
+  5.0.5 in the lockfile. Then it listed five UI files, almost all event
+  handlers a picture never calls, and one state: the members dialog opened
+  inside the category list (the dialog itself is pictured alone).
+- `pnpm gate:full`: pass. `lint:types` 130 files, `lint:dead` nothing unused in
+  131 files, `visual-styles` pass, tests, build, and coverage at or above the
+  bar in every package.
+- A second update: 0 written, 34 up to date, no notes, `git status` clean.
+
+`tools/installed.json` lists the starter's example goldens under `starting`
+here too, eight of them under names the demo's own goldens now have
+(`app.png`, the five `price-row-*.png`, `price-list-empty.png`,
+`price-list-moving.png`). Nothing was written over them.
+
+### On GitHub (Step 4)
+
+Pending: the push, the pull request, five runs of `Update visual goldens` on
+its head, `pnpm visual:jitter` over the five artifacts, and the
+`Visual goldens` check. The linux-x64 goldens are drawn there.
 
 ## linux-x64 run ids (Task 15)
 
