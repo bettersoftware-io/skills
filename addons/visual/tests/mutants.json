@@ -455,6 +455,20 @@
     "test": "pnpm vitest run addons/visual/tests/summary.test.mts"
   },
   {
+    "name": "summary: one of a level is still plural",
+    "file": "addons/visual/files/tools/visual/summary.mts",
+    "find": "${n === 1 ? \"\" : \"s\"}",
+    "replace": "s",
+    "test": "pnpm vitest run addons/visual/tests/summary.test.mts"
+  },
+  {
+    "name": "summary: no level is ever plural",
+    "file": "addons/visual/files/tools/visual/summary.mts",
+    "find": "${n === 1 ? \"\" : \"s\"}",
+    "replace": "",
+    "test": "pnpm vitest run addons/visual/tests/summary.test.mts"
+  },
+  {
     "name": "manifest: the spec's edits go to the seeding",
     "file": "addons/visual/addon.json",
     "find": "\"to\": \"packages/client-react/tests/visual/scenarios.ts\"",

@@ -63,7 +63,7 @@ export function summarise(report: Report | undefined): Summary {
   const specs = (report.suites ?? []).flatMap(listSpecs);
   const failed = specs.filter((spec) => !spec.ok);
   const levels = countLevels(specs);
-  const pictures = `Pictures: ${levels.component} components, ${levels.section} sections, ${levels.page} pages`;
+  const pictures = `Pictures: ${count(levels.component, "component")}, ${count(levels.section, "section")}, ${count(levels.page, "page")}`;
   const startupErrors = (report.errors ?? []).map((error) => firstLine(error.message));
 
   if (specs.length === 0) {
@@ -134,6 +134,11 @@ function readLevel(spec: ReportSpec): Level {
   }
 
   return "page";
+}
+
+/** "1 page", "2 pages", "0 pages". */
+function count(n: number, noun: string): string {
+  return `${n} ${noun}${n === 1 ? "" : "s"}`;
 }
 
 function firstError(spec: ReportSpec): string | undefined {

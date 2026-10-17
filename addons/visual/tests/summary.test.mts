@@ -62,7 +62,7 @@ describe("summarise", () => {
     );
 
     expect(summary.levels).toEqual({ component: 2, section: 1, page: 1 });
-    expect(summary.markdown).toContain("Pictures: 2 components, 1 sections, 1 pages");
+    expect(summary.markdown).toContain("Pictures: 2 components, 1 section, 1 page");
   });
 
   it("counts a scenario with no annotation as a page", () => {
@@ -77,14 +77,14 @@ describe("summarise", () => {
 
     expect(summary.exitCode).toBe(1);
     expect(summary.levels).toEqual({ component: 1, section: 0, page: 1 });
-    expect(summary.markdown).toContain("Pictures: 1 components, 0 sections, 1 pages");
+    expect(summary.markdown).toContain("Pictures: 1 component, 0 sections, 1 page");
   });
 
   it("does not count the orphan check as a picture", () => {
     const summary = summarise(createReport([{ title: "button", level: "component" }, { title: "empty", level: "page" }, { title: "every golden belongs to a scenario" }]));
 
     expect(summary.levels).toEqual({ component: 1, section: 0, page: 1 });
-    expect(summary.markdown).toContain("Pictures: 1 components, 0 sections, 1 pages");
+    expect(summary.markdown).toContain("Pictures: 1 component, 0 sections, 1 page");
   });
 
   it("gives no verdict when there is no results file", () => {
