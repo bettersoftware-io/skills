@@ -211,7 +211,10 @@ a message that names the seeding's template in `tools/templates/`.
 The registry and the goldens are examples: written at first install, never by
 an update. A project that had the add-on before them gets neither; its
 template copy, `tools/templates/visual.packages__client-react__tests__visual__registry.tsx.txt`,
-is there to start from.
+is there to start from. When the update also changes a template the project
+owns, "Yours to change" names the examples the project never had: the
+seeding's template imports `./registry.tsx`, so its `cp` alone does not
+compile.
 
 **A project that edited the host** is told where the lines go. A plain update
 refuses, as for any edited file, and says under the file's name that its

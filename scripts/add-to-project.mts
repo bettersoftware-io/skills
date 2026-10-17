@@ -218,6 +218,8 @@ export interface AddResult {
   unmerged: string[];
   /** The project's own files whose template this update changed. None was touched. */
   yours: OwnedChange[];
+  /** The examples, a folder once, that this project was never given. A template under `yours` may import one. */
+  examplesNotGiven?: string[];
   /** Gates this update of the kit brought, each with the options of the architecture config it reads and what it fails on. */
   newGates: { name: string; options: string[]; failsOn?: string }[];
   /** True when the project's kit kept no list of its gates, so `newGates` is every gate: which are new cannot be told. */
@@ -669,6 +671,8 @@ function addAddon(destination: string, project: string, asked: string, force: bo
   /** Shipped, not in the project, not written, and not text: no template speaks for it under "Yours to change". */
   const unseen: string[] = [];
   const isExample = (path: string): boolean => matchesPattern(path, manifest.examples ?? []);
+  /** Examples an update leaves out that the project is known never to have had. */
+  const examplesLeftOut: string[] = [];
 
   for (const [path, content] of starting) {
     if (projectHas(destination, path)) {
@@ -677,6 +681,10 @@ function addAddon(destination: string, project: string, asked: string, force: bo
 
     // An example is for the first install: later it is neither written nor told of, whether or not the record can say it was given.
     if (!firstTime && isExample(path)) {
+      if (neverGiven(path)) {
+        examplesLeftOut.push(path);
+      }
+
       continue;
     }
 
@@ -797,6 +805,8 @@ function addAddon(destination: string, project: string, asked: string, force: bo
     // A file this run has just written is the template word for word, and so is not among these.
     // An example the project lacks is not offered back: it was not given on purpose.
     yours: findOwnedChanges(destination, templates, templatesBefore, outcome.written).filter(({ owned, state }) => state !== "never-seen" || !isExample(owned)),
+    // Named by the example as the manifest lists it, so a folder of images is one entry.
+    examplesNotGiven: (manifest.examples ?? []).filter((example) => examplesLeftOut.some((path) => matchesPattern(path, [example]))),
     newGates: [],
     firstRun: manifest.firstRun,
     verify: manifest.verify,
@@ -1360,7 +1370,12 @@ export function describe(result: AddResult, project: string): string {
 }
 
 /** The section that says what the update left to the project. Empty when it left nothing. */
-export function describeYours({ yours, newGates, gatesUnknownBefore = false }: Pick<AddResult, "yours" | "newGates" | "gatesUnknownBefore">): string[] {
+export function describeYours({
+  yours,
+  newGates,
+  gatesUnknownBefore = false,
+  examplesNotGiven = [],
+}: Pick<AddResult, "yours" | "newGates" | "gatesUnknownBefore" | "examplesNotGiven">): string[] {
   const gates = newGates.map(({ name, options, failsOn }) => [
     `architecture.config.mts: ${gatesUnknownBefore ? "the kit has the gate" : "the kit has a new gate,"} ${name}. ${
       options.length === 0 ? "It reads no option of this file." : `It reads ${options.join(", ")}: set what this project needs.`
@@ -1370,6 +1385,14 @@ export function describeYours({ yours, newGates, gatesUnknownBefore = false }: P
   ]);
   const entries = [
     ...yours.map(describeOwnedChange),
+    // A template above may import an example the project never had: copying the template alone would not compile.
+    ...(yours.length > 0 && examplesNotGiven.length > 0
+      ? [
+          [
+            `Examples this project was never given: ${examplesNotGiven.join(", ")}. A template above may import one. Start it from its template in tools/templates/, with this project's own entries.`,
+          ],
+        ]
+      : []),
     // Which gates are new cannot be told, and that is said once, before all of them.
     ...(gatesUnknownBefore && gates.length > 0
       ? [

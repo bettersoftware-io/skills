@@ -1699,6 +1699,47 @@ describe("an example starting file", () => {
     expect(result.created).toEqual([]);
   });
 
+  it("is named once under \"Yours to change\" when it was never given, since a template there may import it", () => {
+    const { repository, project } = createWorldWithKit();
+    withStartingFiles(repository);
+    addToProject({ project, unit: "demo", repository });
+    withExamples(repository);
+    write(repository, "addons/demo/files/packages/web/tests/goldens/b.png", "a second image");
+    write(repository, "addons/demo/files/packages/web/tests/goldens/c.png", "a third image");
+    write(repository, "addons/demo/files/packages/web/tests/scenarios.ts", 'import "./registry.tsx";\n// scenarios, as shipped\n');
+
+    const result = addToProject({ project, unit: "demo", repository });
+
+    expect(result.yours.map(({ owned, state }) => ({ owned, state }))).toEqual([{ owned: "packages/web/tests/scenarios.ts", state: "untouched" }]);
+    expect(describeYours(result).slice(-1)).toEqual([
+      "  - Examples this project was never given: packages/web/tests/registry.tsx, packages/web/tests/goldens/. A template above may import one. Start it from its template in tools/templates/, with this project's own entries.",
+    ]);
+  });
+
+  it("is not named when no template changed", () => {
+    const { repository, project } = createWorldWithKit();
+    withStartingFiles(repository);
+    addToProject({ project, unit: "demo", repository });
+    withExamples(repository);
+
+    const result = addToProject({ project, unit: "demo", repository });
+
+    expect(result.examplesNotGiven).toEqual(["packages/web/tests/registry.tsx"]);
+    expect(describeYours(result)).toEqual([]);
+  });
+
+  it("is not named when the project deleted it", () => {
+    const { repository, project } = createWorldWithKit();
+    withExamples(repository);
+    addToProject({ project, unit: "demo", repository });
+    rmSync(join(project, "packages/web/tests/registry.tsx"));
+    write(repository, "addons/demo/files/packages/web/tests/scenarios.ts", "// scenarios, version 2\n");
+    const result = addToProject({ project, unit: "demo", repository });
+
+    expect(result.yours.map(({ owned }) => owned)).toEqual(["packages/web/tests/scenarios.ts"]);
+    expect(describeYours(result).join("\n")).not.toContain("never given");
+  });
+
   it("does not stop a new starting file that is not an example from being written", () => {
     const { repository, project } = createWorldWithKit();
     withExamples(repository);
