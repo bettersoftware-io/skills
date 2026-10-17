@@ -369,10 +369,135 @@ here too, eight of them under names the demo's own goldens now have
 
 ### On GitHub (Step 4)
 
-Pending: the push, the pull request, five runs of `Update visual goldens` on
-its head, `pnpm visual:jitter` over the five artifacts, and the
-`Visual goldens` check. The linux-x64 goldens are drawn there.
+First the update was taken again from this branch at `255b5a7`, which fixed
+a `lint:dead` finding in the host: 2 files written (`host/picture.ts`,
+`host/render.tsx`), 32 up to date, 0 removed, no refusal, no `--force`.
+`tolerance.ts` was then copied from its template
+(`{ maxDiffPixels: 8, threshold: 0.01 }`). Locally `pnpm visual` passed 25
+and `pnpm gate:full` passed. Three more commits on the branch: `e21e147` (the
+update), `496b3a6` (the tolerance), `ade6fa2` (the Linux set).
 
-## linux-x64 run ids (Task 15)
+The branch was pushed and opened as
+[skills-demo #15](https://github.com/bettersoftware-io/skills-demo/pull/15).
+Nothing was merged; `main` stayed at `4a3d9b2`.
 
-Pending.
+- `Visual goldens` on `496b3a6` (run 39052171301): failed 24 of 24 with
+  `No golden for the scenario … on linux-x64`, as designed.
+- `Update visual goldens`, five times on `496b3a6`: runs 39052176196,
+  39052178245, 39052180287, 39052182342, 39052184299. All passed, 24 images
+  each.
+- By checksum each image is one file across the five sets: the digest of
+  each set's hash list is the same (`14036df6e85cb6c0…`).
+- `pnpm visual:jitter` over the five sets: 5 captures, 24 images, every
+  image identical in every capture; noise floor 0 pixels (set: 8) and 0 for
+  the threshold (set: 0.01).
+- The set from run 39052176196 was brought in with the job summary's
+  `gh run download` command and committed as `ade6fa2`.
+- On `ade6fa2` every check of the pull request passed, `Visual goldens`
+  among them (run 39052410250); only the Pages publish was skipped, as on
+  any pull request.
+
+The Linux pictures show what the Mac ones show: the same rows and colours,
+the grey selected band, the dialog's scrim and card, the refused select's red
+outline. The font is a real sans face with no missing glyph. Two
+differences: line heights differ, so the members list shows 5 names on Linux
+and 5 and a half on darwin; and **no text is bold on Linux** (headings,
+table headers, category names), while it is bold on darwin. The 0.17.0 Linux
+goldens on skills-demo's `main` show the same, so it is how the pinned
+container draws `system-ui`, not a change of 0.19.0.
+
+## linux-x64: the shipped set (Task 15)
+
+The nine examples' `linux-x64` goldens can be drawn only in the pinned
+container on GitHub's runners, and skills-demo does not receive the
+examples. So they were drawn in a temporary public repository,
+`bettersoftware-io/skills-visual-proof`, made as skills-demo was on
+2026-10-05.
+
+### Setup
+
+- From this branch at `255b5a7`:
+
+  ```
+  node scripts/create-project.mts <scratch>/proof --scope @demo --with agent-workflow,ci-security,coverage,e2e,format-lint,performance,repo-hygiene,strict-lint,visual
+  ```
+
+  Every add-on in `addons/`; `ci-security` took its default option,
+  `renovate`. Nothing edited by hand. `git init`, `pnpm install`, `pnpm fix`
+  (the step the scripts print; it changed nothing), then `pnpm gate:full`:
+  pass, with every add-on's gates, `lint:dead` included (89 files), and
+  coverage at the bar in every package. `pnpm visual` passed 10.
+- Committed as `14ac8c8` and pushed to the new repository with
+  `gh repo create --public --source … --push`. No secret was added.
+
+### The runs
+
+- On the push, `CI`, `Coverage`, `CI security`, `End-to-end`,
+  `Motion audit` and `Scorecard` passed. `Visual goldens` (run 39052663638)
+  failed 9 of 9 with `No golden for the scenario "price-row-up" on linux-x64`
+  and the path it expected, as designed.
+- `Update visual goldens`, five times on `14ac8c8`: runs 39052667803,
+  39052669864, 39052672257, 39052674084, 39052675974. All passed, in 52 s to
+  1 min 2 s, 9 images each.
+- By checksum each image is one file across the five sets, and the digest of
+  each set's hash list is the same (`68d5eff25dc1db15…`).
+- `node tools/visual/jitter.mts <five dirs>` in the project: 5 captures, 9
+  images, every one identical in every capture. Noise floor 0 pixels (set: 8)
+  and 0 for the threshold (set: 0.01).
+- The set from run 39052667803 was copied into the add-on's
+  `goldens/linux-x64/` and into the project's, committed there as `fad8f6e`
+  and pushed. `Visual goldens` on `fad8f6e` (run 39053045487): 10 passed.
+
+The sizes differ from darwin: a row is 496x50 on Linux and 496x47 on darwin,
+the moving and selected lists 496x152 and 496x140; `app.png` is 1920x1080 on
+both. The content is the same: header, the three rows, up green, down red,
+flat black, the selected row on a grey band, the stale row faded. The font is
+a real sans face with no missing glyph. As in skills-demo, **nothing is bold
+on Linux**: the "Prices" heading, the column headers and the symbols, all
+bold on darwin, are drawn at the regular weight.
+
+### In the browser, on darwin-arm64 (spec §5)
+
+In the same project, on the Mac, with the shipped tolerance
+(`maxDiffPixels: 8`, `threshold: 0.01`). Each change was made in
+`packages/client-react/src/index.css`, run with `pnpm visual`, and undone.
+The counts are Playwright's.
+
+The "up" colour, `--color-up: #1a8f4c` to `#1a4c8f`: 4 failed, 6 passed.
+
+| Scenario | Pixels different |
+|---|---|
+| `price-row-up` | 95 |
+| `price-list-moving` | 84 |
+| `price-list-selected` | 84 |
+| `app` | 84 |
+
+The other five show no up price, and passed.
+
+A one-pixel shift, `td { padding-left: calc(1rem + 1px); }` (each row cell's
+text one pixel to the right): 8 failed, 2 passed.
+
+| Scenario | Pixels different |
+|---|---|
+| `price-row-up` | 139 |
+| `price-row-down` | 174 |
+| `price-row-flat` | 237 |
+| `price-row-selected` | 205 |
+| `price-row-stale` | 233 |
+| `price-list-moving` | 544 |
+| `price-list-selected` | 574 |
+| `app` | 544 |
+
+`price-list-empty` has no row cell, and passed; so did the orphan check.
+Every regression was caught, the smallest at 84 pixels, ten times the
+budget.
+
+Not measured on linux-x64: that needs a commit carrying each change pushed
+and compared on GitHub, and it was not done.
+
+Also on the Mac: `pnpm visual:jitter --runs 5` over the nine scenarios, and
+`pnpm visual:jitter --runs 5 --scenario price-row-up`: every image identical
+in every capture, noise floor 0 for both knobs.
+
+The repository is to be deleted once this is committed; that is asked of the
+user first.

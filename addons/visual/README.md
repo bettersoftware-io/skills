@@ -21,7 +21,7 @@ cd <project> && pnpm install && pnpm visual
 | Tolerance | `tests/visual/tolerance.ts` | The global tolerance, with what was measured. The project's file |
 | Visual host | `tests/visual/host/` | A second Vite root. It renders what the seeding returns (or `App` from `src/ui`) with the app's own `index.css`, after every declared font face has loaded. It imports both through the client's `#/` alias, so the client's `package.json` must declare `"imports": { "#/*": "./src/*" }`, as the starter's does. It knows no field of a project's own state; time is a clock the page owns |
 | Spec | `tests/visual/visual.pw.ts` | One Playwright test per scenario, plus one that fails on a golden no scenario owns |
-| Goldens | `tests/visual/goldens/<platform>/` | One PNG per scenario, per system (`darwin-arm64`, `linux-x64`). The nine examples ship for `darwin-arm64` only; the `linux-x64` set is drawn by the update workflow (see [Limits](#limits)) |
+| Goldens | `tests/visual/goldens/<platform>/` | One PNG per scenario, per system (`darwin-arm64`, `linux-x64`). The nine examples ship for both; the `linux-x64` set was drawn by the update workflow on GitHub's runners (see [How it was tested](#how-it-was-tested)) |
 | `pnpm visual` | root script | Compare. Never writes a golden |
 | `pnpm visual:update` | root script | Redraw this system's goldens |
 | `pnpm visual:jitter` | `tools/visual/jitter.mts` | Capture the same commit N times and report the largest difference: the noise floor. `--scenario <name>` measures one |
@@ -318,16 +318,22 @@ The rule the tests hold: twice the budget is at most the smallest regression
 counted. 2 × 8 = 16, the smallest count, with no slack. A mutant that raises
 either default fails a test.
 
-The real colour change and a real one-pixel shift, counted by Playwright in
-the starter, are **not measured yet** on the new scenarios.
-<!-- Pending: the browser measurement (darwin-arm64 and linux-x64) replaces this line. -->
+The real changes, made in the starter's `index.css` and counted by
+Playwright on the nine examples (darwin-arm64, 2026-10-17), all fail:
 
-The noise floor was 0 before this change: one commit captured 5 times, four
-whole-app scenarios, every image byte-identical on darwin-arm64 (one Mac,
-Chromium build 1243 headless, 2026-10-04) and on linux-x64 (five runs of the
-update workflow on GitHub's runners, in the pinned container, 2026-10-05). On
-the nine scenarios of this version, two drawings on darwin-arm64 were
-byte-identical.
+| Regression | Scenarios failed | Pixels different |
+|---|---|---|
+| Up colour `#1a8f4c` to `#1a4c8f` | 4 of 9 | 95 (`price-row-up`), 84 (`price-list-moving`, `price-list-selected`, `app`) |
+| Each row cell's text one pixel right (`padding-left: calc(1rem + 1px)`) | 8 of 9 | 139 to 237 for a row, 544 and 574 for a list, 544 for `app` |
+
+The smallest, 84, is ten times the budget. The scenarios that passed show no
+up price, or no row cell. Not measured on linux-x64.
+
+The noise floor is 0 on both systems, for the nine scenarios, 2026-10-17:
+one commit captured 5 times on darwin-arm64 (`pnpm visual:jitter --runs 5`,
+one Mac, Chromium build 1243 headless), and five runs of the update workflow
+on one commit on linux-x64 (GitHub's runners, in the pinned container);
+every image byte-identical.
 
 ### A scenario's own tolerance
 
@@ -402,8 +408,17 @@ example scenarios:
 | A `mount` that is not in the registry | that scenario alone fails, naming the key and the registry's entries |
 | `pnpm visual:coverage` | exit 0; one file listed, `PriceRow.tsx`: 1 statement, `selectRow` never called |
 | `vitest` on another version than the two `@vitest/` packages | exit 2, naming the command; after running it, exit 0 |
-| `pnpm visual:jitter --scenario <name>` in a browser | **not run yet** <!-- pending --> |
-| On GitHub, `linux-x64`: the update workflow five times on one commit, and the shipped Linux set | **not run yet** <!-- pending --> |
+| `pnpm visual:jitter --runs 5`, and with `--scenario price-row-up` | every image identical in every capture; noise floor 0 for both knobs |
+| The up colour changed, and each row cell moved one pixel, counted by Playwright | every change fails where it shows: 4 and 8 scenarios, 84 to 574 pixels (see [The tolerance](#the-tolerance)) |
+| `pnpm gate:full` with every add-on (`--with` all nine) | pass |
+| On GitHub, `linux-x64`: the update workflow five times on one commit | 9 images each; by checksum and by `visual:jitter`, byte-identical across the five; noise floor 0 |
+| On GitHub: `Visual goldens` without a Linux set, then with the one shipped | fails 9 of 9 on the missing goldens; then 10 of 10 pass |
+
+The GitHub runs were in a temporary public repository,
+`bettersoftware-io/skills-visual-proof`, made from this version with every
+add-on and nothing edited by hand. The run ids are in
+[the record](../../docs/visual-update-2026-10-17.md). The shipped Linux set
+is run 39052667803's.
 
 Before this change, on 2026-10-05, the workflows ran in
 [bettersoftware-io/skills-demo](https://github.com/bettersoftware-io/skills-demo)
@@ -439,10 +454,13 @@ The installer's side has its own: `examples` (4 mutants in
 - **A machine nobody measured may draw a pixel differently.** If it draws
   more than the budget, a test fails with nothing changed. `tolerance.ts` says
   what to do: measure, then set the number just above the floor.
-- **No `linux-x64` goldens ship yet.** The set is drawn on GitHub's runners in
-  the pinned container. Until it is, CI's `Visual goldens` fails on the
-  missing images; the update workflow draws them.
-  <!-- Pending: the Linux set and its five-run measurement replace this entry. -->
+- **The `linux-x64` set draws no bold text.** In the pinned container
+  `system-ui` comes out at one weight: the heading, the column headers and the
+  symbols, bold on darwin, are regular on Linux. skills-demo's Linux goldens
+  show the same. So a change of weight alone is not expected to show on
+  Linux (not measured). Not looked into: which face the container picks.
+- **The browser counts of a real regression were taken on darwin-arm64
+  only.** On linux-x64 the five runs measured the noise, not a change.
 - **`linux-x64` means the container.** A Linux desktop outside it uses the same
   folder name and may draw different pixels.
 - **A native control's own text is not steady** in the headless Linux

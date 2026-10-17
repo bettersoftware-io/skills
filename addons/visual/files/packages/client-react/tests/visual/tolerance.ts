@@ -17,7 +17,8 @@
 //
 // These are the starting values: a small insurance budget above a noise floor
 // that measured zero (the same commit captured 5 times on darwin-arm64 and on
-// linux-x64 in the pinned Playwright container, every image byte-identical).
+// linux-x64 in the pinned Playwright container, every image byte-identical;
+// the nine example scenarios, 2026-10-17).
 // Why 8 and 0.01: a step of 1 or 2 levels on every channel moves a pixel by
 // less than the threshold limit (about 3.5 on pixelmatch's scale at 0.01), so
 // it is hidden; 3 levels or more counts. The budget is held by reference
@@ -35,6 +36,14 @@
 //   40 pixels moved by 2 levels on each channel                 40 changed, 0 counted
 // The smallest regression is 16, and the budget is at most half of it. The
 // pairs model hard and smoothed edges; they are not captures of real text.
+// The real changes, in the starter's index.css, counted by Playwright on the
+// nine example scenarios at these values (darwin-arm64, 2026-10-17):
+//   up colour #1a8f4c to #1a4c8f        95 (price-row-up), 84 in each of the
+//                                       two lists and the app
+//   each row cell's text 1px right      139 to 237 per row, 544 and 574 per
+//                                       list, 544 in the app
+// Every scenario that shows the change failed; the smallest count, 84, is
+// ten times the budget.
 // If a machine nobody measured draws a pixel differently, a test will fail with
 // nothing changed. Do not raise a number to make it pass. Measure first:
 // capture one commit several times (`pnpm visual:jitter --runs 5` on your

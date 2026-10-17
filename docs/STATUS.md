@@ -63,13 +63,10 @@ on 2026-10-05, on pushes to main and on a pull request
   a host mode, and the container job's `--where container` in the image.
   The first run on GitHub will be Origamic's `stack` mode against a local
   Supabase.
-- **The visual add-on's pictures at three levels have not run on Linux.** No
-  `linux-x64` golden ships with 0.19.0: the nine example scenarios were drawn
-  on darwin-arm64 only, and until the Linux set is drawn on GitHub's runners
-  a new project's `Visual goldens` workflow fails on the missing images. Also
-  not run yet: the five-run noise measurement on linux-x64, Playwright's own
-  count of a real colour change and a one-pixel shift on the new scenarios,
-  and `pnpm visual:jitter --scenario` in a browser.
+- **The visual add-on's browser counts of a real regression were taken on
+  darwin-arm64 only.** The up colour and a one-pixel shift failed every
+  scenario that shows them (84 pixels or more, ten times the budget). On
+  linux-x64 only the noise was measured (five runs, byte-identical).
 - **Nothing here has run on Linux outside GitHub's CI,** and nothing through
   a real `docker build`. The Dockerfile check was compared with BuildKit's own
   parser, built from source; the `e2e` workflow and its container have not run.
@@ -258,6 +255,11 @@ Found while a project was set up with the plugin, on 2026-10-12 and 13.
 
 ## Known limits
 
+- **The visual add-on's `linux-x64` set draws no bold text.** In the pinned
+  Playwright container `system-ui` comes out at one weight, in the shipped
+  set (drawn on GitHub on 2026-10-17) and in skills-demo's, so a change of
+  weight alone is not expected to show there (not measured). Not looked into: which face fontconfig picks
+  there, and whether a project should name a web font.
 - **An eval run that grants a shell fails on this Mac.** Claude Code 2.1.296
   builds a sandbox profile of about 1,840 deny paths (1.7 MB) for every
   command, over the OS limit (E2BIG), so the shell never starts. The run ends
