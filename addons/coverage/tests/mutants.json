@@ -990,7 +990,7 @@
     "name": "addon: writes its reports only where the starter's .gitignore already covers them",
     "file": "addons/coverage/files/tools/coverage/lib/site.mts",
     "find": "export const REPORT_DIRECTORY = \"coverage/report\";",
-    "replace": "export const REPORT_DIRECTORY = \"reports/merged\";",
+    "replace": "export const REPORT_DIRECTORY = \"site/merged\";",
     "test": "pnpm vitest run addons/coverage/tests/addon.test.mts -t \"writes its reports only where the starter\""
   },
   {
