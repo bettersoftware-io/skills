@@ -768,5 +768,12 @@
     "find": "import type { HostClock, Seeded } from",
     "replace": "import type { Seeded } from",
     "test": "pnpm vitest run addons/visual/tests/dead.test.mts"
+  },
+  {
+    "name": "firstRun: a new project is asked once to put Vitest's packages on one version",
+    "file": "addons/visual/addon.json",
+    "find": "\"firstRun\": \"pnpm -r update --no-save vitest @vitest/browser-playwright @vitest/coverage-v8\",",
+    "replace": "\"firstRun\": \"pnpm -r update --no-save vitest @vitest/browser-playwright\",",
+    "test": "pnpm vitest run addons/visual/tests/addon.test.mts -t \"asks once after installing\""
   }
 ]

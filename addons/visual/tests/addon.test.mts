@@ -3,6 +3,8 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 
+import { ALIGN_COMMAND } from "../files/tools/visual/lib/vitestVersions.mts";
+
 // What the add-on promises about who owns what. The host is the add-on's and
 // an update replaces it; how a scenario's data becomes app state is the
 // project's. A feature once had to edit the host, and every update after
@@ -14,6 +16,7 @@ const MANIFEST = JSON.parse(readFileSync(join(ADDON, "addon.json"), "utf8")) as 
   startingFiles: string[];
   examples: string[];
   movedToProject: Record<string, { to: string; note: string }>;
+  firstRun?: string;
 };
 
 function readShipped(path: string): string {
@@ -196,6 +199,12 @@ describe("who owns what in the visual tier", () => {
   it("ships no host stylesheet: a body margin of 0 made pages differ from the app", () => {
     expect(existsSync(join(ADDON, "files", VISUAL, "host", "host.css"))).toBe(false);
     expect(readShipped("host/main.tsx")).not.toContain("host.css");
+  });
+
+  it("asks once after installing for the command that puts Vitest's packages on one version", () => {
+    // A new project's lockfile holds the starter's vitest; the two packages
+    // the add-on brings resolve to a later one, and visual:coverage exits 2.
+    expect(MANIFEST.firstRun).toBe(ALIGN_COMMAND);
   });
 
   it("gives the registry and the goldens as examples, written at first install only", () => {

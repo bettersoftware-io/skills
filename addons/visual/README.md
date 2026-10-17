@@ -366,6 +366,10 @@ not installed in `packages/client-react`, or when `vitest`,
 `@vitest/browser-playwright` and `@vitest/coverage-v8` are on different
 versions, which Vitest does not support; it then names the command that puts
 them on one: `pnpm -r update --no-save vitest @vitest/browser-playwright @vitest/coverage-v8`.
+That command is the add-on's `firstRun`: a new project's lockfile holds the
+starter's `vitest`, and the two packages the add-on adds resolve to a later
+one, so the project is told to run it once after `pnpm install`. The check
+stays for a project whose versions part later.
 
 Its config is `tests/visual/reach/vite.config.ts`, named so on purpose:
 `strict-lint`'s knip settings already list `tests/**/vite.config.ts`, so a

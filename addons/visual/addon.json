@@ -77,9 +77,10 @@
         "No example scenario, golden or registry is added to your project. To picture components and sections, copy `registry.tsx` from `tools/templates/visual.packages__client-react__tests__visual__registry.tsx.txt` with your own entries, return `render` from `seedScenario` as `tools/templates/visual.packages__client-react__tests__visual__seeding.ts.txt` does, and put the app's theme root in its `Surround`.",
         "The shipped tolerance is now `{ maxDiffPixels: 8, threshold: 0.01 }`: your `tolerance.ts` is kept and keeps working, and the new one is in `tools/templates/visual.packages__client-react__tests__visual__tolerance.ts.txt` to copy from. A scenario may set `strict`, `maxDiffPixels` or `pixelThreshold` only with a `pnpm visual:jitter --scenario <name>` measurement and its cause written beside it.",
         "`pnpm visual:check:styles` joins `gate:fast`: it fails when `packages/client-react/src/main.tsx` imports a stylesheet or font other than `index.css`. Move such an import into `index.css`, the one file the visual host loads.",
-        "`pnpm visual:coverage` lists the UI no scenario renders. It adds `vitest`, `@vitest/browser-playwright` and `@vitest/coverage-v8` to `packages/client-react`, which must be on one version: if it says they differ, run `pnpm -r update --no-save vitest @vitest/browser-playwright @vitest/coverage-v8`."
+        "`pnpm visual:coverage` lists the UI no scenario renders. It adds `vitest`, `@vitest/browser-playwright` and `@vitest/coverage-v8` to `packages/client-react`; the `pnpm -r update` command under \"Next\" puts them on one version, which Vitest needs."
       ]
     }
   ],
+  "firstRun": "pnpm -r update --no-save vitest @vitest/browser-playwright @vitest/coverage-v8",
   "verify": "pnpm visual"
 }
