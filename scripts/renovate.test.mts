@@ -11,6 +11,7 @@ interface Rule {
   groupName?: string;
   matchPackageNames?: string[];
   matchDatasources?: string[];
+  matchManagers?: string[];
   dependencyDashboardApproval?: boolean;
   enabled?: boolean;
 }
@@ -63,11 +64,24 @@ describe("this repository's Renovate config", () => {
       const named = Object.values((JSON.parse(text) as { packageJson?: Record<string, Record<string, Record<string, string>>> }).packageJson ?? {}).flatMap((fields) =>
         ["dependencies", "devDependencies"].flatMap((field) => Object.entries(fields[field] ?? {}).map(([name, version]) => `${name}@${version}`)),
       );
-      const read = [...text.matchAll(new RegExp(manager.matchStrings[0] as string, "g"))].map((match) => `${match.groups?.depName}@${match.groups?.currentValue}`);
+      const read = readAsVersions(text, manager)
+        .filter(({ depName }) => !disabledForTheAddonManager().includes(depName))
+        .map(({ depName, currentValue }) => `${depName}@${currentValue}`);
 
       expect(managerFor(path)).toBe(manager);
       expect(read).toEqual(named);
     }
+  });
+
+  it("does not take an add-on's release id for a package", () => {
+    const path = "addons/visual/addon.json";
+    const text = readFileSync(join(REPOSITORY, path), "utf8");
+    const ids = ((JSON.parse(text) as { releaseNotes?: { id: string }[] }).releaseNotes ?? []).map(({ id }) => id);
+
+    expect(ids.length).toBeGreaterThan(0);
+    // The manager does read each id as a version of a package called `id`; the rule turns that package off.
+    expect(readAsVersions(text, managerFor(path)).filter(({ depName }) => depName === "id").map(({ currentValue }) => currentValue)).toEqual(ids);
+    expect(disabledForTheAddonManager()).toContain("id");
   });
 
   it("moves each workflow's Playwright image with @playwright/test, never as an image of its own", () => {
@@ -101,6 +115,19 @@ function managerFor(path: string): Config["customManagers"][number] {
   expect(managers, path).toHaveLength(1);
 
   return managers[0] as Config["customManagers"][number];
+}
+
+/** What a regex manager reads from a file: each match's package name and version. */
+function readAsVersions(text: string, manager: Config["customManagers"][number]): { depName: string; currentValue: string }[] {
+  return [...text.matchAll(new RegExp(manager.matchStrings[0] as string, "g"))].map((match) => ({
+    depName: match.groups?.depName ?? "",
+    currentValue: match.groups?.currentValue ?? "",
+  }));
+}
+
+/** The package names a rule turns off for the custom regex managers, so what they read under those names never moves. */
+function disabledForTheAddonManager(): string[] {
+  return config.packageRules.filter((rule) => rule.enabled === false && (rule.matchManagers ?? []).includes("custom.regex")).flatMap((rule) => rule.matchPackageNames ?? []);
 }
 
 /** Every workflow git knows of that is not a test's fixture. */

@@ -88,6 +88,14 @@
       "enabled": false
     },
     {
+      // An add-on's release notes carry an id written as a version
+      // (`"id": "0.19.0"`), which the addon.json manager above reads as an
+      // npm package called `id`.
+      "matchManagers": ["custom.regex"],
+      "matchPackageNames": ["id"],
+      "enabled": false
+    },
+    {
       "matchPackageNames": ["@biomejs/biome"],
       "prBodyNotes": ["The format-lint README says what was measured on the old Biome (its rules, its timings). Measure again, or say there that it was not."]
     },

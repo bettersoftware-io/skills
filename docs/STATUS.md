@@ -12,6 +12,14 @@ the test records in this folder and the git log say what was done.
   ([bettersoftware-io/rx-ws-effects](https://github.com/bettersoftware-io/rx-ws-effects))
   is not on npm yet, and pnpm refuses a version younger than 24 hours, so this
   starts a day after it is published.
+- **condo-ledger has not taken the visual add-on's 0.19.0.** That version
+  carries the two changes condo-ledger made to its copy: Chromium starts with
+  `--disable-partial-raster`, and a scenario's own `width` and `height` size
+  the viewport, in place of an edited `visual.pw.ts`. The update refuses the
+  two edited files until `--force` (seen with 0.18.1 on 2026-10-17,
+  condo-ledger #13), and its release notes say what to move and that every
+  golden is redrawn once. Bringing back its three wizard goldens, as
+  components, is condo-ledger's work after that.
 
 ## Seen on GitHub only in part
 
@@ -55,11 +63,13 @@ on 2026-10-05, on pushes to main and on a pull request
   a host mode, and the container job's `--where container` in the image.
   The first run on GitHub will be Origamic's `stack` mode against a local
   Supabase.
-- **The starter's `linux-x64` goldens were not redrawn or compared after the
-  visual host changed.** No container could be run where the change was
-  made. The `darwin-arm64` set matched with both knobs at 0, and the host
-  delivers the same state in the same order, so no pixel should move; the
-  `Visual goldens` workflow in a project is what will show it.
+- **The visual add-on's pictures at three levels have not run on Linux.** No
+  `linux-x64` golden ships with 0.19.0: the nine example scenarios were drawn
+  on darwin-arm64 only, and until the Linux set is drawn on GitHub's runners
+  a new project's `Visual goldens` workflow fails on the missing images. Also
+  not run yet: the five-run noise measurement on linux-x64, Playwright's own
+  count of a real colour change and a one-pixel shift on the new scenarios,
+  and `pnpm visual:jitter --scenario` in a browser.
 - **Nothing here has run on Linux outside GitHub's CI,** and nothing through
   a real `docker build`. The Dockerfile check was compared with BuildKit's own
   parser, built from source; the `e2e` workflow and its container have not run.
@@ -156,15 +166,6 @@ Added on 2026-10-11 ([the record](documenting-architecture-2026-10-11.md)).
 
 ## Next, with no plan yet
 
-- **The visual add-on lacks two changes condo-ledger made to its copy.**
-  Its `playwright.config.ts` launches Chromium with
-  `--disable-partial-raster`: without it, partial raster shaded one rounded
-  corner two ways from frame to frame and a golden never held still
-  (measured there on 2026-10-16, linux-x64 in the pinned container: with
-  it, every scenario byte-identical across runs). Its `visual.pw.ts` sets
-  the viewport from each scenario's width, for a layout that changes under
-  a breakpoint. Until the add-on carries both, condo-ledger's update of
-  `visual` refuses those two files (seen 2026-10-17, condo-ledger #13).
 - **An update bot's pull request edits files the installer owns.** Both bots
   move the action commits in `.github/workflows/`, which the add-ons wrote
   and `tools/installed.json` records. A merged bump makes each file one the
@@ -441,9 +442,10 @@ Found while a project was set up with the plugin, on 2026-10-12 and 13.
   a layout the source project relies on.
 - **Two links in `tools/arch/README.md` are dead inside a project**: they point
   at files that are not copied.
-- **The visual add-on has no theme matrix, no "which UI does no scenario
-  render" measure, and no published diff site.** The Playwright report, as an
-  artifact, is what shows a failure.
+- **The visual add-on has no theme matrix and no published diff site.** The
+  Playwright report, as an artifact, is what shows a failure.
+  `pnpm visual:coverage` lists the UI no scenario renders; nothing gates on
+  it, and nothing counts pictures per level.
 - **No skill exists for placing logic, adding a port, streaming state or
   testing.** On purpose: one is written when a task fails in a way the gates do
   not catch, and across four feature runs none has.

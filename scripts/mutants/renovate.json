@@ -35,6 +35,20 @@
     "test": "pnpm vitest run scripts/renovate.test.mts -t \"moves Playwright only when someone asks\""
   },
   {
+    "name": "renovate here: a release id moves as a package",
+    "file": ".github/renovate.json5",
+    "find": "\"matchPackageNames\": [\"id\"],",
+    "replace": "\"matchPackageNames\": [\"no-such-package\"],",
+    "test": "pnpm vitest run scripts/renovate.test.mts -t \"does not take an add-on's release id\""
+  },
+  {
+    "name": "renovate here: the release-id rule turns off every manager's id",
+    "file": ".github/renovate.json5",
+    "find": "\"matchManagers\": [\"custom.regex\"],\n      \"matchPackageNames\": [\"id\"],",
+    "replace": "\"matchPackageNames\": [\"id\"],",
+    "test": "pnpm vitest run scripts/renovate.test.mts -t \"does not take an add-on's release id\""
+  },
+  {
     "name": "renovate here: a wait of its own",
     "file": ".github/renovate.json5",
     "find": "\"minimumReleaseAge\": \"7 days\"",
