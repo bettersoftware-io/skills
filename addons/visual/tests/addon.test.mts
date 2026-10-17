@@ -34,8 +34,42 @@ describe("who owns what in the visual tier", () => {
   });
 
   it("sends a project that edited the host to the seeding", () => {
-    expect(Object.keys(MANIFEST.movedToProject)).toEqual([`${VISUAL}/host/main.tsx`]);
+    expect(Object.keys(MANIFEST.movedToProject)).toEqual([`${VISUAL}/host/main.tsx`, `${VISUAL}/visual.pw.ts`]);
     expect(MANIFEST.movedToProject[`${VISUAL}/host/main.tsx`]?.to).toBe(`${VISUAL}/seeding.ts`);
+  });
+
+  it("sends a project that edited the spec to the scenarios, with the note about width and height", () => {
+    const handover = MANIFEST.movedToProject[`${VISUAL}/visual.pw.ts`];
+
+    expect(handover?.to).toBe(`${VISUAL}/scenarios.ts`);
+    expect(handover?.note).toBe("A width or height a scenario needs now goes on the scenario: `width` and `height` set the viewport of a page.");
+  });
+
+  it("launches Chromium without partial raster, and runs one worker in CI", () => {
+    const config = readShipped("playwright.config.ts");
+
+    expect(config).toContain('launchOptions: { args: ["--disable-partial-raster"] }');
+    expect(config).toContain("workers: process.env.CI === undefined ? undefined : 1,");
+    expect(config).toContain("viewport: FRAMING.viewport,");
+    expect(config).toContain("...TOLERANCE,");
+  });
+
+  it("sets the viewport before it opens the page, annotates the level, and captures as the scenario resolved", () => {
+    const spec = readShipped("visual.pw.ts");
+
+    expect(spec).toContain("await page.setViewportSize(picture.viewport);");
+    expect(spec.indexOf("setViewportSize(")).toBeLessThan(spec.indexOf("page.goto("));
+    expect(spec).toContain('testInfo.annotations.push({ type: "level", description: picture.level });');
+    expect(spec).toContain('picture.capture === "root"');
+    expect(spec).toContain("...picture.tolerance,");
+    expect(spec).toContain("fullPage: false,");
+    expect(spec).not.toContain("fullPage: true");
+  });
+
+  it("resolves a scenario inside its own test, so a bad one fails only that test", () => {
+    const spec = readShipped("visual.pw.ts");
+
+    expect(spec.indexOf("resolvePicture(")).toBeGreaterThan(spec.indexOf("test(name,"));
   });
 
   it("reads the fields of a scenario from the shipped file", () => {

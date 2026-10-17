@@ -13,6 +13,8 @@ import { existsSync, readFileSync, realpathSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
+import type { Level } from "../../packages/client-react/tests/visual/host/picture.ts";
+
 const RESULTS = "packages/client-react/tests/visual/reports/results.json";
 
 /** The parts of Playwright's JSON report this reads. */
@@ -29,11 +31,13 @@ interface ReportSuite {
 interface ReportSpec {
   title: string;
   ok: boolean;
-  tests?: { results?: { error?: { message?: string } }[] }[];
+  tests?: { annotations?: { type?: string; description?: string }[]; results?: { error?: { message?: string } }[] }[];
 }
 
 export interface Summary {
   exitCode: 0 | 1 | 2;
+  /** How many pictures each level has, from the `level` annotation of each test. */
+  levels: Record<Level, number>;
   markdown: string;
 }
 
@@ -41,6 +45,7 @@ export function summarise(report: Report | undefined): Summary {
   if (report === undefined) {
     return {
       exitCode: 2,
+      levels: countLevels([]),
       markdown: [
         "### Visual goldens: no verdict",
         "",
@@ -51,11 +56,14 @@ export function summarise(report: Report | undefined): Summary {
 
   const specs = (report.suites ?? []).flatMap(listSpecs);
   const failed = specs.filter((spec) => !spec.ok);
+  const levels = countLevels(specs);
+  const pictures = `Pictures: ${levels.component} components, ${levels.section} sections, ${levels.page} pages`;
   const startupErrors = (report.errors ?? []).map((error) => firstLine(error.message));
 
   if (specs.length === 0) {
     return {
       exitCode: 2,
+      levels,
       markdown: [
         "### Visual goldens: no verdict",
         "",
@@ -66,15 +74,18 @@ export function summarise(report: Report | undefined): Summary {
   }
 
   if (failed.length === 0 && startupErrors.length === 0) {
-    return { exitCode: 0, markdown: `### Visual goldens: passed\n\n${specs.length} of ${specs.length} checks match the committed images.` };
+    return { exitCode: 0, levels, markdown: `### Visual goldens: passed\n\n${specs.length} of ${specs.length} checks match the committed images.\n\n${pictures}` };
   }
 
   return {
     exitCode: 1,
+    levels,
     markdown: [
       "### Visual goldens: failed",
       "",
       `${failed.length} of ${specs.length} checks failed.`,
+      "",
+      pictures,
       "",
       "| Check | Why |",
       "|---|---|",
@@ -92,6 +103,29 @@ export function summarise(report: Report | undefined): Summary {
 
 function listSpecs(suite: ReportSuite): ReportSpec[] {
   return [...(suite.specs ?? []), ...(suite.suites ?? []).flatMap(listSpecs)];
+}
+
+/** A test with no level annotation is a page: that is what a scenario with no `Picture` field is. */
+function countLevels(specs: ReportSpec[]): Record<Level, number> {
+  const levels: Record<Level, number> = { component: 0, section: 0, page: 0 };
+
+  for (const spec of specs) {
+    levels[readLevel(spec)] += 1;
+  }
+
+  return levels;
+}
+
+function readLevel(spec: ReportSpec): Level {
+  for (const test of spec.tests ?? []) {
+    for (const annotation of test.annotations ?? []) {
+      if (annotation.type === "level" && (annotation.description === "component" || annotation.description === "section")) {
+        return annotation.description;
+      }
+    }
+  }
+
+  return "page";
 }
 
 function firstError(spec: ReportSpec): string | undefined {

@@ -362,5 +362,103 @@
     "find": "showScenario(name ?? \"\", container)",
     "replace": "showScenario(name as string, container)",
     "test": "pnpm vitest run addons/visual/tests/addon.test.mts"
+  },
+  {
+    "name": "spec: a page is captured as the root",
+    "file": "addons/visual/files/packages/client-react/tests/visual/visual.pw.ts",
+    "find": "picture.capture === \"root\"",
+    "replace": "picture.capture !== \"viewport\"",
+    "test": "pnpm vitest run addons/visual/tests/addon.test.mts"
+  },
+  {
+    "name": "spec: the viewport capture takes the whole page",
+    "file": "addons/visual/files/packages/client-react/tests/visual/visual.pw.ts",
+    "find": "fullPage: false,",
+    "replace": "fullPage: true,",
+    "test": "pnpm vitest run addons/visual/tests/addon.test.mts"
+  },
+  {
+    "name": "spec: the viewport is set after the page loads",
+    "file": "addons/visual/files/packages/client-react/tests/visual/visual.pw.ts",
+    "find": "    await page.setViewportSize(picture.viewport);\n    await page.goto(`/?scenario=${encodeURIComponent(name)}`);",
+    "replace": "    await page.goto(`/?scenario=${encodeURIComponent(name)}`);\n    await page.setViewportSize(picture.viewport);",
+    "test": "pnpm vitest run addons/visual/tests/addon.test.mts"
+  },
+  {
+    "name": "spec: the viewport is never set",
+    "file": "addons/visual/files/packages/client-react/tests/visual/visual.pw.ts",
+    "find": "    await page.setViewportSize(picture.viewport);\n",
+    "replace": "",
+    "test": "pnpm vitest run addons/visual/tests/addon.test.mts"
+  },
+  {
+    "name": "spec: the scenario's tolerance is left out of the comparison",
+    "file": "addons/visual/files/packages/client-react/tests/visual/visual.pw.ts",
+    "find": "        ...picture.tolerance,\n",
+    "replace": "",
+    "test": "pnpm vitest run addons/visual/tests/addon.test.mts"
+  },
+  {
+    "name": "spec: the level is not annotated",
+    "file": "addons/visual/files/packages/client-react/tests/visual/visual.pw.ts",
+    "find": "type: \"level\"",
+    "replace": "type: \"levels\"",
+    "test": "pnpm vitest run addons/visual/tests/addon.test.mts"
+  },
+  {
+    "name": "config: Chromium starts with partial raster",
+    "file": "addons/visual/files/packages/client-react/tests/visual/playwright.config.ts",
+    "find": "\"--disable-partial-raster\"",
+    "replace": "\"--disable-gpu\"",
+    "test": "pnpm vitest run addons/visual/tests/addon.test.mts"
+  },
+  {
+    "name": "config: CI runs more than one worker",
+    "file": "addons/visual/files/packages/client-react/tests/visual/playwright.config.ts",
+    "find": "process.env.CI === undefined ? undefined : 1",
+    "replace": "undefined",
+    "test": "pnpm vitest run addons/visual/tests/addon.test.mts"
+  },
+  {
+    "name": "config: the browser starts at a size of its own, not the framing's",
+    "file": "addons/visual/files/packages/client-react/tests/visual/playwright.config.ts",
+    "find": "viewport: FRAMING.viewport,",
+    "replace": "viewport: { width: 800, height: 600 },",
+    "test": "pnpm vitest run addons/visual/tests/addon.test.mts"
+  },
+  {
+    "name": "summary: a test with no annotation is not a page",
+    "file": "addons/visual/files/tools/visual/summary.mts",
+    "find": "  return \"page\";\n}",
+    "replace": "  return \"section\";\n}",
+    "test": "pnpm vitest run addons/visual/tests/summary.test.mts"
+  },
+  {
+    "name": "summary: any annotation type counts as a level",
+    "file": "addons/visual/files/tools/visual/summary.mts",
+    "find": "annotation.type === \"level\" && ",
+    "replace": "",
+    "test": "pnpm vitest run addons/visual/tests/summary.test.mts"
+  },
+  {
+    "name": "summary: a section is counted as a component",
+    "file": "addons/visual/files/tools/visual/summary.mts",
+    "find": "annotation.description === \"component\" || annotation.description === \"section\"",
+    "replace": "annotation.description === \"component\"",
+    "test": "pnpm vitest run addons/visual/tests/summary.test.mts"
+  },
+  {
+    "name": "summary: the levels line is left out of a failed run",
+    "file": "addons/visual/files/tools/visual/summary.mts",
+    "find": "      pictures,\n      \"\",\n",
+    "replace": "",
+    "test": "pnpm vitest run addons/visual/tests/summary.test.mts"
+  },
+  {
+    "name": "manifest: the spec's edits go to the seeding",
+    "file": "addons/visual/addon.json",
+    "find": "\"to\": \"packages/client-react/tests/visual/scenarios.ts\"",
+    "replace": "\"to\": \"packages/client-react/tests/visual/seeding.ts\"",
+    "test": "pnpm vitest run addons/visual/tests/addon.test.mts"
   }
 ]

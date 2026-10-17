@@ -14,16 +14,21 @@ import { resolvePicture } from "./host/picture.ts";
 import { scenarios } from "./scenarios.ts";
 import { TOLERANCE } from "./tolerance.ts";
 
-// One test per scenario: open the visual host on it, wait until the host says
-// it is ready, and compare the root (or the page) with the committed image.
+// One test per scenario: read what the scenario says about its picture, size
+// the browser to it, open the visual host on it, wait until the host says it
+// is ready, and compare the root (or the viewport) with the committed image.
 
 for (const name of Object.keys(scenarios)) {
   test(name, async ({ page }, testInfo) => {
+    // Resolved here, in the test, so a scenario that contradicts itself fails
+    // only its own test, with the message that names it and the field.
+    const picture = resolvePicture(name, scenarios[name], FRAMING, TOLERANCE);
     const trouble = recordTrouble(page);
 
+    // Before the page loads, so the host lays out at the picture's size from
+    // the first frame, and a `vh` or a media query reads it.
+    await page.setViewportSize(picture.viewport);
     await page.goto(`/?scenario=${encodeURIComponent(name)}`);
-
-    const picture = resolvePicture(name, scenarios[name], FRAMING, TOLERANCE);
 
     // The one wait. The host sets this after the scenario is seeded and the
     // fonts are loaded; nothing on the page moves after it. A scenario that
@@ -58,13 +63,22 @@ for (const name of Object.keys(scenarios)) {
       throw new Error(describeMissingGolden(name));
     }
 
-    // A root capture pictures the root; a viewport capture pictures the page.
+    testInfo.annotations.push({ type: "level", description: picture.level });
+
+    // A root capture pictures the root; a viewport capture pictures the
+    // viewport, never the whole scrolling page. The scenario's own tolerance
+    // is passed as resolved: it may be the project's, or a stricter or looser
+    // one the scenario asked for.
     if (picture.capture === "root") {
       await expect(page.getByTestId(ROOT_TESTID)).toHaveScreenshot(
         `${name}.png`,
+        { ...picture.tolerance },
       );
     } else {
-      await expect(page).toHaveScreenshot(`${name}.png`);
+      await expect(page).toHaveScreenshot(`${name}.png`, {
+        ...picture.tolerance,
+        fullPage: false,
+      });
     }
   });
 }

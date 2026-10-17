@@ -44,6 +44,10 @@
     "packages/client-react/tests/visual/host/main.tsx": {
       "to": "packages/client-react/tests/visual/seeding.ts",
       "note": "It holds how a scenario's data becomes app state: what the harness is built with, the machines that start with a value, and what is delivered once the UI is on screen."
+    },
+    "packages/client-react/tests/visual/visual.pw.ts": {
+      "to": "packages/client-react/tests/visual/scenarios.ts",
+      "note": "A width or height a scenario needs now goes on the scenario: `width` and `height` set the viewport of a page."
     }
   },
   "verify": "pnpm visual"

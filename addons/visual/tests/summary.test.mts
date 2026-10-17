@@ -51,10 +51,40 @@ describe("summarise", () => {
     expect(summarise(report).markdown).toContain("| `deep` | no error message |");
   });
 
+  it("counts the pictures of each level from the level annotation of each test", () => {
+    const summary = summarise(
+      createReport([
+        { title: "button", level: "component" },
+        { title: "chip", level: "component" },
+        { title: "price-list", level: "section" },
+        { title: "empty", level: "page" },
+      ]),
+    );
+
+    expect(summary.levels).toEqual({ component: 2, section: 1, page: 1 });
+    expect(summary.markdown).toContain("Pictures: 2 components, 1 sections, 1 pages");
+  });
+
+  it("counts a scenario with no annotation as a page", () => {
+    const summary = summarise(createReport([{ title: "empty" }, { title: "row-stale" }]));
+
+    expect(summary.levels).toEqual({ component: 0, section: 0, page: 2 });
+    expect(summary.markdown).toContain("Pictures: 0 components, 0 sections, 2 pages");
+  });
+
+  it("prints the level line for a failed run too, and ignores other annotations", () => {
+    const summary = summarise(createReport([{ title: "button", level: "component", error: "Error: x" }, { title: "empty", other: true }]));
+
+    expect(summary.exitCode).toBe(1);
+    expect(summary.levels).toEqual({ component: 1, section: 0, page: 1 });
+    expect(summary.markdown).toContain("Pictures: 1 components, 0 sections, 1 pages");
+  });
+
   it("gives no verdict when there is no results file", () => {
     const summary = summarise(undefined);
 
     expect(summary.exitCode).toBe(2);
+    expect(summary.levels).toEqual({ component: 0, section: 0, page: 0 });
     expect(summary.markdown).toContain("This is not a pass.");
   });
 
@@ -70,6 +100,10 @@ interface SpecShape {
   title: string;
   /** The error message of a failed spec. Left out: the spec passed. */
   error?: string;
+  /** The level annotation of the test. Left out: no annotation. */
+  level?: string;
+  /** An annotation of another type, which must not be read as a level. */
+  other?: boolean;
 }
 
 /** The part of Playwright's JSON report the summary reads. */
@@ -77,10 +111,15 @@ function createReport(specs: SpecShape[]): Report {
   return {
     suites: [
       {
-        specs: specs.map(({ title, error }) => ({
+        specs: specs.map(({ title, error, level, other }) => ({
           title,
           ok: error === undefined,
-          tests: [{ results: [error === undefined ? {} : { error: { message: error } }] }],
+          tests: [
+            {
+              annotations: [...(other === true ? [{ type: "slow", description: "component" }] : []), ...(level === undefined ? [] : [{ type: "level", description: level }])],
+              results: [error === undefined ? {} : { error: { message: error } }],
+            },
+          ],
         })),
       },
     ],
