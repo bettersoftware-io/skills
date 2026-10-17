@@ -220,6 +220,13 @@ owns, "Yours to change" names the examples the project never had: the
 seeding's template imports `./registry.tsx`, so its `cp` alone does not
 compile.
 
+`framing.ts` is new in this release. An update writes it into a project whose
+record lists the starting files it was given, or keeps their templates. A
+record older than both cannot say whether the project deleted the file or
+never had it, so the update leaves it out and names it under "Yours to
+change" with its `cp` line. Run that line before `pnpm visual`: the host, the
+spec, the Playwright config and `visual:jitter` all import `framing.ts`.
+
 **A project that edited the host** is told where the lines go. A plain update
 refuses, as for any edited file, and says under the file's name that its
 edits now go in `seeding.ts` and what `--force` will do. With `--force` the
@@ -251,9 +258,11 @@ wrote nothing.
   selection machine's own intent. A component scenario passes its props from
   the scenario. Nothing is clicked.
 - **Time does not run.** The host replaces `setTimeout`, `setInterval` and
-  `Date` with a clock it owns. The stale row is made by moving that clock past
-  `STALE_AFTER_MS` between deliveries. No timer fires by itself, so a slow
-  machine takes the same picture.
+  `Date` with a clock it owns. A scenario's `stalePrices` are delivered, then
+  the seeding moves that clock past `STALE_AFTER_MS`, so the presenter's own
+  timer makes those rows stale. No shipped example uses it: `price-row-stale`
+  passes `stale: true` as a prop. No timer fires by itself, so a slow machine
+  takes the same picture.
 - **One ready signal.** The host sets `data-visual-ready="true"` on `<html>`
   once every font face has loaded and the seeded state has rendered. The spec
   waits for that and nothing else.
@@ -483,6 +492,11 @@ The installer's side has its own: `examples` (4 mutants in
 - **An unknown `mount` fails after the ready wait**, about 5 seconds, not at
   once.
 - **One client package.** Paths assume `packages/client-react`.
+- **The examples assume the starter's UI.** `registry.tsx` imports
+  `#/ui/PriceList.tsx` and `#/ui/PriceRow.tsx`, and `PriceRow.tsx` is new in
+  the starter of this release. A first install into a project from an older
+  starter, or one whose UI differs, fails `pnpm visual:check` on those imports
+  until the registry's entries are the project's own.
 - **The shipped `darwin-arm64` goldens** were drawn on one Mac. Another macOS
   version may draw the system font differently; then `pnpm visual:update`.
 
