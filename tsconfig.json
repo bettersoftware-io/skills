@@ -21,6 +21,7 @@
     "scripts/**/*.mts",
     "evals/**/*.mts",
     "addons/*/tests/**/*.mts",
+    "addons/*/tests/support/*.d.ts",
     "addons/*/files/tools/**/*.mts",
     "vitest.config.mts"
   ],

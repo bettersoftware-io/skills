@@ -4,7 +4,9 @@ import { dirname, join } from "node:path";
 
 import { afterEach, describe, expect, it } from "vitest";
 
-import { judgeNoise, measureNoise, type Measurement } from "../files/tools/visual/lib/measure.mts";
+import type { Tolerance } from "../files/packages/client-react/tests/visual/host/picture.ts";
+
+import { createToleranceOf, judgeNoise, measureNoise, type Measurement, scenarioNameOf } from "../files/tools/visual/lib/measure.mts";
 import { BLACK, createFlatPng, createPng, type Rgba, WHITE } from "./support/createPng.mts";
 
 describe("measureNoise", () => {
@@ -53,7 +55,7 @@ describe("measureNoise", () => {
 });
 
 describe("judgeNoise", () => {
-  const strict = { maxDiffPixelRatio: 0, threshold: 0.01 };
+  const strict = of({ maxDiffPixelRatio: 0, threshold: 0.01 });
 
   it("passes when no pixel differed", () => {
     const verdict = judgeNoise(createMeasurement({ different: 0, total: 0, largestColourMove: 0 }), strict);
@@ -63,10 +65,11 @@ describe("judgeNoise", () => {
   });
 
   it("passes when the noise is below both knobs, and reports the two floors", () => {
-    const verdict = judgeNoise(createMeasurement({ different: 3, total: 1000, largestColourMove: 0.004 }), { maxDiffPixelRatio: 0.01, threshold: 0.01 });
+    const verdict = judgeNoise(createMeasurement({ different: 3, total: 1000, largestColourMove: 0.004 }), of({ maxDiffPixelRatio: 0.01, threshold: 0.01 }));
 
     expect(verdict.exitCode).toBe(0);
     expect(verdict.lines).toContain("Noise floor for maxDiffPixelRatio: 0.003000 (set: 0.01)");
+    expect(verdict.lines).toContain("Noise floor in pixels:              3");
     expect(verdict.lines).toContain("Noise floor for threshold:         0.0040 (set: 0.01)");
   });
 
@@ -78,7 +81,7 @@ describe("judgeNoise", () => {
   });
 
   it("fails when an image changed size between captures, whatever the tolerance", () => {
-    const verdict = judgeNoise(createMeasurement({ different: 16, total: 16, largestColourMove: 1, sizeChanged: true }), { maxDiffPixelRatio: 1, threshold: 1 });
+    const verdict = judgeNoise(createMeasurement({ different: 16, total: 16, largestColourMove: 1, sizeChanged: true }), of({ maxDiffPixelRatio: 1, threshold: 1 }));
 
     expect(verdict.exitCode).toBe(1);
     expect(verdict.lines.join("\n")).toContain("came out at two sizes");
@@ -104,6 +107,123 @@ describe("judgeNoise", () => {
 
     expect(verdict.exitCode).toBe(2);
     expect(verdict.lines.join("\n")).toContain("b.png is not in every capture");
+  });
+});
+
+describe("judgeNoise, one tolerance per image", () => {
+  const global: Tolerance = { maxDiffPixels: 8, threshold: 0.01 };
+
+  function twoImages(first: number, second: number): Measurement {
+    return {
+      captures: 2,
+      images: [
+        { image: "a.png", different: first, total: 1000, largestColourMove: 0.3, sizeChanged: false, ratio: first / 1000 },
+        { image: "b.png", different: second, total: 1000, largestColourMove: 0.3, sizeChanged: false, ratio: second / 1000 },
+      ],
+      incomplete: [],
+    };
+  }
+
+  it("lets 30 differing pixels pass for the image whose scenario allows 40, and fails the other", () => {
+    const toleranceOf = (image: string): Tolerance => (image === "a.png" ? { maxDiffPixels: 40, threshold: 0.01 } : global);
+
+    const verdict = judgeNoise(twoImages(30, 30), toleranceOf);
+
+    expect(verdict.exitCode).toBe(1);
+    expect(verdict.lines.join("\n")).toContain("b.png");
+    expect(verdict.lines.join("\n")).not.toMatch(/FAIL:.*a\.png/);
+  });
+
+  it("passes when every image is within its own cap", () => {
+    const toleranceOf = (image: string): Tolerance => (image === "a.png" ? { maxDiffPixels: 40, threshold: 0.01 } : global);
+
+    expect(judgeNoise(twoImages(30, 8), toleranceOf).exitCode).toBe(0);
+  });
+
+  it("fails an image over a strict scenario's zero, though the global would allow it", () => {
+    const toleranceOf = (image: string): Tolerance => (image === "a.png" ? { maxDiffPixels: 0, threshold: 0 } : global);
+    const verdict = judgeNoise(twoImages(1, 1), toleranceOf);
+
+    expect(verdict.exitCode).toBe(1);
+    expect(verdict.lines.join("\n")).toMatch(/FAIL:.*a\.png/);
+    expect(verdict.lines.join("\n")).not.toMatch(/FAIL:.*b\.png/);
+  });
+
+  it("judges an old-shape tolerance (a ratio, no pixel cap) by the ratio", () => {
+    const old: Tolerance = { maxDiffPixelRatio: 0, threshold: 0 };
+
+    expect(judgeNoise(twoImages(0, 0), () => old).exitCode).toBe(0);
+    expect(judgeNoise(twoImages(0, 1), () => old).exitCode).toBe(1);
+    expect(judgeNoise(twoImages(1, 1), () => ({ maxDiffPixelRatio: 0.002, threshold: 0 })).exitCode).toBe(0);
+  });
+
+  it("lets a tolerance with no cap at all allow nothing", () => {
+    expect(judgeNoise(twoImages(0, 1), () => ({ threshold: 0.01 })).exitCode).toBe(1);
+    expect(judgeNoise(twoImages(0, 0), () => ({ threshold: 0.01 })).exitCode).toBe(0);
+  });
+
+  it("holds an image to both caps when a tolerance sets both", () => {
+    const both: Tolerance = { maxDiffPixels: 50, maxDiffPixelRatio: 0.001, threshold: 0.01 };
+
+    expect(judgeNoise(twoImages(1, 2), () => both).exitCode).toBe(1);
+  });
+
+  it("names each image's own cap beside its floor", () => {
+    const toleranceOf = (image: string): Tolerance => (image === "a.png" ? { maxDiffPixels: 40, threshold: 0.01 } : global);
+    const text = judgeNoise(twoImages(3, 2), toleranceOf).lines.join("\n");
+
+    expect(text).toContain("a.png: 3 of 1000 pixels differ");
+    expect(text).toContain("allows 40");
+    expect(text).toContain("allows 8");
+  });
+});
+
+describe("measureNoise, one threshold per image", () => {
+  it("counts each image at the threshold its function gives", () => {
+    const captures = [
+      createCapture({ "a.png": createFlatPng(10, 10, [200, 200, 200, 255]), "b.png": createFlatPng(10, 10, [200, 200, 200, 255]) }),
+      createCapture({ "a.png": createFlatPng(10, 10, [210, 210, 210, 255]), "b.png": createFlatPng(10, 10, [210, 210, 210, 255]) }),
+    ];
+    const images = measureNoise(captures, (image) => (image === "a.png" ? 0.2 : 0.01)).images;
+
+    expect(images.map((noise) => noise.different)).toEqual([0, 100]);
+  });
+});
+
+describe("createToleranceOf", () => {
+  const framing = { rootWidth: 480, rootPadding: 8, viewport: { width: 100, height: 100 } };
+  const scenarios = { plain: {}, "plain-wide": {}, loose: { maxDiffPixels: 40 }, tight: { strict: true as const } };
+  const global: Tolerance = { maxDiffPixels: 8, threshold: 0.01 };
+
+  it("resolves each image by its own scenario", () => {
+    const toleranceOf = createToleranceOf(scenarios, framing, global);
+
+    expect(toleranceOf("plain.png")).toEqual(global);
+    expect(toleranceOf("loose.png")).toEqual({ maxDiffPixels: 40, threshold: 0.01 });
+    expect(toleranceOf("tight.png")).toEqual({ maxDiffPixels: 0, threshold: 0 });
+  });
+
+  it("judges an image no scenario owns by the global tolerance", () => {
+    expect(createToleranceOf(scenarios, framing, global)("orphan.png")).toEqual(global);
+  });
+
+  it("still reads an old tolerance.ts: a ratio of 0, and a scenario's cap replaces it", () => {
+    const old: Tolerance = { maxDiffPixelRatio: 0, threshold: 0 };
+    const toleranceOf = createToleranceOf({ plain: {}, loose: { maxDiffPixels: 40 } }, framing, old);
+
+    expect(toleranceOf("plain.png")).toEqual(old);
+    expect(toleranceOf("loose.png")).toEqual({ maxDiffPixels: 40, threshold: 0 });
+  });
+
+  it("refuses a scenario that contradicts itself, naming it", () => {
+    expect(() => createToleranceOf({ bad: { maxDiffPixels: 2 } }, framing, global)).toThrow(/Scenario "bad"/);
+  });
+});
+
+describe("scenarioNameOf", () => {
+  it("drops the .png, and keeps a nested path whole so it matches nothing", () => {
+    expect(scenarioNameOf("price-row-up.png")).toBe("price-row-up");
+    expect(scenarioNameOf("linux-x64/price-row-up.png")).toBe("linux-x64/price-row-up");
   });
 });
 
@@ -140,4 +260,9 @@ function createMeasurement(noise: { different: number; total: number; largestCol
     images: [{ image: "a.png", sizeChanged: false, ...noise, ratio: noise.total === 0 ? 0 : noise.different / noise.total }],
     incomplete: [],
   };
+}
+
+/** A fixed tolerance for every image. */
+function of(tolerance: Tolerance): (image: string) => Tolerance {
+  return () => tolerance;
 }

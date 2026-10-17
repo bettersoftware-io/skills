@@ -656,5 +656,82 @@
     "find": "  return undefined;\n}",
     "replace": "  return \"stop\";\n}",
     "test": "pnpm vitest run addons/visual/tests/vitestVersions.test.mts -t \"passes when all three are on one version\""
+  },
+  {
+    "name": "jitter: every image judged by the global",
+    "file": "addons/visual/files/tools/visual/lib/measure.mts",
+    "find": "return (image) => resolved.get(scenarioNameOf(image)) ?? global;",
+    "replace": "return () => global;",
+    "test": "pnpm vitest run addons/visual/tests/measure.test.mts -t \"resolves each image by its own scenario\""
+  },
+  {
+    "name": "jitter: an orphan image gets no tolerance of the global",
+    "file": "addons/visual/files/tools/visual/lib/measure.mts",
+    "find": "?? global;",
+    "replace": "?? { threshold: 0, maxDiffPixels: 1000000 };",
+    "test": "pnpm vitest run addons/visual/tests/measure.test.mts -t \"judges an image no scenario owns by the global tolerance\""
+  },
+  {
+    "name": "jitter: the pixel cap is ignored",
+    "file": "addons/visual/files/tools/visual/lib/measure.mts",
+    "find": "(maxDiffPixels !== undefined && noise.different > maxDiffPixels) ||",
+    "replace": "(false) ||",
+    "test": "pnpm vitest run addons/visual/tests/measure.test.mts -t \"lets 30 differing pixels pass for the image\""
+  },
+  {
+    "name": "jitter: the ratio cap of an old tolerance is ignored",
+    "file": "addons/visual/files/tools/visual/lib/measure.mts",
+    "find": "(maxDiffPixelRatio !== undefined && noise.ratio > maxDiffPixelRatio)",
+    "replace": "(false)",
+    "test": "pnpm vitest run addons/visual/tests/measure.test.mts -t \"judges an old-shape tolerance\""
+  },
+  {
+    "name": "jitter: a tolerance with no cap allows anything",
+    "file": "addons/visual/files/tools/visual/lib/measure.mts",
+    "find": "return noise.different > 0;",
+    "replace": "return false;",
+    "test": "pnpm vitest run addons/visual/tests/measure.test.mts -t \"lets a tolerance with no cap at all allow nothing\""
+  },
+  {
+    "name": "jitter: every image counted at one threshold",
+    "file": "addons/visual/files/tools/visual/lib/measure.mts",
+    "find": "typeof threshold === \"number\" ? threshold : threshold(image)",
+    "replace": "typeof threshold === \"number\" ? threshold : 0.2",
+    "test": "pnpm vitest run addons/visual/tests/measure.test.mts -t \"counts each image at the threshold its function gives\""
+  },
+  {
+    "name": "jitter: the grep is not anchored at the end",
+    "file": "addons/visual/files/tools/visual/lib/arguments.mts",
+    "find": "(?:${names.join(\"|\")})$`",
+    "replace": "(?:${names.join(\"|\")})`",
+    "test": "pnpm vitest run addons/visual/tests/jitter.test.mts -t \"selects the scenario\""
+  },
+  {
+    "name": "jitter: the grep is not anchored at the start",
+    "file": "addons/visual/files/tools/visual/lib/arguments.mts",
+    "find": "`(?:^|\\\\s)(?:",
+    "replace": "`(?:",
+    "test": "pnpm vitest run addons/visual/tests/jitter.test.mts -t \"selects the scenario\""
+  },
+  {
+    "name": "jitter: regex characters of a scenario name are not escaped",
+    "file": "addons/visual/files/tools/visual/lib/arguments.mts",
+    "find": "name.replace(/[.*+?^${}()|[\\]\\\\]/g, \"\\\\$&\")",
+    "replace": "name",
+    "test": "pnpm vitest run addons/visual/tests/jitter.test.mts -t \"takes regex characters literally\""
+  },
+  {
+    "name": "jitter: --scenario goes with folders",
+    "file": "addons/visual/files/tools/visual/lib/arguments.mts",
+    "find": "if (scenarios.length > 0) {",
+    "replace": "if (false) {",
+    "test": "pnpm vitest run addons/visual/tests/jitter.test.mts -t \"refuses --scenario with no name\""
+  },
+  {
+    "name": "jitter: --scenario given twice keeps only the last",
+    "file": "addons/visual/files/tools/visual/lib/arguments.mts",
+    "find": "scenarios.push(name);",
+    "replace": "scenarios.splice(0, scenarios.length, name);",
+    "test": "pnpm vitest run addons/visual/tests/jitter.test.mts -t \"captures only the scenarios named\""
   }
 ]
