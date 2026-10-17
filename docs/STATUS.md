@@ -3,7 +3,7 @@
 What is not done yet. Finished work is removed from this page, not archived;
 the test records in this folder and the git log say what was done.
 
-**Last updated: 2026-10-16**
+**Last updated: 2026-10-17**
 
 ## Waiting on something outside this repository
 
@@ -156,13 +156,15 @@ Added on 2026-10-11 ([the record](documenting-architecture-2026-10-11.md)).
 
 ## Next, with no plan yet
 
-- **Two projects still have Dependabot, which cannot update their npm
-  packages.** Renovate became the default in 0.17.0; a project keeps the bot
-  it has. `condo-ledger` and `skills-demo` have `dependabot.yml`;
-  `add-to-project.mts <project> ci-security:renovate` moves each, and a
-  person turns Dependabot security updates off (`pnpm repo:settings` says
-  so). `origamic` moved on 2026-10-13, but its `renovate.json5` is the old
-  one, with `vulnerabilityAlerts` off: the update lists the line to change.
+- **The visual add-on lacks two changes condo-ledger made to its copy.**
+  Its `playwright.config.ts` launches Chromium with
+  `--disable-partial-raster`: without it, partial raster shaded one rounded
+  corner two ways from frame to frame and a golden never held still
+  (measured there on 2026-10-16, linux-x64 in the pinned container: with
+  it, every scenario byte-identical across runs). Its `visual.pw.ts` sets
+  the viewport from each scenario's width, for a layout that changes under
+  a breakpoint. Until the add-on carries both, condo-ledger's update of
+  `visual` refuses those two files (seen 2026-10-17, condo-ledger #13).
 - **An update bot's pull request edits files the installer owns.** Both bots
   move the action commits in `.github/workflows/`, which the add-ons wrote
   and `tools/installed.json` records. A merged bump makes each file one the
@@ -171,13 +173,6 @@ Added on 2026-10-11 ([the record](documenting-architecture-2026-10-11.md)).
   Leaving the add-ons' workflows to the add-on updates, as `tools/` is
   left, would close it.
 
-- **Projects created before 0.16.0 have no "Adding a check" in their
-  `AGENTS.md`.** Without it, Codex skipped `extending-a-project` and planned
-  to write an add-on by hand in 4 runs of 6 ([the evals](../evals/README.md#results)).
-  An update never overwrites a project's `AGENTS.md`, but the kit's update
-  lists the section under "Yours to change", with a `cp` when the file is
-  the old template word for word (tried on 2026-10-16). The demo has it
-  (skills-demo #12). `condo-ledger` and `origamic` did not, on 2026-10-16.
 
 Found while Origamic's dependency rule went into its gates, on 2026-10-16
 (skills #30 and #31, origamic #18).
