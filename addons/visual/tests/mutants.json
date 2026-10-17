@@ -635,5 +635,26 @@
     "find": "gaps.slice(0, limit)",
     "replace": "gaps",
     "test": "pnpm vitest run addons/visual/tests/reach.test.mts -t \"stops at the limit and says how many more there are\""
+  },
+  {
+    "name": "vitest-versions: different versions pass",
+    "file": "addons/visual/files/tools/visual/lib/vitestVersions.mts",
+    "find": "new Set(VITEST_PACKAGES.map((name) => installed[name])).size > 1",
+    "replace": "false",
+    "test": "pnpm vitest run addons/visual/tests/vitestVersions.test.mts -t \"stops when the packages are on different versions\""
+  },
+  {
+    "name": "vitest-versions: a missing package passes",
+    "file": "addons/visual/files/tools/visual/lib/vitestVersions.mts",
+    "find": "if (missing.length > 0) {",
+    "replace": "if (false) {",
+    "test": "pnpm vitest run addons/visual/tests/vitestVersions.test.mts -t \"stops when a package is not installed\""
+  },
+  {
+    "name": "vitest-versions: the same versions stop",
+    "file": "addons/visual/files/tools/visual/lib/vitestVersions.mts",
+    "find": "  return undefined;\n}",
+    "replace": "  return \"stop\";\n}",
+    "test": "pnpm vitest run addons/visual/tests/vitestVersions.test.mts -t \"passes when all three are on one version\""
   }
 ]

@@ -13,6 +13,12 @@ import { FRAMING } from "../framing.ts";
 // The provider is v8, as in the `coverage` add-on: Vitest collects it from
 // Chromium over the DevTools protocol, so the code is not rewritten first.
 //
+// Named `vite.config.ts`, not `vitest.config.ts`: Vitest reads the `test`
+// block from either, and a project's knip config already reads
+// `tests/**/vite.config.ts` (for the host's). Under the other name knip would
+// report this file and its test file as unused until each project edited
+// its own knip config.
+//
 // This file is the add-on's, and an update replaces it.
 export default defineConfig({
   // packages/client-react, so the globs below read from the package.

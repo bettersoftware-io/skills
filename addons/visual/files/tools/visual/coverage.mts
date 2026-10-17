@@ -11,7 +11,8 @@
 // taken and the functions never called: states no picture shows yet. The
 // reports (json, summary, html) are in tests/visual/reports/coverage/.
 //
-// This is a report, not a gate. Exit 0: every scenario was rendered. Exit 2: a
+// This is a report, not a gate. Exit 0: every scenario was rendered. Exit 2:
+// Vitest and its two packages here are missing or on different versions, a
 // scenario could not be rendered, or the run wrote no coverage. The full
 // output of the run is printed.
 
@@ -21,9 +22,10 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { formatReach, type IstanbulFile, rankReach } from "./lib/reach.mts";
+import { checkVitestVersions, VITEST_PACKAGES } from "./lib/vitestVersions.mts";
 
 const PACKAGE = "packages/client-react";
-const CONFIG = "tests/visual/reach/vitest.config.ts";
+const CONFIG = "tests/visual/reach/vite.config.ts";
 const COVERAGE = "tests/visual/reports/coverage/coverage-final.json";
 const DEFAULT_LIMIT = 30;
 
@@ -53,9 +55,25 @@ function main(root: string, argv: string[]): number {
   }
 
   const directory = join(root, PACKAGE);
+  const versions = checkVitestVersions(readInstalledVersions(directory));
+
+  if (versions !== undefined) {
+    console.error(`visual:coverage: ${versions}`);
+
+    return 2;
+  }
+
+  const vitest = join(directory, "node_modules/.bin/vitest");
+
+  if (!existsSync(vitest)) {
+    console.error(`visual:coverage: vitest is not installed in ${PACKAGE} (there is no node_modules/.bin/vitest). Run pnpm install.`);
+
+    return 2;
+  }
+
   // `--coverage` turns on the coverage the config sets. Vitest empties the
   // reports folder first, so a file from an earlier run is never read as this one's.
-  const run = spawnSync(join(directory, "node_modules/.bin/vitest"), ["run", "--config", CONFIG, "--coverage"], {
+  const run = spawnSync(vitest, ["run", "--config", CONFIG, "--coverage"], {
     cwd: directory,
     encoding: "utf8",
     maxBuffer: 64 * 1024 * 1024,
@@ -71,7 +89,7 @@ function main(root: string, argv: string[]): number {
   const path = join(directory, COVERAGE);
 
   if (!existsSync(path)) {
-    console.error(run.stdout);
+    console.error([run.stdout, run.stderr].filter(Boolean).join("\n"));
     console.error(`visual:coverage: the run passed but wrote no ${PACKAGE}/${COVERAGE}. No coverage is no answer.`);
 
     return 2;
@@ -83,6 +101,17 @@ function main(root: string, argv: string[]): number {
   console.log(formatReach(rankReach(coverage, realpathSync(root)), limit));
 
   return 0;
+}
+
+/** Each package's version as the client package resolves it; `undefined` when it is not installed there. */
+function readInstalledVersions(directory: string): Record<string, string | undefined> {
+  return Object.fromEntries(
+    VITEST_PACKAGES.map((name) => {
+      const manifest = join(directory, "node_modules", name, "package.json");
+
+      return [name, existsSync(manifest) ? (JSON.parse(readFileSync(manifest, "utf8")) as { version?: string }).version : undefined];
+    }),
+  );
 }
 
 /** True when Node was asked to run this file. Real paths, so a symlinked copy still runs. */

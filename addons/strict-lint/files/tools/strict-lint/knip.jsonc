@@ -43,12 +43,10 @@
       // reported. With it, every export needs an importer: a file in the
       // package, a test, or another package.
       "includeEntryExports": true,
-      // A Playwright tier, the Vite host it serves and a Vitest run in a browser
-      // keep their configs under tests/ (the visual add-on does), where knip
-      // does not look by default.
+      // A Playwright tier and the Vite host it serves keep their configs under
+      // tests/ (the visual add-on does), where knip does not look by default.
       "playwright": { "config": ["playwright.config.ts", "tests/**/playwright.config.ts"] },
-      "vite": { "config": ["vite.config.ts", "tests/**/vite.config.ts"] },
-      "vitest": { "config": ["vitest.config.ts", "tests/**/vitest.config.ts"] }
+      "vite": { "config": ["vite.config.ts", "tests/**/vite.config.ts"] }
     }
   }
 }
