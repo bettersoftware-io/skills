@@ -38,6 +38,7 @@ const MANIFEST = readJson<Manifest>(ADDON, "addon.json");
 const FILES = readdirSync(join(ADDON, "files"), { recursive: true, encoding: "utf8" });
 const WORKFLOW = readFileSync(join(ADDON, "files/.github/workflows/weekly-tag.yml"), "utf8");
 const RELEASE_WORKFLOW = readFileSync(join(ADDON, "files/.github/workflows/sync-releases.yml"), "utf8");
+const WRITER_WORKFLOW = readFileSync(join(ADDON, "files/.github/workflows/changelog-writer.yml"), "utf8");
 const COMMANDS = Object.keys(COMMAND_NEEDS);
 const SECTION = readFileSync(join(ADDON, "AGENTS.section.md"), "utf8");
 const CLAUDE_HOOK = `node "$CLAUDE_PROJECT_DIR/${HOOK_SCRIPT}"`;
@@ -327,6 +328,78 @@ describe("the release workflow", () => {
   it("runs the script the manifest's changelog:releases runs, and ships it with what it imports", () => {
     expect(MANIFEST.packageJson["."]?.scripts?.["changelog:releases"]).toBe("node tools/agent-workflow/sync-releases.mts");
     expect(existsSync(join(ADDON, "files/tools/agent-workflow/lib/releases.mts"))).toBe(true);
+  });
+});
+
+describe("the writer workflow", () => {
+  const pins = (text: string): string[] => [...text.matchAll(/^\s*-?\s*uses: (.+)$/gm)].map((match) => match[1] ?? "");
+  const steps = (): string[] => (WRITER_WORKFLOW.split(/^ {4}steps:\n/m)[1] ?? "").split(/^ {6}- /m).slice(1);
+  const stepWith = (needle: string): number => steps().findIndex((step) => step.includes(needle));
+  const allowedTools = (): string[] => {
+    const line = WRITER_WORKFLOW.match(/--allowedTools "([^"]+)"/)?.[1];
+
+    return (line ?? "").split(",");
+  };
+
+  it("runs nothing until CHANGELOG_WRITER is true", () => {
+    expect(WRITER_WORKFLOW).toMatch(/^ {4}if: vars\.CHANGELOG_WRITER == 'true'$/m);
+    expect(WRITER_WORKFLOW).toMatch(/^on:\n {2}schedule:\n {4}- cron: "0 1 \* \* 1"\n {2}workflow_dispatch:\n/m);
+    expect(WRITER_WORKFLOW).not.toMatch(/pull_request_target|workflow_run/);
+  });
+
+  it("stops with a message when the secret is missing, before anything is installed", () => {
+    const due = steps()[stepWith("id: due")] ?? "";
+
+    expect(due).toContain("ANTHROPIC_API_KEY is not set: add the secret or unset CHANGELOG_WRITER");
+    expect(due).toMatch(/^ {10}ANTHROPIC_API_KEY: \$\{\{ secrets\.ANTHROPIC_API_KEY \}\}$/m);
+    expect(stepWith("id: due")).toBeLessThan(stepWith("pnpm install"));
+  });
+
+  it("checks what is due before installing or running Claude Code", () => {
+    const [checkout, node, due, corepack, install, claude] = ["actions/checkout@", "actions/setup-node@", "id: due", "enable-corepack", "pnpm install --frozen-lockfile", "anthropics/claude-code-action@"].map(stepWith);
+
+    expect([checkout, node, due, corepack, install, claude]).toEqual([0, 1, 2, 3, 4, 5]);
+    expect(steps()[due ?? 0]).toContain("node tools/agent-workflow/changelog.mts due --ref HEAD");
+
+    for (const index of [3, 4, 5]) {
+      expect(steps()[index]).toMatch(/^ {8}if: steps\.due\.outputs\.due == 'true'$/m);
+    }
+  });
+
+  it("pins every action by commit, the same checkout and setup-node as weekly-tag", () => {
+    const all = pins(WRITER_WORKFLOW);
+    const shared = pins(WORKFLOW);
+
+    expect(all.length).toBe(3);
+    expect(all.filter((action) => !/^[\w.-]+\/[\w./-]+@[0-9a-f]{40} # v\d+/.test(action))).toEqual([]);
+    expect(all.filter((action) => !action.startsWith("anthropics/"))).toEqual(shared);
+    expect(WRITER_WORKFLOW).toMatch(/^ {10}persist-credentials: false$/m);
+    expect(WRITER_WORKFLOW).toMatch(/^ {10}fetch-depth: 0$/m);
+  });
+
+  it("may push a changelog branch and open a pull request, and never merge", () => {
+    const [top, job] = WRITER_WORKFLOW.split(/^jobs:$/m);
+
+    expect(top).toMatch(/^permissions:\n {2}contents: read\n/m);
+    expect([...(job ?? "").matchAll(/^ {6}([\w-]+): (read|write)(?: #.*)?$/gm)].map((match) => `${match[1]}: ${match[2]}`)).toEqual(["contents: write", "pull-requests: write", "issues: read"]);
+    expect(WRITER_WORKFLOW).toMatch(/^concurrency:\n {2}group: changelog-writer\n {2}cancel-in-progress: false\n/m);
+    expect(allowedTools()).toContain("Bash(git push -u origin changelog/*)");
+    expect(allowedTools()).toContain("Bash(gh pr create:*)");
+    expect(allowedTools().filter((tool) => /merge|--force|push origin/.test(tool))).toEqual([]);
+    expect(WRITER_WORKFLOW.replace(/^\s*#.*$/gm, "")).not.toMatch(/gh pr merge/);
+    expect(WRITER_WORKFLOW).toMatch(/^ {12}--max-turns 40$/m);
+  });
+
+  it("gives Claude Code the token it pushes with, through the with block, as the checkout keeps none", () => {
+    expect(WRITER_WORKFLOW).toMatch(/^ {10}github_token: \$\{\{ github\.token \}\}$/m);
+    expect(WRITER_WORKFLOW).toMatch(/^ {10}anthropic_api_key: \$\{\{ secrets\.ANTHROPIC_API_KEY \}\}$/m);
+  });
+
+  it("puts no expression in a command line", () => {
+    const blocks = [...WRITER_WORKFLOW.matchAll(/^ +run: (.*(?:\n {10,}.*)*)$/gm)].map((match) => match[1] ?? "");
+
+    expect(blocks.length).toBe(3);
+    expect(blocks.filter((block) => block.includes("${{"))).toEqual([]);
   });
 });
 

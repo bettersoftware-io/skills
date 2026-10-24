@@ -108,3 +108,17 @@ when it tags a finished week. If one is open
 Do not create or move a week's tag. The workflow owns the tags, and it tags
 the last commit before Monday 00:00 UTC, which is on purpose earlier than the
 pull request that writes the week up.
+
+## In CI
+
+`changelog-writer.yml` runs this command with no person to ask. The weeks are
+the ones `pnpm changelog due` lists. Differences from the steps above:
+
+- Skip step 3. The job's checkout is already a clean copy: work on a branch
+  `changelog/<newest week>` (`git switch -c changelog/2026-W41`).
+- Write every due week in that branch, and open one pull request for all of
+  them, titled `docs(changelog): <weeks>` (`docs(changelog): 2026-W40, 2026-W41`).
+- Stop after `gh pr create`. Never merge, and never push to any other branch.
+- When `pnpm changelog check` fails and you cannot fix it, open the pull
+  request as a draft (`--draft`) whose body lists what is missing. Do not
+  report a failed check as a pass.
