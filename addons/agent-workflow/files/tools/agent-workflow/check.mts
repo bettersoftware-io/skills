@@ -54,7 +54,7 @@ import { fileURLToPath } from "node:url";
 import { ASK_RULES, CLAUDE_LOCAL_SETTINGS, CLAUDE_SETTINGS, CODEX_HOOKS, COMMAND_NEEDS, DUE_HOOK_COMMANDS, DUE_HOOK_SCRIPT, EDIT_ASK_RULES, HOOK_COMMANDS, HOOK_SCRIPT, RETIRED_ARGUMENT, RETIRED_ASK_RULES, RETIRED_FILES, WIDE_ALLOW } from "./lib/host.mts";
 import { groupRuns, hostOf } from "./lib/hook-registration.mts";
 import { isMainModule } from "./lib/main.mts";
-import { checkRendering, parseWeeks } from "./lib/releases.mts";
+import { renderCheck } from "./lib/releases.mts";
 import { installedIn } from "./requires.mts";
 
 /** The name both hosts give the tool that runs a shell command. */
@@ -227,16 +227,13 @@ function judgeRendering(root: string, report: (line: string) => void): boolean {
   }
 
   const text = readFileSync(file, "utf8");
-  const weeks = parseWeeks(text).length;
+  const { weeks, problems } = renderCheck(text);
 
   if (weeks === 0) {
     report("SKIP changelog releases: CHANGELOG.md has no week yet, so there is no release to render");
 
     return false;
   }
-
-  // The address only shapes the links of the notes. Whether a week renders does not depend on it.
-  const problems = checkRendering(text, "https://github.com/owner/repo", "main");
 
   for (const problem of problems) {
     report(`FAIL changelog releases: ${problem}. Add the definition, or run \`pnpm changelog defs --write\``);

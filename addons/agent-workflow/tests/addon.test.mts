@@ -282,7 +282,13 @@ describe("the release workflow", () => {
   });
 
   it("does nothing until the project sets the variable to true", () => {
-    expect(RELEASE_WORKFLOW).toMatch(/^ {4}if: vars\.CHANGELOG_RELEASES == 'true'$/m);
+    expect(RELEASE_WORKFLOW).toMatch(/^ {4}if: vars\.CHANGELOG_RELEASES == 'true' && /m);
+  });
+
+  it("writes on a push only to the default branch, whatever it is called, and checks that branch out", () => {
+    expect(RELEASE_WORKFLOW).toMatch(/&& \(github\.event_name != 'push' \|\| github\.ref_name == github\.event\.repository\.default_branch\)$/m);
+    expect(RELEASE_WORKFLOW).not.toMatch(/branches:/);
+    expect(RELEASE_WORKFLOW).toMatch(/^ {10}ref: \$\{\{ github\.event\.repository\.default_branch \}\}$/m);
   });
 
   it("can only read by default, and gives the one job exactly contents: write", () => {
@@ -302,7 +308,7 @@ describe("the release workflow", () => {
   });
 
   it("runs on a change to the changelog or to the script it runs, and nowhere else but the clock and by hand", () => {
-    expect(RELEASE_WORKFLOW).toMatch(/^on:\n {2}push:\n {4}branches: \[main\]\n {4}paths:\n {6}- CHANGELOG\.md\n {6}- tools\/agent-workflow\/sync-releases\.mts\n {6}- tools\/agent-workflow\/lib\/releases\.mts\n {2}schedule:\n {4}- cron: "30 0 \* \* 1"\n {2}workflow_dispatch:\n/m);
+    expect(RELEASE_WORKFLOW).toMatch(/^on:\n {2}push:\n {4}paths:\n {6}- CHANGELOG\.md\n {6}- tools\/agent-workflow\/sync-releases\.mts\n {6}- tools\/agent-workflow\/lib\/releases\.mts\n {6}- tools\/agent-workflow\/lib\/changelog\.mts\n {2}schedule:\n {4}- cron: "30 0 \* \* 1"\n {2}workflow_dispatch:\n/m);
     expect(RELEASE_WORKFLOW).not.toMatch(/pull_request_target|workflow_run/);
   });
 

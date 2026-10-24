@@ -9,7 +9,7 @@
 //   node tools/agent-workflow/sync-releases.mts --check     render every week offline
 //
 //   --repo <owner/name>   defaults to the repository `gh repo view` names
-//   --branch <name>       the branch relative links point at; defaults to main
+//   --branch <name>       the branch relative links point at; defaults to the repository's default branch, asked of gh
 //   --only <week>         write just that week's release (Latest is still judged across every week)
 //   --state <file>        read {tags, releases, latestTag} from a JSON file instead of GitHub
 //
@@ -25,7 +25,7 @@ import { join, resolve } from "node:path";
 import { parseArgs } from "node:util";
 
 import { isMainModule } from "./lib/main.mts";
-import { checkRendering, definitionMap, parseWeeks, type Plan, planReleases, type Release, ReleaseError, type RemoteState, renderReleaseBody } from "./lib/releases.mts";
+import { definitionMap, parseWeeks, type Plan, planReleases, type Release, ReleaseError, type RemoteState, renderCheck, renderReleaseBody } from "./lib/releases.mts";
 import { type Run, run } from "./lib/system.mts";
 
 export interface SyncOptions {
@@ -70,13 +70,14 @@ function sync({ root, argv, run: runProgram, report }: SyncOptions): number {
 
   const text = readFileSync(file, "utf8");
   const weeks = parseWeeks(text);
-  const branch = args.branch ?? "main";
 
   if (args.check) {
-    return check(text, branch, report);
+    return check(text, report);
   }
 
   const repo = args.repo ?? nameRepository(root, runProgram);
+  // An empty --branch is no branch: a scheduled workflow run has no default branch in its event.
+  const branch = args.branch ? args.branch : defaultBranch(repo, root, runProgram);
   const repoUrl = `https://github.com/${repo}`;
   const definitions = definitionMap(text);
 
@@ -102,16 +103,14 @@ function sync({ root, argv, run: runProgram, report }: SyncOptions): number {
 }
 
 /** Renders every week with no network. A file with no week yet has nothing to judge, and that is not a failure. */
-function check(text: string, branch: string, report: (line: string) => void): number {
-  const count = parseWeeks(text).length;
+function check(text: string, report: (line: string) => void): number {
+  const { weeks: count, problems } = renderCheck(text);
 
   if (count === 0) {
     report("SKIP sync-releases: CHANGELOG.md has no week yet, so there is no release to render");
 
     return 0;
   }
-
-  const problems = checkRendering(text, "https://github.com/owner/repo", branch);
 
   for (const problem of problems) {
     report(`  ${problem}`);
@@ -154,6 +153,17 @@ function nameRepository(root: string, runProgram: Run): string {
   }
 
   return repo;
+}
+
+function defaultBranch(repo: string, root: string, runProgram: Run): string {
+  const asked = runProgram("gh", ["api", `repos/${repo}`, "--jq", ".default_branch"], root);
+  const branch = asked.stdout.trim();
+
+  if (asked.status !== 0 || branch === "") {
+    throw new SkipError(`gh could not name the default branch of ${repo} (${asked.stderr.trim() || `exit ${asked.status}`}). Pass --branch`);
+  }
+
+  return branch;
 }
 
 function fetchRemoteState(repo: string, root: string, runProgram: Run): RemoteState {

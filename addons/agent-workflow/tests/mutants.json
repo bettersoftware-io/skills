@@ -5910,11 +5910,11 @@
     "test": "pnpm vitest run addons/agent-workflow/tests/releases.test.mts --testNamePattern=\"links relative paths at the default branch it is given\""
   },
   {
-    "name": "releases: the branch defaults to nothing given",
+    "name": "releases: the default branch is assumed to be main",
     "file": "addons/agent-workflow/files/tools/agent-workflow/sync-releases.mts",
-    "find": "const branch = args.branch ?? \"main\";",
-    "replace": "const branch = \"main\";",
-    "test": "pnpm vitest run addons/agent-workflow/tests/releases.test.mts --testNamePattern=\"links relative paths at the default branch it is given\""
+    "find": "args.branch ? args.branch : defaultBranch(repo, root, runProgram)",
+    "replace": "\"main\"",
+    "test": "pnpm vitest run addons/agent-workflow/tests/releases.test.mts --testNamePattern=\"asks gh for the default branch when --branch is not given\""
   },
   {
     "name": "releases: a commit with no definition renders",
@@ -5975,7 +5975,7 @@
   {
     "name": "releases: the definitions stay in the last week",
     "file": "addons/agent-workflow/files/tools/agent-workflow/lib/releases.mts",
-    "find": ".filter((line) => !DEFINITION_LINE.test(line))",
+    "find": ".filter((line) => !LINK_DEFINITION.test(line))",
     "replace": ".filter(() => true)",
     "test": "pnpm vitest run addons/agent-workflow/tests/releases.test.mts --testNamePattern=\"takes each heading, its tag\""
   },
@@ -6199,8 +6199,8 @@
   {
     "name": "check: the render check is a pass whatever the file holds",
     "file": "addons/agent-workflow/files/tools/agent-workflow/check.mts",
-    "find": "const problems = checkRendering(text, \"https://github.com/owner/repo\", \"main\");",
-    "replace": "const problems: string[] = [];",
+    "find": "const { weeks, problems } = renderCheck(text);",
+    "replace": "const weeks = renderCheck(text).weeks;\n  const problems: string[] = [];",
     "test": "pnpm vitest run addons/agent-workflow/tests/check.test.mts --testNamePattern=\"fails, naming the week and the commit\""
   },
   {
@@ -6213,8 +6213,8 @@
   {
     "name": "workflow: the job runs without the variable",
     "file": "addons/agent-workflow/files/.github/workflows/sync-releases.yml",
-    "find": "    if: vars.CHANGELOG_RELEASES == 'true'\n",
-    "replace": "",
+    "find": "    if: vars.CHANGELOG_RELEASES == 'true' && (",
+    "replace": "    if: (",
     "test": "pnpm vitest run addons/agent-workflow/tests/addon.test.mts --testNamePattern=\"does nothing until the project sets the variable\""
   },
   {
@@ -6307,5 +6307,89 @@
     "find": "\"changelog:releases\": \"node tools/agent-workflow/sync-releases.mts\"",
     "replace": "\"changelog:releases\": \"node tools/agent-workflow/sync-release.mts\"",
     "test": "pnpm vitest run addons/agent-workflow/tests/addon.test.mts --testNamePattern=\"adds scripts that each run a tool it ships\""
+  },
+  {
+    "name": "releases: an empty --branch is taken as given",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/sync-releases.mts",
+    "find": "args.branch ? args.branch : defaultBranch(repo, root, runProgram)",
+    "replace": "args.branch ?? defaultBranch(repo, root, runProgram)",
+    "test": "pnpm vitest run addons/agent-workflow/tests/releases.test.mts --testNamePattern=\"takes an empty --branch as none\""
+  },
+  {
+    "name": "releases: gh is asked for the branch though one is given",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/sync-releases.mts",
+    "find": "args.branch ? args.branch : defaultBranch(repo, root, runProgram)",
+    "replace": "defaultBranch(repo, root, runProgram)",
+    "test": "pnpm vitest run addons/agent-workflow/tests/releases.test.mts --testNamePattern=\"does not ask gh when --branch is given\""
+  },
+  {
+    "name": "releases: a default branch gh cannot name is accepted",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/sync-releases.mts",
+    "find": "if (asked.status !== 0 || branch === \"\") {",
+    "replace": "if (false) {",
+    "test": "pnpm vitest run addons/agent-workflow/tests/releases.test.mts --testNamePattern=\"cannot name the default branch\""
+  },
+  {
+    "name": "releases: an empty default branch is accepted",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/sync-releases.mts",
+    "find": " || branch === \"\") {",
+    "replace": ") {",
+    "test": "pnpm vitest run addons/agent-workflow/tests/releases.test.mts --testNamePattern=\"cannot name the default branch\""
+  },
+  {
+    "name": "releases: a trailing space ends a definition line",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/changelog.mts",
+    "find": "export const LINK_DEFINITION = /^\\[[^\\]]+\\]:[ \\t]*\\S+[ \\t]*$/;",
+    "replace": "export const LINK_DEFINITION = /^\\[[^\\]]+\\]:[ \\t]*\\S+$/;",
+    "test": "pnpm vitest run addons/agent-workflow/tests/releases.test.mts --testNamePattern=\"strips every line that defines a link\""
+  },
+  {
+    "name": "releases: only a citation's definition is stripped",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/changelog.mts",
+    "find": "export const LINK_DEFINITION = /^\\[[^\\]]+\\]:",
+    "replace": "export const LINK_DEFINITION = /^\\[(?:#\\d+)\\]:",
+    "test": "pnpm vitest run addons/agent-workflow/tests/releases.test.mts --testNamePattern=\"strips every line that defines a link\""
+  },
+  {
+    "name": "releases: the shared render check finds no problem",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/releases.mts",
+    "find": "problems: weeks === 0 ? [] : checkRendering(text, CHECK_REPO, \"main\")",
+    "replace": "problems: []",
+    "test": "pnpm vitest run addons/agent-workflow/tests/releases.test.mts --testNamePattern=\"fails naming the week and the commit that has no definition\""
+  },
+  {
+    "name": "workflow: a push to any branch writes",
+    "file": "addons/agent-workflow/files/.github/workflows/sync-releases.yml",
+    "find": "github.event_name != 'push' || ",
+    "replace": "",
+    "test": "pnpm vitest run addons/agent-workflow/tests/addon.test.mts --testNamePattern=\"writes on a push only to the default branch\""
+  },
+  {
+    "name": "workflow: a push to main only is judged the default",
+    "file": "addons/agent-workflow/files/.github/workflows/sync-releases.yml",
+    "find": "github.ref_name == github.event.repository.default_branch)",
+    "replace": "github.ref_name == 'main')",
+    "test": "pnpm vitest run addons/agent-workflow/tests/addon.test.mts --testNamePattern=\"writes on a push only to the default branch\""
+  },
+  {
+    "name": "workflow: a push filter names main",
+    "file": "addons/agent-workflow/files/.github/workflows/sync-releases.yml",
+    "find": "  push:\n    paths:",
+    "replace": "  push:\n    branches: [main]\n    paths:",
+    "test": "pnpm vitest run addons/agent-workflow/tests/addon.test.mts --testNamePattern=\"writes on a push only to the default branch\""
+  },
+  {
+    "name": "workflow: a run by hand publishes the branch it started from",
+    "file": "addons/agent-workflow/files/.github/workflows/sync-releases.yml",
+    "find": "          ref: ${{ github.event.repository.default_branch }}\n",
+    "replace": "",
+    "test": "pnpm vitest run addons/agent-workflow/tests/addon.test.mts --testNamePattern=\"writes on a push only to the default branch\""
+  },
+  {
+    "name": "workflow: a change to changelog.mts does not run it",
+    "file": "addons/agent-workflow/files/.github/workflows/sync-releases.yml",
+    "find": "      - tools/agent-workflow/lib/changelog.mts\n",
+    "replace": "",
+    "test": "pnpm vitest run addons/agent-workflow/tests/addon.test.mts --testNamePattern=\"runs on a change to the changelog or to the script it runs\""
   }
 ]

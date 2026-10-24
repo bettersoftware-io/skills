@@ -7,7 +7,7 @@
 //   [`abc123456`]   -> [`abc123456`](<commit url from the definition>)
 //   ](docs/x.md)    -> ](<repo>/blob/<branch>/docs/x.md)
 
-import { definitionsIn } from "./changelog.mts";
+import { definitionsIn, LINK_DEFINITION } from "./changelog.mts";
 
 /** A week of the file: its tag (`2026-W41`), its whole heading, and the text under it. */
 export interface ReleaseWeek {
@@ -48,14 +48,14 @@ export interface Plan {
 /** A section that cannot be turned into notes. */
 export class ReleaseError extends Error {}
 
-/** Any line that defines a link: the definitions are not part of a week's notes. */
-const DEFINITION_LINE = /^\[[^\]]+\]: \S+$/;
+/** The address the check renders with. Whether a week renders does not depend on it. */
+const CHECK_REPO = "https://github.com/owner/repo";
 
 /** The weeks in file order. The definitions at the end of the file are not part of the last week. */
 export function parseWeeks(text: string): ReleaseWeek[] {
   const body = text
     .split("\n")
-    .filter((line) => !DEFINITION_LINE.test(line))
+    .filter((line) => !LINK_DEFINITION.test(line))
     .join("\n");
 
   return body
@@ -122,6 +122,17 @@ export function checkRendering(text: string, repo: string, branch: string): stri
   }
 
   return problems;
+}
+
+/**
+ * The one offline check both `sync-releases --check` and the add-on's check
+ * run: how many weeks the text has, and what stops each from rendering. With
+ * no week there is nothing to render, and the caller says so.
+ */
+export function renderCheck(text: string): { weeks: number; problems: string[] } {
+  const weeks = parseWeeks(text).length;
+
+  return { weeks, problems: weeks === 0 ? [] : checkRendering(text, CHECK_REPO, "main") };
 }
 
 /**

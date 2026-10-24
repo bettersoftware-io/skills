@@ -36,9 +36,41 @@ describe("sync-releases --body", () => {
     expect(body).not.toContain("blob/main");
   });
 
+  it("takes an empty --branch as none, and asks gh for the default branch: a scheduled run has none in its event", () => {
+    const { status, lines, calls } = withGh(["--repo", "o/r", "--branch", "", "--body", "2026-W41"], "trunk\n");
+
+    expect(status).toBe(0);
+    expect(calls).toEqual([["api", "repos/o/r", "--jq", ".default_branch"]]);
+    expect(lines.join("\n")).toContain("](https://github.com/o/r/blob/trunk/docs/x.md)");
+    expect(lines.join("\n")).toContain("(https://github.com/o/r/blob/trunk/CHANGELOG.md#2026-w41--5-oct--11-oct)");
+    expect(lines.join("\n")).not.toContain("blob//");
+  });
+
+  it("asks gh for the default branch when --branch is not given, and does not assume main", () => {
+    const { status, lines, calls } = withGh(["--repo", "o/r", "--body", "2026-W41"], "develop\n");
+
+    expect(status).toBe(0);
+    expect(calls).toEqual([["api", "repos/o/r", "--jq", ".default_branch"]]);
+    expect(lines.join("\n")).toContain("/blob/develop/docs/x.md)");
+    expect(lines.join("\n")).not.toContain("blob/main");
+  });
+
+  it("does not ask gh when --branch is given", () => {
+    expect(withGh(["--repo", "o/r", "--branch", "trunk", "--body", "2026-W41"], "develop\n").calls).toEqual([]);
+  });
+
+  it("says nothing was judged when gh cannot name the default branch", () => {
+    for (const [stdout, status] of [["", 1], ["\n", 0]] as const) {
+      const result = withGh(["--repo", "o/r", "--body", "2026-W41"], stdout, status);
+
+      expect(result.status).toBe(2);
+      expect(result.lines).toEqual([`SKIP sync-releases: gh could not name the default branch of o/r (exit ${status}). Pass --branch. Nothing was judged`]);
+    }
+  });
+
   it("fails on a cited commit with no definition, naming the week and the commit", () => {
     const root = createFolder({ "CHANGELOG.md": "# Changelog\n\n## 2026-W41 — 5 Oct – 11 Oct\n\n- x ([`deadbeef1`])\n" });
-    const { status, lines } = sync(root, ["--repo", "o/r", "--body", "2026-W41"]);
+    const { status, lines } = sync(root, ["--repo", "o/r", "--branch", "main", "--body", "2026-W41"]);
 
     expect(status).toBe(1);
     expect(lines[0]).toContain("FAIL sync-releases: 2026-W41: commit [`deadbeef1`] has no definition");
@@ -64,7 +96,7 @@ describe("sync-releases --body", () => {
   });
 
   it("says nothing was judged for a week that has no section", () => {
-    const { status, lines } = sync(project(), ["--repo", "o/r", "--body", "2026-W99"]);
+    const { status, lines } = sync(project(), ["--repo", "o/r", "--branch", "main", "--body", "2026-W99"]);
 
     expect(status).toBe(2);
     expect(lines).toEqual(["SKIP sync-releases: there is no 2026-W99 section in CHANGELOG.md. Nothing was judged"]);
@@ -80,6 +112,13 @@ describe("reading the weeks", () => {
       { tag: "2026-W40", title: W40_TITLE },
     ]);
     expect(weeks[1]?.section).toBe("- Earlier. [#900]");
+  });
+
+  it("strips every line that defines a link from the notes, a trailing space or a tab included, whatever the label", () => {
+    const text = "# C\n\n## 2026-W41 — x\n\n- a [#1] [the doc]\n\n[#1]: u/1 \n[the doc]:\tu/2\t\n[`abc1234`]:   u/3\n";
+
+    expect(parseWeeks(text)[0]?.section).toBe("- a [#1] [the doc]");
+    expect(definitionMap(text).get("#1")).toBe("u/1");
   });
 
   it("reads a pull request's and a commit's definition by the label the section cites", () => {
@@ -257,7 +296,7 @@ describe("sync-releases --check", () => {
 });
 
 function renderBody(week: string, extra: string[] = []): string {
-  const { status, lines } = sync(project(), ["--repo", "o/r", "--body", week, ...extra]);
+  const { status, lines } = sync(project(), ["--repo", "o/r", ...(extra.length === 0 ? ["--branch", "main"] : extra), "--body", week]);
 
   expect(status).toBe(0);
 
@@ -299,10 +338,22 @@ function plan(state: object, extra: string[] = [], world: World = {}): { status:
   };
   const given = world.noState ? [] : ["--state", "state.json"];
   const repo = world.dropRepo ? [] : ["--repo", "o/r"];
+  const branch = world.dropRepo ? [] : ["--branch", "main"];
   const lines: string[] = [];
-  const status = syncReleases({ root, argv: [...repo, ...given, ...extra], run: gh, report: (line) => lines.push(line) });
+  const status = syncReleases({ root, argv: [...repo, ...branch, ...given, ...extra], run: gh, report: (line) => lines.push(line) });
 
   return { status, lines, calls: calls.filter((call) => call[0] === "api" && call[1] === "-X" || call[0] === "repo") };
+}
+
+function withGh(argv: string[], stdout: string, status = 0): { status: number; lines: string[]; calls: string[][] } {
+  const calls: string[][] = [];
+  const result = sync(project(), argv, (_, args) => {
+    calls.push(args);
+
+    return { status, stdout, stderr: "" };
+  });
+
+  return { ...result, calls };
 }
 
 function sync(root: string, argv: string[], run: Run = () => gone()): { status: number; lines: string[] } {

@@ -17,6 +17,8 @@ const CITATION = /\[#(\d+)\](?!:)/g;
 const COMMIT_CITATION = /\[`([0-9a-f]{7,40})`\](?!:)/g;
 /** A definition of citation form: `[#12]: url` or ``[`abc1234`]: url``. */
 const DEFINITION = /^\[(#\d+|`[0-9a-f]{7,40}`)\]:[ \t]*(\S+)[ \t]*$/gm;
+/** Any line that defines a link, read as `DEFINITION` reads one: every citation definition is one, and so is `[the doc]: url`. */
+export const LINK_DEFINITION = /^\[[^\]]+\]:[ \t]*\S+[ \t]*$/;
 /** The start of any line that defines a citation, whatever follows. */
 const DEFINITION_LINE = /^(?:\[#\d+\]:|\[`[0-9a-f]{7,40}`\]:)/;
 

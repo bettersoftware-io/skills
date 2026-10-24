@@ -15,11 +15,11 @@ name: Sync releases
 # the tag appears. Idempotent: an unchanged section writes nothing.
 on:
   push:
-    branches: [main]
     paths:
       - CHANGELOG.md
       - tools/agent-workflow/sync-releases.mts
       - tools/agent-workflow/lib/releases.mts
+      - tools/agent-workflow/lib/changelog.mts
   schedule:
     - cron: "30 0 * * 1"
   workflow_dispatch:
@@ -34,7 +34,8 @@ permissions:
 jobs:
   sync:
     name: sync releases from CHANGELOG.md
-    if: vars.CHANGELOG_RELEASES == 'true'
+    # A push to another branch writes nothing. `on.push.branches` takes no expression, so the job asks.
+    if: vars.CHANGELOG_RELEASES == 'true' && (github.event_name != 'push' || github.ref_name == github.event.repository.default_branch)
     runs-on: ubuntu-latest
     permissions:
       # Creates and edits releases through the API.
@@ -42,6 +43,9 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
+          # A run by hand may start from any branch. The releases are the default
+          # branch's. A scheduled run has no value here and takes the default branch.
+          ref: ${{ github.event.repository.default_branch }}
           # The script needs these paths and no dependency (plain `node`).
           sparse-checkout: |
             CHANGELOG.md
