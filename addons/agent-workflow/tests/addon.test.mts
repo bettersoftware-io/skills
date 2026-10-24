@@ -612,7 +612,7 @@ describe("the add-on in a project that has the kit", () => {
     expect(MANIFEST.verify).toBe("pnpm agent-workflow:check");
     expect(verify.stdout).toContain("PASS hook: refuses an outward step joined to others, asks about a push that is not written plainly, and says nothing about a plain push alone, whatever it is started with");
     expect(verify.stdout).not.toMatch(/NOTE (?:setting|Claude Code|Codex)/);
-    expect(verify.stdout).toContain("PASS Claude Code: all 14 ask rules are in");
+    expect(verify.stdout).toContain("PASS Claude Code: all 18 ask rules are in");
     expect(verify.stdout).toContain("PASS Codex: .codex/hooks.json runs the hook before each shell command");
     expect(verify.stdout).not.toContain("FAIL");
     expect(verify.status).toBe(0);

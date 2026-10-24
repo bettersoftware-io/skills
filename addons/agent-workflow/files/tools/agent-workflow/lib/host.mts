@@ -62,6 +62,10 @@ export const ASK_RULES = [
   "Bash(gh pr merge *--admin*)",
   "Bash(pnpm changelog tag *--apply*)",
   "Bash(pnpm changelog:releases *--apply*)",
+  "Bash(pnpm run changelog tag *--apply*)",
+  "Bash(node tools/agent-workflow/changelog.mts tag *--apply*)",
+  "Bash(pnpm run changelog:releases *--apply*)",
+  "Bash(node tools/agent-workflow/sync-releases.mts *--apply*)",
 ];
 
 /**

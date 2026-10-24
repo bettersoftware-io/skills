@@ -95,6 +95,22 @@ describe("changelog tag", () => {
     expect(object.lines).toEqual(["FAIL changelog tag: GitHub did not create the tag object (gh: Resource not accessible by integration (HTTP 403))"]);
   });
 
+  it("fails, planning or applying, when no commit reached the branch before the week ended", () => {
+    const repository = createFolder();
+
+    git(repository, "init", "--quiet", "--initial-branch=main");
+    commit(repository, "after the week", { a: "1" }, "2026-10-06T10:00:00Z");
+    git(repository, "update-ref", "refs/remotes/origin/main", "HEAD");
+
+    for (const argv of [["tag", "2026-W40"], ["tag", "2026-W40", "--apply"]]) {
+      const { status, lines, created } = tag(repository, argv);
+
+      expect(status).toBe(1);
+      expect(lines).toEqual(["FAIL changelog tag: no commit reached the default branch before the end of 2026-W40: there is nothing to tag"]);
+      expect(created).toBeUndefined();
+    }
+  });
+
   it("says nothing was judged when there is no remote branch, or gh cannot name the repository", () => {
     const { repository } = createHistory();
 
@@ -115,7 +131,10 @@ describe("changelog tag", () => {
 });
 
 describe("the ask rules for --apply", () => {
-  const RULES = ["Bash(pnpm changelog tag *--apply*)", "Bash(pnpm changelog:releases *--apply*)"];
+  const RULES = [
+    ...["Bash(pnpm changelog tag *--apply*)", "Bash(pnpm run changelog tag *--apply*)", "Bash(node tools/agent-workflow/changelog.mts tag *--apply*)"],
+    ...["Bash(pnpm changelog:releases *--apply*)", "Bash(pnpm run changelog:releases *--apply*)", "Bash(node tools/agent-workflow/sync-releases.mts *--apply*)"],
+  ];
   const manifest = JSON.parse(readFileSync(join(ADDON, "addon.json"), "utf8")) as { hostSettings: Record<string, { permissions: { ask: string[] } }> };
 
   it("asks before either --apply, in the manifest and in host.mts", () => {

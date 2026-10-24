@@ -5873,5 +5873,33 @@
     "find": "  \"Bash(pnpm changelog:releases *--apply*)\",\n",
     "replace": "",
     "test": "pnpm vitest run addons/agent-workflow/tests/changelog-tag.test.mts --testNamePattern=\"asks before either --apply\""
+  },
+  {
+    "name": "tag: asks nothing before a direct node changelog tag --apply",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/host.mts",
+    "find": "  \"Bash(node tools/agent-workflow/changelog.mts tag *--apply*)\",\n",
+    "replace": "",
+    "test": "pnpm vitest run addons/agent-workflow/tests/changelog-tag.test.mts --testNamePattern=\"asks before either --apply\""
+  },
+  {
+    "name": "tag: asks nothing before a pnpm run changelog tag --apply",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/host.mts",
+    "find": "  \"Bash(pnpm run changelog tag *--apply*)\",\n",
+    "replace": "",
+    "test": "pnpm vitest run addons/agent-workflow/tests/changelog-tag.test.mts --testNamePattern=\"asks before either --apply\""
+  },
+  {
+    "name": "tag: asks nothing before a direct node sync-releases --apply",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/host.mts",
+    "find": "  \"Bash(node tools/agent-workflow/sync-releases.mts *--apply*)\",\n",
+    "replace": "",
+    "test": "pnpm vitest run addons/agent-workflow/tests/changelog-tag.test.mts --testNamePattern=\"asks before either --apply\""
+  },
+  {
+    "name": "tag: a week with no commit before its end exits 0",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/changelog.mts",
+    "find": "there is nothing to tag`);\n\n    return 1;",
+    "replace": "there is nothing to tag`);\n\n    return 0;",
+    "test": "pnpm vitest run addons/agent-workflow/tests/changelog-tag.test.mts --testNamePattern=\"fails, planning or applying, when no commit reached\""
   }
 ]

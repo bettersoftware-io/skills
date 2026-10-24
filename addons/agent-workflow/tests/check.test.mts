@@ -35,7 +35,7 @@ describe("the add-on's check", () => {
       "PASS Claude Code: .claude/settings.json runs the hook before each shell command",
       "PASS Claude Code: .claude/settings.json runs the changelog reminder at the start of a session",
       EDIT_PASS,
-      "PASS Claude Code: all 14 ask rules are in, so a forced or destructive push and an --admin merge ask whatever else allows them",
+      "PASS Claude Code: all 18 ask rules are in, so a forced or destructive push, an --admin merge and the --apply of changelog tag and changelog:releases ask whatever else allows them",
       "PASS Codex: .codex/hooks.json runs the hook before each shell command",
       "PASS Codex: .codex/hooks.json runs the changelog reminder at the start of a session",
       "PASS command /workflow:status",
@@ -327,7 +327,7 @@ describe("the add-on's check", () => {
 
     expect(status).toBe(0);
     expect(lines).toContain(
-      "NOTE Claude Code: 2 of 14 ask rules are not in permissions.ask. No allow rule lets a push or a merge run by pattern, so those forms ask anyway",
+      "NOTE Claude Code: 2 of 18 ask rules (forced or destructive pushes, --admin merges, changelog --apply steps) are not in permissions.ask. No allow rule lets a push or a merge run by pattern, so those forms ask anyway",
     );
   });
 
@@ -338,7 +338,7 @@ describe("the add-on's check", () => {
     expect(lines).toContain(
       "NOTE Claude Code: Bash(git push *:*) is still in permissions.ask. Claude Code reads it as a prefix that matches no command, and warns about it at each start. The hook asks about such a push now. Delete the rule",
     );
-    expect(lines).toContain("PASS Claude Code: all 14 ask rules are in, so a forced or destructive push and an --admin merge ask whatever else allows them");
+    expect(lines).toContain("PASS Claude Code: all 18 ask rules are in, so a forced or destructive push, an --admin merge and the --apply of changelog tag and changelog:releases ask whatever else allows them");
     expect(runCheck(createProject()).lines.join("\n")).not.toContain("still in permissions.ask");
   });
 
@@ -357,7 +357,7 @@ describe("the add-on's check", () => {
 
     expect(status).toBe(1);
     expect(lines.join("\n")).toMatch(
-      /FAIL Claude Code: Bash\(git push origin worktree-\*\) allows by pattern, and a forced or destructive form is not set to ask\. Missing from permissions\.ask: Bash\(git push \*--mirror\*\)/,
+      /FAIL Claude Code: Bash\(git push origin worktree-\*\) allows by pattern, and a forced or destructive push, an --admin merge or a changelog --apply is not set to ask\. Missing from permissions\.ask: Bash\(git push \*--mirror\*\)/,
     );
   });
 

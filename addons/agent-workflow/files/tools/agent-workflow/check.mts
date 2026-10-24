@@ -230,15 +230,15 @@ function judgePermissions(settings: Settings, report: (line: string) => void): b
   }
 
   if (missingAsk.length > 0 && wide.length > 0) {
-    report(`FAIL Claude Code: ${wide.join(", ")} allows by pattern, and a forced or destructive form is not set to ask. Missing from permissions.ask: ${missingAsk.join(", ")}. ${FIX}`);
+    report(`FAIL Claude Code: ${wide.join(", ")} allows by pattern, and a forced or destructive push, an --admin merge or a changelog --apply is not set to ask. Missing from permissions.ask: ${missingAsk.join(", ")}. ${FIX}`);
 
     return true;
   }
 
   report(
     missingAsk.length === 0
-      ? `PASS Claude Code: all ${ASK_RULES.length} ask rules are in, so a forced or destructive push and an --admin merge ask whatever else allows them`
-      : `NOTE Claude Code: ${missingAsk.length} of ${ASK_RULES.length} ask rules are not in permissions.ask. No allow rule lets a push or a merge run by pattern, so those forms ask anyway`,
+      ? `PASS Claude Code: all ${ASK_RULES.length} ask rules are in, so a forced or destructive push, an --admin merge and the --apply of changelog tag and changelog:releases ask whatever else allows them`
+      : `NOTE Claude Code: ${missingAsk.length} of ${ASK_RULES.length} ask rules (forced or destructive pushes, --admin merges, changelog --apply steps) are not in permissions.ask. No allow rule lets a push or a merge run by pattern, so those forms ask anyway`,
   );
 
   return false;

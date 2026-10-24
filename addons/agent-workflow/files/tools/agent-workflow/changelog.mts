@@ -240,9 +240,9 @@ function tagWeek(week: Week, { root, now, run: runProgram, report, apply }: TagO
   const sha = found.stdout.trim();
 
   if (sha === "") {
-    report(`No commit reached ${branch} before the end of ${week.name}: there is nothing to tag.`);
+    report(`FAIL changelog tag: no commit reached the default branch before the end of ${week.name}: there is nothing to tag`);
 
-    return 0;
+    return 1;
   }
 
   if (!apply) {
