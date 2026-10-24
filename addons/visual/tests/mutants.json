@@ -520,8 +520,8 @@
   {
     "name": "examples: no section is shipped",
     "file": "addons/visual/files/packages/client-react/tests/visual/scenarios.ts",
-    "find": "  \"price-list-moving\": {\n    level: \"section\",\n    mount: \"price-list\",\n    prices: [...MOVES, USDJPY],\n  },\n  \"price-list-selected\": {\n    level: \"section\",",
-    "replace": "  \"price-list-moving\": {\n    level: \"component\",\n    mount: \"price-list\",\n    prices: [...MOVES, USDJPY],\n  },\n  \"price-list-selected\": {\n    level: \"component\",",
+    "find": "  \"price-list-moving\": {\n    level: \"section\",\n    mount: \"price-list\",\n    prices: [...MOVES, USDJPY],\n  },\n  \"price-list-selected\": {\n    level: \"section\",\n    mount: \"price-list\",\n    prices: [...MOVES, USDJPY],\n    selected: \"GBPUSD\",\n  },\n  // The stale wait, on the presenter's own timer: USDJPY arrives, the seeding\n  // moves the host's clock past `STALE_AFTER_MS`, then the other two move.\n  // Only USDJPY's row has gone stale.\n  \"price-list-stale\": {\n    level: \"section\",",
+    "replace": "  \"price-list-moving\": {\n    level: \"component\",\n    mount: \"price-list\",\n    prices: [...MOVES, USDJPY],\n  },\n  \"price-list-selected\": {\n    level: \"component\",\n    mount: \"price-list\",\n    prices: [...MOVES, USDJPY],\n    selected: \"GBPUSD\",\n  },\n  // The stale wait, on the presenter's own timer: USDJPY arrives, the seeding\n  // moves the host's clock past `STALE_AFTER_MS`, then the other two move.\n  // Only USDJPY's row has gone stale.\n  \"price-list-stale\": {\n    level: \"component\",",
     "test": "pnpm vitest run addons/visual/tests/addon.test.mts -t \"cover all three levels\""
   },
   {
@@ -831,5 +831,26 @@
     "find": "    return {\n      ready,",
     "replace": "    return {\n      ready: framed,",
     "test": "pnpm vitest run addons/visual/tests/addon.test.mts -t \"fails a root capture whose content is wider\""
+  },
+  {
+    "name": "examples: no scenario takes the stale wait",
+    "file": "addons/visual/files/packages/client-react/tests/visual/scenarios.ts",
+    "find": "    stalePrices: [USDJPY],\n    prices: MOVES,",
+    "replace": "    prices: MOVES,",
+    "test": "pnpm vitest run addons/visual/tests/addon.test.mts -t \"take the seeding's stale wait in a section\""
+  },
+  {
+    "name": "jitter: a scenario to capture is looked up through the prototype",
+    "file": "addons/visual/files/tools/visual/jitter.mts",
+    "find": "request.scenarios.filter((name) => !Object.hasOwn(scenarios, name))",
+    "replace": "request.scenarios.filter((name) => !(name in scenarios))",
+    "test": "pnpm vitest run addons/visual/tests/jitter.test.mts -t \"refuses to capture a scenario named after a property\""
+  },
+  {
+    "name": "jitter: an image's owner is looked up through the prototype",
+    "file": "addons/visual/files/tools/visual/jitter.mts",
+    "find": "filter((image) => !Object.hasOwn(scenarios, scenarioNameOf(image)))",
+    "replace": "filter((image) => !(scenarioNameOf(image) in scenarios))",
+    "test": "pnpm vitest run addons/visual/tests/jitter.test.mts -t \"counts an image named after a property\""
   }
 ]

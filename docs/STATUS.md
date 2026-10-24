@@ -7,6 +7,14 @@ the test records in this folder and the git log say what was done.
 
 ## Waiting on something outside this repository
 
+- **`bettersoftware-io/skills-visual-proof` is still on GitHub.** It drew the
+  `linux-x64` goldens of 0.20.0 on 2026-10-24
+  ([the record](visual-update-2026-10-17.md#inter-and-a-stale-section-2026-10-24))
+  and is public, with nothing in it but a created project. The session's
+  token lacked the `delete_repo` scope. A person runs
+  `gh auth refresh -h github.com -s delete_repo`, then
+  `gh repo delete bettersoftware-io/skills-visual-proof --yes`.
+
 - **The starter's server uses `rx-ws-effects`.** It is a plain imperative
   handler today. The package
   ([bettersoftware-io/rx-ws-effects](https://github.com/bettersoftware-io/rx-ws-effects))
@@ -65,8 +73,9 @@ on 2026-10-05, on pushes to main and on a pull request
   Supabase.
 - **The visual add-on's browser counts of a real regression were taken on
   darwin-arm64 only.** The up colour and a one-pixel shift failed every
-  scenario that shows them (84 pixels or more, ten times the budget). On
-  linux-x64 only the noise was measured (five runs, byte-identical).
+  scenario that shows them (108 pixels or more in Inter, 2026-10-24,
+  thirteen times the budget). On linux-x64 only the noise was measured (five
+  runs, byte-identical).
 - **Nothing here has run on Linux outside GitHub's CI,** and nothing through
   a real `docker build`. The Dockerfile check was compared with BuildKit's own
   parser, built from source; the `e2e` workflow and its container have not run.
@@ -173,9 +182,12 @@ Added on 2026-10-11 ([the record](documenting-architecture-2026-10-11.md)).
   move the action commits in `.github/workflows/`, which the add-ons wrote
   and `tools/installed.json` records. A merged bump makes each file one the
   next update of its add-on refuses, unless the add-on's new copy is the same
-  byte for byte. Read from the installer's code; not yet seen in a project.
-  Leaving the add-ons' workflows to the add-on updates, as `tools/` is
-  left, would close it.
+  byte for byte. Seen on 2026-10-24: condo-ledger merged Renovate's actions
+  pull request (#17), and its next `ci-security` update refused
+  `ci-security.yml` and `scorecard.yml`; `--force` would have put the older
+  commits back. Leaving the add-ons' workflows to the add-on updates, as
+  `tools/` is left, would close it, at the cost of a project's actions moving
+  only when its add-ons are updated.
 
 
 Found while Origamic's dependency rule went into its gates, on 2026-10-16
@@ -261,11 +273,12 @@ Found while a project was set up with the plugin, on 2026-10-12 and 13.
 
 ## Known limits
 
-- **The visual add-on's `linux-x64` set draws no bold text.** In the pinned
-  Playwright container `system-ui` comes out at one weight, in the shipped
-  set (drawn on GitHub on 2026-10-17) and in skills-demo's, so a change of
-  weight alone is not expected to show there (not measured). Not looked into: which face fontconfig picks
-  there, and whether a project should name a web font.
+- **A project made before 0.20.0 draws no bold text on `linux-x64`.** In the
+  pinned Playwright container `system-ui` comes out at one weight
+  (skills-demo's goldens, and the shipped set of 0.19.0). The starter now
+  serves Inter, and its Linux goldens are bold; an update gives an existing
+  project no font, only the release note that says how to serve one. Not
+  looked into: which face fontconfig picks there.
 - **An eval run that grants a shell fails on this Mac.** Claude Code 2.1.296
   builds a sandbox profile of about 1,840 deny paths (1.7 MB) for every
   command, over the OS limit (E2BIG), so the shell never starts. The run ends

@@ -14,14 +14,14 @@ cd <project> && pnpm install && pnpm visual
 
 | Part | Where | What it does |
 |---|---|---|
-| Scenario list | `packages/client-react/tests/visual/scenarios.ts` | A name, what is pictured and the seeded state, as typed data. Nine to start: the row in five states and the empty list (components), the list moving and with a row selected (sections), and `app` (the page) |
+| Scenario list | `packages/client-react/tests/visual/scenarios.ts` | A name, what is pictured and the seeded state, as typed data. Ten to start: the row in five states and the empty list (components), the list moving, with a row selected and with a row gone stale (sections), and `app` (the page) |
 | Registry | `tests/visual/registry.tsx` | What a scenario's `mount` names: `price-row` and `price-list` to start, each wrapped in `Surround`, the app's theme root. The project's file, written at first install only, like the goldens |
 | Seeding | `tests/visual/seeding.ts` | How a scenario's data becomes app state: `seedScenario(scenario, clock)` builds the app harness and returns the application, the deliveries and, for a scenario with a `mount`, what to render. The project's file, like the scenario list |
 | Framing | `tests/visual/framing.ts` | The sizes a scenario falls back on: root width 480, root padding 8, viewport 1920x1080. The project's file |
 | Tolerance | `tests/visual/tolerance.ts` | The global tolerance, with what was measured. The project's file |
 | Visual host | `tests/visual/host/` | A second Vite root. It renders what the seeding returns (or `App` from `src/ui`) with the app's own `index.css`, after every declared font face has loaded. It imports both through the client's `#/` alias, so the client's `package.json` must declare `"imports": { "#/*": "./src/*" }`, as the starter's does. It knows no field of a project's own state; time is a clock the page owns |
 | Spec | `tests/visual/visual.pw.ts` | One Playwright test per scenario, plus one that fails on a golden no scenario owns |
-| Goldens | `tests/visual/goldens/<platform>/` | One PNG per scenario, per system (`darwin-arm64`, `linux-x64`). The nine examples ship for both; the `linux-x64` set was drawn by the update workflow on GitHub's runners (see [How it was tested](#how-it-was-tested)) |
+| Goldens | `tests/visual/goldens/<platform>/` | One PNG per scenario, per system (`darwin-arm64`, `linux-x64`). The ten examples ship for both; the `linux-x64` set was drawn by the update workflow on GitHub's runners (see [How it was tested](#how-it-was-tested)) |
 | `pnpm visual` | root script | Compare. Never writes a golden |
 | `pnpm visual:update` | root script | Redraw this system's goldens |
 | `pnpm visual:jitter` | `tools/visual/jitter.mts` | Capture the same commit N times and report the largest difference: the noise floor. `--scenario <name>` measures one |
@@ -51,7 +51,7 @@ then fails every picture, each failure shows a whole screen, and the states of
 the row that no page happens to show are never pictured.
 
 No gate counts pictures per level; the word is "reasonable". The job summary
-prints the count on every run (`Pictures: 6 components, 2 sections, 1 page`
+prints the count on every run (`Pictures: 6 components, 3 sections, 1 page`
 for the starter), so the shape is visible.
 
 ### Where a new picture belongs
@@ -260,12 +260,13 @@ wrote nothing.
 - **Time does not run.** The host replaces `setTimeout`, `setInterval` and
   `Date` with a clock it owns. A scenario's `stalePrices` are delivered, then
   the seeding moves that clock past `STALE_AFTER_MS`, so the presenter's own
-  timer makes those rows stale. No shipped example uses it: `price-row-stale`
-  passes `stale: true` as a prop. No timer fires by itself, so a slow machine
-  takes the same picture.
+  timer makes those rows stale: `price-list-stale` shows it, with only its
+  USDJPY row faded. (`price-row-stale`, a component, passes `stale: true` as
+  a prop.) No timer fires by itself, so a slow machine takes the same picture.
 - **One ready signal.** The host sets `data-visual-ready="true"` on `<html>`
-  once every font face has loaded and the seeded state has rendered. The spec
-  waits for that and nothing else.
+  once every font face has loaded, the seeded state has rendered and, for a
+  root capture, the content has been measured to fit the root's width. The
+  spec waits for that and nothing else.
 - **No partial raster.** Chromium starts with `--disable-partial-raster`.
   Measured in condo-ledger on 2026-10-16, linux-x64 in the pinned container:
   seven flag sets as Playwright projects, each scenario drawn twice per run,
@@ -335,21 +336,23 @@ counted. 2 × 8 = 16, the smallest count, with no slack. A mutant that raises
 either default fails a test.
 
 The real changes, made in the starter's `index.css` and counted by
-Playwright on the nine examples (darwin-arm64, 2026-10-17), all fail:
+Playwright on the ten examples in Inter (darwin-arm64, 2026-10-24), all
+fail:
 
 | Regression | Scenarios failed | Pixels different |
 |---|---|---|
-| Up colour `#1a8f4c` to `#1a4c8f` | 4 of 9 | 95 (`price-row-up`), 84 (`price-list-moving`, `price-list-selected`, `app`) |
-| Each row cell's text one pixel right (`padding-left: calc(1rem + 1px)`) | 8 of 9 | 139 to 237 for a row, 544 and 574 for a list, 544 for `app` |
+| Up colour `#1a8f4c` to `#1a4c8f` | 5 of 10 | 109 (`price-row-up`), 108 (`price-list-moving`, `price-list-selected`, `price-list-stale`, `app`) |
+| Each row cell's text one pixel right (`padding-left: calc(1rem + 1px)`) | 9 of 10 | 126 to 236 for a row, 511 to 549 for a list, 517 for `app` |
 
-The smallest, 84, is ten times the budget. The scenarios that passed show no
-up price, or no row cell. Not measured on linux-x64.
+The smallest, 108, is thirteen times the budget. The scenarios that passed
+show no up price, or no row cell. Not measured on linux-x64. (In the system
+font, on 2026-10-17, the nine examples of then counted 84 to 574.)
 
-The noise floor is 0 on both systems, for the nine scenarios, 2026-10-17:
-one commit captured 5 times on darwin-arm64 (`pnpm visual:jitter --runs 5`,
-one Mac, Chromium build 1243 headless), and five runs of the update workflow
-on one commit on linux-x64 (GitHub's runners, in the pinned container);
-every image byte-identical.
+The noise floor is 0 on both systems, for the ten scenarios in Inter,
+2026-10-24: one commit captured 5 times on darwin-arm64
+(`pnpm visual:jitter --runs 5`, one Mac, Chromium build 1243 headless), and
+five runs of the update workflow on one commit on linux-x64 (GitHub's
+runners, in the pinned container); every image byte-identical.
 
 ### A scenario's own tolerance
 
@@ -418,6 +421,23 @@ second job that only downloads the artifact and pushes.
 
 ## How it was tested
 
+On 2026-10-24, when the starter took Inter and `price-list-stale` was added
+([the record](../../docs/visual-update-2026-10-17.md#inter-and-a-stale-section-2026-10-24)):
+
+| Check | Result |
+|---|---|
+| Which face draws the text, asked of Chromium (`CSS.getPlatformFontsForNode`) | `Inter-Bold` for the heading and the header and symbol cells, `Inter-Regular` for the prices, all `isCustomFont` |
+| `pnpm visual` against the 0.19.0 goldens, then `pnpm visual:update`, then `pnpm visual` (darwin-arm64) | 10 failed (every picture changed, `price-list-stale` had none); then 11 of 11 pass. Each image opened: Inter, bold where the browser's stylesheet makes it bold, the stale row faded |
+| `pnpm visual:jitter --runs 5` (darwin-arm64) | 10 images identical in every capture; noise floor 0 for both knobs |
+| The up colour changed, and each row cell moved one pixel, counted by Playwright | every change fails where it shows: 5 and 9 scenarios of 10, 108 to 549 pixels (see [The tolerance](#the-tolerance)) |
+| `pnpm gate:full` with every add-on (`--with` all nine), and `pnpm e2e` | pass; 5 of 5 |
+| On GitHub, `linux-x64`: `Visual goldens` with the 0.19.0 set | fails 10 of 10: 9 pictures 49 tall against 50, and no golden for `price-list-stale` |
+| On GitHub, `linux-x64`: the update workflow five times on one commit | 10 images each; by checksum and by `visual:jitter`, byte-identical across the five; noise floor 0. Bold is drawn. Every picture is the size of its darwin twin |
+| On GitHub: `Visual goldens` with the new set | 11 of 11 pass |
+
+The shipped Linux set is run 40127650850's, from a temporary public
+repository made from this version as below; the run ids are in the record.
+
 On 2026-10-17, in a project created with `create-project.mts --scope @demo`,
 on macOS arm64, with the add-on installed by `add-to-project.mts` and its nine
 example scenarios:
@@ -439,10 +459,10 @@ example scenarios:
 | On GitHub: `Visual goldens` without a Linux set, then with the one shipped | fails 9 of 9 on the missing goldens; then 10 of 10 pass |
 
 The GitHub runs were in a temporary public repository,
-`bettersoftware-io/skills-visual-proof`, made from this version with every
+`bettersoftware-io/skills-visual-proof`, made from that version with every
 add-on and nothing edited by hand. The run ids are in
-[the record](../../docs/visual-update-2026-10-17.md). The shipped Linux set
-is run 39052667803's.
+[the record](../../docs/visual-update-2026-10-17.md). The Linux set shipped
+then was run 39052667803's.
 
 Before this change, on 2026-10-05, the workflows ran in
 [bettersoftware-io/skills-demo](https://github.com/bettersoftware-io/skills-demo)
@@ -452,10 +472,10 @@ workflow gave byte-identical artifacts, and `Visual goldens` failed with no
 Linux set and passed with it.
 
 `pnpm vitest run addons/visual` from this repository's root runs the add-on's
-207 tests in 14 files, without a browser: the picture fields, the per-scenario
+210 tests in 14 files, without a browser: the picture fields, the per-scenario
 tolerance, the budget, the font loading, the level counts, the styles check,
 the reach ranking, the Vitest versions, the jitter measurement and who owns
-what. `tests/mutants.json` holds 119 mutants, each one shown failing a test.
+what. `tests/mutants.json` holds 122 mutants, each one shown failing a test.
 The installer's side has its own: `examples` (8 mutants in
 `scripts/mutants/examples.json`), `releaseNotes` (6 in
 `scripts/mutants/release-notes.json`) and `movedToProject` (11 in
@@ -478,11 +498,12 @@ The installer's side has its own: `examples` (8 mutants in
 - **A machine nobody measured may draw a pixel differently.** If it draws
   more than the budget, a test fails with nothing changed. `tolerance.ts` says
   what to do: measure, then set the number just above the floor.
-- **The `linux-x64` set draws no bold text.** In the pinned container
-  `system-ui` comes out at one weight: the heading, the column headers and the
-  symbols, bold on darwin, are regular on Linux. skills-demo's Linux goldens
-  show the same. So a change of weight alone is not expected to show on
-  Linux (not measured). Not looked into: which face the container picks.
+- **A project that asks for `system-ui` draws no bold on `linux-x64`.** In
+  the pinned container that face has one weight: the 0.19.0 examples and
+  skills-demo's Linux goldens have no bold text. The starter now serves Inter
+  at 400 and 700 from `index.css`, and its Linux goldens are bold. A project
+  made before keeps its own fonts: it gets bold on Linux by serving a face
+  the same way.
 - **The browser counts of a real regression were taken on darwin-arm64
   only.** On linux-x64 the five runs measured the noise, not a change.
 - **`linux-x64` means the container.** A Linux desktop outside it uses the same
@@ -491,14 +512,30 @@ The installer's side has its own: `examples` (8 mutants in
   renderer. No check finds it.
 - **An unknown `mount` fails after the ready wait**, about 5 seconds, not at
   once.
+- **The width check counts what is off to the right but not drawn.** It
+  reads the root's `scrollWidth`, and a panel moved out of sight to the right
+  (a closed slide-out, `transform: translateX(100%)`) adds to it as if it were
+  content. The scenario then fails as wider than its root though nothing
+  visible is cut off. In the app, the element that holds such a panel clips
+  it (`overflow: clip` or `hidden`), or the page would scroll sideways: put
+  that element, with its clipping, in the registry's entry, or picture the
+  state as a viewport capture, which has no width check. Do not raise the
+  scenario's `width` to the number the message names: the picture would grow
+  by the hidden panel's width. Measured in the host (Playwright 1.63,
+  darwin-arm64, 2026-10-24): a 300-pixel panel at `translateX(100%)` took the
+  root's `scrollWidth` from 496 to 796; inside a holder with `overflow: clip`
+  or `hidden`, it stayed 496.
 - **One client package.** Paths assume `packages/client-react`.
 - **The examples assume the starter's UI.** `registry.tsx` imports
   `#/ui/PriceList.tsx` and `#/ui/PriceRow.tsx`, and `PriceRow.tsx` is new in
   the starter of this release. A first install into a project from an older
   starter, or one whose UI differs, fails `pnpm visual:check` on those imports
-  until the registry's entries are the project's own.
-- **The shipped `darwin-arm64` goldens** were drawn on one Mac. Another macOS
-  version may draw the system font differently; then `pnpm visual:update`.
+  until the registry's entries are the project's own. The example goldens
+  are drawn in the starter's Inter: a project without it fails every one of
+  them until it redraws them.
+- **The shipped `darwin-arm64` goldens** were drawn on one Mac. The face is
+  the app's own now, not the system's, but another macOS version may still
+  rasterize it differently; then `pnpm visual:update`.
 
 Not built:
 
