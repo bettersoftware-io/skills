@@ -940,7 +940,7 @@
   {
     "name": "uses the same pins as the starter's own workflow",
     "file": "addons/agent-workflow/files/.github/workflows/weekly-tag.yml",
-    "find": "setup-node@820762786026740c76f36085b0efc47a31fe5020",
+    "find": "setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1",
     "replace": "setup-node@820762786026740c76f36085b0efc47a31fe5021",
     "test": "pnpm vitest run addons/agent-workflow/tests/addon.test.mts --testNamePattern=\"uses the same pins as the starter's own workflow\""
   },
