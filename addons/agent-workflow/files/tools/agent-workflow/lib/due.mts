@@ -76,7 +76,7 @@ export function findDue(root: string, run: Run, now: Date, ref?: string): DueWee
   }
 
   const merges = readHistory(root, at, run);
-  const shown = run("git", ["show", `${at}:CHANGELOG.md`], root);
+  const shown = run("git", ["show", "--end-of-options", `${at}:CHANGELOG.md`], root);
 
   return dueWeeks([readFileSync(file, "utf8"), shown.status === 0 ? shown.stdout : ""], merges, now);
 }

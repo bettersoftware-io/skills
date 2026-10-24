@@ -248,6 +248,18 @@ describe("the command", () => {
     expect(runChangelog(["defs"], { origin: "absent" }).status).toBe(2);
   });
 
+  it("runs defs and check with the origin the CI action writes, and never prints its token", () => {
+    const origin = "https://x-access-token:ghs_secret123@github.com/acme/app.git";
+
+    expect(runChangelog(["defs"], { origin })).toMatchObject({ status: 0, lines: ["PASS changelog defs: the link definitions are the generated ones"] });
+    expect(runChangelog(["check", "2026-W40", "--merged", "12,15"], { origin }).status).toBe(0);
+
+    const elsewhere = runChangelog(["defs"], { origin: "https://x-access-token:ghs_secret123@gitlab.com/acme/app.git" });
+
+    expect(elsewhere.status).toBe(2);
+    expect(elsewhere.lines.join("\n")).not.toContain("ghs_secret123");
+  });
+
   it.each([
     ["gh is not installed", ["check", "2026-W40"], { gh: "absent" as const }, /gh could not list the merged pull requests/],
     ["gh returned as many as it will", ["check", "2026-W40"], { merged: Array.from({ length: 500 }, (_, index) => createMerged(index + 1)) }, /may be cut short/],

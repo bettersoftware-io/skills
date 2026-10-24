@@ -52,7 +52,7 @@ export function parseHistory(log: string): Merge[] {
 
 /** The pull requests merged into `ref`, following first parents only. */
 export function readHistory(root: string, ref: string, run: Run): Merge[] {
-  const log = run("git", ["log", "--first-parent", "--format=%H%x09%cI%x09%s", ref], root);
+  const log = run("git", ["log", "--first-parent", "--format=%H%x09%cI%x09%s", "--end-of-options", ref], root);
 
   if (log.status !== 0) {
     throw new HistoryError(`git could not read the history of ${ref}: ${log.stderr.trim()}`);
@@ -66,7 +66,12 @@ export function remoteBranch(root: string, run: Run): string | undefined {
   return ["origin/HEAD", "origin/main"].find((ref) => run("git", ["rev-parse", "--verify", "--quiet", ref], root).status === 0);
 }
 
-/** The repository's `https://github.com/owner/name`, from `origin`; `undefined` for any other host. */
+/**
+ * The repository's `https://github.com/owner/name`, from `origin`; `undefined`
+ * for any other host. An https origin may carry credentials, as the one
+ * claude-code-action writes does (`https://x-access-token:<token>@github.com/…`):
+ * they are dropped, and the origin is never printed.
+ */
 export function repositoryUrl(root: string, run: Run): string | undefined {
   const origin = run("git", ["remote", "get-url", "origin"], root);
 
@@ -74,7 +79,7 @@ export function repositoryUrl(root: string, run: Run): string | undefined {
     return undefined;
   }
 
-  const match = /^(?:git@github\.com:|https:\/\/github\.com\/|ssh:\/\/git@github\.com\/)([\w.-]+\/[\w.-]+?)(?:\.git)?$/.exec(origin.stdout.trim());
+  const match = /^(?:git@github\.com:|https:\/\/(?:[^@/]+@)?github\.com\/|ssh:\/\/git@github\.com\/)([\w.-]+\/[\w.-]+?)(?:\.git)?\/?$/.exec(origin.stdout.trim());
 
   return match === null ? undefined : `https://github.com/${match[1]}`;
 }

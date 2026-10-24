@@ -1,3 +1,6 @@
+import { existsSync } from "node:fs";
+import { join } from "node:path";
+
 import { describe, expect, it } from "vitest";
 
 import { HistoryError, parseHistory, readHistory, remoteBranch, repositoryUrl } from "../files/tools/agent-workflow/lib/history.mts";
@@ -65,6 +68,13 @@ describe("reading the pull requests merged into a branch", () => {
     expect(() => parseHistory("abc\tyesterday\tAdd x (#1)")).toThrow(HistoryError);
   });
 
+  it("reads a ref that starts with a dash as a ref, not as an option, so git writes no file", () => {
+    const target = join(createFolder(), "written");
+
+    expect(() => readHistory(repository(), `--output=${target}`, run)).toThrow(HistoryError);
+    expect(existsSync(target)).toBe(false);
+  });
+
   it("throws HistoryError when git cannot read the ref", () => {
     expect(() => readHistory(repository(), "nowhere", run)).toThrow(HistoryError);
   });
@@ -114,5 +124,23 @@ describe("the repository's address", () => {
       git(folder, "remote", "set-url", "origin", url);
       expect(repositoryUrl(folder, run), url).toBeUndefined();
     }
+  });
+
+  it("drops the token from the origin claude-code-action writes, and never returns it", () => {
+    const folder = repository();
+
+    git(folder, "remote", "add", "origin", "https://x-access-token:ghs_secret123@github.com/acme/app.git");
+
+    expect(repositoryUrl(folder, run)).toBe("https://github.com/acme/app");
+  });
+
+  it("reads an origin that ends in a slash", () => {
+    const folder = repository();
+
+    git(folder, "remote", "add", "origin", "https://github.com/acme/app/");
+    expect(repositoryUrl(folder, run)).toBe("https://github.com/acme/app");
+
+    git(folder, "remote", "set-url", "origin", "https://github.com/acme/app.git/");
+    expect(repositoryUrl(folder, run)).toBe("https://github.com/acme/app");
   });
 });

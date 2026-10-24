@@ -96,7 +96,7 @@ describe("closing the week that has just ended", () => {
     mergePullRequest(repository, 4, "2026-09-23T10:00:00Z");
     mergePullRequest(repository, 5, "2026-09-30T10:00:00Z");
 
-    const { issue } = close(repository);
+    const { issue } = close(repository, NOW, "2026-W40", { numbers: [5] });
 
     expect(issue?.title).toBe("Changelog: write 2026-W40");
     expect(issue?.body).toContain(
@@ -115,7 +115,7 @@ describe("closing the week that has just ended", () => {
     mergePullRequest(repository, 5, "2026-09-29T10:00:00Z");
     mergePullRequest(repository, 6, "2026-09-30T10:00:00Z");
 
-    const { issue, lines } = close(repository);
+    const { issue, lines } = close(repository, NOW, "2026-W40", { numbers: [5, 6] });
 
     expect(issue?.title).toBe("Changelog: extend 2026-W40");
     expect(issue?.body).toContain("- 2026-W40  2 merged, 1 not cited (#6): extend it with /workflow:changelog 2026-W40");
@@ -128,12 +128,54 @@ describe("closing the week that has just ended", () => {
     commit(repository, "the changelog", { "CHANGELOG.md": createChangelog({ "2026-W40": [5] }) }, "2026-09-01T10:00:00Z");
     mergePullRequest(repository, 5, "2026-09-29T10:00:00Z");
 
-    const { status, issue, tagged, lines } = close(repository);
+    const { status, issue, tagged, lines } = close(repository, NOW, "2026-W40", { numbers: [5] });
 
     expect(status).toBe(0);
     expect(tagged).toBeDefined();
     expect(issue).toBeUndefined();
     expect(lines.at(-1)).toBe("2026-W40 already has a complete entry: no issue opened.");
+  });
+
+  it("judges the closed week by gh's list, and opens the issue when git cannot see a merge", () => {
+    const repository = createRepository();
+
+    commit(repository, "the changelog", { "CHANGELOG.md": createChangelog({ "2026-W39": [] }) }, "2026-09-01T10:00:00Z");
+    commit(repository, "a merge whose subject names no pull request", { a: "1" }, "2026-09-30T10:00:00Z");
+
+    const { status, issue, lines } = close(repository, NOW, "2026-W40", { numbers: [5] });
+
+    expect(status).toBe(0);
+    expect(issue?.title).toBe("Changelog: write 2026-W40");
+    expect(issue?.body).toContain("**1 pull request(s)** were merged in 2026-W40");
+    expect(lines.at(-1)).toMatch(/^Opened "Changelog: write 2026-W40" /);
+  });
+
+  it("titles the issue extend, and names what is not cited, when the entry misses a merge git cannot see", () => {
+    const repository = createRepository();
+
+    commit(repository, "the changelog", { "CHANGELOG.md": createChangelog({ "2026-W40": [4] }) }, "2026-09-01T10:00:00Z");
+    mergePullRequest(repository, 4, "2026-09-29T10:00:00Z");
+    commit(repository, "a merge whose subject names no pull request", { a: "1" }, "2026-09-30T10:00:00Z");
+
+    const { issue } = close(repository, NOW, "2026-W40", { numbers: [4, 5] });
+
+    expect(issue?.title).toBe("Changelog: extend 2026-W40");
+    expect(issue?.body).toContain("Its entry does not cite #5.");
+    expect(issue?.body).not.toContain("Still due:");
+  });
+
+  it("still opens the issue, after the tag, when a heading names a week that does not exist", () => {
+    const repository = createRepository();
+
+    commit(repository, "the changelog", { "CHANGELOG.md": createChangelog({ "2025-W53": [] }) }, "2026-09-01T10:00:00Z");
+    mergePullRequest(repository, 5, "2026-09-30T10:00:00Z");
+
+    const { status, issue, tagged } = close(repository, NOW, "2026-W40", { numbers: [5] });
+
+    expect(status).toBe(0);
+    expect(tagged).toBeDefined();
+    expect(issue?.title).toBe("Changelog: write 2026-W40");
+    expect(issue?.body).toContain('(Could not tell which other weeks are due: "2025-W53" is not an ISO week');
   });
 
   it("still opens the issue when it cannot tell what else is due", () => {
@@ -228,6 +270,8 @@ interface GitHub {
   /** What the lookup of the tag prints when it fails for another reason than "no such tag". */
   lookup?: string;
   merged?: number;
+  /** The numbers gh lists as merged in the week; 1 to `merged` when not given. */
+  numbers?: number[];
   /** A call GitHub refuses, named by a part of its arguments. */
   refuse?: string;
 }
@@ -271,7 +315,7 @@ function close(repository: string, now = NOW, week = "2026-W40", world: GitHub =
     }
 
     if (line.startsWith("pr list")) {
-      return ok(JSON.stringify(Array.from({ length: world.merged ?? 3 }, (_, index) => ({ number: index + 1 }))));
+      return ok(JSON.stringify((world.numbers ?? Array.from({ length: world.merged ?? 3 }, (_, index) => index + 1)).map((number) => ({ number }))));
     }
 
     if (line.startsWith("issue create")) {

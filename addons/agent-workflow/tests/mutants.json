@@ -632,8 +632,8 @@
   {
     "name": "opens an issue that asks for the week's entry",
     "file": "addons/agent-workflow/files/tools/agent-workflow/close-week.mts",
-    "find": "`Changelog: ${closed?.extend",
-    "replace": "`Changelog ${closed?.extend",
+    "find": "`Changelog: ${section === undefined",
+    "replace": "`Changelog ${section === undefined",
     "test": "pnpm vitest run addons/agent-workflow/tests/close-week.test.mts --testNamePattern=\"opens an issue that asks for the week's entry\""
   },
   {
@@ -5289,8 +5289,8 @@
   {
     "name": "history: the .git suffix stays",
     "file": "addons/agent-workflow/files/tools/agent-workflow/lib/history.mts",
-    "find": "+?)(?:\\.git)?$/",
-    "replace": "+?)$/",
+    "find": "+?)(?:\\.git)?\\/?$/",
+    "replace": "+?)\\/?$/",
     "test": "pnpm vitest run addons/agent-workflow/tests/history.test.mts -t \"turns each way of writing a GitHub origin\""
   },
   {
@@ -5359,8 +5359,8 @@
   {
     "name": "history: any https host is GitHub",
     "file": "addons/agent-workflow/files/tools/agent-workflow/lib/history.mts",
-    "find": "https:\\/\\/github\\.com\\/",
-    "replace": "https:\\/\\/[\\w.]+\\/",
+    "find": "https:\\/\\/(?:[^@/]+@)?github\\.com\\/",
+    "replace": "https:\\/\\/(?:[^@/]+@)?[\\w.]+\\/",
     "test": "pnpm vitest run addons/agent-workflow/tests/history.test.mts -t \"turns each way of writing a GitHub origin\""
   },
   {
@@ -5625,7 +5625,7 @@
   {
     "name": "due: --ref with no value is read as no ref",
     "file": "addons/agent-workflow/files/tools/agent-workflow/changelog.mts",
-    "find": "if (at !== -1 && argv[at + 1] === undefined) {",
+    "find": "if (at !== -1 && ref === undefined) {",
     "replace": "if (at !== -1 && false) {",
     "test": "pnpm vitest run addons/agent-workflow/tests/due.test.mts -t \"reads the remote text and history through git\""
   },
@@ -5779,15 +5779,15 @@
   {
     "name": "titles the issue extend",
     "file": "addons/agent-workflow/files/tools/agent-workflow/close-week.mts",
-    "find": "closed?.extend ? \"extend\" : \"write\"",
+    "find": "section === undefined ? \"write\" : \"extend\"",
     "replace": "\"write\"",
     "test": "pnpm vitest run addons/agent-workflow/tests/close-week.test.mts --testNamePattern=\"titles the issue extend when\""
   },
   {
     "name": "opens no issue when the week's entry already cites every merge",
     "file": "addons/agent-workflow/files/tools/agent-workflow/close-week.mts",
-    "find": "unknown === undefined && closed === undefined",
-    "replace": "false",
+    "find": "if (missing.length === 0) {",
+    "replace": "if (false) {",
     "test": "pnpm vitest run addons/agent-workflow/tests/close-week.test.mts --testNamePattern=\"opens no issue when the week's entry already cites\""
   },
   {
@@ -6727,5 +6727,61 @@
     "find": "\"The changelog check failed for",
     "replace": "\"pnpm changelog check failed for",
     "test": "pnpm vitest run addons/agent-workflow/tests/addon.test.mts --testNamePattern=\"does not start a line of the pull request body with pnpm\""
+  },
+  {
+    "name": "due: a ref that starts with a dash reaches git",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/changelog.mts",
+    "find": "if (ref?.startsWith(\"-\")) {",
+    "replace": "if (false) {",
+    "test": "pnpm vitest run addons/agent-workflow/tests/due.test.mts -t \"refuses a ref that starts with a dash\""
+  },
+  {
+    "name": "history: a ref that starts with a dash is read as an option",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/history.mts",
+    "find": "\"--format=%H%x09%cI%x09%s\", \"--end-of-options\", ref]",
+    "replace": "\"--format=%H%x09%cI%x09%s\", ref]",
+    "test": "pnpm vitest run addons/agent-workflow/tests/history.test.mts -t \"reads a ref that starts with a dash as a ref\""
+  },
+  {
+    "name": "history: an https origin with credentials is not GitHub",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/history.mts",
+    "find": "https:\\/\\/(?:[^@/]+@)?github",
+    "replace": "https:\\/\\/github",
+    "test": "pnpm vitest run addons/agent-workflow/tests/history.test.mts -t \"drops the token from the origin claude-code-action writes\""
+  },
+  {
+    "name": "history: an origin that ends in a slash is not GitHub",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/history.mts",
+    "find": "(?:\\.git)?\\/?$/",
+    "replace": "(?:\\.git)?$/",
+    "test": "pnpm vitest run addons/agent-workflow/tests/history.test.mts -t \"reads an origin that ends in a slash\""
+  },
+  {
+    "name": "changelog: defs and check skip with the CI action's origin",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/history.mts",
+    "find": "https:\\/\\/(?:[^@/]+@)?github",
+    "replace": "https:\\/\\/github",
+    "test": "pnpm vitest run addons/agent-workflow/tests/changelog.test.mts -t \"runs defs and check with the origin the CI action writes\""
+  },
+  {
+    "name": "close-week: the closed week is not judged by gh's list",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/close-week.mts",
+    "find": "const missing = numbers.filter(",
+    "replace": "const missing = ([] as number[]).filter(",
+    "test": "pnpm vitest run addons/agent-workflow/tests/close-week.test.mts -t \"judges the closed week by gh's list\""
+  },
+  {
+    "name": "close-week: an extend issue does not name what is not cited",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/close-week.mts",
+    "find": "`Its entry does not cite ",
+    "replace": "`Its entry cites ",
+    "test": "pnpm vitest run addons/agent-workflow/tests/close-week.test.mts -t \"titles the issue extend, and names what is not cited\""
+  },
+  {
+    "name": "close-week: a heading that is no week crashes after the tag",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/close-week.mts",
+    "find": " || error instanceof WeekError)) {",
+    "replace": ")) {",
+    "test": "pnpm vitest run addons/agent-workflow/tests/close-week.test.mts -t \"when a heading names a week that does not exist\""
   }
 ]

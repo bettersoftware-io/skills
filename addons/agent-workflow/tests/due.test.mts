@@ -1,4 +1,4 @@
-import { writeFileSync } from "node:fs";
+import { existsSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
 import { describe, expect, it } from "vitest";
@@ -159,6 +159,20 @@ describe("the command", () => {
 
     expect(none.status).toBe(2);
     expect(none.lines.at(-1)).toMatch(/^SKIP changelog: .*remote branch.*Nothing was judged$/);
+  });
+
+  it("refuses a ref that starts with a dash, so git writes no file", () => {
+    const { clone } = createRemote();
+    const target = join(createFolder(), "written");
+
+    commit(clone, "Add a (#12)", { "CHANGELOG.md": createText() }, "2026-09-30T12:00:00Z");
+    git(clone, "push", "--quiet", "origin", "main");
+
+    const refused = runDue(clone, ["--ref", `--output=${target}`]);
+
+    expect(refused.status).toBe(2);
+    expect(refused.lines).toEqual([`SKIP changelog: --ref needs a git ref, and "--output=${target}" starts with a dash. Nothing was judged`]);
+    expect(existsSync(target)).toBe(false);
   });
 
   it("weeks adds the newest week to extend", () => {

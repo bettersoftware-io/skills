@@ -15,6 +15,9 @@
 // Exit 0: `check` found nothing wrong. Exit 1: it found something, named
 // above the FAIL line. Exit 2: nothing was judged (no `gh`, no network, a
 // name that is no week, no CHANGELOG.md, an `origin` that is not on GitHub).
+// `due` exits 0 when nothing is due, 1 when it lists weeks, and 2 when it
+// could not judge (no CHANGELOG.md, no remote branch, a ref git cannot read,
+// or a ref that starts with `-`).
 // `tag` plans by default and writes only with `--apply`. It refuses a week
 // that is not over, and a week that already has a tag. Exit 1 for those and
 // for a GitHub step that failed.
@@ -68,12 +71,18 @@ export function changelog({ root, argv, now, run: runProgram, report }: Changelo
 
     if (command === "due") {
       const at = argv.indexOf("--ref");
+      const ref = at === -1 ? undefined : argv[at + 1];
 
-      if (at !== -1 && argv[at + 1] === undefined) {
+      if (at !== -1 && ref === undefined) {
         throw new ChangelogError("--ref needs a git ref");
       }
 
-      const due = findDue(root, runProgram, now, at === -1 ? undefined : argv[at + 1]);
+      // git would read it as an option: `--output=<file>` makes `git log` write a file.
+      if (ref?.startsWith("-")) {
+        throw new ChangelogError(`--ref needs a git ref, and "${ref}" starts with a dash`);
+      }
+
+      const due = findDue(root, runProgram, now, ref);
 
       for (const week of due) {
         report(describeDue(week));

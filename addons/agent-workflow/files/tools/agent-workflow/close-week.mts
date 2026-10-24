@@ -5,8 +5,12 @@
 //      00:00 UTC as `<year>-W<week>`, so that `git diff 2026-W39 2026-W40` is
 //      exactly what the changelog's W40 section describes.
 //   2. Opens an issue that asks for that week's changelog entry, when any
-//      pull request was merged in the week and its entry is not complete.
-//      The issue also lists every other week that is due.
+//      pull request was merged in the week and its entry is not complete:
+//      "Changelog: write <week>" when the week has no heading, "Changelog:
+//      extend <week>" when it has one. Whether the entry is complete is
+//      judged from gh's list of the week's merged pull requests, so a merge
+//      git cannot see (a rebase, a subject with no number) still counts. The
+//      issue also lists every other week that is due, as git sees them.
 //
 // Writing the entry needs judgement, so it is not done here.
 //
@@ -21,12 +25,12 @@
 // step, and the line above says which. Exit 2: it could not start.
 
 import { isMainModule } from "./lib/main.mts";
-import { ChangelogError } from "./lib/changelog.mts";
+import { ChangelogError, citationsIn, sectionOf } from "./lib/changelog.mts";
 import { describeDue, type DueWeek, findDue } from "./lib/due.mts";
 import { HistoryError } from "./lib/history.mts";
 import { type Run, run } from "./lib/system.mts";
 import { createWeekTag } from "./lib/tag.mts";
-import { endOf, lastFinishedWeek } from "./lib/week.mts";
+import { endOf, lastFinishedWeek, WeekError } from "./lib/week.mts";
 
 const LIMIT = 500;
 
@@ -107,7 +111,8 @@ export function closeWeek({ root, repository, now, run: runProgram, report }: Cl
     return 1;
   }
 
-  const merged = (JSON.parse(listed.stdout) as unknown[]).length;
+  const numbers = (JSON.parse(listed.stdout) as { number: number }[]).map(({ number }) => number);
+  const merged = numbers.length;
 
   if (merged === 0) {
     report(`No pull request was merged in ${week.name}: there is nothing to write up.`);
@@ -115,29 +120,35 @@ export function closeWeek({ root, repository, now, run: runProgram, report }: Cl
     return 0;
   }
 
-  // The checkout is the default branch, so HEAD is what the weeks are judged at.
+  // The checkout is the default branch, so HEAD's file is the entry. gh's
+  // list is the closed week's verdict: git sees only the merges whose subject
+  // names their pull request.
+  const shown = runProgram("git", ["show", "HEAD:CHANGELOG.md"], root);
+  const section = shown.status === 0 ? sectionOf(shown.stdout, week.name) : undefined;
+  const cited = citationsIn(section ?? "");
+  const missing = numbers.filter((number) => !cited.includes(number)).sort((a, b) => a - b);
+
+  if (missing.length === 0) {
+    report(`${week.name} already has a complete entry: no issue opened.`);
+
+    return 0;
+  }
+
+  // The other weeks due, as git sees them, for the list in the issue only.
   let due: DueWeek[] = [];
   let unknown: string | undefined;
 
   try {
     due = findDue(root, runProgram, now, "HEAD");
   } catch (error) {
-    if (!(error instanceof ChangelogError || error instanceof HistoryError)) {
+    if (!(error instanceof ChangelogError || error instanceof HistoryError || error instanceof WeekError)) {
       throw error;
     }
 
     unknown = error.message;
   }
 
-  const closed = due.find((entry) => entry.week.name === week.name);
-
-  if (unknown === undefined && closed === undefined) {
-    report(`${week.name} already has a complete entry: no issue opened.`);
-
-    return 0;
-  }
-
-  const title = `Changelog: ${closed?.extend ? "extend" : "write"} ${week.name}`;
+  const title = `Changelog: ${section === undefined ? "write" : "extend"} ${week.name}`;
   const body = [
     `**${merged}${merged >= LIMIT ? " or more" : ""} pull request(s)** were merged in ${week.name} (${week.start} to ${week.end}, UTC), and the week is now tagged \`${week.name}\`.`,
     "",
@@ -147,6 +158,7 @@ export function closeWeek({ root, repository, now, run: runProgram, report }: Cl
     `- in Codex: \`$workflow-changelog ${week.name}\``,
     `- by hand: follow \`.claude/commands/workflow/changelog.md\`, then \`pnpm changelog check ${week.name}\``,
     "",
+    ...(section === undefined ? [] : [`Its entry does not cite ${missing.map((number) => `#${number}`).join(", ")}.`, ""]),
     ...(due.length > 0 ? ["Still due:", ...due.map((entry) => `- ${describeDue(entry)}`), ""] : []),
     ...(unknown === undefined ? [] : [`(Could not tell which other weeks are due: ${unknown}.)`, ""]),
     "The pull request that adds the entry closes this issue.",
