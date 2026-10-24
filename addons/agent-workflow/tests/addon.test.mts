@@ -490,7 +490,7 @@ describe("the changelog it starts a project with", () => {
       root,
       argv: ["check", "2026-W40", "--merged", ""],
       now: new Date("2026-10-06T00:00:00Z"),
-      run: () => ({ status: 127, stdout: "", stderr: "" }),
+      run: () => ({ status: 0, stdout: "git@github.com:acme/app.git\n", stderr: "" }),
       report: (line) => lines.push(line),
     });
 

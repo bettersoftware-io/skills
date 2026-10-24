@@ -3,7 +3,8 @@
 //
 //   node tools/agent-workflow/changelog.mts weeks            which weeks have no entry yet
 //   node tools/agent-workflow/changelog.mts prs 2026-W40     what was merged in a week
-//   node tools/agent-workflow/changelog.mts check 2026-W40   is every merged pull request cited?
+//   node tools/agent-workflow/changelog.mts check 2026-W40   do the week's citations equal its merges?
+//   node tools/agent-workflow/changelog.mts defs [--write]   are the link definitions the generated ones?
 //
 // `prs` and `check` ask GitHub, through `gh`, which pull requests were merged
 // in the week (by merge time, in UTC). They only read. For a run with no
@@ -11,13 +12,16 @@
 //
 // Exit 0: `check` found nothing wrong. Exit 1: it found something, named
 // above the FAIL line. Exit 2: nothing was judged (no `gh`, no network, a
-// name that is no week, no CHANGELOG.md). Exit 2 is not a pass.
+// name that is no week, no CHANGELOG.md, an `origin` that is not on GitHub).
+// `defs` prints the definition lines that differ and exits 1, or with
+// `--write` rewrites the file and exits 0. Exit 2 is not a pass.
 
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { checkWeek, type MergedPullRequest, weeksToWrite } from "./lib/changelog.mts";
+import { checkWeek, type MergedPullRequest, weeksToWrite, withDefinitions } from "./lib/changelog.mts";
+import { repositoryUrl } from "./lib/history.mts";
 import { isMainModule } from "./lib/main.mts";
 import { type Run, run } from "./lib/system.mts";
 import { isInWeek, parseWeek, type Week, WeekError } from "./lib/week.mts";
@@ -65,7 +69,7 @@ export function changelog({ root, argv, now, run: runProgram, report }: Changelo
       const week = parseWeek(weekName);
       const given = argv.indexOf("--merged");
       const merged = given === -1 ? listMerged(week, root, runProgram).map(({ number }) => number) : parseNumbers(argv[given + 1]);
-      const problems = checkWeek(readChangelog(root), week.name, merged);
+      const problems = checkWeek(readChangelog(root), week.name, merged, requireRepository(root, runProgram));
 
       for (const problem of problems) {
         report(`  ${problem}`);
@@ -79,6 +83,34 @@ export function changelog({ root, argv, now, run: runProgram, report }: Changelo
 
       return problems.length === 0 ? 0 : 1;
     }
+
+    if (command === "defs") {
+      const text = readChangelog(root);
+      const wanted = withDefinitions(text, requireRepository(root, runProgram));
+
+      if (argv.includes("--write")) {
+        writeFileSync(join(root, "CHANGELOG.md"), wanted);
+        report("wrote the link definitions of CHANGELOG.md");
+
+        return 0;
+      }
+
+      if (wanted === text) {
+        report("PASS changelog defs: the link definitions are the generated ones");
+
+        return 0;
+      }
+
+      const differing = differingLines(text, wanted);
+
+      for (const line of differing) {
+        report(line);
+      }
+
+      report("FAIL changelog defs: the link definitions differ. Run `pnpm changelog defs --write`");
+
+      return 1;
+    }
   } catch (error) {
     if (error instanceof ChangelogError || error instanceof WeekError) {
       report(`SKIP changelog: ${error.message}. Nothing was judged`);
@@ -89,7 +121,7 @@ export function changelog({ root, argv, now, run: runProgram, report }: Changelo
     throw error;
   }
 
-  report("usage: changelog.mts weeks | prs <week> | check <week> [--merged 12,15]   (a week is written 2026-W40)");
+  report("usage: changelog.mts weeks | prs <week> | check <week> [--merged 12,15] | defs [--write]   (a week is written 2026-W40)");
 
   return 2;
 }
@@ -114,6 +146,29 @@ export function listMerged(week: Week, root: string, runProgram: Run): MergedPul
 
   // GitHub's search takes days; the week is exact to the instant.
   return found.filter(({ mergedAt }) => isInWeek(week, mergedAt)).sort((a, b) => a.mergedAt.localeCompare(b.mergedAt));
+}
+
+/** The lines only in `current`, marked `-`, then the lines only in `wanted`, marked `+`. */
+function differingLines(current: string, wanted: string): string[] {
+  const before = current.split("\n");
+  const after = wanted.split("\n");
+
+  const lines = [
+    ...before.filter((line) => line !== "" && !after.includes(line)).map((line) => `- ${line}`),
+    ...after.filter((line) => line !== "" && !before.includes(line)).map((line) => `+ ${line}`),
+  ];
+
+  return lines.length > 0 ? lines : ["~ the definitions are out of order, repeated, or not in one block at the end"];
+}
+
+function requireRepository(root: string, runProgram: Run): string {
+  const repository = repositoryUrl(root, runProgram);
+
+  if (repository === undefined) {
+    throw new ChangelogError("the origin remote is not a GitHub address, so the link definitions cannot be judged");
+  }
+
+  return repository;
 }
 
 function readChangelog(root: string): string {

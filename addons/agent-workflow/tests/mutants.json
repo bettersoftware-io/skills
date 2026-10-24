@@ -483,34 +483,6 @@
     "test": "pnpm vitest run addons/agent-workflow/tests/changelog.test.mts --testNamePattern=\"does not count a citation in another week's section\""
   },
   {
-    "name": "names a citation with no link definition",
-    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/changelog.mts",
-    "find": "if (undefinedCitations.length > 0) {",
-    "replace": "if (undefinedCitations.length > 1) {",
-    "test": "pnpm vitest run addons/agent-workflow/tests/changelog.test.mts --testNamePattern=\"names a citation with no link definition\""
-  },
-  {
-    "name": "names a definition that points at another pull request",
-    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/changelog.mts",
-    "find": "`/(?:pull|issues)/${number}$`",
-    "replace": "`/(?:pull|issues)/${number}`",
-    "test": "pnpm vitest run addons/agent-workflow/tests/changelog.test.mts --testNamePattern=\"names a definition that points at another pull request\""
-  },
-  {
-    "name": "accepts a definition that points at an issue",
-    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/changelog.mts",
-    "find": "`/(?:pull|issues)/${number}$`",
-    "replace": "`/(?:pull)/${number}$`",
-    "test": "pnpm vitest run addons/agent-workflow/tests/changelog.test.mts --testNamePattern=\"accepts a definition that points at an issue\""
-  },
-  {
-    "name": "names definitions that are out of order, and one given twice",
-    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/changelog.mts",
-    "find": "definition.number <= (definitions",
-    "replace": "definition.number < (definitions",
-    "test": "pnpm vitest run addons/agent-workflow/tests/changelog.test.mts --testNamePattern=\"names definitions that are out of order, and one given twice\""
-  },
-  {
     "name": "fails a week with merged pull requests and no heading",
     "file": "addons/agent-workflow/files/tools/agent-workflow/lib/changelog.mts",
     "find": "    if (merged.length > 0) {\n      problems.push(`there is no",
@@ -5390,5 +5362,173 @@
     "find": "https:\\/\\/github\\.com\\/",
     "replace": "https:\\/\\/[\\w.]+\\/",
     "test": "pnpm vitest run addons/agent-workflow/tests/history.test.mts -t \"turns each way of writing a GitHub origin\""
+  },
+  {
+    "name": "names a pull request cited in a week it was not merged in",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/changelog.mts",
+    "find": "if (notMerged.length > 0) {",
+    "replace": "if (notMerged.length > 99) {",
+    "test": "pnpm vitest run addons/agent-workflow/tests/changelog.test.mts --testNamePattern=\"names a pull request cited in a week it was not merged in\""
+  },
+  {
+    "name": "names a pull request cited in a week it was not merged in (message)",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/changelog.mts",
+    "find": "A reference to earlier work is a plain link, not a citation",
+    "replace": "A reference to earlier work",
+    "test": "pnpm vitest run addons/agent-workflow/tests/changelog.test.mts --testNamePattern=\"names a pull request cited in a week it was not merged in\""
+  },
+  {
+    "name": "does not judge a commit citation against the merges",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/changelog.mts",
+    "find": "const notMerged = cited.filter(",
+    "replace": "const notMerged = [...cited, ...commitCitationsIn(section).map(() => 0)].filter(",
+    "test": "pnpm vitest run addons/agent-workflow/tests/changelog.test.mts --testNamePattern=\"does not judge a commit citation against the merges\""
+  },
+  {
+    "name": "generates PR definitions ascending, then commit definitions by label (commits by first appearance)",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/changelog.mts",
+    "find": "[...commitCitationsIn(text)].sort().map",
+    "replace": "commitCitationsIn(text).map",
+    "test": "pnpm vitest run addons/agent-workflow/tests/changelog.test.mts --testNamePattern=\"generates PR definitions ascending, then commit definitions by label\""
+  },
+  {
+    "name": "generates PR definitions ascending, then commit definitions by label (pull requests by first appearance)",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/changelog.mts",
+    "find": "[...citationsIn(text)].sort((a, b) => a - b)",
+    "replace": "citationsIn(text)",
+    "test": "pnpm vitest run addons/agent-workflow/tests/changelog.test.mts --testNamePattern=\"generates PR definitions ascending, then commit definitions by label\""
+  },
+  {
+    "name": "generates PR definitions ascending, then commit definitions by label (pull requests first)",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/changelog.mts",
+    "find": "return [...pulls, ...commits];",
+    "replace": "return [...commits, ...pulls];",
+    "test": "pnpm vitest run addons/agent-workflow/tests/changelog.test.mts --testNamePattern=\"generates PR definitions ascending, then commit definitions by label\""
+  },
+  {
+    "name": "keeps an existing full-hash address for a commit label (always rebuild)",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/changelog.mts",
+    "find": "const url = kept?.startsWith(`${repo}/commit/${sha}`) ? kept : ",
+    "replace": "const url = false ? kept : ",
+    "test": "pnpm vitest run addons/agent-workflow/tests/changelog.test.mts --testNamePattern=\"keeps an existing full-hash address for a commit label\""
+  },
+  {
+    "name": "keeps an existing full-hash address for a commit label (keep any address)",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/changelog.mts",
+    "find": "const url = kept?.startsWith(`${repo}/commit/${sha}`) ? kept : ",
+    "replace": "const url = kept !== undefined ? kept : ",
+    "test": "pnpm vitest run addons/agent-workflow/tests/changelog.test.mts --testNamePattern=\"keeps an existing full-hash address for a commit label\""
+  },
+  {
+    "name": "writes one block at the end, after one blank line, ending in a newline (blank line)",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/changelog.mts",
+    "find": "`${body.trimEnd()}\\n\\n${definitions.join",
+    "replace": "`${body}\\n\\n${definitions.join",
+    "test": "pnpm vitest run addons/agent-workflow/tests/changelog.test.mts --testNamePattern=\"writes one block at the end, after one blank line, ending in a newline\""
+  },
+  {
+    "name": "writes one block at the end, after one blank line, ending in a newline (final newline)",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/changelog.mts",
+    "find": "${definitions.join(\"\\n\")}\\n`",
+    "replace": "${definitions.join(\"\\n\")}`",
+    "test": "pnpm vitest run addons/agent-workflow/tests/changelog.test.mts --testNamePattern=\"writes one block at the end, after one blank line, ending in a newline\""
+  },
+  {
+    "name": "leaves a reference definition that is no citation where it is",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/changelog.mts",
+    "find": "const DEFINITION_LINE = /^(?:\\[#\\d+\\]:|\\[`[0-9a-f]{7,40}`\\]:)/;",
+    "replace": "const DEFINITION_LINE = /^(?:\\[#\\d+\\]:|\\[`[0-9a-f]{7,40}`\\]:|\\[[^\\]]+\\]:)/;",
+    "test": "pnpm vitest run addons/agent-workflow/tests/changelog.test.mts --testNamePattern=\"leaves a reference definition that is no citation where it is\""
+  },
+  {
+    "name": "removes definitions and adds no block when nothing is cited",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/changelog.mts",
+    "find": "definitions.length === 0 ? body :",
+    "replace": "definitions.length === 0 ? text :",
+    "test": "pnpm vitest run addons/agent-workflow/tests/changelog.test.mts --testNamePattern=\"removes definitions and adds no block when nothing is cited\""
+  },
+  {
+    "name": "removes definitions and adds no block when nothing is cited (empty block)",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/changelog.mts",
+    "find": "definitions.length === 0 ? body :",
+    "replace": "false ? body :",
+    "test": "pnpm vitest run addons/agent-workflow/tests/changelog.test.mts --testNamePattern=\"removes definitions and adds no block when nothing is cited\""
+  },
+  {
+    "name": "reads a commit citation of 7 to 40 hex characters (shortest)",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/changelog.mts",
+    "find": "/\\[`([0-9a-f]{7,40})`\\](?!:)/g",
+    "replace": "/\\[`([0-9a-f]{6,40})`\\](?!:)/g",
+    "test": "pnpm vitest run addons/agent-workflow/tests/changelog.test.mts --testNamePattern=\"reads a commit citation of 7 to 40 hex characters\""
+  },
+  {
+    "name": "reads a commit citation of 7 to 40 hex characters (longest)",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/changelog.mts",
+    "find": "/\\[`([0-9a-f]{7,40})`\\](?!:)/g",
+    "replace": "/\\[`([0-9a-f]{7,41})`\\](?!:)/g",
+    "test": "pnpm vitest run addons/agent-workflow/tests/changelog.test.mts --testNamePattern=\"reads a commit citation of 7 to 40 hex characters\""
+  },
+  {
+    "name": "reads a commit citation of 7 to 40 hex characters (definition)",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/changelog.mts",
+    "find": "/\\[`([0-9a-f]{7,40})`\\](?!:)/g",
+    "replace": "/\\[`([0-9a-f]{7,40})`\\]/g",
+    "test": "pnpm vitest run addons/agent-workflow/tests/changelog.test.mts --testNamePattern=\"reads a commit citation of 7 to 40 hex characters\""
+  },
+  {
+    "name": "tells a citation from the definition (commit form)",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/changelog.mts",
+    "find": "(#\\d+|`[0-9a-f]{7,40}`)\\]:",
+    "replace": "(#\\d+)\\]:",
+    "test": "pnpm vitest run addons/agent-workflow/tests/changelog.test.mts --testNamePattern=\"tells a citation from the definition\""
+  },
+  {
+    "name": "fails a file whose definitions differ from what defs writes (check)",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/changelog.mts",
+    "find": "if (withDefinitions(text, repo) !== text) {",
+    "replace": "if (withDefinitions(text, repo) === text) {",
+    "test": "pnpm vitest run addons/agent-workflow/tests/changelog.test.mts --testNamePattern=\"fails a file whose definitions differ from what defs writes\""
+  },
+  {
+    "name": "fails a file whose definitions differ from what defs writes (write)",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/changelog.mts",
+    "find": "writeFileSync(join(root, \"CHANGELOG.md\"), wanted);",
+    "replace": "",
+    "test": "pnpm vitest run addons/agent-workflow/tests/changelog.test.mts --testNamePattern=\"fails a file whose definitions differ from what defs writes\""
+  },
+  {
+    "name": "fails a file whose definitions differ from what defs writes (exit)",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/changelog.mts",
+    "find": "differ. Run `pnpm changelog defs --write`\");\n\n      return 1;",
+    "replace": "differ. Run `pnpm changelog defs --write`\");\n\n      return 0;",
+    "test": "pnpm vitest run addons/agent-workflow/tests/changelog.test.mts --testNamePattern=\"fails a file whose definitions differ from what defs writes\""
+  },
+  {
+    "name": "fails a file whose definitions differ from what defs writes (marks)",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/changelog.mts",
+    "find": "`- ${line}`",
+    "replace": "`+ ${line}`",
+    "test": "pnpm vitest run addons/agent-workflow/tests/changelog.test.mts --testNamePattern=\"fails a file whose definitions differ from what defs writes\""
+  },
+  {
+    "name": "fails a file whose definitions differ from what defs writes (passes)",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/changelog.mts",
+    "find": "if (wanted === text) {",
+    "replace": "if (wanted !== text) {",
+    "test": "pnpm vitest run addons/agent-workflow/tests/changelog.test.mts --testNamePattern=\"fails a file whose definitions differ from what defs writes\""
+  },
+  {
+    "name": "says which lines differ when the definitions are only out of order",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/changelog.mts",
+    "find": "return lines.length > 0 ? lines : [",
+    "replace": "return lines.length >= 0 ? lines : [",
+    "test": "pnpm vitest run addons/agent-workflow/tests/changelog.test.mts --testNamePattern=\"says which lines differ when the definitions are only out of order\""
+  },
+  {
+    "name": "skips defs, and check, when origin is not a GitHub address",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/changelog.mts",
+    "find": "if (repository === undefined) {",
+    "replace": "if (repository === \"\") {",
+    "test": "pnpm vitest run addons/agent-workflow/tests/changelog.test.mts --testNamePattern=\"skips defs, and check, when origin is not a GitHub address\""
   }
 ]
