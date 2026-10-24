@@ -57,6 +57,31 @@ const WORD_END = new Set([" ", "\t", "\n", ";", "&", "|", "<", ">", "(", ")"]);
  */
 type Context = "word" | "double" | "body";
 
+/**
+ * Operators a line continuation can join. Bash takes a backslash and the new
+ * line after it out before it reads, so `(`, a continuation and `(` are `((`,
+ * and two pipes so split are `||`.
+ */
+const OPERATOR = new Set([";", "&", "|", "<", ">", "("]);
+
+/** The text with each line continuation taken out, as bash reads it outside single quotes. */
+function joinLines(text: string): string {
+  let joined = "";
+
+  for (let index = 0; index < text.length; index += 1) {
+    const char = text[index];
+
+    if (char === "\\") {
+      joined += text[index + 1] === "\n" ? "" : text.slice(index, index + 2);
+      index += 1;
+    } else {
+      joined += char;
+    }
+  }
+
+  return joined;
+}
+
 /** How many characters the reader may read again, in all, after `((` turned out not to be arithmetic. */
 interface Lookahead {
   characters: number;
@@ -133,6 +158,10 @@ class Scanner {
       if (char === " " || char === "\t") {
         this.position += 1;
       } else if (char === "\\" && this.text[this.position + 1] === "\n") {
+        if (OPERATOR.has(this.text[this.position - 1] ?? "") && OPERATOR.has(this.text[this.position + 2] ?? "")) {
+          throw new ShellError("a line continuation that joins two operators is not read");
+        }
+
         this.position += 2;
       } else if (char === "\n") {
         if (outside > 0) {
@@ -196,7 +225,7 @@ class Scanner {
 
         // A pattern of a `case` ends in `)`, which this would take for the end of the `$(…)`. Wherever `case`
         // stands (after `f()`, `{`, `function f {`), and whether or not it starts a command, it is not read.
-        if (closer === ")" && this.text.slice(start, this.position) === "case") {
+        if (closer === ")" && joinLines(this.text.slice(start, this.position)) === "case") {
           throw new ShellError("a case inside a substitution is not read");
         }
 
@@ -240,6 +269,7 @@ class Scanner {
       } else if (char === "\\") {
         const next = this.text[this.position + 1];
 
+        this.continuation();
         value += next === undefined || next === "\n" ? "" : next;
         this.position += 2;
       } else if (char === "$" && this.text[this.position + 1] === "'") {
@@ -352,6 +382,7 @@ class Scanner {
       if (char === "\\") {
         const next = this.text[this.position + 1] ?? "";
 
+        this.continuation();
         // Inside double quotes a backslash only escapes these.
         value += ['"', "\\", "$", "`"].includes(next) ? next : next === "\n" ? "" : `\\${next}`;
         this.position += 2;
@@ -392,6 +423,7 @@ class Scanner {
       }
 
       if (char === "\\") {
+        this.continuation();
         this.position += 2;
       } else if (char === "'" || char === '"') {
         if (quoted) {
@@ -495,6 +527,7 @@ class Scanner {
         brackets += 1;
         this.position += 1;
       } else if (char === "\\") {
+        this.continuation();
         this.position += 2;
       } else if (char === "'") {
         // Read past, for a subshell may yet close this; once it is known to be arithmetic, it is not read.
@@ -572,6 +605,10 @@ class Scanner {
 
     this.position += operator.length;
 
+    if (this.text.startsWith("\\\n", this.position)) {
+      throw new ShellError("a line continuation right after a redirection is not read");
+    }
+
     if (operator === "<(" || operator === ">(") {
       script.nested.push(this.script(")"));
 
@@ -586,7 +623,7 @@ class Scanner {
     const target = this.word(script);
 
     if (operator === "<<" || operator === "<<-") {
-      this.heredocs.push({ delimiter: target, stripTabs: operator === "<<-", quoted: /['"\\]/.test(this.text.slice(start, this.position)) });
+      this.heredocs.push({ delimiter: target, stripTabs: operator === "<<-", quoted: /['"\\]/.test(joinLines(this.text.slice(start, this.position))) });
     }
   }
 
@@ -617,7 +654,7 @@ class Scanner {
       }
 
       if (!quoted) {
-        this.reader(this.text.slice(start, end)).heredocBody(script);
+        this.reader(joinLines(this.text.slice(start, end))).heredocBody(script);
       }
     }
   }
@@ -630,6 +667,17 @@ class Scanner {
       } else if (this.substitution(script, "body") === undefined) {
         this.position += 1;
       }
+    }
+  }
+
+  /**
+   * At a backslash. A line continuation after `$` makes `$(`, `${` or `$'` of
+   * what follows, where this reads the `$` alone: such a command is not read.
+   * Anywhere else in a word, the two sides join here as they do in the shell.
+   */
+  private continuation(): void {
+    if (this.text[this.position + 1] === "\n" && this.text[this.position - 1] === "$") {
+      throw new ShellError("a line continuation after $ is not read");
     }
   }
 
