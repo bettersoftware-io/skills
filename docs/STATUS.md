@@ -337,6 +337,24 @@ Found while a project was set up with the plugin, on 2026-10-12 and 13.
   possible difference from the hosts, with no detail; not followed up. The
   cost of a wrong "registered" is a joined command that gets one prompt, not
   an unprompted push: the host's own permission rules are untouched.
+- **The push hook's reader parses two forms differently from bash.** A
+  security review of the add-on installed in skills-demo (2026-10-24) found
+  that `lib/shell.mts` reads a `$'…'` string holding a backslash-escaped
+  quote, and a `${…}` holding `$(`, otherwise than bash does. A chained push
+  written so may be read as one step. Not fixed: the changelog work did not
+  touch that file, and the hook refuses or asks, never approves.
+- **`lib/outward.mts` knows git by the last part of a `/` path only.**
+  `isGit` does not take `git.exe`, or a path written with backslashes, for
+  git, so a push started that way is not seen as an outward step.
+- **Two older mutants of the hook show nothing.** "refuses two outward steps
+  that each only fill a variable" survives: its command is two steps as well,
+  so the test cannot tell the two conditions apart. "the add-on in a project
+  whose only copy is under a matcher for nothing" selects no test: its filter
+  names the test's old title.
+- **Two eval-depth mutants survive only under load.** "is refused when evals
+  are nested inside one another too deep" and "… too deep (the count goes
+  down the evals)" survived the full run of the add-on's 961 mutants on
+  2026-10-24. Run alone the same day, both were killed.
 - **The stop hook judges the checkout the session stops in.** A session that
   changed two checkouts is held to one. That `cwd` in the payload follows the
   agent into a worktree is from the documentation.
