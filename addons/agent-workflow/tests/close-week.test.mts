@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { closeWeek } from "../files/tools/agent-workflow/close-week.mts";
 import { type Ran, type Run, run } from "../files/tools/agent-workflow/lib/system.mts";
-import { commit, createFolder, git } from "./support.mts";
+import { commit, createFolder, git, mergeAt } from "./support.mts";
 
 // Monday 5 October 2026, 00:05 UTC: the moment the workflow runs. The week
 // that has just ended is 2026-W40, 28 September to 4 October.
@@ -34,7 +34,7 @@ describe("closing the week that has just ended", () => {
     git(repository, "checkout", "--quiet", "-b", "side");
     commit(repository, "on a side branch, later in the week", { b: "1" }, "2026-10-02T10:00:00Z");
     git(repository, "checkout", "--quiet", "main");
-    mergeAt(repository, "side", "2026-10-05T09:00:00Z");
+    mergeAt(repository, "side", "merge side", "2026-10-05T09:00:00Z");
 
     expect(close(repository, "2026-10-12T00:05:00Z", "2026-W41").tagged).toBeDefined();
     expect(close(repository).tagged?.object).toBe(onMain);
@@ -247,10 +247,4 @@ function createHistory(): { repository: string; shas: { lastOfWeek: string } } {
   commit(repository, "monday morning", { a: "4" }, "2026-10-05T00:01:00Z");
 
   return { repository, shas: { lastOfWeek } };
-}
-
-/** Merges `branch` into the current one with a merge commit dated `date`. */
-function mergeAt(repository: string, branch: string, date: string): void {
-  git(repository, "-c", "user.name=Test", "-c", "user.email=test@example.test", "merge", "--quiet", "--no-ff", "--no-commit", branch);
-  commit(repository, `merge ${branch}`, {}, date);
 }

@@ -5292,5 +5292,33 @@
     "find": "    process.exit(1);\n  }\n\n  const findings",
     "replace": "    process.exit(0);\n  }\n\n  const findings",
     "test": "pnpm vitest run addons/agent-workflow/tests/check-status.test.mts -t \"fails a project with no page\""
+  },
+  {
+    "name": "history: no Merge PR pattern",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/history.mts",
+    "find": "GITHUB_MERGE.exec(subject) ?? RTC_MERGE.exec(subject) ?? ",
+    "replace": "GITHUB_MERGE.exec(subject) ?? ",
+    "test": "pnpm vitest run addons/agent-workflow/tests/history.test.mts -t \"reads GitHub's merge subject\""
+  },
+  {
+    "name": "history: the first trailing number",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/history.mts",
+    "find": "const TRAILING_NUMBER = / \\(#(\\d+)\\)$/;",
+    "replace": "const TRAILING_NUMBER = / \\(#(\\d+)\\)/;",
+    "test": "pnpm vitest run addons/agent-workflow/tests/history.test.mts -t \"takes the last number of a revert of a squash\""
+  },
+  {
+    "name": "history: no --first-parent",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/history.mts",
+    "find": "\"log\", \"--first-parent\", ",
+    "replace": "\"log\", ",
+    "test": "pnpm vitest run addons/agent-workflow/tests/history.test.mts -t \"follows the first parent only\""
+  },
+  {
+    "name": "history: the .git suffix stays",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/history.mts",
+    "find": "+?)(?:\\.git)?$/",
+    "replace": "+?)$/",
+    "test": "pnpm vitest run addons/agent-workflow/tests/history.test.mts -t \"turns each way of writing a GitHub origin\""
   }
 ]

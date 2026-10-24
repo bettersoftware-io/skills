@@ -84,6 +84,12 @@ export function commit(repository: string, message: string, files: Record<string
   return git(repository, "rev-parse", "HEAD");
 }
 
+/** Merges `branch` into the current one with a merge commit called `subject`, dated `date`. */
+export function mergeAt(repository: string, branch: string, subject: string, date: string): void {
+  git(repository, "merge", "--quiet", "--no-ff", "--no-commit", branch);
+  commit(repository, subject, {}, date);
+}
+
 export interface Remote {
   /** The bare repository that plays `origin`. */
   origin: string;
