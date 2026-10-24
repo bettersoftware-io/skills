@@ -1,5 +1,6 @@
 // Package-scripts gate: every workspace package has a `typecheck` script and a
-// test script, and no script runs ESLint in a way that lets a warning through.
+// test script, no script runs ESLint in a way that lets a warning through, and
+// none runs vitest with the module cache the workspace shares.
 //
 // A task runner runs a task only in the packages that declare its script, and
 // says nothing about the rest. A new package with no `typecheck` is therefore
@@ -9,6 +10,14 @@
 // ESLint exits 0 on a warning. A rule set to "warn", by the project or by a
 // preset it takes in, then reports on every run and stops nothing, and the
 // count only grows. `--max-warnings 0` makes a warning fail.
+//
+// vitest 5.0.4 and later keep a module cache that every package of the
+// workspace shares, in the root's node_modules/.vitest-cache, and delete it
+// whole when the lockfile changed. The task runner starts packages' tests
+// side by side, so one deletes the folder while another writes into it, and
+// the run fails with ENOTEMPTY (seen three times on 2026-10-24, after an
+// install changed the lockfile). `--no-fsModuleCache` runs as 5.0.3 did. A
+// CI job starts with no cache, so it loses nothing there.
 
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
@@ -41,6 +50,17 @@ export function lenientLintCommands(script: string): string[] {
     .map((flags) => `eslint${flags}`.trim());
 }
 
+// `vitest` as a command, as `eslint` above.
+const VITEST_COMMAND = /(?:^|[\s;&|])vitest(?=\s|$)([^;&|]*)/g;
+
+/** The vitest commands in a script that would share and delete the workspace's module cache. */
+export function cachedVitestCommands(script: string): string[] {
+  return [...script.matchAll(VITEST_COMMAND)]
+    .map(([, flags = ""]) => flags)
+    .filter((flags) => !/(^|\s)(--no-fsModuleCache|--fsModuleCache=false)(\s|$)/.test(flags))
+    .map((flags) => `vitest${flags}`.trim());
+}
+
 export function checkPackageScripts({ root, config, workspace }: Project, onlyFiles?: string[]): Finding[] {
   const findings: Finding[] = [];
 
@@ -57,6 +77,14 @@ export function checkPackageScripts({ root, config, workspace }: Project, onlyFi
           gate: GATE,
           file,
           message: `The script "${name}" runs \`${command}\` without --max-warnings 0. ESLint exits 0 on a warning, so a rule set to "warn" reports on every run and stops nothing. Add --max-warnings 0 to the command.`,
+        });
+      }
+
+      for (const command of cachedVitestCommands(script)) {
+        findings.push({
+          gate: GATE,
+          file,
+          message: `The script "${name}" runs \`${command}\` without --no-fsModuleCache. vitest shares one module cache across the workspace and deletes it whole when the lockfile changed, so packages tested side by side fail with ENOTEMPTY. Add --no-fsModuleCache to the command.`,
         });
       }
     }
@@ -100,7 +128,7 @@ export function checkPackageScripts({ root, config, workspace }: Project, onlyFi
       findings.push({
         gate: GATE,
         file,
-        message: `${name} has no "test" script (or "test:…" one). The task runner skips a package without one and says nothing, so nothing here is ever tested and every run is green. Add "test": "vitest run" to its scripts, or list "${path}" under packagesWithoutTests in architecture.config.mts with the reason it has no tests.`,
+        message: `${name} has no "test" script (or "test:…" one). The task runner skips a package without one and says nothing, so nothing here is ever tested and every run is green. Add "test": "vitest run --no-fsModuleCache" to its scripts, or list "${path}" under packagesWithoutTests in architecture.config.mts with the reason it has no tests.`,
       });
     }
   }

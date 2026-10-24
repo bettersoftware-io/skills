@@ -6,7 +6,7 @@
   "dependencies": "an import points outward, a package that asked for none uses a Node built-in, the core imports a UI framework or an adapter, production code imports test scaffolding, a library named in vendorOnlyIn is imported outside its packages, or there is a cycle. It needs dependency-cruiser installed",
   "agent-docs": "AGENTS.md or CLAUDE.md names a file or folder that does not exist",
   "task-cache": "a cached task in turbo.json has a key that leaves out the packages a package imports, a package's tsconfig extends a file outside the package that is not a global dependency, or a package with tests that need a port caches its test task",
-  "package-scripts": "a workspace package has no typecheck script, or no test script and no listed reason; an e2e package has a test script; or a script runs eslint without --max-warnings 0",
+  "package-scripts": "a workspace package has no typecheck script, or no test script and no listed reason; an e2e package has a test script; a script runs eslint without --max-warnings 0, or vitest without --no-fsModuleCache",
   "node-floor": "a package.json has engines.node, or the root's has no devEngines.runtime that names node with a version and \"onFail\": \"error\"",
   "package-manager": "the root package.json has no packageManager, or one that is not an exact version followed by +sha512. and the hash of that release",
   "app-harness": "a test calls the function that builds the whole application, anywhere but the one harness file",

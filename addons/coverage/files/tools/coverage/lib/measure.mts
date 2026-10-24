@@ -131,7 +131,8 @@ function appliesEverywhere(pattern: string): boolean {
 }
 
 function runVitest(directory: string, vitestArguments: string[], quiet: boolean): VitestRun {
-  const { status } = spawnSync("pnpm", ["exec", "vitest", ...vitestArguments], {
+  // The module cache off, as in every test script: the kit's package-scripts gate says why.
+  const { status } = spawnSync("pnpm", ["exec", "vitest", ...vitestArguments, "--no-fsModuleCache"], {
     cwd: directory,
     stdio: quiet ? "ignore" : "inherit",
   });

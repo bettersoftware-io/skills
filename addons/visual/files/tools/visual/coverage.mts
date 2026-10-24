@@ -73,7 +73,8 @@ function main(root: string, argv: string[]): number {
 
   // `--coverage` turns on the coverage the config sets. Vitest empties the
   // reports folder first, so a file from an earlier run is never read as this one's.
-  const run = spawnSync(vitest, ["run", "--config", CONFIG, "--coverage"], {
+  // The module cache off, as in every test script: the kit's package-scripts gate says why.
+  const run = spawnSync(vitest, ["run", "--config", CONFIG, "--coverage", "--no-fsModuleCache"], {
     cwd: directory,
     encoding: "utf8",
     maxBuffer: 64 * 1024 * 1024,
