@@ -88,7 +88,7 @@ The two files hold one policy:
 
 | | `dependabot.yml` | `renovate.json5` |
 |---|---|---|
-| When | `interval: weekly` | `schedule: before 6am on monday` (UTC) |
+| When | `interval: weekly` | `schedule: on monday` (UTC) |
 | How young a release may be | `cooldown: default-days: 7` | `minimumReleaseAge: 7 days`, held back until then (`internalChecksFilter: strict`) |
 | Grouping | Minor and patch in one pull request, each major alone; the actions in one | The same two groups |
 | Open at once | `open-pull-requests-limit: 5` | `prConcurrentLimit: 5` |
@@ -111,6 +111,14 @@ What only Renovate does, and the file settles:
 - It moves the `packageManager` field with its hash, and the digest of a base
   image in a Dockerfile. Dependabot needs a `docker` entry for the second,
   and leaves the first to a person (`tools/arch/ci/pin-package-manager.mts`).
+- It reads the Playwright image of a workflow as the npm package
+  `@playwright/test`, so the package, the performance add-on's `playwright`
+  and every image move to one version, in one pull request of their own that
+  waits until someone asks for it on the Dependency Dashboard: the goldens
+  were drawn by one version, so a move means drawing them again. Without
+  this, "minor and patch" moved the package alone, and the `playwright-pin`
+  gate failed it (condo-ledger and origamic, 2026-10-19). Dependabot has no
+  such rule: under the starter's Node its npm updates do not run.
 
 Left out of the source's Renovate config: its auto-merge rules (a policy a
 project decides for itself; Dependabot's file has none either), its hourly
