@@ -61,6 +61,10 @@ describe("reading the pull requests merged into a branch", () => {
     ]);
   });
 
+  it("throws HistoryError for a date that is not one", () => {
+    expect(() => parseHistory("abc\tyesterday\tAdd x (#1)")).toThrow(HistoryError);
+  });
+
   it("throws HistoryError when git cannot read the ref", () => {
     expect(() => readHistory(repository(), "nowhere", run)).toThrow(HistoryError);
   });
@@ -106,7 +110,9 @@ describe("the repository's address", () => {
       expect(repositoryUrl(folder, run), url).toBe("https://github.com/acme/app");
     }
 
-    git(folder, "remote", "set-url", "origin", "https://gitlab.com/o/n");
-    expect(repositoryUrl(folder, run)).toBeUndefined();
+    for (const url of ["https://gitlab.com/o/n", "git@gitlab.com:o/n.git", "ssh://git@gitlab.com/o/n.git"]) {
+      git(folder, "remote", "set-url", "origin", url);
+      expect(repositoryUrl(folder, run), url).toBeUndefined();
+    }
   });
 });

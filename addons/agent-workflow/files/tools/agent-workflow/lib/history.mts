@@ -37,7 +37,13 @@ export function parseHistory(log: string): Merge[] {
     const number = numberIn(subject.join("\t"));
 
     if (date !== undefined && number !== undefined) {
-      merges.push({ number, mergedAt: new Date(date).toISOString() });
+      const time = new Date(date);
+
+      if (Number.isNaN(time.getTime())) {
+        throw new HistoryError(`git printed a date that is not one: ${date}`);
+      }
+
+      merges.push({ number, mergedAt: time.toISOString() });
     }
   }
 

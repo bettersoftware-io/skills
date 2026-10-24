@@ -5320,5 +5320,75 @@
     "find": "+?)(?:\\.git)?$/",
     "replace": "+?)$/",
     "test": "pnpm vitest run addons/agent-workflow/tests/history.test.mts -t \"turns each way of writing a GitHub origin\""
+  },
+  {
+    "name": "history: oldest first is lost",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/history.mts",
+    "find": "return merges.reverse();",
+    "replace": "return merges;",
+    "test": "pnpm vitest run addons/agent-workflow/tests/history.test.mts -t \"turns a committer offset into UTC\""
+  },
+  {
+    "name": "history: the date is not normalised to UTC",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/history.mts",
+    "find": "mergedAt: time.toISOString()",
+    "replace": "mergedAt: date",
+    "test": "pnpm vitest run addons/agent-workflow/tests/history.test.mts -t \"turns a committer offset into UTC\""
+  },
+  {
+    "name": "history: a bad date passes",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/history.mts",
+    "find": "if (Number.isNaN(time.getTime())) {",
+    "replace": "if (false) {",
+    "test": "pnpm vitest run addons/agent-workflow/tests/history.test.mts -t \"throws HistoryError for a date that is not one\""
+  },
+  {
+    "name": "history: a failed git log is read as empty",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/history.mts",
+    "find": "if (log.status !== 0) {",
+    "replace": "if (false) {",
+    "test": "pnpm vitest run addons/agent-workflow/tests/history.test.mts -t \"throws HistoryError when git cannot read\""
+  },
+  {
+    "name": "history: origin/main before origin/HEAD",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/history.mts",
+    "find": "[\"origin/HEAD\", \"origin/main\"].find",
+    "replace": "[\"origin/main\", \"origin/HEAD\"].find",
+    "test": "pnpm vitest run addons/agent-workflow/tests/history.test.mts -t \"finds origin/HEAD, else origin/main\""
+  },
+  {
+    "name": "history: a subject with no number is kept",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/history.mts",
+    "find": "if (date !== undefined && number !== undefined) {",
+    "replace": "if (date !== undefined) {",
+    "test": "pnpm vitest run addons/agent-workflow/tests/history.test.mts -t \"drops a subject that names no pull request\""
+  },
+  {
+    "name": "history: any git@ host is GitHub",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/history.mts",
+    "find": "git@github\\.com:",
+    "replace": "git@[\\w.]+:",
+    "test": "pnpm vitest run addons/agent-workflow/tests/history.test.mts -t \"turns each way of writing a GitHub origin\""
+  },
+  {
+    "name": "history: any ssh:// host is GitHub",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/history.mts",
+    "find": "ssh:\\/\\/git@github\\.com\\/",
+    "replace": "ssh:\\/\\/git@[\\w.]+\\/",
+    "test": "pnpm vitest run addons/agent-workflow/tests/history.test.mts -t \"turns each way of writing a GitHub origin\""
+  },
+  {
+    "name": "history: no ssh:// form",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/history.mts",
+    "find": "|ssh:\\/\\/git@github\\.com\\/)",
+    "replace": ")",
+    "test": "pnpm vitest run addons/agent-workflow/tests/history.test.mts -t \"turns each way of writing a GitHub origin\""
+  },
+  {
+    "name": "history: any https host is GitHub",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/history.mts",
+    "find": "https:\\/\\/github\\.com\\/",
+    "replace": "https:\\/\\/[\\w.]+\\/",
+    "test": "pnpm vitest run addons/agent-workflow/tests/history.test.mts -t \"turns each way of writing a GitHub origin\""
   }
 ]
