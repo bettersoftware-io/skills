@@ -6402,50 +6402,190 @@
   {
     "name": "the writer does not stop on a missing secret",
     "file": "addons/agent-workflow/files/.github/workflows/changelog-writer.yml",
-    "find": "ANTHROPIC_API_KEY is not set: add the secret or unset CHANGELOG_WRITER",
-    "replace": "ANTHROPIC_API_KEY is not set",
+    "find": "unset CHANGELOG_WRITER\"\n            exit 1\n",
+    "replace": "unset CHANGELOG_WRITER\"\n",
     "test": "pnpm vitest run addons/agent-workflow/tests/addon.test.mts --testNamePattern=\"stops with a message when the secret is missing\""
   },
   {
-    "name": "the writer installs before it checks what is due",
+    "name": "the writer checks the secret after the checkout",
     "file": "addons/agent-workflow/files/.github/workflows/changelog-writer.yml",
-    "find": "      - name: Check the secret, then what is due\n        id: due\n",
-    "replace": "      - name: Install dependencies\n        run: pnpm install --frozen-lockfile\n\n      - name: Check the secret, then what is due\n        id: due\n",
+    "find": "      - name: Check the secret\n",
+    "replace": "      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7\n        with:\n          fetch-depth: 0\n          persist-credentials: false\n\n      - name: Check the secret\n",
+    "test": "pnpm vitest run addons/agent-workflow/tests/addon.test.mts --testNamePattern=\"stops with a message when the secret is missing\""
+  },
+  {
+    "name": "the writer swaps due false and true",
+    "file": "addons/agent-workflow/files/.github/workflows/changelog-writer.yml",
+    "find": "          if [ \"$status\" -eq 0 ]; then\n            echo \"due=false\"",
+    "replace": "          if [ \"$status\" -eq 0 ]; then\n            echo \"due=true\"",
+    "test": "pnpm vitest run addons/agent-workflow/tests/addon.test.mts --testNamePattern=\"maps the exit of due to a flag\""
+  },
+  {
+    "name": "the writer treats exit 2 as nothing due",
+    "file": "addons/agent-workflow/files/.github/workflows/changelog-writer.yml",
+    "find": "          else\n            cat \"$RUNNER_TEMP/due.txt\"\n            exit 1\n",
+    "replace": "          else\n            cat \"$RUNNER_TEMP/due.txt\"\n",
+    "test": "pnpm vitest run addons/agent-workflow/tests/addon.test.mts --testNamePattern=\"maps the exit of due to a flag\""
+  },
+  {
+    "name": "the writer ignores an open changelog pull request",
+    "file": "addons/agent-workflow/files/.github/workflows/changelog-writer.yml",
+    "find": "if [ \"$open\" -gt 0 ]; then",
+    "replace": "if [ \"$open\" -gt 999 ]; then",
+    "test": "pnpm vitest run addons/agent-workflow/tests/addon.test.mts --testNamePattern=\"does not write while a changelog pull request is open\""
+  },
+  {
+    "name": "the writer installs before it knows what is due",
+    "file": "addons/agent-workflow/files/.github/workflows/changelog-writer.yml",
+    "find": "        if: steps.due.outputs.due == 'true'\n        run: pnpm install --frozen-lockfile",
+    "replace": "        run: pnpm install --frozen-lockfile",
     "test": "pnpm vitest run addons/agent-workflow/tests/addon.test.mts --testNamePattern=\"checks what is due before installing or running Claude Code\""
   },
   {
-    "name": "the writer pins an action by tag",
+    "name": "the writer pins the agent by tag",
     "file": "addons/agent-workflow/files/.github/workflows/changelog-writer.yml",
-    "find": "anthropics/claude-code-action@925afb53776cf1a2b738c6bdbed37b4d4000ef13 # v1.0.262",
+    "find": "anthropics/claude-code-action@f27be6b65a4652f08a2ba3cff79114829b588967 # v1.0.252",
     "replace": "anthropics/claude-code-action@v1 # v1",
-    "test": "pnpm vitest run addons/agent-workflow/tests/addon.test.mts --testNamePattern=\"pins every action by commit, the same checkout\""
+    "test": "pnpm vitest run addons/agent-workflow/tests/addon.test.mts --testNamePattern=\"pins every action by commit, at the commits chosen\""
   },
   {
-    "name": "the writer may merge",
+    "name": "the writer pins the download by tag",
     "file": "addons/agent-workflow/files/.github/workflows/changelog-writer.yml",
-    "find": "Bash(gh pr create:*),",
-    "replace": "Bash(gh pr create:*),Bash(gh pr merge:*),",
-    "test": "pnpm vitest run addons/agent-workflow/tests/addon.test.mts --testNamePattern=\"may push a changelog branch and open a pull request, and never merge\""
+    "find": "actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2",
+    "replace": "actions/download-artifact@v8 # v8",
+    "test": "pnpm vitest run addons/agent-workflow/tests/addon.test.mts --testNamePattern=\"pins every action by commit, at the commits chosen\""
   },
   {
-    "name": "the writer may write issues",
+    "name": "the writer lets the agent open a pull request",
     "file": "addons/agent-workflow/files/.github/workflows/changelog-writer.yml",
-    "find": "      issues: read #",
-    "replace": "      issues: write #",
-    "test": "pnpm vitest run addons/agent-workflow/tests/addon.test.mts --testNamePattern=\"may push a changelog branch and open a pull request, and never merge\""
+    "find": "Bash(gh pr view:*)\"",
+    "replace": "Bash(gh pr view:*),Bash(gh pr create:*)\"",
+    "test": "pnpm vitest run addons/agent-workflow/tests/addon.test.mts --testNamePattern=\"gives the agent only what it needs\""
   },
   {
-    "name": "the writer gives Claude Code no token",
+    "name": "the writer lets the agent write any file",
     "file": "addons/agent-workflow/files/.github/workflows/changelog-writer.yml",
-    "find": "          github_token: ${{ github.token }}\n",
+    "find": "Write(./CHANGELOG.md)",
+    "replace": "Write",
+    "test": "pnpm vitest run addons/agent-workflow/tests/addon.test.mts --testNamePattern=\"gives the agent only what it needs\""
+  },
+  {
+    "name": "the writer lets the agent run git",
+    "file": "addons/agent-workflow/files/.github/workflows/changelog-writer.yml",
+    "find": "Bash(pnpm changelog weeks),",
+    "replace": "Bash(git push:*),Bash(pnpm changelog weeks),",
+    "test": "pnpm vitest run addons/agent-workflow/tests/addon.test.mts --testNamePattern=\"gives the agent only what it needs\""
+  },
+  {
+    "name": "the writer gives the agent 400 turns",
+    "file": "addons/agent-workflow/files/.github/workflows/changelog-writer.yml",
+    "find": "--max-turns 40\n",
+    "replace": "--max-turns 400\n",
+    "test": "pnpm vitest run addons/agent-workflow/tests/addon.test.mts --testNamePattern=\"gives the agent only what it needs\""
+  },
+  {
+    "name": "the writer does not scrub the agent's environment",
+    "file": "addons/agent-workflow/files/.github/workflows/changelog-writer.yml",
+    "find": "      CLAUDE_CODE_SUBPROCESS_ENV_SCRUB: \"1\"\n",
     "replace": "",
-    "test": "pnpm vitest run addons/agent-workflow/tests/addon.test.mts --testNamePattern=\"gives Claude Code the token it pushes with\""
+    "test": "pnpm vitest run addons/agent-workflow/tests/addon.test.mts --testNamePattern=\"gives the agent only what it needs\""
+  },
+  {
+    "name": "the writer gives the agent a write token",
+    "file": "addons/agent-workflow/files/.github/workflows/changelog-writer.yml",
+    "find": "      contents: read\n      pull-requests: read #",
+    "replace": "      contents: write\n      pull-requests: read #",
+    "test": "pnpm vitest run addons/agent-workflow/tests/addon.test.mts --testNamePattern=\"splits the agent from the token that writes\""
+  },
+  {
+    "name": "the writer publishes with the agent's job",
+    "file": "addons/agent-workflow/files/.github/workflows/changelog-writer.yml",
+    "find": "    needs: write\n",
+    "replace": "",
+    "test": "pnpm vitest run addons/agent-workflow/tests/addon.test.mts --testNamePattern=\"hands the file over\""
+  },
+  {
+    "name": "the writer publishes when nothing is due",
+    "file": "addons/agent-workflow/files/.github/workflows/changelog-writer.yml",
+    "find": "    if: needs.write.result == 'success' && needs.write.outputs.due == 'true'",
+    "replace": "    if: needs.write.result == 'success'",
+    "test": "pnpm vitest run addons/agent-workflow/tests/addon.test.mts --testNamePattern=\"hands the file over\""
+  },
+  {
+    "name": "the writer gives the agent no token",
+    "file": "addons/agent-workflow/files/.github/workflows/changelog-writer.yml",
+    "find": "          github_token: ${{ github.token }}\n          prompt:",
+    "replace": "          prompt:",
+    "test": "pnpm vitest run addons/agent-workflow/tests/addon.test.mts --testNamePattern=\"never merges, and gives the agent a read-only token\""
+  },
+  {
+    "name": "the writer merges",
+    "file": "addons/agent-workflow/files/.github/workflows/changelog-writer.yml",
+    "find": "gh pr create --title",
+    "replace": "gh pr merge --auto; gh pr create --title",
+    "test": "pnpm vitest run addons/agent-workflow/tests/addon.test.mts --testNamePattern=\"never merges, and gives the agent a read-only token\""
+  },
+  {
+    "name": "the writer does not check the newest week",
+    "file": "addons/agent-workflow/files/.github/workflows/changelog-writer.yml",
+    "find": "if ! [[ \"$NEWEST\" =~ ^[0-9]{4}-W[0-9]{2}$ ]]; then",
+    "replace": "if false; then",
+    "test": "pnpm vitest run addons/agent-workflow/tests/addon.test.mts --testNamePattern=\"checks the week names before it uses them\""
+  },
+  {
+    "name": "the writer does not check each week",
+    "file": "addons/agent-workflow/files/.github/workflows/changelog-writer.yml",
+    "find": "if ! [[ \"$week\" =~ ^[0-9]{4}-W[0-9]{2}$ ]]; then",
+    "replace": "if false; then",
+    "test": "pnpm vitest run addons/agent-workflow/tests/addon.test.mts --testNamePattern=\"checks the week names before it uses them\""
+  },
+  {
+    "name": "the writer publishes an unchanged file",
+    "file": "addons/agent-workflow/files/.github/workflows/changelog-writer.yml",
+    "find": "if git diff --quiet -- CHANGELOG.md; then",
+    "replace": "if false; then",
+    "test": "pnpm vitest run addons/agent-workflow/tests/addon.test.mts --testNamePattern=\"checks the week names before it uses them\""
+  },
+  {
+    "name": "the writer commits more than the file",
+    "file": "addons/agent-workflow/files/.github/workflows/changelog-writer.yml",
+    "find": "git add -- CHANGELOG.md",
+    "replace": "git add -A",
+    "test": "pnpm vitest run addons/agent-workflow/tests/addon.test.mts --testNamePattern=\"checks each week, then commits CHANGELOG.md alone\""
+  },
+  {
+    "name": "the writer pushes by branch name",
+    "file": "addons/agent-workflow/files/.github/workflows/changelog-writer.yml",
+    "find": "\"HEAD:refs/heads/changelog/$NEWEST\"",
+    "replace": "\"changelog/$NEWEST\"",
+    "test": "pnpm vitest run addons/agent-workflow/tests/addon.test.mts --testNamePattern=\"pushes one branch by an explicit refspec\""
+  },
+  {
+    "name": "the writer force pushes",
+    "file": "addons/agent-workflow/files/.github/workflows/changelog-writer.yml",
+    "find": "push origin \"HEAD:",
+    "replace": "push --force origin \"HEAD:",
+    "test": "pnpm vitest run addons/agent-workflow/tests/addon.test.mts --testNamePattern=\"pushes one branch by an explicit refspec\""
+  },
+  {
+    "name": "the writer opens a final pull request when a check failed",
+    "file": "addons/agent-workflow/files/.github/workflows/changelog-writer.yml",
+    "find": "draft=(--draft)",
+    "replace": "draft=()",
+    "test": "pnpm vitest run addons/agent-workflow/tests/addon.test.mts --testNamePattern=\"opens the pull request with a body of its own\""
+  },
+  {
+    "name": "the writer closes the wrong issues",
+    "file": "addons/agent-workflow/files/.github/workflows/changelog-writer.yml",
+    "find": "endswith($week)",
+    "replace": "startswith($week)",
+    "test": "pnpm vitest run addons/agent-workflow/tests/addon.test.mts --testNamePattern=\"opens the pull request with a body of its own\""
   },
   {
     "name": "the writer puts an expression in a command line",
     "file": "addons/agent-workflow/files/.github/workflows/changelog-writer.yml",
     "find": "        run: node tools/arch/ci/enable-corepack.mts",
     "replace": "        run: node tools/arch/ci/enable-corepack.mts ${{ github.ref }}",
-    "test": "pnpm vitest run addons/agent-workflow/tests/addon.test.mts --testNamePattern=\"puts no expression in a command line\""
+    "test": "pnpm vitest run addons/agent-workflow/tests/addon.test.mts --testNamePattern=\"puts no expression in a command line: every one goes through env\""
   }
 ]

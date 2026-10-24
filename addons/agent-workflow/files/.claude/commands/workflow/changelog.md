@@ -112,13 +112,14 @@ pull request that writes the week up.
 ## In CI
 
 `changelog-writer.yml` runs this command with no person to ask. The weeks are
-the ones `pnpm changelog due` lists. Differences from the steps above:
+the ones `pnpm changelog due` lists. You may edit `CHANGELOG.md` and nothing
+else, and you have no git. Differences from the steps above:
 
-- Skip step 3. The job's checkout is already a clean copy: work on a branch
-  `changelog/<newest week>` (`git switch -c changelog/2026-W41`).
-- Write every due week in that branch, and open one pull request for all of
-  them, titled `docs(changelog): <weeks>` (`docs(changelog): 2026-W40, 2026-W41`).
-- Stop after `gh pr create`. Never merge, and never push to any other branch.
-- When `pnpm changelog check` fails and you cannot fix it, open the pull
-  request as a draft (`--draft`) whose body lists what is missing. Do not
-  report a failed check as a pass.
+- Write or extend every due week in `CHANGELOG.md`, steps 1, 2, 4 and 5.
+- Run `pnpm changelog defs --write`, then `pnpm changelog check <week>` for
+  each due week. Fix the entry until it passes, or until you cannot. Report a
+  check that still fails as failed, never as a pass.
+- Then stop. Do not start a worktree (step 3), run `pnpm gate:fast`, commit,
+  push or open a pull request, and never merge. The workflow's next job checks
+  the file again, commits it, pushes the branch and opens the pull request,
+  as a draft when a check failed.
