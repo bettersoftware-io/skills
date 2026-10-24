@@ -182,9 +182,12 @@ Added on 2026-10-11 ([the record](documenting-architecture-2026-10-11.md)).
   move the action commits in `.github/workflows/`, which the add-ons wrote
   and `tools/installed.json` records. A merged bump makes each file one the
   next update of its add-on refuses, unless the add-on's new copy is the same
-  byte for byte. Read from the installer's code; not yet seen in a project.
-  Leaving the add-ons' workflows to the add-on updates, as `tools/` is
-  left, would close it.
+  byte for byte. Seen on 2026-10-24: condo-ledger merged Renovate's actions
+  pull request (#17), and its next `ci-security` update refused
+  `ci-security.yml` and `scorecard.yml`; `--force` would have put the older
+  commits back. Leaving the add-ons' workflows to the add-on updates, as
+  `tools/` is left, would close it, at the cost of a project's actions moving
+  only when its add-ons are updated.
 
 
 Found while Origamic's dependency rule went into its gates, on 2026-10-16
