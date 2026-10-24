@@ -338,7 +338,7 @@ Found while a project was set up with the plugin, on 2026-10-12 and 13.
   choice the add-on's README states. A review on 2026-10-24 gave the detail
   of the second: places where the reader read a command otherwise than bash
   (`$'…'`, an unquoted heredoc's body, `${…}`, and more of that kind found
-  with them), closed in 0.20.1 ([the add-on's
+  with them), closed in 0.20.2 ([the add-on's
   README](../addons/agent-workflow/README.md#a-review-against-the-hosts-own-matching)).
   The reader is still compared with bash by hand, case by case, and not with
   a shell's own parser over generated commands.
