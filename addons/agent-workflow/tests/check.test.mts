@@ -327,7 +327,7 @@ describe("the add-on's check", () => {
 
     expect(status).toBe(0);
     expect(lines).toContain(
-      "NOTE Claude Code: 2 of 18 ask rules (forced or destructive pushes, --admin merges, changelog --apply steps) are not in permissions.ask. No allow rule lets a push or a merge run by pattern, so those forms ask anyway",
+      "NOTE Claude Code: 2 of 18 ask rules (forced or destructive pushes, --admin merges, the --apply of changelog tag and changelog:releases) are not in permissions.ask. No allow rule lets a push or a merge run by pattern, so those forms ask anyway",
     );
   });
 
@@ -357,7 +357,7 @@ describe("the add-on's check", () => {
 
     expect(status).toBe(1);
     expect(lines.join("\n")).toMatch(
-      /FAIL Claude Code: Bash\(git push origin worktree-\*\) allows by pattern, and a forced or destructive push, an --admin merge or a changelog --apply is not set to ask\. Missing from permissions\.ask: Bash\(git push \*--mirror\*\)/,
+      /FAIL Claude Code: Bash\(git push origin worktree-\*\) allows by pattern, and a forced or destructive push, an --admin merge or the --apply of changelog tag or changelog:releases is not set to ask\. Missing from permissions\.ask: Bash\(git push \*--mirror\*\)/,
     );
   });
 
