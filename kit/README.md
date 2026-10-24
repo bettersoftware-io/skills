@@ -39,7 +39,7 @@ A project declares its layers once, in `architecture.config.mts`
 | `dependencies` | An import points outward; the domain, or a package that asked, uses a Node built-in; the core imports a UI framework; a presenter or a state machine imports an adapter; production code imports test scaffolding; a confined library is imported outside its packages; the UI imports the composition root or an adapter; anything imports an integration package or an e2e package; an e2e package imports any of the application but a client's test ids; there is a cycle |
 | `agent-docs` | `AGENTS.md` or `CLAUDE.md` names a file or folder that does not exist |
 | `task-cache` | A cached task in `turbo.json` has a key that leaves out the packages a package imports; a package's tsconfig extends a file outside the package that is not a global dependency; a package with tests that need a port caches its `test` task |
-| `package-scripts` | A workspace package has no `typecheck` script, or no `test` (or `test:…`) script and no listed reason; an e2e package has a `test` script; a script, the root's or a package's, runs `eslint` without `--max-warnings 0` |
+| `package-scripts` | A workspace package has no `typecheck` script, or no `test` (or `test:…`) script and no listed reason; an e2e package has a `test` script; a script, the root's or a package's, runs `eslint` without `--max-warnings 0`, or `vitest` without `--no-fsModuleCache` |
 | `node-floor` | A `package.json`, the root's or a package's, has `engines.node`; the root's has no `devEngines.runtime` that names `node` with a version and `"onFail": "error"` |
 | `package-manager` | The root `package.json` has no `packageManager`, or one that is not an exact version followed by `+sha512.` and the hash of that release |
 | `app-harness` | A test calls the function that builds the whole application, anywhere but the one harness file |
@@ -366,6 +366,18 @@ preset it takes in, then reports on every run and stops nothing. The
 `package-scripts` gate fails on a script that runs `eslint` without
 `--max-warnings 0`, in the root `package.json` and in each package's. A script
 that passes `--fix` is left alone: a fixer gives no verdict.
+
+### Tests run without vitest's shared module cache
+
+vitest 5.0.4 and later keep one module cache for the whole workspace, in the
+root's `node_modules/.vitest-cache`, and delete it whole when the lockfile
+changed. The task runner starts packages' tests side by side, so one deletes
+the folder while another writes into it, and a run fails with `ENOTEMPTY`:
+three times on this plugin's CI on 2026-10-24, after vitest 5.0.5 came in.
+The `package-scripts` gate fails on a script that runs `vitest` without
+`--no-fsModuleCache` (or `--fsModuleCache=false`), which runs it as 5.0.3 did.
+A CI job starts with no cache, so it loses nothing there; a person loses the
+faster second run on their own machine.
 
 ### Test scaffolding stays in tests
 
