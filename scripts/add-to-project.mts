@@ -1389,7 +1389,7 @@ export function describeYours({
     ...(yours.length > 0 && examplesNotGiven.length > 0
       ? [
           [
-            `Examples this project was never given: ${examplesNotGiven.join(", ")}. A template above may import one. Start it from its template in tools/templates/, with this project's own entries.`,
+            `Examples this project was never given: ${examplesNotGiven.join(", ")}. A template above may import one. Each text file among them has a template in tools/templates/ to start from, with this project's own entries; an image has none, and is the project's to make.`,
           ],
         ]
       : []),

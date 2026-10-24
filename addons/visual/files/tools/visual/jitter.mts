@@ -134,7 +134,7 @@ async function runJitter(argv: string[]): Promise<number> {
   }
 
   const { scenarios, FRAMING, TOLERANCE } = project;
-  const unknown = request.mode === "capture" ? request.scenarios.filter((name) => !(name in scenarios)) : [];
+  const unknown = request.mode === "capture" ? request.scenarios.filter((name) => !Object.hasOwn(scenarios, name)) : [];
 
   if (unknown.length > 0) {
     console.error(`No measurement: no scenario named ${unknown.map((name) => `"${name}"`).join(", ")} in scenarios.ts.`);
@@ -164,7 +164,7 @@ async function runJitter(argv: string[]): Promise<number> {
 
   const measurement = measureNoise(directories, (image) => toleranceOf(image).threshold);
   const verdict = judgeNoise(measurement, toleranceOf);
-  const orphans = measurement.images.map((noise) => noise.image).filter((image) => !(scenarioNameOf(image) in scenarios));
+  const orphans = measurement.images.map((noise) => noise.image).filter((image) => !Object.hasOwn(scenarios, scenarioNameOf(image)));
 
   console.log(`\n${verdict.lines.join("\n")}`);
 

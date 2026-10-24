@@ -113,6 +113,20 @@ describe("pnpm visual:jitter on folders already captured", () => {
     expect(over.output).toContain("FAIL: zz-orphan.png");
   });
 
+  it("counts an image named after a property every object has as one no scenario owns", () => {
+    const { status, output } = run(capture("toString", 5));
+
+    expect(status).toBe(0);
+    expect(output).toContain("No scenario owns toString.png");
+  });
+
+  it("refuses to capture a scenario named after a property every object has", () => {
+    const result = spawnSync(process.execPath, [resolve(import.meta.dirname, "../files/tools/visual/jitter.mts"), "--scenario", "constructor"], { encoding: "utf8" });
+
+    expect(result.status).toBe(2);
+    expect(`${result.stdout}${result.stderr}`).toContain('No measurement: no scenario named "constructor" in scenarios.ts.');
+  });
+
   it("judges a scenario's image by the project's tolerance.ts", () => {
     expect(run(capture("price-row-up", 5)).status).toBe(0);
     expect(run(capture("price-row-up", 30)).status).toBe(1);

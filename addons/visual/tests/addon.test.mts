@@ -31,7 +31,7 @@ function scenarioFields(): string[] {
 }
 
 /** Each shipped scenario's name, level and mount, read from the text of `scenarios.ts`. A scenario with no `level` is a page. */
-function shippedScenarios(): { name: string; level: string; mount: string | undefined }[] {
+function shippedScenarios(): { name: string; level: string; mount: string | undefined; stale: boolean }[] {
   const body = /export const scenarios: Record<string, Scenario> = \{([\s\S]*?)\n\};/.exec(readShipped("scenarios.ts"))?.[1] ?? "";
 
   return [...body.matchAll(/^ {2}"?([\w-]+)"?: \{\n([\s\S]*?)^ {2}\},?$/gm)].map((match) => {
@@ -41,6 +41,7 @@ function shippedScenarios(): { name: string; level: string; mount: string | unde
       name: match[1] as string,
       level: /^ {4}level: "(\w+)",$/m.exec(fields)?.[1] ?? "page",
       mount: /^ {4}mount: "([\w-]+)",$/m.exec(fields)?.[1],
+      stale: /^ {4}stalePrices: \[/m.test(fields),
     };
   });
 }
@@ -60,6 +61,11 @@ describe("the shipped examples", () => {
     expect(count("component")).toBeGreaterThan(count("section"));
     expect(count("component")).toBeGreaterThan(count("page"));
     expect(count("page")).toBeLessThanOrEqual(2);
+  });
+
+  it("take the seeding's stale wait in a section: prices delivered, then the clock moved past them", () => {
+    expect(shippedScenarios().filter((scenario) => scenario.stale).map(({ name, level }) => ({ name, level }))).toEqual([{ name: "price-list-stale", level: "section" }]);
+    expect(readShipped("seeding.ts")).toContain("clock.tick(STALE_AFTER_MS);");
   });
 
   it("mount only what the registry has", () => {

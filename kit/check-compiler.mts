@@ -14,7 +14,7 @@
 //     role: "client",
 //     reactCompiler: true,
 //     compilerTracked: [
-//       { file: "src/ui/PriceList.tsx", fn: "PriceRowView" },
+//       { file: "src/ui/PriceRow.tsx", fn: "PriceRow" },
 //       { file: "src/ui/Chart.tsx", fn: "Chart", values: ["path"] },
 //     ],
 //   },

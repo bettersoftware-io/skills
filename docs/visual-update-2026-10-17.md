@@ -501,3 +501,71 @@ in every capture, noise floor 0 for both knobs.
 
 The repository is to be deleted once this is committed; that is asked of the
 user first.
+
+## Inter and a stale section, 2026-10-24
+
+The starter's client now serves Inter (the Latin subset at 400 and 700, from
+@fontsource/inter 5.3.0, with its OFL licence) from `index.css`, and the
+examples gained `price-list-stale`, a section whose USDJPY row goes stale on
+the host's clock (`stalePrices`, then `clock.tick(STALE_AFTER_MS)`). Every
+example golden changed, on both systems. Plugin 0.20.0.
+
+### darwin-arm64
+
+In a project created from the branch with `--scope @demo --with visual`, on
+the same Mac as above: `pnpm gate:full` passed; `pnpm visual` against the
+0.19.0 goldens failed 10 (every picture changed, and `price-list-stale` had
+none); `pnpm visual:update`, then `pnpm visual`: 11 passed. Each of the ten
+images was opened: the text is Inter, bold in the heading, the column
+headers and the symbols (the browser's own `h1` and `th`), regular in the
+prices; up green, down red, the selected row on a grey band, the stale row
+faded (in `price-list-stale`, USDJPY only); the page has only the app's own
+8-pixel body margin. Chromium, asked through `CSS.getPlatformFontsForNode`,
+named `Inter-Bold` and `Inter-Regular` with `isCustomFont: true` for every
+cell. A row is now 496x49 and a list 496x148.
+
+`pnpm visual:jitter --runs 5`: 10 images identical in every capture, noise
+floor 0 for both knobs. The two real regressions of spec §5, counted by
+Playwright: the up colour, 5 of 10 failed (109 in `price-row-up`, 108 in the
+three lists and the app); each row cell one pixel right, 9 of 10 failed (126
+to 236 for a row, 511 to 549 for a list, 517 for the app).
+
+### linux-x64
+
+In a temporary public repository, `bettersoftware-io/skills-visual-proof`,
+made again as above:
+
+```
+node scripts/create-project.mts <scratch>/proof --scope @demo --with agent-workflow,ci-security,coverage,e2e,format-lint,performance,repo-hygiene,strict-lint,visual
+```
+
+`git init`, `pnpm install`, `pnpm fix` (changed nothing), the `pnpm -r update`
+command the scripts print, then `pnpm gate:full`: 20 stages pass; locally
+`pnpm visual` 11 passed and `pnpm e2e` 5 passed. Committed as `3ffbd32`,
+created with `gh repo create --public` and pushed. No secret was added.
+
+- On the push, `CI`, `Coverage`, `CI security`, `End-to-end`,
+  `Motion audit` and `Scorecard` passed. `Visual goldens` (run 40127648937),
+  holding the 0.19.0 Linux set, failed 10 of 10: nine pictures 49 pixels tall
+  against goldens 50 tall, and no golden for `price-list-stale`.
+- `Update visual goldens`, five times on `3ffbd32`: runs 40127650850,
+  40127652656, 40127654416, 40127656227, 40127658097. All passed, 10 images
+  each, each downloaded into an empty folder of its own.
+- By checksum each image is one file across the five sets; the digest of
+  each set's hash list is `44487767ac3759f0…`.
+- `node tools/visual/jitter.mts <five dirs>` in the project: 5 captures, 10
+  images, every one identical in every capture. Noise floor 0 pixels (set:
+  8) and 0 for the threshold (set: 0.01).
+- The set from run 40127650850 was copied into the add-on's
+  `goldens/linux-x64/` and into the project's, committed there as `dc23ff4`
+  and pushed. `Visual goldens` on `dc23ff4` (run 40127846596): 11 passed;
+  every other workflow passed too.
+
+**Bold is drawn on Linux now**: the heading, the column headers and the
+symbols are bold, as on darwin. Every Linux picture has the size of its
+darwin twin (a row 496x49, a list 496x148); with `system-ui` a row was 50
+tall on Linux and 47 on darwin.
+
+The repository could not be deleted from this session: `gh repo delete`
+answered that the token lacks the `delete_repo` scope. It is listed in
+`docs/STATUS.md` until a person deletes it.
