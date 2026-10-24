@@ -835,14 +835,23 @@ bash 5.3 and 3.2, zsh and dash:
 | `<<` in arithmetic was taken for a heredoc, which hid the lines after it | `echo $((1<<2))` then a push, then `2` | `$((…))`, `$[…]` and `((…))` are arithmetic; what `((…))` holds is read as commands too, as dash runs it |
 | A heredoc opened before a quote that holds a new line took its body from inside the quote | `cat <<EOF "`, a new line, `"; git push …; echo "`, and the body | The body begins after the next new line outside quotes |
 | Backticks were closed where the reader's quotes said; bash 5 closes them at the first backtick no backslash escapes, and runs the push after them | ``echo `echo 'x`; git push …`` | Closed where bash closes them. What these hold is unreadable, so it is asked about |
+| Inside double quotes, backticks kept `\"` as written; bash makes it `"` | `` echo "`echo \" ' \"; git push …; echo \" ' \"`" `` | `\"` is `"` there too: refused as a chain |
 
 What shells read differently from one another, the reader does not read:
 the command is unreadable, and is asked about when it names an outward step.
-That is a `case` inside `$(…)` (its patterns end in `)`), a quote inside
-`${…}` within double quotes, a heredoc or arithmetic, a single quote in
-arithmetic, a heredoc opened inside a substitution whose body would come
-after it, and backticks whose content is itself unreadable. `$"…"` was read
+That is any unquoted `case` inside `$(…)`, wherever it stands (`f() { case
+…`, `function f { case …`), since its patterns end in `)`; a quote inside
+`${…}` within double quotes, a heredoc or arithmetic; a single quote in
+arithmetic; a heredoc opened inside a substitution whose body would come
+after it; and backticks whose content is itself unreadable. `$"…"` was read
 right already: it is a double-quoted string to the reader, as to bash.
+
+Each `((` is tried as arithmetic to its own close before it is taken for a
+subshell, so a long run of brackets cost one look ahead per bracket. What
+those tries read, over the whole command, is bounded by the longest command
+(a million characters). Past that the command is not read, and is refused
+when it names an outward step: a hundred thousand brackets are answered in
+well under a second.
 
 ## Not verified
 

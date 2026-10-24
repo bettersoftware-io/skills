@@ -351,6 +351,7 @@ describe("a push where the reader once did not look", () => {
     ["inside $((…)), in $(…)", "echo $(( $(git push origin worktree-a) + 1 ))"],
     ["after a heredoc opened before a quote that holds a new line", 'cat <<EOF "\n"; git push origin worktree-a; echo "\nEOF\n"'],
     ["inside backticks inside backticks", "echo `echo \\`git push origin worktree-a\\``"],
+    ["inside backticks in double quotes, between escaped quotes", "echo \"`echo \\\" ' \\\"; git push origin worktree-a; echo \\\" ' \\\"`\""],
   ])("is a chain: %s", (_name, command) => {
     expect(judgeCommand(command)).toMatchObject({ outward: ["git push origin"], chained: true });
     expect(judgeCall({ tool_name: "Bash", tool_input: { command } })?.decision).toBe("deny");
@@ -366,6 +367,7 @@ describe("a push where the reader once did not look", () => {
     ["a parameter expansion that holds no command", "echo ${x:-wip && git push} ${y#*:} ${#z}"],
     ["$'…' that holds an escaped quote", "echo $'it\\'s git push && gh pr merge'"],
     ["arithmetic that holds the words", "echo $((git + push)) $[gh - pr]"],
+    ["the word case in quotes inside $(…)", "echo \"$(grep 'case' notes.txt)\" $(echo \"case\") $(echo x-case)"],
   ])("is not a step: %s", (_name, command) => {
     expect(judgeCommand(command)).toEqual({ outward: [], chained: false, redirected: false });
   });
@@ -407,8 +409,12 @@ describe("a command that cannot be read", () => {
     ["${…} that never closes", "echo ${x:-$(git push)"],
     ["a single quote inside ${…} in an unquoted heredoc", "cat <<EOF\n${x:-'}'$(git push)}\nEOF"],
     ["a single quote inside arithmetic", "echo $(( '$(git push)' ))"],
+    ["quotes inside ${…} in double quotes", "echo \"${x:-'\"'$(git push origin worktree-a)'\"'}\""],
     ["arithmetic that never closes", "echo $[1 + $(git push)"],
     ["a case inside $(…), whose patterns close with a bracket", 'echo "$(case x in a) ;; esac; git push origin worktree-a)"'],
+    ["a case in a function's braces inside $(…)", 'echo "$(f() { case x in a) ;; esac; }; git push origin worktree-a)"'],
+    ["a case as a function's body inside $(…)", 'echo "$(f() case x in a) ;; esac; git push origin worktree-a)"'],
+    ["a case in a function written with its keyword inside $(…)", 'echo "$(function f { case x in a) ;; esac; }; git push origin worktree-a)"'],
     ["a heredoc opened inside $(…) whose body comes after it", 'echo "$(cat <<EOF)"\ngit push origin worktree-a\nEOF'],
     ["a heredoc opened inside backticks", "echo `cat <<EOF`\ngit push origin worktree-a\nEOF"],
     ["a heredoc whose body would begin inside $(…)", "cat <<EOF $(echo a\ngit push)\nbody\nEOF"],

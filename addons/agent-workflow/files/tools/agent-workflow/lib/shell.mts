@@ -49,8 +49,18 @@ interface Heredoc {
 }
 
 const WORD_END = new Set([" ", "\t", "\n", ";", "&", "|", "<", ">", "(", ")"]);
-/** Words after which the next word is still where a command starts. */
-const BEFORE_A_COMMAND = new Set(["!", "{", "then", "do", "else", "elif", "if", "while", "until", "time"]);
+
+/**
+ * Where an expansion stands: in a word, inside double quotes, or in text the
+ * shell reads as it reads double quotes but with quotes as text (a heredoc's
+ * body, arithmetic).
+ */
+type Context = "word" | "double" | "body";
+
+/** How many characters the reader may read again, in all, after `((` turned out not to be arithmetic. */
+interface Lookahead {
+  characters: number;
+}
 
 export function parseShell(text: string): Script {
   if (text.length > LONGEST_SCRIPT) {
@@ -67,10 +77,18 @@ class Scanner {
   private readonly heredocs: Heredoc[] = [];
   /** Where a `((` was found to close with one bracket, so that it is looked at once. */
   private readonly notArithmetic = new Set<number>();
+  /** Shared by every scanner of one command, so that the bound is on the whole of it. */
+  private readonly lookahead: Lookahead;
 
-  constructor(text: string, depth = 0) {
+  constructor(text: string, depth = 0, lookahead: Lookahead = { characters: 0 }) {
     this.text = text;
     this.depth = depth;
+    this.lookahead = lookahead;
+  }
+
+  /** A scanner of part of this text, or of text made from it, at this depth and on this budget. */
+  private reader(text: string): Scanner {
+    return new Scanner(text, this.depth, this.lookahead);
   }
 
   /** Reads commands up to the `)` that closes them, or to the end when there is none. */
@@ -152,7 +170,7 @@ class Scanner {
 
         if (this.text[this.position + 1] === "(" && this.arithmetic({ steps: [], nested: [] }, start)) {
           // `((…))` is arithmetic to bash and zsh, and two subshells to dash: what is inside is read as commands, which finds both.
-          script.nested.push(new Scanner(this.text.slice(start, this.position - 2), this.depth).script(undefined));
+          script.nested.push(this.reader(this.text.slice(start, this.position - 2)).script(undefined));
           stage.push("((…))");
         } else {
           // A subshell runs what is inside it: the brackets change nothing here.
@@ -168,6 +186,7 @@ class Scanner {
         this.position += 1;
         groups = Math.max(0, groups - 1);
       } else {
+        const start = this.position;
         const word = this.word(script);
 
         // `2>file`: the digits name a file descriptor, they are not a word.
@@ -175,8 +194,9 @@ class Scanner {
           continue;
         }
 
-        // A pattern of a `case` ends in `)`, which this would take for the end of the `$(…)`.
-        if (closer === ")" && word === "case" && stage.every((before) => BEFORE_A_COMMAND.has(before))) {
+        // A pattern of a `case` ends in `)`, which this would take for the end of the `$(…)`. Wherever `case`
+        // stands (after `f()`, `{`, `function f {`), and whether or not it starts a command, it is not read.
+        if (closer === ")" && this.text.slice(start, this.position) === "case") {
           throw new ShellError("a case inside a substitution is not read");
         }
 
@@ -225,7 +245,7 @@ class Scanner {
       } else if (char === "$" && this.text[this.position + 1] === "'") {
         value += this.ansiC();
       } else {
-        const mark = this.substitution(script, false);
+        const mark = this.substitution(script, "word");
 
         if (mark === undefined) {
           value += char;
@@ -266,16 +286,14 @@ class Scanner {
    * Reads the substitution or expansion that starts here: `$(…)`, `$((…))`,
    * `$[…]`, `${…}` or backticks. What runs inside goes to `script.nested`.
    * Returns the mark it leaves in the word, or undefined, having read
-   * nothing, when none starts here. `quoted`: it stands inside double quotes,
-   * arithmetic or a heredoc's body, where shells disagree about a quote
-   * inside `${…}`.
+   * nothing, when none starts here.
    */
-  private substitution(script: Script, quoted: boolean): string | undefined {
+  private substitution(script: Script, context: Context): string | undefined {
     const char = this.text[this.position];
     const next = this.text[this.position + 1];
 
     if (char === "`") {
-      this.backticks(script);
+      this.backticks(script, context);
 
       return "`…`";
     }
@@ -306,7 +324,7 @@ class Scanner {
       const start = this.position;
 
       this.position += 2;
-      this.parameter(script, quoted);
+      this.parameter(script, context);
 
       return this.text.slice(start, this.position);
     }
@@ -338,8 +356,7 @@ class Scanner {
         value += ['"', "\\", "$", "`"].includes(next) ? next : next === "\n" ? "" : `\\${next}`;
         this.position += 2;
       } else {
-        // `${…}` stays text here, read on as the rest of the quote is: its own quotes come in pairs.
-        const mark = char === "$" && this.text[this.position + 1] === "{" ? undefined : this.substitution(script, true);
+        const mark = this.substitution(script, "double");
 
         if (mark === undefined) {
           value += char;
@@ -354,9 +371,12 @@ class Scanner {
   /**
    * Reads `${…}` to its `}`; `${` is already behind. A `}` in quotes, escaped
    * or inside a substitution does not close it, and `$(…)`, backticks and a
-   * nested `${…}` inside it are read.
+   * nested `${…}` inside it are read. Anywhere but in a word, a quote inside
+   * it is read differently by each shell, and is not read.
    */
-  private parameter(script: Script, quoted: boolean): void {
+  private parameter(script: Script, context: Context): void {
+    const quoted = context !== "word";
+
     this.enter();
 
     for (;;) {
@@ -392,7 +412,7 @@ class Scanner {
         }
       } else if (!quoted && char === "$" && this.text[this.position + 1] === "'") {
         this.ansiC();
-      } else if (this.substitution(script, quoted) === undefined) {
+      } else if (this.substitution(script, context) === undefined) {
         this.position += 1;
       }
     }
@@ -420,6 +440,13 @@ class Scanner {
       this.arithmeticBody(inside, "))");
     } catch (error) {
       if (error instanceof NotArithmetic) {
+        // Each `((` of a long run is tried to its own close: what such tries read is bounded, over the whole command.
+        this.lookahead.characters += this.position - start;
+
+        if (this.lookahead.characters > LONGEST_SCRIPT) {
+          throw new LimitError(`the command makes the reader look ahead more than ${LONGEST_SCRIPT} characters`);
+        }
+
         this.notArithmetic.add(start);
         this.position = from;
 
@@ -482,7 +509,7 @@ class Scanner {
       } else if (char === '"') {
         this.position += 1;
         this.doubleQuoted(script);
-      } else if (this.substitution(script, true) === undefined) {
+      } else if (this.substitution(script, "body") === undefined) {
         this.position += 1;
       }
     }
@@ -497,9 +524,11 @@ class Scanner {
   /**
    * Reads backticks; the opening one is here. What they hold ends at the
    * first backtick no backslash escapes, whatever quotes stand before it, and
-   * is then read as a command of its own.
+   * is then read as a command of its own. Inside double quotes a backslash
+   * escapes a double quote there too.
    */
-  private backticks(script: Script): void {
+  private backticks(script: Script, context: Context): void {
+    const escaped = context === "double" ? ["\\", "`", "$", '"'] : ["\\", "`", "$"];
     let inside = "";
     let index = this.position + 1;
 
@@ -518,7 +547,7 @@ class Scanner {
         const next = this.text[index + 1] ?? "";
 
         // Inside backticks a backslash only escapes these.
-        inside += ["\\", "`", "$"].includes(next) ? next : `\\${next}`;
+        inside += escaped.includes(next) ? next : `\\${next}`;
         index += 2;
       } else {
         inside += char;
@@ -528,7 +557,7 @@ class Scanner {
 
     this.position = index + 1;
 
-    const reader = new Scanner(inside, this.depth);
+    const reader = this.reader(inside);
 
     script.nested.push(reader.script(undefined));
 
@@ -588,7 +617,7 @@ class Scanner {
       }
 
       if (!quoted) {
-        new Scanner(this.text.slice(start, end), this.depth).heredocBody(script);
+        this.reader(this.text.slice(start, end)).heredocBody(script);
       }
     }
   }
@@ -598,7 +627,7 @@ class Scanner {
     while (this.position < this.text.length) {
       if (this.text[this.position] === "\\") {
         this.position += 2;
-      } else if (this.substitution(script, true) === undefined) {
+      } else if (this.substitution(script, "body") === undefined) {
         this.position += 1;
       }
     }
