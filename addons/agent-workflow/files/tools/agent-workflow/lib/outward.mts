@@ -173,7 +173,8 @@ export function mentionsOutward(text: string): boolean {
   const word = /(?:^|[^A-Za-z0-9_-])(?:push|gh)(?:$|[^A-Za-z0-9_-])/;
 
   // Also with each line continuation taken out, as the shell reads it: `pu`, a continuation and `sh` are `push`.
-  return word.test(text) || word.test(text.replaceAll("\\\n", ""));
+  // Any run of backslashes before a new line goes too: backticks make two of them one, and then a continuation.
+  return word.test(text) || word.test(text.replace(/\\+\n/g, ""));
 }
 
 /**

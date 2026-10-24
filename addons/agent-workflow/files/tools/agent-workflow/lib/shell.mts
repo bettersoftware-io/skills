@@ -134,8 +134,8 @@ class Scanner {
   }
 
   /** A scanner of part of this text, or of text made from it, at this depth and on this budget. */
-  private reader(text: string): Scanner {
-    return new Scanner(text, this.depth, this.lookahead);
+  private reader(text: string, joins: readonly number[] = []): Scanner {
+    return new Scanner(text, this.depth, this.lookahead, joins);
   }
 
   /** Reads commands up to the `)` that closes them, or to the end when there is none. */
@@ -221,7 +221,9 @@ class Scanner {
 
         if (this.text[this.position + 1] === "(" && this.arithmetic({ steps: [], nested: [] }, start)) {
           // `((…))` is arithmetic to bash and zsh, and two subshells to dash: what is inside is read as commands, which finds both.
-          script.nested.push(this.reader(this.text.slice(start, this.position - 2)).script(undefined));
+          const end = this.position - 2;
+
+          script.nested.push(this.reader(this.text.slice(start, end), this.joinsBetween(start, end)).script(undefined));
           stage.push("((…))");
         } else {
           // A subshell runs what is inside it: the brackets change nothing here.
@@ -291,6 +293,7 @@ class Scanner {
       } else if (char === "\\") {
         const next = this.text[this.position + 1];
 
+        this.escape();
         value += next ?? "";
         this.position += 2;
       } else if (char === "$" && this.text[this.position + 1] === "'") {
@@ -403,6 +406,7 @@ class Scanner {
       if (char === "\\") {
         const next = this.text[this.position + 1] ?? "";
 
+        this.escape();
         // Inside double quotes a backslash only escapes these.
         value += ['"', "\\", "$", "`"].includes(next) ? next : `\\${next}`;
         this.position += 2;
@@ -443,6 +447,7 @@ class Scanner {
       }
 
       if (char === "\\") {
+        this.escape();
         this.position += 2;
       } else if (char === "'" || char === '"') {
         if (quoted) {
@@ -546,6 +551,7 @@ class Scanner {
         brackets += 1;
         this.position += 1;
       } else if (char === "\\") {
+        this.escape();
         this.position += 2;
       } else if (char === "'") {
         // Read past, for a subshell may yet close this; once it is known to be arithmetic, it is not read.
@@ -679,6 +685,7 @@ class Scanner {
   private heredocBody(script: Script): void {
     while (this.position < this.text.length) {
       if (this.text[this.position] === "\\") {
+        this.escape();
         this.position += 2;
       } else if (this.substitution(script, "body") === undefined) {
         this.position += 1;
@@ -702,6 +709,23 @@ class Scanner {
     }
 
     return low;
+  }
+
+  /** The places from `from` up to, not including, `to` where a line continuation was taken out, counted from `from`. */
+  private joinsBetween(from: number, to: number): number[] {
+    return this.joins.slice(this.firstJoinFrom(from), this.firstJoinFrom(to)).map((join) => join - from);
+  }
+
+  /**
+   * At a backslash, which escapes what follows it. A new line there is a line
+   * continuation that was not taken out before reading: in text made again
+   * from the command (backticks make two backslashes one), never in the
+   * command itself. Bash would take it out; this does not read such text.
+   */
+  private escape(): void {
+    if (this.text[this.position + 1] === "\n") {
+      throw new ShellError("a line continuation in text read again is not read");
+    }
   }
 
   /** Whether a line continuation was taken out at a place from `from` up to, not including, `to`. */

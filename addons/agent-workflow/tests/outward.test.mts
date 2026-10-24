@@ -435,6 +435,14 @@ describe("a line continuation", () => {
     ["ends a comment, where bash does not take it out", `ls # a note ${C}git push origin worktree-a`],
     ["splits push in a command that cannot be read", `git pu${C}${C}sh origin worktree-a 'never closed`],
     ["splits gh in a command that cannot be read", `g${C}${C}h pr merge 1 'never closed`],
+    // Backticks make `\\` a backslash, so a new line after it is a continuation in what they hold: text read again.
+    ["comes of backticks, in a word", "echo `git pu\\\\\nsh origin worktree-a`"],
+    ["comes of backticks, in double quotes", 'echo `echo "a\\\\\nb" && git push origin worktree-a`'],
+    ["comes of backticks, inside ${…}", "echo `echo ${x:-a\\\\\nb} && git push origin worktree-a`"],
+    ["comes of backticks, inside arithmetic", "echo `echo $((1 + \\\\\n2)) && git push origin worktree-a`"],
+    ["comes of backticks, in a heredoc's body", "echo `cat <<EOF\na\\\\\nb\nEOF\n` && git push origin worktree-a"],
+    ["comes of backticks in an unquoted heredoc's body", "cat <<EOF\n`git pu\\\\\nsh origin worktree-a`\nEOF"],
+    ["ends a comment inside ((…)), which dash runs as commands", `echo first, at some length; ((x # c${C}git push origin worktree-a\n))`],
   ])("is not read where it %s, and is asked about", (_name, command) => {
     expect(judgeCommand(command)).toBeUndefined();
     expect(judgeCall({ tool_name: "Bash", tool_input: { command } })?.decision).toBe("ask");
