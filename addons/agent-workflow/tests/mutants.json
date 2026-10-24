@@ -100,8 +100,8 @@
   {
     "name": "refuses a newline",
     "file": "addons/agent-workflow/files/tools/agent-workflow/lib/shell.mts",
-    "find": "        this.skipHeredocBodies();\n        endStep();",
-    "replace": "        this.skipHeredocBodies();",
+    "find": "        this.readHeredocBodies(script);\n        endStep();",
+    "replace": "        this.readHeredocBodies(script);",
     "test": "pnpm vitest run addons/agent-workflow/tests/outward.test.mts --testNamePattern=\"refuses a newline\""
   },
   {
@@ -121,8 +121,8 @@
   {
     "name": "refuses a subshell",
     "file": "addons/agent-workflow/files/tools/agent-workflow/lib/shell.mts",
-    "find": "        this.position += 1;\n        groups += 1;",
-    "replace": "        this.position = this.text.length;\n        groups += 1;",
+    "find": "          this.position += 1;\n          groups += 1;",
+    "replace": "          this.position = this.text.length;\n          groups += 1;",
     "test": "pnpm vitest run addons/agent-workflow/tests/outward.test.mts --testNamePattern=\"refuses a subshell\""
   },
   {
@@ -172,7 +172,7 @@
     "file": "addons/agent-workflow/files/tools/agent-workflow/lib/outward.mts",
     "find": "(steps > 1 || outward.length > 1)",
     "replace": "(steps > 1)",
-    "test": "pnpm vitest run addons/agent-workflow/tests/outward.test.mts --testNamePattern=\"refuses two outward steps that each only fill a variable\""
+    "test": "pnpm vitest run addons/agent-workflow/tests/outward.test.mts --testNamePattern=\"refuses two outward steps\""
   },
   {
     "name": "names every outward step it found",
@@ -212,8 +212,8 @@
   {
     "name": "is not a step: a heredoc that strips tabs",
     "file": "addons/agent-workflow/files/tools/agent-workflow/lib/shell.mts",
-    "find": "stripTabs: operator === \"<<-\" });",
-    "replace": "stripTabs: false });",
+    "find": "stripTabs: operator === \"<<-\", quoted",
+    "replace": "stripTabs: false, quoted",
     "test": "pnpm vitest run addons/agent-workflow/tests/outward.test.mts --testNamePattern=\"is not a step: a heredoc that strips tabs\""
   },
   {
@@ -226,8 +226,8 @@
   {
     "name": "still sees the push after a heredoc ends",
     "file": "addons/agent-workflow/files/tools/agent-workflow/lib/shell.mts",
-    "find": "        this.skipHeredocBodies();\n        endStep();",
-    "replace": "        this.skipHeredocBodies();",
+    "find": "        this.readHeredocBodies(script);\n        endStep();",
+    "replace": "        this.readHeredocBodies(script);",
     "test": "pnpm vitest run addons/agent-workflow/tests/outward.test.mts --testNamePattern=\"still sees the push after a heredoc ends\""
   },
   {
@@ -317,22 +317,22 @@
   {
     "name": "keeps a parameter expansion whole outside quotes",
     "file": "addons/agent-workflow/files/tools/agent-workflow/lib/shell.mts",
-    "find": "value += this.text.slice(this.position, end + 1);",
-    "replace": "value += \"\";",
+    "find": "      return this.text.slice(start, this.position);",
+    "replace": "      return \"\";",
     "test": "pnpm vitest run addons/agent-workflow/tests/outward.test.mts --testNamePattern=\"keeps a parameter expansion whole outside quotes\""
   },
   {
     "name": "keeps a parameter expansion whole outside quotes (skipped as one)",
     "file": "addons/agent-workflow/files/tools/agent-workflow/lib/shell.mts",
-    "find": "      } else if (char === \"$\" && this.text[this.position + 1] === \"{\") {\n        const end",
-    "replace": "      } else if (char === \"$\" && this.text[this.position + 1] === \"{\" && this.position < 0) {\n        const end",
+    "find": "    if (next === \"{\") {",
+    "replace": "    if (next === \"{\" && this.position < 0) {",
     "test": "pnpm vitest run addons/agent-workflow/tests/outward.test.mts --testNamePattern=\"keeps a parameter expansion whole outside quotes\""
   },
   {
     "name": "keeps a parameter and an arithmetic expansion as text",
     "file": "addons/agent-workflow/files/tools/agent-workflow/lib/shell.mts",
-    "find": "        script.nested.push(this.script(\")\"));\n        value += \"$(…)\";\n      } else if (char === \"$\" && this.text[this.position + 1] === \"{\") {",
-    "replace": "        script.nested.push(this.script(\")\"));\n        value += \"\";\n      } else if (char === \"$\" && this.text[this.position + 1] === \"{\") {",
+    "find": "      script.nested.push(this.script(\")\"));\n\n      return \"$(…)\";",
+    "replace": "      script.nested.push(this.script(\")\"));\n\n      return \"\";",
     "test": "pnpm vitest run addons/agent-workflow/tests/outward.test.mts --testNamePattern=\"keeps a parameter and an arithmetic expansion as text\""
   },
   {
@@ -1486,8 +1486,8 @@
   {
     "name": "counts each level only while it is open",
     "file": "addons/agent-workflow/files/tools/agent-workflow/lib/shell.mts",
-    "find": "    endStep();\n    this.depth -= 1;\n",
-    "replace": "    endStep();\n",
+    "find": "  private leave(): void {\n    this.depth -= 1;",
+    "replace": "  private leave(): void {\n    this.depth -= 0;",
     "test": "pnpm vitest run addons/agent-workflow/tests/never-allows.test.mts --testNamePattern=\"counts how deep, not how many\""
   },
   {
@@ -3044,7 +3044,7 @@
     "file": "scripts/lib/host-settings.mts",
     "find": "  return commands.every((command) => tools.every((tool) => groupRuns(existing, command, tool, host)));",
     "replace": "  return commands.every((command) => hookCommands(existing).includes(command));",
-    "test": "pnpm vitest run addons/agent-workflow/tests/addon.test.mts --testNamePattern=\"adds its Bash group in a project whose only copy of the hook is under a matcher\""
+    "test": "pnpm vitest run addons/agent-workflow/tests/addon.test.mts --testNamePattern=\"adds its two groups in a project whose only copy of the hook is under a matcher\""
   },
   {
     "name": "leaves both settings files byte for byte as they were when it is added a second time",
@@ -3504,8 +3504,8 @@
   {
     "name": "an unread command that names an outward step is asked about, never allowed",
     "file": "addons/agent-workflow/files/tools/agent-workflow/hooks/split-outward-commands.mts",
-    "find": "          decision: \"ask\",\n          reason: \"This command could not be read",
-    "replace": "          decision: \"allow\",\n          reason: \"This command could not be read",
+    "find": "          decision: \"ask\",\n          reason:\n            \"This command could not be read",
+    "replace": "          decision: \"allow\",\n          reason:\n            \"This command could not be read",
     "test": "pnpm vitest run addons/agent-workflow/tests/outward.test.mts --testNamePattern=\"asks about a command it cannot read\""
   },
   {
@@ -5292,5 +5292,159 @@
     "find": "    process.exit(1);\n  }\n\n  const findings",
     "replace": "    process.exit(0);\n  }\n\n  const findings",
     "test": "pnpm vitest run addons/agent-workflow/tests/check-status.test.mts -t \"fails a project with no page\""
+  },
+  {
+    "name": "$'…' skips the character after a backslash",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/shell.mts",
+    "find": "      end += char === \"\\\\\" ? 2 : 1;",
+    "replace": "      end += 1;",
+    "test": "pnpm vitest run addons/agent-workflow/tests/outward.test.mts --testNamePattern=\"is a chain: after an escaped quote\""
+  },
+  {
+    "name": "an unquoted heredoc's body is read",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/shell.mts",
+    "find": "      if (!quoted) {\n        new Scanner",
+    "replace": "      if (quoted) {\n        new Scanner",
+    "test": "pnpm vitest run addons/agent-workflow/tests/outward.test.mts --testNamePattern=\"is a chain: in an unquoted heredoc\""
+  },
+  {
+    "name": "a heredoc's delimiter in quotes keeps its body as text",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/shell.mts",
+    "find": "quoted: /['\"\\\\]/.test(this.text.slice(start, this.position))",
+    "replace": "quoted: false",
+    "test": "pnpm vitest run addons/agent-workflow/tests/outward.test.mts --testNamePattern=\"is not a step: a heredoc whose delimiter\""
+  },
+  {
+    "name": "a heredoc's delimiter behind a backslash keeps its body as text",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/shell.mts",
+    "find": "quoted: /['\"\\\\]/.test(this.text.slice(start, this.position))",
+    "replace": "quoted: /['\"]/.test(this.text.slice(start, this.position))",
+    "test": "pnpm vitest run addons/agent-workflow/tests/outward.test.mts --testNamePattern=\"is not a step: a heredoc whose delimiter is escaped\""
+  },
+  {
+    "name": "a backslash in an unquoted heredoc's body escapes a substitution",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/shell.mts",
+    "find": "      if (this.text[this.position] === \"\\\\\") {\n        this.position += 2;\n      } else if (this.substitution(script, true) === undefined) {\n        this.position += 1;\n      }\n    }\n  }",
+    "replace": "      if (this.text[this.position] === \"\\\\\") {\n        this.position += 1;\n      } else if (this.substitution(script, true) === undefined) {\n        this.position += 1;\n      }\n    }\n  }",
+    "test": "pnpm vitest run addons/agent-workflow/tests/outward.test.mts --testNamePattern=\"is not a step: an escaped substitution\""
+  },
+  {
+    "name": "a substitution inside ${…} is read",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/shell.mts",
+    "find": "      } else if (this.substitution(script, quoted) === undefined) {",
+    "replace": "      } else if (this.position >= 0) {",
+    "test": "pnpm vitest run addons/agent-workflow/tests/outward.test.mts --testNamePattern=\"is a chain: inside\""
+  },
+  {
+    "name": "a single quote inside ${…} is read past",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/shell.mts",
+    "find": "          this.position = end + 1;\n        }\n      } else if (!quoted",
+    "replace": "          this.position += 1;\n        }\n      } else if (!quoted",
+    "test": "pnpm vitest run addons/agent-workflow/tests/outward.test.mts --testNamePattern=\"is a chain: inside ...., after a brace\""
+  },
+  {
+    "name": "a quote inside ${…} where shells disagree is not read",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/shell.mts",
+    "find": "        if (quoted) {\n          throw new ShellError(\"a quote inside",
+    "replace": "        if (quoted && this.position < 0) {\n          throw new ShellError(\"a quote inside",
+    "test": "pnpm vitest run addons/agent-workflow/tests/outward.test.mts --testNamePattern=\"has no verdict: a single quote inside ....\""
+  },
+  {
+    "name": "$((…)) is arithmetic, where << is no heredoc",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/shell.mts",
+    "find": "      if (this.text[this.position + 2] === \"(\" && this.arithmetic(script, this.position + 3)) {",
+    "replace": "      if (this.text[this.position + 2] === \"(\" && this.position < 0 && this.arithmetic(script, this.position + 3)) {",
+    "test": "pnpm vitest run addons/agent-workflow/tests/outward.test.mts --testNamePattern=\"is a chain: after a shift in .{6}, which\""
+  },
+  {
+    "name": "$[…] is arithmetic",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/shell.mts",
+    "find": "    if (next === \"[\") {",
+    "replace": "    if (next === \"[\" && this.position < 0) {",
+    "test": "pnpm vitest run addons/agent-workflow/tests/outward.test.mts --testNamePattern=\"is a chain: after a shift in .{4}$\""
+  },
+  {
+    "name": "((…)) is arithmetic",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/shell.mts",
+    "find": "        if (this.text[this.position + 1] === \"(\" && this.arithmetic({ steps: [], nested: [] }, start)) {",
+    "replace": "        if (this.text[this.position + 1] === \"(\" && start < 0 && this.arithmetic({ steps: [], nested: [] }, start)) {",
+    "test": "pnpm vitest run addons/agent-workflow/tests/outward.test.mts --testNamePattern=\"is a chain: after a shift in .{5}$\""
+  },
+  {
+    "name": "what is inside ((…)) is read as commands too",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/shell.mts",
+    "find": "          script.nested.push(new Scanner(this.text.slice(start, this.position - 2), this.depth).script(undefined));",
+    "replace": "          void start;",
+    "test": "pnpm vitest run addons/agent-workflow/tests/outward.test.mts --testNamePattern=\"reads what is inside\""
+  },
+  {
+    "name": "$((…)) closed by one bracket is a subshell",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/shell.mts",
+    "find": "        if (close === \"))\" && this.text[this.position + 1] !== \")\") {",
+    "replace": "        if (close === \"))\" && this.position < 0) {",
+    "test": "pnpm vitest run addons/agent-workflow/tests/outward.test.mts --testNamePattern=\"closes with one bracket\""
+  },
+  {
+    "name": "$((…)) closed by one bracket is tried as arithmetic once",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/shell.mts",
+    "find": "        this.notArithmetic.add(start);",
+    "replace": "",
+    "test": "pnpm vitest run addons/agent-workflow/tests/never-allows.test.mts --testNamePattern=\"trying each as arithmetic once\""
+  },
+  {
+    "name": "a single quote inside arithmetic is not read",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/shell.mts",
+    "find": "    if (singleQuoted) {",
+    "replace": "    if (singleQuoted && this.position < 0) {",
+    "test": "pnpm vitest run addons/agent-workflow/tests/outward.test.mts --testNamePattern=\"has no verdict: a single quote inside arith\""
+  },
+  {
+    "name": "backticks hold what their backslashes escape",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/shell.mts",
+    "find": "        inside += [\"\\\\\", \"`\", \"$\"].includes(next) ? next : `\\\\${next}`;",
+    "replace": "        inside += `\\\\${next}`;",
+    "test": "pnpm vitest run addons/agent-workflow/tests/outward.test.mts --testNamePattern=\"is a chain: inside backticks inside\""
+  },
+  {
+    "name": "a heredoc opened inside backticks is not read",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/shell.mts",
+    "find": "    if (reader.heredocs.length > 0) {",
+    "replace": "    if (reader.heredocs.length < 0) {",
+    "test": "pnpm vitest run addons/agent-workflow/tests/outward.test.mts --testNamePattern=\"has no verdict: a heredoc opened inside backticks\""
+  },
+  {
+    "name": "a heredoc opened outside a substitution has no body inside it",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/shell.mts",
+    "find": "        if (outside > 0) {",
+    "replace": "        if (outside < 0) {",
+    "test": "pnpm vitest run addons/agent-workflow/tests/outward.test.mts --testNamePattern=\"has no verdict: a heredoc whose body would end\""
+  },
+  {
+    "name": "a heredoc opened inside a substitution has its body inside it",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/shell.mts",
+    "find": "    if (closer !== undefined && this.heredocs.length > outside) {",
+    "replace": "    if (closer !== undefined && this.heredocs.length < outside) {",
+    "test": "pnpm vitest run addons/agent-workflow/tests/outward.test.mts --testNamePattern=\"has no verdict: a heredoc opened inside .{4} whose\""
+  },
+  {
+    "name": "a case inside $(…) is not read",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/shell.mts",
+    "find": "        if (closer === \")\" && word === \"case\" &&",
+    "replace": "        if (closer === \")\" && word === \"case!\" &&",
+    "test": "pnpm vitest run addons/agent-workflow/tests/outward.test.mts --testNamePattern=\"has no verdict: a case inside\""
+  },
+  {
+    "name": "${…} counts toward the nesting bound",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/shell.mts",
+    "find": "  private parameter(script: Script, quoted: boolean): void {\n    this.enter();",
+    "replace": "  private parameter(script: Script, quoted: boolean): void {\n    this.depth -= 1;\n    this.enter();",
+    "test": "pnpm vitest run addons/agent-workflow/tests/never-allows.test.mts --testNamePattern=\"stops reading .{4} at the same bound\""
+  },
+  {
+    "name": "arithmetic counts toward the nesting bound",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/shell.mts",
+    "find": "    let singleQuoted = false;\n\n    this.enter();",
+    "replace": "    let singleQuoted = false;\n\n    this.depth -= 1;\n    this.enter();",
+    "test": "pnpm vitest run addons/agent-workflow/tests/never-allows.test.mts --testNamePattern=\"stops reading .{6} at the same bound\""
   }
 ]

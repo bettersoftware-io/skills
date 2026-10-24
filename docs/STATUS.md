@@ -322,7 +322,13 @@ Found while a project was set up with the plugin, on 2026-10-12 and 13.
   review of the add-on as a project got it (2026-10-12) named `outward.mts`,
   `shell.mts` and the hook for letting through a command they cannot read
   and for ways past the chain detection, with no detail. The first is the
-  choice the add-on's README states; the second is not followed up.
+  choice the add-on's README states. A review on 2026-10-24 gave the detail
+  of the second: places where the reader read a command otherwise than bash
+  (`$'…'`, an unquoted heredoc's body, `${…}`, and more of that kind found
+  with them), closed in 0.20.1 ([the add-on's
+  README](../addons/agent-workflow/README.md#a-review-against-the-hosts-own-matching)).
+  The reader is still compared with bash by hand, case by case, and not with
+  a shell's own parser over generated commands.
 - **Whether that hook is registered is judged by a reading of each host's
   matcher rules** (`hook-registration.mts`, in the installer and in the
   add-on's check). A security review of the last commit named that file for a

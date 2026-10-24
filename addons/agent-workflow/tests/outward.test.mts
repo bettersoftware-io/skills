@@ -170,6 +170,10 @@ describe("how the steps are joined", () => {
     expect(judgeCommand("PUSHED=$(git push) MERGED=$(gh pr merge 1)")).toMatchObject({ outward: ["git push", "gh pr merge"], chained: true });
   });
 
+  it("refuses two outward steps in one step, the second run by a shell behind a pipe", () => {
+    expect(judgeCommand('git push 2>&1 | bash -c "gh pr merge 1"')).toMatchObject({ outward: ["git push", "gh pr merge"], chained: true });
+  });
+
   it("names every outward step it found", () => {
     expect(judgeCommand("git add -A && git push -u origin worktree-a && gh pr create --fill")?.outward).toEqual([
       "git push -u",
@@ -325,14 +329,96 @@ describe("a push that holds a colon", () => {
   });
 });
 
+// Each of these runs a push in bash, and the reader once read it as text, or
+// as the body of a heredoc, and said nothing.
+describe("a push where the reader once did not look", () => {
+  it.each([
+    ["after an escaped quote in $'…'", "echo $'\\'' ; git push origin worktree-a #'"],
+    ["after two escapes in $'…'", "echo $'a\\\\' ; git push origin worktree-a"],
+    ["in an unquoted heredoc, inside $(…)", "cat <<EOF\n$(git push origin worktree-a)\nEOF"],
+    ["in an unquoted heredoc, inside backticks", "cat <<EOF\n`git push origin worktree-a`\nEOF"],
+    ["in an unquoted heredoc, inside ${…}", "cat <<EOF\n${x:-$(git push origin worktree-a)}\nEOF"],
+    ["in an unquoted heredoc that strips tabs", "cat <<-EOF\n\t$(git push origin worktree-a)\n\tEOF"],
+    ["inside ${…}, in $(…)", "echo ${x:-$(git push origin worktree-a)}"],
+    ["inside ${…}, in backticks", "echo ${x:-`git push origin worktree-a`}"],
+    ["inside ${…} inside ${…}", "echo ${x:-${y:-$(git push origin worktree-a)}}"],
+    ["inside ${…}, after a brace in quotes", "echo ${x:-'}'$(git push origin worktree-a)}"],
+    ["after a shift in $((…)), which is no heredoc", "echo $((1<<2))\ngit push origin worktree-a\n2"],
+    ["after a shift in $((…)) inside quotes", 'echo "$((1<<2))"\ngit push origin worktree-a\n2'],
+    ["after a shift in $[…]", "echo $[1<<2]\ngit push origin worktree-a\n2]"],
+    ["after a shift in ((…))", "((x = 1<<2))\ngit push origin worktree-a\n2"],
+    ["after a shift in a for loop's ((…))", "for ((i = 0; i < 1<<2; i++)); do :; done\ngit push origin worktree-a\n2"],
+    ["inside $((…)), in $(…)", "echo $(( $(git push origin worktree-a) + 1 ))"],
+    ["after a heredoc opened before a quote that holds a new line", 'cat <<EOF "\n"; git push origin worktree-a; echo "\nEOF\n"'],
+    ["inside backticks inside backticks", "echo `echo \\`git push origin worktree-a\\``"],
+  ])("is a chain: %s", (_name, command) => {
+    expect(judgeCommand(command)).toMatchObject({ outward: ["git push origin"], chained: true });
+    expect(judgeCall({ tool_name: "Bash", tool_input: { command } })?.decision).toBe("deny");
+  });
+
+  it.each([
+    ["a heredoc whose delimiter is in single quotes", "cat <<'EOF'\n$(git push origin worktree-a)\nEOF"],
+    ["a heredoc whose delimiter is in double quotes", 'cat <<"EOF"\n$(git push origin worktree-a)\nEOF'],
+    ["a heredoc whose delimiter is escaped", "cat <<\\EOF\n`git push origin worktree-a`\nEOF"],
+    ["a heredoc whose delimiter is quoted in part", 'cat <<E"O"F\n${x:-$(git push origin worktree-a)}\nEOF'],
+    ["an escaped substitution in an unquoted heredoc", "cat <<EOF\n\\$(git push origin worktree-a) \\`git push origin worktree-a\\`\nEOF"],
+    ["quotes in an unquoted heredoc, which are text there", "cat <<EOF\n'$HOME' \"don't\"\nEOF"],
+    ["a parameter expansion that holds no command", "echo ${x:-wip && git push} ${y#*:} ${#z}"],
+    ["$'…' that holds an escaped quote", "echo $'it\\'s git push && gh pr merge'"],
+    ["arithmetic that holds the words", "echo $((git + push)) $[gh - pr]"],
+  ])("is not a step: %s", (_name, command) => {
+    expect(judgeCommand(command)).toEqual({ outward: [], chained: false, redirected: false });
+  });
+
+  it("reads what the lines after the heredoc hold, once its body ends", () => {
+    expect(judgeCommand("cat <<EOF\n$(date)\nEOF\ngit push origin worktree-a")).toMatchObject({ outward: ["git push origin"], chained: true });
+    expect(judgeCommand("cat <<EOF\n$(date)\nEOF")).toEqual({ outward: [], chained: false, redirected: false });
+  });
+
+  it("reads a quoted new line as part of the word, and the heredoc's body after the next unquoted one", () => {
+    expect(parseShell('cat <<EOF "a\nb"\nbody\nEOF\nls').steps).toEqual([[["cat", "a\nb"]], [["ls"]]]);
+  });
+
+  it("still lets a pull request take its body from an unquoted heredoc that runs nothing", () => {
+    const command = 'gh pr create --title t --body "$(cat <<EOF\n## Summary\n- read ${BRANCH}, $((1 + 2)) and $HOME\nEOF\n)"';
+
+    expect(judgeCommand(command)).toEqual({ outward: ["gh pr create"], chained: false, redirected: false });
+  });
+
+  it("reads $((…)) that closes with one bracket as a substitution of a subshell, as the shell does", () => {
+    expect(judgeCommand("echo $((git push origin worktree-a) )")).toMatchObject({ outward: ["git push origin"], chained: true });
+    expect(judgeCommand("((git push origin worktree-a) && ls)")).toMatchObject({ outward: ["git push origin"], chained: true });
+  });
+
+  it("reads what is inside ((…)) as commands as well, which a shell without arithmetic runs", () => {
+    expect(judgeCommand("((git push origin worktree-a)) && ls")).toMatchObject({ outward: ["git push origin"], chained: true });
+  });
+});
+
 describe("a command that cannot be read", () => {
   it.each([
     ["a quote that never closes", 'git commit -m "wip && git push'],
     ["a single quote that never closes", "echo 'git push && ls"],
     ["a substitution that never closes", "echo $(git push && ls"],
     ["a heredoc that never ends", "cat <<EOF && git push\nbody"],
+    ["$'…' that never closes after an escaped quote", "echo $'a\\' && git push"],
+    ["a substitution in an unquoted heredoc that the heredoc's end cuts off", "cat <<EOF\n$(git push\nEOF\nls)\nEOF"],
+    ["backticks in an unquoted heredoc that never close", "cat <<EOF\n`git push\nEOF"],
+    ["${…} that never closes", "echo ${x:-$(git push)"],
+    ["a single quote inside ${…} in an unquoted heredoc", "cat <<EOF\n${x:-'}'$(git push)}\nEOF"],
+    ["a single quote inside arithmetic", "echo $(( '$(git push)' ))"],
+    ["arithmetic that never closes", "echo $[1 + $(git push)"],
+    ["a case inside $(…), whose patterns close with a bracket", 'echo "$(case x in a) ;; esac; git push origin worktree-a)"'],
+    ["a heredoc opened inside $(…) whose body comes after it", 'echo "$(cat <<EOF)"\ngit push origin worktree-a\nEOF'],
+    ["a heredoc opened inside backticks", "echo `cat <<EOF`\ngit push origin worktree-a\nEOF"],
+    ["a heredoc whose body would begin inside $(…)", "cat <<EOF $(echo a\ngit push)\nbody\nEOF"],
+    ["a heredoc whose body would end inside $(…)", "cat <<EOF $(echo a\nEOF\ngit push origin worktree-a)"],
+    // Bash 5 runs the push and reports the quote; bash 3.2 and zsh run nothing.
+    ["backticks that close inside single quotes", "echo `echo 'x`; git push origin worktree-a; echo `echo '`"],
+    ["backticks that close inside double quotes", 'echo `echo "x`; git push origin worktree-a; echo `echo "`'],
   ])("has no verdict: %s", (_name, command) => {
     expect(judgeCommand(command)).toBeUndefined();
+    expect(judgeCall({ tool_name: "Bash", tool_input: { command } })?.decision).toBe("ask");
   });
 });
 
@@ -360,7 +446,7 @@ describe("the reader", () => {
 
   it("keeps a parameter and an arithmetic expansion as text", () => {
     // A substitution leaves a mark where it stood: the word is still there.
-    expect(parseShell('git push origin "${BRANCH:-main}" $((1 + 2))').steps).toEqual([[["git", "push", "origin", "${BRANCH:-main}", "$(…)"]]]);
+    expect(parseShell('git push origin "${BRANCH:-main}" $((1 + 2)) $[3] $(date)').steps).toEqual([[["git", "push", "origin", "${BRANCH:-main}", "$((…))", "$[…]", "$(…)"]]]);
   });
 });
 

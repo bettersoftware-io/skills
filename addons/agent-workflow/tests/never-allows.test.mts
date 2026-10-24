@@ -197,6 +197,24 @@ describe("a command the hook does not read", () => {
     expect(() => parseShell(deep(20_000, "ls"))).not.toThrow(RangeError);
   });
 
+  it.each([
+    ["${…}", (levels: number) => `${"${x:-".repeat(levels)}${"}".repeat(levels)}`],
+    ["$((…))", (levels: number) => `${"$((1+".repeat(levels)}1${"))".repeat(levels)}`],
+    ["$[…]", (levels: number) => `${"$[1+".repeat(levels)}1${"]".repeat(levels)}`],
+  ])("stops reading %s at the same bound", (_name, nest) => {
+    expect(() => parseShell(`echo ${nest(DEEPEST_NESTING)}`)).not.toThrow();
+    expect(() => parseShell(`echo ${nest(20_000)}`)).toThrow(LimitError);
+  });
+
+  // Each `$((` is tried as arithmetic first. Tried again for each level around it, twenty-two levels took six seconds here.
+  it("reads subshells inside $((…)) inside one another, each closed by one bracket, trying each as arithmetic once", () => {
+    const nest = (levels: number): string => (levels === 0 ? "git push origin worktree-a" : `$((${nest(levels - 1)}) )`);
+    const started = performance.now();
+
+    expect(judgeCommand(`echo ${nest(22)}`)).toMatchObject({ outward: ["git push origin"], chained: true });
+    expect((performance.now() - started) / 1000).toBeLessThan(Math.min(...TIMEOUTS) / 2);
+  });
+
   it("counts how deep, not how many: a hundred substitutions side by side are read", () => {
     const beside = `echo ${"$(ls) ".repeat(100)}&& git push origin main`;
 

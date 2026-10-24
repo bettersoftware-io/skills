@@ -821,6 +821,29 @@ for the project's own rule to decide.
 Those lists are what two reviews tried. They are not a proof that nothing is
 left.
 
+A third review, on 2026-10-24, read the hook's reader (`lib/shell.mts`)
+against bash, and found three places where the reader saw text and bash ran
+a command, so that a push there was neither refused nor asked about. Each is
+a test now, and so is each of the same kind found while closing them, run in
+bash 5.3 and 3.2, zsh and dash:
+
+| Found | Example | Now |
+|---|---|---|
+| `$'…'` ended at an escaped quote | `echo $'\'' ; git push … #'` | Read to its real end: refused as a chain |
+| An unquoted heredoc's body was skipped; bash runs the `$(…)`, backticks and `${…}` in it | `cat <<EOF` with `$(git push …)` in the body | Read as a substitution. A quoted delimiter (`'EOF'`, `"EOF"`, `\EOF`) keeps the body as text |
+| `${…}` was read to its first `}`, never inside | `echo ${x:-$(git push …)}` | Read inside, a `}` in quotes included |
+| `<<` in arithmetic was taken for a heredoc, which hid the lines after it | `echo $((1<<2))` then a push, then `2` | `$((…))`, `$[…]` and `((…))` are arithmetic; what `((…))` holds is read as commands too, as dash runs it |
+| A heredoc opened before a quote that holds a new line took its body from inside the quote | `cat <<EOF "`, a new line, `"; git push …; echo "`, and the body | The body begins after the next new line outside quotes |
+| Backticks were closed where the reader's quotes said; bash 5 closes them at the first backtick no backslash escapes, and runs the push after them | ``echo `echo 'x`; git push …`` | Closed where bash closes them. What these hold is unreadable, so it is asked about |
+
+What shells read differently from one another, the reader does not read:
+the command is unreadable, and is asked about when it names an outward step.
+That is a `case` inside `$(…)` (its patterns end in `)`), a quote inside
+`${…}` within double quotes, a heredoc or arithmetic, a single quote in
+arithmetic, a heredoc opened inside a substitution whose body would come
+after it, and backticks whose content is itself unreadable. `$"…"` was read
+right already: it is a double-quoted string to the reader, as to bash.
+
 ## Not verified
 
 - **The shipping rules, more than once.** They were read cold by one session
