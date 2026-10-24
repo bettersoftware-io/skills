@@ -8,7 +8,7 @@ import { changelog } from "../files/tools/agent-workflow/changelog.mts";
 import { judgeCall } from "../files/tools/agent-workflow/hooks/split-outward-commands.mts";
 import { groupRuns, hostOf } from "../files/tools/agent-workflow/lib/hook-registration.mts";
 import { isOutward } from "../files/tools/agent-workflow/lib/outward.mts";
-import { ASK_RULES, CLAUDE_SETTINGS, CODEX_HOOKS, COMMAND_NEEDS, EDIT_ASK_RULES, HOOK_COMMANDS, HOOK_SCRIPT, RETIRED_ARGUMENT, RETIRED_ASK_RULES, RETIRED_FILES } from "../files/tools/agent-workflow/lib/host.mts";
+import { ASK_RULES, CLAUDE_SETTINGS, CODEX_HOOKS, COMMAND_NEEDS, DUE_HOOK_COMMANDS, DUE_HOOK_MATCHERS, DUE_HOOK_SCRIPT, EDIT_ASK_RULES, HOOK_COMMANDS, HOOK_SCRIPT, RETIRED_ARGUMENT, RETIRED_ASK_RULES, RETIRED_FILES } from "../files/tools/agent-workflow/lib/host.mts";
 import { ONCE_ALLOWED, OLD_SETTING_ON } from "./shapes.mts";
 import { ADDON, createFolder, git, readJson, REPOSITORY, writeFile } from "./support.mts";
 
@@ -117,13 +117,30 @@ describe("the add-on's manifest", () => {
       PreToolUse: ["Bash", "Monitor"].map((matcher) => {
         return { matcher, hooks: [{ type: "command", command: `node "$CLAUDE_PROJECT_DIR/${HOOK_SCRIPT}"`, timeout: 5 }] };
       }),
+      SessionStart: [{ matcher: "startup|resume|clear", hooks: [{ type: "command", command: `node "$CLAUDE_PROJECT_DIR/${DUE_HOOK_SCRIPT}"`, timeout: 5 }] }],
     });
     expect(Object.keys(codex ?? {})).toEqual(["hooks"]);
+    expect(codex?.hooks?.SessionStart).toEqual([{ matcher: "startup|resume", hooks: [{ type: "command", command: `node ${DUE_HOOK_SCRIPT}`, statusMessage: "Checking the changelog", timeout: 5 }] }]);
     expect(codex?.hooks?.PreToolUse).toHaveLength(1);
     expect(codex?.hooks?.PreToolUse?.[0]?.matcher).toBe("Bash");
     expect(codex?.hooks?.PreToolUse?.[0]?.hooks[0]?.command).toBe(`node ${HOOK_SCRIPT}`);
     expect(JSON.stringify(MANIFEST.hostSettings)).not.toContain(RETIRED_ARGUMENT);
     expect(existsSync(join(ADDON, "files", HOOK_SCRIPT))).toBe(true);
+    expect(existsSync(join(ADDON, "files", DUE_HOOK_SCRIPT))).toBe(true);
+  });
+
+  it("registers the reminder in both hosts with the matcher and command the check looks for", () => {
+    expect(DUE_HOOK_SCRIPT).toBe("tools/agent-workflow/hooks/changelog-due.mts");
+    expect(DUE_HOOK_COMMANDS).toEqual({ [CLAUDE_SETTINGS]: `node "$CLAUDE_PROJECT_DIR/${DUE_HOOK_SCRIPT}"`, [CODEX_HOOKS]: `node ${DUE_HOOK_SCRIPT}` });
+    expect(DUE_HOOK_MATCHERS).toEqual({ [CLAUDE_SETTINGS]: "startup|resume|clear", [CODEX_HOOKS]: "startup|resume" });
+
+    for (const path of [CLAUDE_SETTINGS, CODEX_HOOKS]) {
+      const groups = MANIFEST.hostSettings[path]?.hooks?.SessionStart ?? [];
+
+      expect(groups).toHaveLength(1);
+      expect(groups[0]?.matcher).toBe(DUE_HOOK_MATCHERS[path]);
+      expect(groups.some((group) => groupRuns(group, DUE_HOOK_COMMANDS[path] ?? "", "startup", hostOf(path)))).toBe(true);
+    }
   });
 });
 
@@ -516,7 +533,9 @@ describe("the add-on in a project that has the kit", () => {
     expect(codex.description).toBe(kitCodex.description);
     expect(codex.hooks?.Stop).toEqual(kitCodex.hooks?.Stop);
     expect(codex.hooks?.PreToolUse).toEqual(MANIFEST.hostSettings[CODEX_HOOKS]?.hooks?.PreToolUse);
-    expect(result.settingsChanges).toHaveLength(ASK_RULES.length + EDIT_ASK_RULES.length + 3);
+    expect(claude.hooks?.SessionStart).toEqual(MANIFEST.hostSettings[CLAUDE_SETTINGS]?.hooks?.SessionStart);
+    expect(codex.hooks?.SessionStart).toEqual(MANIFEST.hostSettings[CODEX_HOOKS]?.hooks?.SessionStart);
+    expect(result.settingsChanges).toHaveLength(ASK_RULES.length + EDIT_ASK_RULES.length + 5);
     expect(result.unmerged).toEqual([]);
     expect(result.notes).toEqual([]);
   });

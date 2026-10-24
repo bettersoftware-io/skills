@@ -10,6 +10,9 @@
 // registration starts it. Then it reads each host's settings file to see that
 // the hook is registered there.
 //
+// The session-start reminder of the weeks due in CHANGELOG.md is read the same
+// way, under hooks.SessionStart, for the start source "startup".
+//
 // "Registered" is decided as each host decides whether to run a hook, by
 // `lib/hook-registration.mts`: the group's matcher is read as the host reads
 // it, and the entry must be a command hook with exactly the command line the
@@ -44,7 +47,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { ASK_RULES, CLAUDE_LOCAL_SETTINGS, CLAUDE_SETTINGS, CODEX_HOOKS, COMMAND_NEEDS, EDIT_ASK_RULES, HOOK_COMMANDS, HOOK_SCRIPT, RETIRED_ARGUMENT, RETIRED_ASK_RULES, RETIRED_FILES, WIDE_ALLOW } from "./lib/host.mts";
+import { ASK_RULES, CLAUDE_LOCAL_SETTINGS, CLAUDE_SETTINGS, CODEX_HOOKS, COMMAND_NEEDS, DUE_HOOK_COMMANDS, DUE_HOOK_SCRIPT, EDIT_ASK_RULES, HOOK_COMMANDS, HOOK_SCRIPT, RETIRED_ARGUMENT, RETIRED_ASK_RULES, RETIRED_FILES, WIDE_ALLOW } from "./lib/host.mts";
 import { groupRuns, hostOf } from "./lib/hook-registration.mts";
 import { isMainModule } from "./lib/main.mts";
 import { installedIn } from "./requires.mts";
@@ -58,6 +61,8 @@ const SHELL_TOOL = "Bash";
  * sees it. Codex has no such tool.
  */
 const WATCH_TOOL = "Monitor";
+/** The start source the changelog reminder must run for, in both hosts. */
+const START_SOURCE = "startup";
 const REFUSED_SAMPLE = "git add -A && git commit -m wip && git push";
 /** A push that names a work branch and writes to main. No permission rule can say it, so the hook asks. */
 const ASKED_SAMPLE = "git push origin worktree-sample:main";
@@ -148,6 +153,12 @@ export function check({ root, runHook, report }: CheckOptions): number {
       );
     } else {
       fail(`${host}: ${path} does not register ${HOOK_SCRIPT} under hooks.PreToolUse. ${FIX}`);
+    }
+
+    if (sessionGroups(settings).some((group) => groupRuns(group, DUE_HOOK_COMMANDS[path], START_SOURCE, hostOf(path)))) {
+      report(`PASS ${host}: ${path} runs the changelog reminder at the start of a session`);
+    } else {
+      fail(`${host}: ${path} does not run ${DUE_HOOK_SCRIPT} at the start of a session (hooks.SessionStart, for "${START_SOURCE}"), so the weeks due in CHANGELOG.md are not named. ${FIX}`);
     }
 
     for (const [file, switched] of [[path, settings], ...(path === CLAUDE_SETTINGS ? [[CLAUDE_LOCAL_SETTINGS, readSettings(root, CLAUDE_LOCAL_SETTINGS)] as const] : [])] as const) {
@@ -271,6 +282,13 @@ function readSettings(root: string, path: string): Settings | "absent" | "unread
 /** The groups of hooks the settings register to run before a tool call. The event's name is read as the hosts read it: in this case only. */
 function groupsBeforeToolUse(settings: Settings): unknown[] {
   const groups = (settings.hooks as { PreToolUse?: unknown } | undefined)?.PreToolUse;
+
+  return Array.isArray(groups) ? groups : [];
+}
+
+/** The groups of hooks the settings register to run when a session starts. */
+function sessionGroups(settings: Settings): unknown[] {
+  const groups = (settings.hooks as { SessionStart?: unknown } | undefined)?.SessionStart;
 
   return Array.isArray(groups) ? groups : [];
 }

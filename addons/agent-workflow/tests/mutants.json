@@ -3147,8 +3147,8 @@
   {
     "name": "the manifest registers an entry the host would run (its type)",
     "file": "addons/agent-workflow/addon.json",
-    "find": "\"type\": \"command\",\n                \"command\": \"node tools/agent-workflow",
-    "replace": "\"type\": \"prompt\",\n                \"command\": \"node tools/agent-workflow",
+    "find": "\"type\": \"command\",\n                \"command\": \"node tools/agent-workflow/hooks/split",
+    "replace": "\"type\": \"prompt\",\n                \"command\": \"node tools/agent-workflow/hooks/split",
     "test": "pnpm vitest run addons/agent-workflow/tests/addon.test.mts --testNamePattern=\"registers the hook with the command lines the check looks for\""
   },
   {
@@ -5656,5 +5656,82 @@
     "find": "  return merged.filter((number) => !cited.includes(number));",
     "replace": "  return merged.length === 0 ? [0] : merged.filter((number) => !cited.includes(number));",
     "test": "pnpm vitest run addons/agent-workflow/tests/due.test.mts -t \"never judges a week with no merges\""
+  },
+  {
+    "name": "due hook: exits 1 when it cannot judge",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/hooks/changelog-due.mts",
+    "find": "process.exitCode = 0;",
+    "replace": "process.exitCode = reply === \"\" ? 1 : 0;",
+    "test": "pnpm vitest run addons/agent-workflow/tests/changelog-due-hook.test.mts --testNamePattern=\"says nothing and exits 0 with no git, no origin, or no CHANGELOG.md, within a second\""
+  },
+  {
+    "name": "due hook: prints when nothing is due",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/hooks/changelog-due.mts",
+    "find": "return due.length === 0",
+    "replace": "return due.length === -1",
+    "test": "pnpm vitest run addons/agent-workflow/tests/changelog-due-hook.test.mts --testNamePattern=\"says nothing when nothing is due\""
+  },
+  {
+    "name": "due hook: names the wrong event",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/hooks/changelog-due.mts",
+    "find": "hookEventName: \"SessionStart\"",
+    "replace": "hookEventName: \"PreToolUse\"",
+    "test": "pnpm vitest run addons/agent-workflow/tests/changelog-due-hook.test.mts --testNamePattern=\"gives the due weeks as session context, with the command for each host\""
+  },
+  {
+    "name": "due hook: leaves out the Codex command",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/hooks/changelog-due.mts",
+    "find": " In Codex the command is $workflow-changelog <week>.",
+    "replace": "",
+    "test": "pnpm vitest run addons/agent-workflow/tests/changelog-due-hook.test.mts --testNamePattern=\"gives the due weeks as session context, with the command for each host\""
+  },
+  {
+    "name": "due hook: ignores the folder the host names",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/hooks/changelog-due.mts",
+    "find": "typeof cwd === \"string\" && cwd !== \"\" ? cwd : process.cwd()",
+    "replace": "process.cwd()",
+    "test": "pnpm vitest run addons/agent-workflow/tests/changelog-due-hook.test.mts --testNamePattern=\"reads the folder the host names, and the folder it was started in when none is named\""
+  },
+  {
+    "name": "due hook: crashes on a payload that is not JSON",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/hooks/changelog-due.mts",
+    "find": "  } catch {\n    return process.cwd();",
+    "replace": "  } catch {\n    throw new Error(\"not json\");",
+    "test": "pnpm vitest run addons/agent-workflow/tests/changelog-due-hook.test.mts --testNamePattern=\"reads the folder the host names, and the folder it was started in when none is named\""
+  },
+  {
+    "name": "due hook: Codex's reminder is not in the manifest",
+    "file": "addons/agent-workflow/addon.json",
+    "find": "\"SessionStart\": [\n          {\n            \"matcher\": \"startup|resume\",",
+    "replace": "\"SessionEnd\": [\n          {\n            \"matcher\": \"startup|resume\",",
+    "test": "pnpm vitest run addons/agent-workflow/tests/addon.test.mts --testNamePattern=\"registers the reminder in both hosts with the matcher and command the check looks for\""
+  },
+  {
+    "name": "due hook: Claude Code's reminder drops the clear source",
+    "file": "addons/agent-workflow/addon.json",
+    "find": "\"matcher\": \"startup|resume|clear\",",
+    "replace": "\"matcher\": \"startup|resume\",",
+    "test": "pnpm vitest run addons/agent-workflow/tests/addon.test.mts --testNamePattern=\"registers the reminder in both hosts with the matcher and command the check looks for\""
+  },
+  {
+    "name": "due hook: the check stops reading SessionStart",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/check.mts",
+    "find": "?.SessionStart;",
+    "replace": "?.PreToolUse;",
+    "test": "pnpm vitest run addons/agent-workflow/tests/check.test.mts --testNamePattern=\"fails the check when the reminder is not registered\""
+  },
+  {
+    "name": "due hook: the check accepts any start source",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/check.mts",
+    "find": "const START_SOURCE = \"startup\";",
+    "replace": "const START_SOURCE = \"resume\";",
+    "test": "pnpm vitest run addons/agent-workflow/tests/check.test.mts --testNamePattern=\"fails the check when the reminder is not registered\""
+  },
+  {
+    "name": "due hook: a SessionStart group is covered by a narrower matcher",
+    "file": "scripts/lib/host-settings.mts",
+    "find": "commands.every((command) => tools.every((tool) => groupRuns(existing, command, tool, host)));",
+    "replace": "commands.every((command) => tools.some((tool) => groupRuns(existing, command, tool, host)));",
+    "test": "pnpm vitest run scripts/host-settings.test.mts --testNamePattern=\"merges a SessionStart group once, and covers it by a group with the same sources\""
   }
 ]

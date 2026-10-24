@@ -324,6 +324,21 @@ describe("merging an add-on's entries into a host's settings", () => {
     expect(["Bash", "NoSuchTool", "^NoSuchTool"].map(added)).toEqual([1, 1, 1]);
   });
 
+  it("merges a SessionStart group once, and covers it by a group with the same sources", () => {
+    const due = "node due.mts";
+    const wanted = { hooks: { SessionStart: [createGroup(due, "startup|resume|clear")] } };
+    const first = mergeSettings({ hooks: { PreToolUse: [createGroup(NOW, "Bash")] } }, wanted);
+
+    expect(first.added).toEqual([`hooks.SessionStart: ${due}`]);
+    expect(first.merged).toEqual({ hooks: { PreToolUse: [createGroup(NOW, "Bash")], SessionStart: [createGroup(due, "startup|resume|clear")] } });
+    expect(mergeSettings(first.merged, wanted).added).toEqual([]);
+
+    const covered = (matcher: string | undefined): number => mergeSettings({ hooks: { SessionStart: [createGroup(due, matcher)] } }, wanted).added.length;
+
+    expect(["startup|resume|clear", "clear|resume|startup", "*", "", undefined, "startup, resume, clear"].map(covered)).toEqual([0, 0, 0, 0, 0, 0]);
+    expect(["startup|resume", "startup", "resume|clear", "compact"].map(covered)).toEqual([1, 1, 1, 1]);
+  });
+
   it("adds its Bash group beside an older line it rewrote under another matcher", () => {
     const first = mergeSettings({ hooks: { PreToolUse: [createGroup(OLDER, "Nothing")] } }, WANTED_HOOK, RETIRED);
 
