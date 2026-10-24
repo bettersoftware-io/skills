@@ -60,6 +60,8 @@ export const ASK_RULES = [
   "Bash(git push *--tags*)",
   "Bash(git push *--prune*)",
   "Bash(gh pr merge *--admin*)",
+  "Bash(pnpm changelog tag *--apply*)",
+  "Bash(pnpm changelog:releases *--apply*)",
 ];
 
 /**

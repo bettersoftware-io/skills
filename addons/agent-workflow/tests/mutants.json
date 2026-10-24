@@ -5796,5 +5796,82 @@
     "find": "(Could not tell which other weeks",
     "replace": "(Could not say which other weeks",
     "test": "pnpm vitest run addons/agent-workflow/tests/close-week.test.mts --testNamePattern=\"still opens the issue when it cannot tell\""
+  },
+  {
+    "name": "tag: skips the exists refusal",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/changelog.mts",
+    "find": "if (existing.status === 0) {",
+    "replace": "if (false) {",
+    "test": "pnpm vitest run addons/agent-workflow/tests/changelog-tag.test.mts --testNamePattern=\"refuses a week that has a tag\""
+  },
+  {
+    "name": "tag: a failed question counts as no tag",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/changelog.mts",
+    "find": "if (!/404|Not Found/i.test(existing.stderr)) {",
+    "replace": "if (false) {",
+    "test": "pnpm vitest run addons/agent-workflow/tests/changelog-tag.test.mts --testNamePattern=\"does not take a failed question\""
+  },
+  {
+    "name": "tag: writes without --apply",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/changelog.mts",
+    "find": "if (!apply) {",
+    "replace": "if (false) {",
+    "test": "pnpm vitest run addons/agent-workflow/tests/changelog-tag.test.mts --testNamePattern=\"plans without --apply\""
+  },
+  {
+    "name": "tag: takes the commit from HEAD",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/changelog.mts",
+    "find": "`--before=${boundary}`, branch]",
+    "replace": "`--before=${boundary}`, \"HEAD\"]",
+    "test": "pnpm vitest run addons/agent-workflow/tests/changelog-tag.test.mts --testNamePattern=\"takes the commit from the remote branch\""
+  },
+  {
+    "name": "tag: drops --first-parent",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/changelog.mts",
+    "find": "\"--first-parent\", `--before=${boundary}`, branch]",
+    "replace": "`--before=${boundary}`, branch]",
+    "test": "pnpm vitest run addons/agent-workflow/tests/changelog-tag.test.mts --testNamePattern=\"follows the branch itself\""
+  },
+  {
+    "name": "tag: boundary is the end of the week itself",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/changelog.mts",
+    "find": "new Date(endOf(week) - 1000).toISOString();\n  const found = runProgram(\"git\", [\"rev-list\", \"-1\", \"--first-parent\", `--before=${boundary}`, branch]",
+    "replace": "new Date(endOf(week) + 3600000).toISOString();\n  const found = runProgram(\"git\", [\"rev-list\", \"-1\", \"--first-parent\", `--before=${boundary}`, branch]",
+    "test": "pnpm vitest run addons/agent-workflow/tests/changelog-tag.test.mts --testNamePattern=\"creates the tag on the week's last first-parent commit\""
+  },
+  {
+    "name": "tag: tags a week that is not over",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/changelog.mts",
+    "find": "if (endOf(week) > now.getTime()) {",
+    "replace": "if (false) {",
+    "test": "pnpm vitest run addons/agent-workflow/tests/changelog-tag.test.mts --testNamePattern=\"refuses a week that is not over\""
+  },
+  {
+    "name": "tag: goes on without a remote branch",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/changelog.mts",
+    "find": "if (branch === undefined) {",
+    "replace": "if (false) {",
+    "test": "pnpm vitest run addons/agent-workflow/tests/changelog-tag.test.mts --testNamePattern=\"says nothing was judged when there is no remote branch\""
+  },
+  {
+    "name": "tag: names no step on failure",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/changelog.mts",
+    "find": "tagged.step === \"object\" ? \" object\" : \"\"",
+    "replace": "\"\"",
+    "test": "pnpm vitest run addons/agent-workflow/tests/changelog-tag.test.mts --testNamePattern=\"names the step that failed\""
+  },
+  {
+    "name": "tag: asks nothing before changelog tag --apply",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/host.mts",
+    "find": "  \"Bash(pnpm changelog tag *--apply*)\",\n",
+    "replace": "",
+    "test": "pnpm vitest run addons/agent-workflow/tests/changelog-tag.test.mts --testNamePattern=\"asks before either --apply\""
+  },
+  {
+    "name": "tag: asks nothing before changelog:releases --apply",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/host.mts",
+    "find": "  \"Bash(pnpm changelog:releases *--apply*)\",\n",
+    "replace": "",
+    "test": "pnpm vitest run addons/agent-workflow/tests/changelog-tag.test.mts --testNamePattern=\"asks before either --apply\""
   }
 ]
