@@ -57,29 +57,41 @@ const WORD_END = new Set([" ", "\t", "\n", ";", "&", "|", "<", ">", "(", ")"]);
  */
 type Context = "word" | "double" | "body";
 
-/**
- * Operators a line continuation can join. Bash takes a backslash and the new
- * line after it out before it reads, so `(`, a continuation and `(` are `((`,
- * and two pipes so split are `||`.
- */
-const OPERATOR = new Set([";", "&", "|", "<", ">", "("]);
+/** A command with its line continuations taken out, and where in what is left each one stood. */
+interface Joined {
+  text: string;
+  /** In order: each is where the text after a continuation now starts. */
+  at: number[];
+}
 
-/** The text with each line continuation taken out, as bash reads it outside single quotes. */
-function joinLines(text: string): string {
+/**
+ * Takes out each line continuation (a backslash and the new line after it),
+ * as bash does before it reads a command: `ca`, a continuation and `se` are
+ * `case`; `|`, two continuations and `|` are `||`. An escaped backslash is no
+ * continuation. Bash leaves one in place in three places: single quotes,
+ * where only the text inside changes; a comment; and a quoted heredoc's body.
+ * The reader refuses to read the last two when a continuation was taken out
+ * there (`Scanner.joinedWithin`).
+ */
+function joinLines(text: string): Joined {
   let joined = "";
+  const at: number[] = [];
 
   for (let index = 0; index < text.length; index += 1) {
     const char = text[index];
 
-    if (char === "\\") {
-      joined += text[index + 1] === "\n" ? "" : text.slice(index, index + 2);
+    if (char === "\\" && text[index + 1] === "\n") {
+      at.push(joined.length);
+      index += 1;
+    } else if (char === "\\") {
+      joined += text.slice(index, index + 2);
       index += 1;
     } else {
       joined += char;
     }
   }
 
-  return joined;
+  return { text: joined, at };
 }
 
 /** How many characters the reader may read again, in all, after `((` turned out not to be arithmetic. */
@@ -92,7 +104,9 @@ export function parseShell(text: string): Script {
     throw new LimitError(`the command is longer than ${LONGEST_SCRIPT} characters`);
   }
 
-  return new Scanner(text).script(undefined);
+  const joined = joinLines(text);
+
+  return new Scanner(joined.text, 0, { characters: 0 }, joined.at).script(undefined);
 }
 
 class Scanner {
@@ -105,10 +119,18 @@ class Scanner {
   /** Shared by every scanner of one command, so that the bound is on the whole of it. */
   private readonly lookahead: Lookahead;
 
-  constructor(text: string, depth = 0, lookahead: Lookahead = { characters: 0 }) {
+  /**
+   * Where line continuations were taken out of this text. A reader of text
+   * made from the command (what backticks hold, a heredoc's body) has none:
+   * bash takes those out before it reads such text as well.
+   */
+  private readonly joins: readonly number[];
+
+  constructor(text: string, depth = 0, lookahead: Lookahead = { characters: 0 }, joins: readonly number[] = []) {
     this.text = text;
     this.depth = depth;
     this.lookahead = lookahead;
+    this.joins = joins;
   }
 
   /** A scanner of part of this text, or of text made from it, at this depth and on this budget. */
@@ -157,12 +179,6 @@ class Scanner {
 
       if (char === " " || char === "\t") {
         this.position += 1;
-      } else if (char === "\\" && this.text[this.position + 1] === "\n") {
-        if (OPERATOR.has(this.text[this.position - 1] ?? "") && OPERATOR.has(this.text[this.position + 2] ?? "")) {
-          throw new ShellError("a line continuation that joins two operators is not read");
-        }
-
-        this.position += 2;
       } else if (char === "\n") {
         if (outside > 0) {
           throw new ShellError("a heredoc's body would begin inside a substitution");
@@ -173,7 +189,13 @@ class Scanner {
         endStep();
       } else if (char === "#") {
         // Only reached where a word would start, which is where a comment may.
+        const from = this.position;
+
         this.skipLine();
+
+        if (this.joinedWithin(from + 1, this.position + 1)) {
+          throw new ShellError("a comment that a line continuation ends is not read: bash keeps the new line there");
+        }
       } else if (char === ";") {
         this.position += 1;
         endStep();
@@ -225,7 +247,7 @@ class Scanner {
 
         // A pattern of a `case` ends in `)`, which this would take for the end of the `$(…)`. Wherever `case`
         // stands (after `f()`, `{`, `function f {`), and whether or not it starts a command, it is not read.
-        if (closer === ")" && joinLines(this.text.slice(start, this.position)) === "case") {
+        if (closer === ")" && this.text.slice(start, this.position) === "case") {
           throw new ShellError("a case inside a substitution is not read");
         }
 
@@ -261,7 +283,7 @@ class Scanner {
           throw new ShellError("a single quote is never closed");
         }
 
-        value += this.text.slice(this.position + 1, end);
+        value += this.unjoined(this.position + 1, end);
         this.position = end + 1;
       } else if (char === '"') {
         this.position += 1;
@@ -269,8 +291,7 @@ class Scanner {
       } else if (char === "\\") {
         const next = this.text[this.position + 1];
 
-        this.continuation();
-        value += next === undefined || next === "\n" ? "" : next;
+        value += next ?? "";
         this.position += 2;
       } else if (char === "$" && this.text[this.position + 1] === "'") {
         value += this.ansiC();
@@ -382,9 +403,8 @@ class Scanner {
       if (char === "\\") {
         const next = this.text[this.position + 1] ?? "";
 
-        this.continuation();
         // Inside double quotes a backslash only escapes these.
-        value += ['"', "\\", "$", "`"].includes(next) ? next : next === "\n" ? "" : `\\${next}`;
+        value += ['"', "\\", "$", "`"].includes(next) ? next : `\\${next}`;
         this.position += 2;
       } else {
         const mark = this.substitution(script, "double");
@@ -423,7 +443,6 @@ class Scanner {
       }
 
       if (char === "\\") {
-        this.continuation();
         this.position += 2;
       } else if (char === "'" || char === '"') {
         if (quoted) {
@@ -527,7 +546,6 @@ class Scanner {
         brackets += 1;
         this.position += 1;
       } else if (char === "\\") {
-        this.continuation();
         this.position += 2;
       } else if (char === "'") {
         // Read past, for a subshell may yet close this; once it is known to be arithmetic, it is not read.
@@ -605,10 +623,6 @@ class Scanner {
 
     this.position += operator.length;
 
-    if (this.text.startsWith("\\\n", this.position)) {
-      throw new ShellError("a line continuation right after a redirection is not read");
-    }
-
     if (operator === "<(" || operator === ">(") {
       script.nested.push(this.script(")"));
 
@@ -623,7 +637,7 @@ class Scanner {
     const target = this.word(script);
 
     if (operator === "<<" || operator === "<<-") {
-      this.heredocs.push({ delimiter: target, stripTabs: operator === "<<-", quoted: /['"\\]/.test(joinLines(this.text.slice(start, this.position))) });
+      this.heredocs.push({ delimiter: target, stripTabs: operator === "<<-", quoted: /['"\\]/.test(this.text.slice(start, this.position)) });
     }
   }
 
@@ -643,10 +657,12 @@ class Scanner {
         }
 
         const lineEnd = this.text.indexOf("\n", this.position);
-        const line = this.text.slice(this.position, lineEnd === -1 ? this.text.length : lineEnd);
+        const stop = lineEnd === -1 ? this.text.length : lineEnd;
+        // A quoted body keeps its continuations: of a line joined here, only what follows the last of them was a line of its own.
+        const line = this.text.slice(quoted ? Math.max(this.position, this.lastJoinUpTo(stop)) : this.position, stop);
 
         end = this.position;
-        this.position = lineEnd === -1 ? this.text.length : lineEnd + 1;
+        this.position = stop === this.text.length ? stop : stop + 1;
 
         if ((stripTabs ? line.replace(/^\t+/, "") : line) === delimiter) {
           break;
@@ -654,7 +670,7 @@ class Scanner {
       }
 
       if (!quoted) {
-        this.reader(joinLines(this.text.slice(start, end))).heredocBody(script);
+        this.reader(this.text.slice(start, end)).heredocBody(script);
       }
     }
   }
@@ -670,15 +686,47 @@ class Scanner {
     }
   }
 
-  /**
-   * At a backslash. A line continuation after `$` makes `$(`, `${` or `$'` of
-   * what follows, where this reads the `$` alone: such a command is not read.
-   * Anywhere else in a word, the two sides join here as they do in the shell.
-   */
-  private continuation(): void {
-    if (this.text[this.position + 1] === "\n" && this.text[this.position - 1] === "$") {
-      throw new ShellError("a line continuation after $ is not read");
+  /** Where in `joins` the first place at `at` or after it is. */
+  private firstJoinFrom(at: number): number {
+    let low = 0;
+    let high = this.joins.length;
+
+    while (low < high) {
+      const middle = (low + high) >> 1;
+
+      if ((this.joins[middle] ?? 0) < at) {
+        low = middle + 1;
+      } else {
+        high = middle;
+      }
     }
+
+    return low;
+  }
+
+  /** Whether a line continuation was taken out at a place from `from` up to, not including, `to`. */
+  private joinedWithin(from: number, to: number): boolean {
+    return (this.joins[this.firstJoinFrom(from)] ?? to) < to;
+  }
+
+  /** The last place up to `to`, included, where a line continuation was taken out, or -1. */
+  private lastJoinUpTo(to: number): number {
+    return this.joins[this.firstJoinFrom(to + 1) - 1] ?? -1;
+  }
+
+  /** The text from `from` to `to` with its line continuations put back, as single quotes keep them. */
+  private unjoined(from: number, to: number): string {
+    let text = "";
+    let at = from;
+
+    for (let index = this.firstJoinFrom(from); index < this.joins.length && (this.joins[index] ?? to + 1) <= to; index += 1) {
+      const join = this.joins[index] ?? to;
+
+      text += `${this.text.slice(at, join)}\\\n`;
+      at = join;
+    }
+
+    return text + this.text.slice(at, to);
   }
 
   private skipLine(): void {

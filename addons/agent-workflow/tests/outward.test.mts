@@ -400,6 +400,57 @@ describe("a push where the reader once did not look", () => {
   });
 });
 
+// Bash takes each backslash and the new line after it out of the command
+// before it reads it, outside single quotes, a comment and the body of a
+// quoted heredoc. So the reader does the same, once, for the whole command.
+describe("a line continuation", () => {
+  const C = "\\\n";
+
+  it.each([
+    ["joins two pipes into ||", `git push origin worktree-a |${C}| ls`],
+    ["joins two pipes into ||, two at once", `git push origin worktree-a |${C}${C}| ls`],
+    ["joins & and & into &&, two at once", `ls &${C}${C}& git push origin worktree-a`],
+    ["joins | and & into |&, two at once", `ls |${C}${C}& git push origin worktree-a`],
+    ["joins two brackets into ((", `(${C}(x = 1<<2))\ngit push origin worktree-a\n2`],
+    ["joins two brackets into ((, two at once", `(${C}${C}(x = 1<<2))\ngit push origin worktree-a\n2`],
+    ["joins << to a third <", `cat <<${C}<x\ngit push origin worktree-a\n\nls`],
+    ["joins $ to (", `echo $${C}(git push origin worktree-a)`],
+    ["joins $ to (, two at once", `echo $${C}${C}(git push origin worktree-a)`],
+    ["joins $ to ( in double quotes", `echo "$${C}(git push origin worktree-a)"`],
+    ["joins $ to ( inside ${…}", `echo \${x:-$${C}(git push origin worktree-a)}`],
+    ["joins $ to ( inside arithmetic", `echo $(( $${C}(git push origin worktree-a) ))`],
+    ["joins the letters of push", `ls && git pu${C}${C}sh origin worktree-a`],
+    ["joins the letters of gh", `ls && g${C}${C}h pr merge 1`],
+    ["is none after an escaped backslash, where the new line ends the step", "echo a\\\\\ngit push origin worktree-a"],
+    ["stays in a quoted heredoc's body, where the line after it ends the body", `cat <<'EOF'\nx${C}EOF\ngit push origin worktree-a`],
+    ["stays in a quoted heredoc's body that strips tabs", `cat <<-'EOF'\nx${C}\tEOF\ngit push origin worktree-a`],
+  ])("%s", (_name, command) => {
+    expect(judgeCommand(command)?.chained).toBe(true);
+    expect(judgeCall({ tool_name: "Bash", tool_input: { command } })?.decision).toBe("deny");
+  });
+
+  it.each([
+    ["splits case, two at once, inside $(…)", `echo "$(ca${C}${C}se x in a) ;; esac; git push origin worktree-a)"`],
+    ["joins ; and ; into ;; inside a case", `echo "$(case x in a) ;${C}${C}; esac; git push origin worktree-a)"`],
+    ["ends a comment, where bash does not take it out", `ls # a note ${C}git push origin worktree-a`],
+    ["splits push in a command that cannot be read", `git pu${C}${C}sh origin worktree-a 'never closed`],
+    ["splits gh in a command that cannot be read", `g${C}${C}h pr merge 1 'never closed`],
+  ])("is not read where it %s, and is asked about", (_name, command) => {
+    expect(judgeCommand(command)).toBeUndefined();
+    expect(judgeCall({ tool_name: "Bash", tool_input: { command } })?.decision).toBe("ask");
+  });
+
+  it("is taken out of a pull request's options, and left in its body from a quoted heredoc", () => {
+    const command = `gh pr create --title t ${C}  --body "$(cat <<'EOF'\nkeep this \\\nas written; git push && more\nEOF\n)"`;
+
+    expect(judgeCommand(command)).toEqual({ outward: ["gh pr create"], chained: false, redirected: false });
+  });
+
+  it("is left in single quotes, where it is text", () => {
+    expect(parseShell(`echo 'a${C}b' c${C}d`).steps).toEqual([[["echo", `a${C}b`, "cd"]]]);
+  });
+});
+
 describe("a command that cannot be read", () => {
   it.each([
     ["a quote that never closes", 'git commit -m "wip && git push'],
@@ -418,13 +469,6 @@ describe("a command that cannot be read", () => {
     ["a case in a function's braces inside $(…)", 'echo "$(f() { case x in a) ;; esac; }; git push origin worktree-a)"'],
     ["a case as a function's body inside $(…)", 'echo "$(f() case x in a) ;; esac; git push origin worktree-a)"'],
     ["a case split by a line continuation inside $(…)", 'echo "$(ca\\\nse x in a) ;; esac; git push origin worktree-a)"'],
-    ["a line continuation that joins two brackets into ((", "(\\\n(x = 1<<2))\ngit push origin worktree-a\n2"],
-    ["a line continuation that joins two pipes into ||", "git push origin worktree-a |\\\n| ls"],
-    ["a line continuation that joins << to a third <", "cat <<\\\n<x\ngit push origin worktree-a\n\nls"],
-    ["a line continuation after $ in a word", "echo $\\\n(git push origin worktree-a)"],
-    ["a line continuation after $ in double quotes", 'echo "$\\\n(git push origin worktree-a)"'],
-    ["a line continuation after $ inside ${…}", "echo ${x:-$\\\n(git push origin worktree-a)}"],
-    ["a line continuation after $ inside arithmetic", "echo $(( $\\\n(git push origin worktree-a) ))"],
     ["a case in a function written with its keyword inside $(…)",'echo "$(function f { case x in a) ;; esac; }; git push origin worktree-a)"'],
     ["a heredoc opened inside $(…) whose body comes after it", 'echo "$(cat <<EOF)"\ngit push origin worktree-a\nEOF'],
     ["a heredoc opened inside backticks", "echo `cat <<EOF`\ngit push origin worktree-a\nEOF"],

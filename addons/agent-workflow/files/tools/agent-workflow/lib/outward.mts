@@ -170,7 +170,10 @@ function judgeScript(script: Script, depth = 0): Reading {
  * command that may be local and letting a chain through unread.
  */
 export function mentionsOutward(text: string): boolean {
-  return /(?:^|[^A-Za-z0-9_-])(?:push|gh)(?:$|[^A-Za-z0-9_-])/.test(text);
+  const word = /(?:^|[^A-Za-z0-9_-])(?:push|gh)(?:$|[^A-Za-z0-9_-])/;
+
+  // Also with each line continuation taken out, as the shell reads it: `pu`, a continuation and `sh` are `push`.
+  return word.test(text) || word.test(text.replaceAll("\\\n", ""));
 }
 
 /**
