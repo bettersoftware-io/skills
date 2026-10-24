@@ -55,11 +55,34 @@ done in 1.6 s.
 | `pnpm changelog:releases --check` | exit 0, `SKIP sync-releases: CHANGELOG.md has no week yet, so there is no release to render` |
 | `pnpm gate:full` | exit 0, every stage PASS or SKIP (34 lines; the SKIPs are `types-only`, `animations`, `dockerfiles`, `packages/e2e`, `packages/integration`) |
 
+Tails of the real output (re-run on the same branch for this record, all exit 0):
+
+```
+$ pnpm agent-workflow:check            (exit 0, last lines)
+PASS command /workflow:perf-audit
+PASS changelog releases: 1 week(s) of CHANGELOG.md render as release notes
+$ pnpm gate:full                       (exit 0, last lines)
+PASS packages/react-bindings — 5 files at or above the bar
+PASS packages/server — 2 files at or above the bar
+PASS packages/shared — 2 files at or above the bar
+The bar, for every file: lines >= 95%, statements >= 95%, functions >= 95%, branches >= 85%.
+Every measured file meets the bar.
+$ pnpm gate:fast                       (exit 0, last lines)
+PASS lint:dead — knip found nothing unused (131 TypeScript file(s) in the project)
+PASS visual-styles: main.tsx loads no stylesheet or font besides index.css.
+PASS docs/STATUS.md — its sections, its date and its entries are in the page's form
+```
+
+The table's "15 PASS" and "34 lines" are counts of those runs' output lines
+that start with PASS or SKIP. The first run of \`agent-workflow:check\` and
+\`gate:full\` (without the entry) was observed by exit code and those counts; the
+tails above are from the second run, with the entry in.
+
 The one SKIP in `agent-workflow:check`: `changelog releases: CHANGELOG.md has no
 week yet, so there is no release to render`.
 
 `gate:full` includes `check:status` (`docs/STATUS.md — its sections, its date and
-its entries are in the page's form`) and `lint:dead` (knip found nothing unused).
+its entries are in the page's form`; that is skills-demo's own `docs/STATUS.md`. This repository's `docs/STATUS.md` is not in that form, and nothing here checks it) and `lint:dead` (knip found nothing unused).
 
 ## 3. What is due, and the hook as each host starts it
 
@@ -118,7 +141,7 @@ $ pnpm changelog due                 (exit 0, nothing printed)
 ```
 
 The hook, run again with the entry in, printed nothing (0 bytes) and exited 0.
-`pnpm gate:fast` passed.
+`pnpm gate:fast` exited 0 (tail in section 2).
 
 The release notes of the week, offline:
 
@@ -132,8 +155,8 @@ Generated from the [2026-W42 entry](https://github.com/bettersoftware-io/skills-
 ```
 
 With a fixture that holds the week's tag and no release
-(`{"tags":["2026-W42"],"releases":[],"latestTag":"2026-W42"}`, kept in the
-plan's folder as `task-10-state.json`):
+(`{"tags":["2026-W42"],"releases":[],"latestTag":"2026-W42"}`, written to
+a scratch file that is not committed):
 
 ```
 $ pnpm changelog:releases --state <fixture>
