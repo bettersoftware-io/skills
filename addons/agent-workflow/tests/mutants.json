@@ -624,7 +624,7 @@
   },
   {
     "name": "creates the tag through the API",
-    "file": "addons/agent-workflow/files/tools/agent-workflow/close-week.mts",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/tag.mts",
     "find": "\"-f\", \"type=commit\"",
     "replace": "\"-f\", \"type=tree\"",
     "test": "pnpm vitest run addons/agent-workflow/tests/close-week.test.mts --testNamePattern=\"creates the tag through the API\""
@@ -632,8 +632,8 @@
   {
     "name": "opens an issue that asks for the week's entry",
     "file": "addons/agent-workflow/files/tools/agent-workflow/close-week.mts",
-    "find": "\"--title\", `Changelog: write ${week.name}`",
-    "replace": "\"--title\", `Changelog ${week.name}`",
+    "find": "`Changelog: ${closed?.extend",
+    "replace": "`Changelog ${closed?.extend",
     "test": "pnpm vitest run addons/agent-workflow/tests/close-week.test.mts --testNamePattern=\"opens an issue that asks for the week's entry\""
   },
   {
@@ -673,16 +673,16 @@
   },
   {
     "name": "when GitHub refuses the tag object",
-    "file": "addons/agent-workflow/files/tools/agent-workflow/close-week.mts",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/tag.mts",
     "find": "if (tag.status !== 0 || tag.stdout.trim() === \"\") {",
     "replace": "if (tag.status === 99) {",
     "test": "pnpm vitest run addons/agent-workflow/tests/close-week.test.mts --testNamePattern=\"when GitHub refuses the tag object\""
   },
   {
     "name": "when GitHub refuses the tag",
-    "file": "addons/agent-workflow/files/tools/agent-workflow/close-week.mts",
-    "find": "if (ref.status !== 0) {",
-    "replace": "if (ref.status === 99) {",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/tag.mts",
+    "find": "ref.status === 0 ?",
+    "replace": "ref.status !== 99 ?",
     "test": "pnpm vitest run addons/agent-workflow/tests/close-week.test.mts --testNamePattern=\"when GitHub refuses the tag\""
   },
   {
@@ -5747,5 +5747,54 @@
     "find": "  process.stdout.on(\"error\", () => {});\n",
     "replace": "",
     "test": "pnpm vitest run addons/agent-workflow/tests/changelog-due-hook.test.mts --testNamePattern=\"says nothing and exits 0 when the host has closed the pipe\""
+  },
+  {
+    "name": "dates the tag at Monday 00:05 (no 5 minutes)",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/tag.mts",
+    "find": "endOf(week) + 5 * 60_000",
+    "replace": "endOf(week)",
+    "test": "pnpm vitest run addons/agent-workflow/tests/close-week.test.mts --testNamePattern=\"dates the tag at Monday 00:05\""
+  },
+  {
+    "name": "dates the tag at Monday 00:05 (no tagger date)",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/tag.mts",
+    "find": "...[\"-f\", `tagger[date]=${tagDate(week)}`, \"--jq\", \".sha\"],",
+    "replace": "\"--jq\", \".sha\",",
+    "test": "pnpm vitest run addons/agent-workflow/tests/close-week.test.mts --testNamePattern=\"dates the tag at Monday 00:05\""
+  },
+  {
+    "name": "dates the tag at Monday 00:05 (milliseconds kept)",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/tag.mts",
+    "find": ".replace(\".000Z\", \"Z\")",
+    "replace": ".replace(\".000Z\", \".000Z\")",
+    "test": "pnpm vitest run addons/agent-workflow/tests/close-week.test.mts --testNamePattern=\"dates the tag at Monday 00:05\""
+  },
+  {
+    "name": "lists every week still due in the issue",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/close-week.mts",
+    "find": "...(due.length > 0 ? [",
+    "replace": "...(false ? [",
+    "test": "pnpm vitest run addons/agent-workflow/tests/close-week.test.mts --testNamePattern=\"lists every week still due in the issue\""
+  },
+  {
+    "name": "titles the issue extend",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/close-week.mts",
+    "find": "closed?.extend ? \"extend\" : \"write\"",
+    "replace": "\"write\"",
+    "test": "pnpm vitest run addons/agent-workflow/tests/close-week.test.mts --testNamePattern=\"titles the issue extend when\""
+  },
+  {
+    "name": "opens no issue when the week's entry already cites every merge",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/close-week.mts",
+    "find": "unknown === undefined && closed === undefined",
+    "replace": "false",
+    "test": "pnpm vitest run addons/agent-workflow/tests/close-week.test.mts --testNamePattern=\"opens no issue when the week's entry already cites\""
+  },
+  {
+    "name": "still opens the issue when it cannot tell what else is due",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/close-week.mts",
+    "find": "(Could not tell which other weeks",
+    "replace": "(Could not say which other weeks",
+    "test": "pnpm vitest run addons/agent-workflow/tests/close-week.test.mts --testNamePattern=\"still opens the issue when it cannot tell\""
   }
 ]

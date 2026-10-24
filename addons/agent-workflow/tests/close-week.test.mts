@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 
 import { closeWeek } from "../files/tools/agent-workflow/close-week.mts";
 import { type Ran, type Run, run } from "../files/tools/agent-workflow/lib/system.mts";
+import { tagDate } from "../files/tools/agent-workflow/lib/tag.mts";
+import { parseWeek } from "../files/tools/agent-workflow/lib/week.mts";
 import { commit, createFolder, git, mergeAt } from "./support.mts";
 
 // Monday 5 October 2026, 00:05 UTC: the moment the workflow runs. The week
@@ -49,7 +51,9 @@ describe("closing the week that has just ended", () => {
       [
         ...["gh", "api", "repos/acme/app/git/tags", "-f", "tag=2026-W40"],
         ...["-f", "message=2026-W40 - the default branch at the end of 2026-09-28 .. 2026-10-04 (UTC). See CHANGELOG.md."],
-        ...["-f", `object=${shas.lastOfWeek}`, "-f", "type=commit", "--jq", ".sha"],
+        ...["-f", `object=${shas.lastOfWeek}`, "-f", "type=commit"],
+        ...["-f", "tagger[name]=github-actions[bot]", "-f", "tagger[email]=41898282+github-actions[bot]@users.noreply.github.com"],
+        ...["-f", "tagger[date]=2026-10-05T00:05:00Z", "--jq", ".sha"],
       ],
       ["gh", "api", "repos/acme/app/git/refs", "-f", "ref=refs/tags/2026-W40", "-f", "sha=sha-of-the-tag-object", "--silent"],
     ]);
@@ -70,6 +74,76 @@ describe("closing the week that has just ended", () => {
       ...["gh", "pr", "list", "--repo", "acme/app", "--state", "merged", "--limit", "500"],
       ...["--search", "merged:2026-09-28..2026-10-04", "--json", "number"],
     ]);
+  });
+
+  it("dates the tag at Monday 00:05 UTC after its week, even on a late run", () => {
+    const { repository } = createHistory();
+    const { tagger } = close(repository, "2026-10-07T15:00:00Z");
+
+    expect(tagger).toEqual({
+      name: "github-actions[bot]",
+      email: "41898282+github-actions[bot]@users.noreply.github.com",
+      date: "2026-10-05T00:05:00Z",
+    });
+    expect(tagDate(parseWeek("2026-W53"))).toBe("2027-01-04T00:05:00Z");
+  });
+
+  it("lists every week still due in the issue", () => {
+    const repository = createRepository();
+
+    commit(repository, "the changelog", { "CHANGELOG.md": createChangelog({ "2026-W38": [3] }) }, "2026-09-01T10:00:00Z");
+    mergePullRequest(repository, 3, "2026-09-16T10:00:00Z");
+    mergePullRequest(repository, 4, "2026-09-23T10:00:00Z");
+    mergePullRequest(repository, 5, "2026-09-30T10:00:00Z");
+
+    const { issue } = close(repository);
+
+    expect(issue?.title).toBe("Changelog: write 2026-W40");
+    expect(issue?.body).toContain(
+      [
+        "Still due:",
+        "- 2026-W39  1 merged, no entry: write it with /workflow:changelog 2026-W39",
+        "- 2026-W40  1 merged, no entry: write it with /workflow:changelog 2026-W40",
+      ].join("\n"),
+    );
+  });
+
+  it("titles the issue extend when the week already has an entry", () => {
+    const repository = createRepository();
+
+    commit(repository, "the changelog", { "CHANGELOG.md": createChangelog({ "2026-W40": [5] }) }, "2026-09-01T10:00:00Z");
+    mergePullRequest(repository, 5, "2026-09-29T10:00:00Z");
+    mergePullRequest(repository, 6, "2026-09-30T10:00:00Z");
+
+    const { issue, lines } = close(repository);
+
+    expect(issue?.title).toBe("Changelog: extend 2026-W40");
+    expect(issue?.body).toContain("- 2026-W40  2 merged, 1 not cited (#6): extend it with /workflow:changelog 2026-W40");
+    expect(lines.at(-1)).toMatch(/^Opened "Changelog: extend 2026-W40" /);
+  });
+
+  it("opens no issue when the week's entry already cites every merge", () => {
+    const repository = createRepository();
+
+    commit(repository, "the changelog", { "CHANGELOG.md": createChangelog({ "2026-W40": [5] }) }, "2026-09-01T10:00:00Z");
+    mergePullRequest(repository, 5, "2026-09-29T10:00:00Z");
+
+    const { status, issue, tagged, lines } = close(repository);
+
+    expect(status).toBe(0);
+    expect(tagged).toBeDefined();
+    expect(issue).toBeUndefined();
+    expect(lines.at(-1)).toBe("2026-W40 already has a complete entry: no issue opened.");
+  });
+
+  it("still opens the issue when it cannot tell what else is due", () => {
+    const { repository } = createHistory();
+    const { status, issue } = close(repository);
+
+    expect(status).toBe(0);
+    expect(issue?.title).toBe("Changelog: write 2026-W40");
+    expect(issue?.body).toContain("(Could not tell which other weeks are due: there is no CHANGELOG.md at the project root.)");
+    expect(issue?.body).not.toContain("Still due:");
   });
 
   it("opens no issue for a week in which nothing was merged", () => {
@@ -164,6 +238,7 @@ interface Closed {
   calls: string[][];
   tagged?: { tag: string; object: string; type: string };
   issue?: { title: string; body: string };
+  tagger?: { name: string; email: string; date: string };
 }
 
 /** Runs the tool with the real git and a GitHub that answers as `world` says. */
@@ -183,6 +258,7 @@ function close(repository: string, now = NOW, week = "2026-W40", world: GitHub =
     }
 
     if (line.includes("git/tags")) {
+      closed.tagger = { name: field("tagger[name]"), email: field("tagger[email]"), date: field("tagger[date]") };
       tagObject = { tag: field("tag"), object: field("object"), type: field("type") };
 
       return ok("sha-of-the-tag-object\n");
@@ -221,6 +297,20 @@ function close(repository: string, now = NOW, week = "2026-W40", world: GitHub =
   });
 
   return closed;
+}
+
+function createChangelog(weeks: Record<string, number[]>): string {
+  const sections = Object.entries(weeks).map(([name, cited]) => `## ${name} — a week\n\n${cited.map((number) => `- change [#${number}]`).join("\n")}\n`);
+
+  return ["# Changelog\n", ...sections].join("\n");
+}
+
+/** Merges a side branch into main as pull request `number`, at `date`. */
+function mergePullRequest(repository: string, number: number, date: string): void {
+  git(repository, "checkout", "--quiet", "-b", `pr-${number}`);
+  commit(repository, `change ${number}`, { [`file-${number}`]: "1" }, date);
+  git(repository, "checkout", "--quiet", "main");
+  mergeAt(repository, `pr-${number}`, `Merge pull request #${number} from acme/pr-${number}`, date);
 }
 
 function ok(stdout: string): Ran {
