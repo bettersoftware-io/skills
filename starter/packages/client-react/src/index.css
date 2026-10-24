@@ -1,10 +1,34 @@
+/* The app's face, Inter, served with the app: no font service, the same
+   glyphs on every system, and a bold that every system draws (in the
+   Playwright container on Linux `system-ui` has one weight). Latin subset,
+   the two weights the page uses: 400, and 700 for the browser's bold
+   (`h1`, `th`). The files are from @fontsource/inter 5.3.0, under the SIL
+   Open Font License 1.1 in fonts/OFL.txt. A face is declared here, the one
+   file the app and the visual host both load. `block`: text waits for the
+   face rather than being drawn in another and redrawn. */
+@font-face {
+  font-family: Inter;
+  font-style: normal;
+  font-weight: 400;
+  font-display: block;
+  src: url("./fonts/inter-latin-400-normal.woff2") format("woff2");
+}
+
+@font-face {
+  font-family: Inter;
+  font-style: normal;
+  font-weight: 700;
+  font-display: block;
+  src: url("./fonts/inter-latin-700-normal.woff2") format("woff2");
+}
+
 :root {
   /* Every colour has a name here, and a rule uses the name. `pnpm lint:css`,
      where the project has it, fails a colour written in a rule. */
   --color-up: #1a8f4c;
   --color-down: #c0392b;
 
-  font-family: system-ui, sans-serif;
+  font-family: Inter, system-ui, sans-serif;
   color-scheme: light dark;
 }
 

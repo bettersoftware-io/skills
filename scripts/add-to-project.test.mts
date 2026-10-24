@@ -1712,7 +1712,7 @@ describe("an example starting file", () => {
 
     expect(result.yours.map(({ owned, state }) => ({ owned, state }))).toEqual([{ owned: "packages/web/tests/scenarios.ts", state: "untouched" }]);
     expect(describeYours(result).slice(-1)).toEqual([
-      "  - Examples this project was never given: packages/web/tests/registry.tsx, packages/web/tests/goldens/. A template above may import one. Start it from its template in tools/templates/, with this project's own entries.",
+      "  - Examples this project was never given: packages/web/tests/registry.tsx, packages/web/tests/goldens/. A template above may import one. Each text file among them has a template in tools/templates/ to start from, with this project's own entries; an image has none, and is the project's to make.",
     ]);
   });
 
