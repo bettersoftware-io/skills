@@ -12,7 +12,7 @@ import { resolveSubpathImport } from "./lib/files.mts";
 import { checkPortContracts, portContractsSkipReason } from "./lib/contracts.mts";
 import { checkNodeFloor } from "./lib/node-floor.mts";
 import { checkPackageManager } from "./lib/package-manager.mts";
-import { lenientLintCommands } from "./lib/package-scripts.mts";
+import { cachedVitestCommands, lenientLintCommands } from "./lib/package-scripts.mts";
 import { formatFindings, runGates } from "./run.mts";
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -311,6 +311,12 @@ describe("a project that breaks the rules", () => {
     expect(of("package-scripts", "packages/client-react/package.json")).toEqual([]);
     expect(of("package-scripts", "packages/rogue/package.json")).toEqual([]);
     expect(of("package-scripts", "packages/domain/package.json")).toEqual([]);
+  });
+
+  it("names a script that runs vitest with its shared module cache on", () => {
+    expect(of("package-scripts", "packages/widgets/package.json").map((finding) => finding.message)).toEqual([
+      expect.stringContaining('The script "test" runs `vitest run` without --no-fsModuleCache'),
+    ]);
   });
 
   it("names each script that runs ESLint and lets a warning through, in the root and in a package", () => {
@@ -710,6 +716,26 @@ describe("a #… import, read from the package's own package.json", () => {
     expect(resolveSubpathImport(root, "packages/domain", "#off")).toBeUndefined();
     expect(resolveSubpathImport(root, "packages/shared", "#tests/a.ts")).toBeUndefined();
     expect(resolveSubpathImport(root, "packages/domain", "./tests/a.ts")).toBeUndefined();
+  });
+});
+
+describe("a vitest command in a script", () => {
+  it("is held to --no-fsModuleCache, wherever in the script it is", () => {
+    expect(cachedVitestCommands("vitest run")).toEqual(["vitest run"]);
+    expect(cachedVitestCommands("pnpm build && vitest run --coverage && pnpm lint")).toEqual(["vitest run --coverage"]);
+    expect(cachedVitestCommands("pnpm exec vitest run")).toEqual(["vitest run"]);
+    expect(cachedVitestCommands("vitest")).toEqual(["vitest"]);
+  });
+
+  it("passes with the cache off in either spelling", () => {
+    expect(cachedVitestCommands("vitest run --no-fsModuleCache")).toEqual([]);
+    expect(cachedVitestCommands("vitest --no-fsModuleCache run src")).toEqual([]);
+    expect(cachedVitestCommands("vitest run --fsModuleCache=false")).toEqual([]);
+    expect(cachedVitestCommands("vitest run --fsModuleCache")).toEqual(["vitest run --fsModuleCache"]);
+  });
+
+  it("leaves a command that only has vitest in its name alone", () => {
+    expect(cachedVitestCommands("vitest-browser run && node_modules/vitest/x && my-vitest")).toEqual([]);
   });
 });
 

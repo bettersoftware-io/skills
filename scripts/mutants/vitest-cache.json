@@ -1,0 +1,44 @@
+[
+  {
+    "name": "vitest cache: the flag is what passes",
+    "file": "kit/gates/lib/package-scripts.mts",
+    "find": "    .filter((flags) => !/(^|\\s)(--no-fsModuleCache|--fsModuleCache=false)(\\s|$)/.test(flags))\n",
+    "replace": "",
+    "test": "pnpm vitest run kit/gates/gates.test.mts -t \"passes with the cache off in either spelling\""
+  },
+  {
+    "name": "vitest cache: only the command, not a name that holds it",
+    "file": "kit/gates/lib/package-scripts.mts",
+    "find": "const VITEST_COMMAND = /(?:^|[\\s;&|])vitest(?=\\s|$)([^;&|]*)/g;",
+    "replace": "const VITEST_COMMAND = /vitest([^;&|]*)/g;",
+    "test": "pnpm vitest run kit/gates/gates.test.mts -t \"leaves a command that only has vitest in its name alone\""
+  },
+  {
+    "name": "vitest cache: the gate reports it",
+    "file": "kit/gates/lib/package-scripts.mts",
+    "find": "      for (const command of cachedVitestCommands(script)) {",
+    "replace": "      for (const command of [] as string[]) {",
+    "test": "pnpm vitest run kit/gates/gates.test.mts -t \"names a script that runs vitest with its shared module cache on\""
+  },
+  {
+    "name": "vitest cache: the starter's domain runs without it",
+    "file": "starter/packages/domain/package.json",
+    "find": "\"test\": \"vitest run --no-fsModuleCache\"",
+    "replace": "\"test\": \"vitest run\"",
+    "test": "pnpm vitest run scripts/vitest-cache.test.mts -t \"in the starter's packages\""
+  },
+  {
+    "name": "vitest cache: the coverage tool runs without it",
+    "file": "addons/coverage/files/tools/coverage/lib/measure.mts",
+    "find": "...vitestArguments, \"--no-fsModuleCache\"]",
+    "replace": "...vitestArguments]",
+    "test": "pnpm vitest run scripts/vitest-cache.test.mts -t \"from a tool of the kit or an add-on\""
+  },
+  {
+    "name": "vitest cache: the visual coverage runs without it",
+    "file": "addons/visual/files/tools/visual/coverage.mts",
+    "find": "\"--coverage\", \"--no-fsModuleCache\"]",
+    "replace": "\"--coverage\"]",
+    "test": "pnpm vitest run scripts/vitest-cache.test.mts -t \"from a tool of the kit or an add-on\""
+  }
+]
