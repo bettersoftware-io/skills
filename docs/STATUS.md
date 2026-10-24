@@ -3,7 +3,7 @@
 What is not done yet. Finished work is removed from this page, not archived;
 the test records in this folder and the git log say what was done.
 
-**Last updated: 2026-10-17**
+**Last updated: 2026-10-24**
 
 ## Waiting on something outside this repository
 
@@ -38,6 +38,20 @@ on 2026-10-05, on pushes to main and on a pull request
   Not seen: Dependency Review refusing a pull request for an advisory or a
   licence, and what Scorecard's findings look like in the repository's
   code-scanning page.
+- **The changelog's workflows, a release and a tag have not run on GitHub.**
+  Tried locally in skills-demo on 2026-10-24 ([the record](changelog-2026-10-24.md)):
+  the install, the checks, `gate:full`, `due`, the reminder hook in a headless
+  Claude Code session, the entry's checks and the release notes offline. Not
+  seen: `sync-releases.yml` and `changelog-writer.yml` (both are off until a
+  repository variable switches them on), a real release (`--apply` was not
+  run; the plan against a fixture says `create`), a run of the writer (the
+  headless agent with no write token), and a tag made through the API with a
+  `tagger.date` (`changelog tag --apply` was not run).
+- **The changelog reminder did not appear in Codex.** `codex exec` 0.164.0, with
+  a week due, answered from the skill's description and showed no hook line.
+  The hook was not trusted with `/hooks`, which is interactive, so that is the
+  likely reason; whether it fires once trusted is not known. Not seen either:
+  the reminder in an interactive Claude Code session.
 - **Dependency Review fails until the repository's dependency graph is on.**
   Seen: "Dependency review is not supported on this repository". The add-on's
   README lists the setting; `gh api -X PUT repos/<owner>/<repo>/vulnerability-alerts`
