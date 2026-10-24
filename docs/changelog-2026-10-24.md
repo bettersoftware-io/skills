@@ -10,7 +10,8 @@ no tag, no release. This is what ran, and what did not.
 
 - skills-demo `main` at `a8d7733`, clean. `git fetch`, then the local branch
   `try-agent-workflow-0.20.0` from `origin/main`. The branch has one commit
-  (`51c2afc`, install plus the entry) and is not pushed.
+  (`51c2afc`, install plus the entry), is not pushed, and has no upstream
+  (`git branch --unset-upstream`; it had tracked `origin/main`).
 - The add-on came from this branch (`worktree-changelog`, `66401d4` when the record
   was written), run from inside skills-demo:
 
