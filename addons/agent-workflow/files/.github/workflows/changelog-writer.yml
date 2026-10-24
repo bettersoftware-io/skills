@@ -54,6 +54,7 @@ jobs:
       issues: read # read only: the agent is given no tool that reads issues
     outputs:
       due: ${{ steps.due.outputs.due }}
+      sha: ${{ steps.due.outputs.sha }}
       weeks: ${{ steps.due.outputs.weeks }}
       newest: ${{ steps.due.outputs.newest }}
     env:
@@ -81,7 +82,8 @@ jobs:
           ref: ${{ github.event.repository.default_branch }}
           # `due` reads the history for the merges of each week.
           fetch-depth: 0
-          # The token stays out of .git/config: the agent runs in this checkout.
+          # The checkout keeps no token. The action writes its own into
+          # .git/config (git remote set-url): see the comment on it below.
           persist-credentials: false
 
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
@@ -102,7 +104,7 @@ jobs:
             echo "due=false" >> "$GITHUB_OUTPUT"
           elif [ "$status" -eq 1 ]; then
             cat "$RUNNER_TEMP/due.txt" >> "$GITHUB_STEP_SUMMARY"
-            open=$(gh pr list --state open --search "docs(changelog) in:title" --json number --jq length)
+            open=$(gh pr list --state open --author app/github-actions --json headRefName --jq '[.[] | select(.headRefName | startswith("changelog/"))] | length')
             if [ "$open" -gt 0 ]; then
               echo "due=false" >> "$GITHUB_OUTPUT"
               echo "an open changelog pull request is waiting for review" >> "$GITHUB_STEP_SUMMARY"
@@ -112,6 +114,7 @@ jobs:
                 echo "due=true"
                 echo "weeks=$weeks"
                 echo "newest=${weeks##* }"
+                echo "sha=$(git rev-parse HEAD)"
               } >> "$GITHUB_OUTPUT"
             fi
           else
@@ -135,6 +138,14 @@ jobs:
       # which needs id-token: write and that app. Claude Code may edit
       # CHANGELOG.md. It has no git, no `gh` that writes and no other file to
       # change. The next job takes that one file and checks it.
+      #
+      # The action writes this token into .git/config and the environment of
+      # the job. It is read-only, and it expires when this job ends, before the
+      # next job pushes. The API key is the secret that matters here: Claude
+      # Code may read files under the checkout and no path under /proc, and
+      # `--setting-sources user` keeps a committed .claude/settings.json from
+      # widening its tools (parse-sdk-options.ts of the pinned release reads it).
+      # The next job refuses a file that holds a token.
       - uses: anthropics/claude-code-action@f27be6b65a4652f08a2ba3cff79114829b588967 # v1.0.252
         if: steps.due.outputs.due == 'true'
         with:
@@ -145,7 +156,9 @@ jobs:
             Follow .claude/commands/workflow/changelog.md, in its "In CI" section.
           claude_args: |
             --max-turns 40
-            --allowedTools "Read,Edit(./CHANGELOG.md),Write(./CHANGELOG.md),Bash(pnpm changelog weeks),Bash(pnpm changelog prs:*),Bash(pnpm changelog check:*),Bash(pnpm changelog defs:*),Bash(pnpm changelog due:*),Bash(gh pr view:*)"
+            --setting-sources user
+            --disallowedTools "Read(//proc/**)"
+            --allowedTools "Read(./**),Edit(./CHANGELOG.md),Write(./CHANGELOG.md),Bash(pnpm changelog weeks),Bash(pnpm changelog prs:*),Bash(pnpm changelog check:*),Bash(pnpm changelog defs:*),Bash(pnpm changelog due:*),Bash(gh pr view:*)"
 
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: steps.due.outputs.due == 'true'
@@ -166,6 +179,7 @@ jobs:
       issues: read # finds the issue that asks for the week
     env:
       WEEKS: ${{ needs.write.outputs.weeks }}
+      WRITTEN_FROM: ${{ needs.write.outputs.sha }}
       NEWEST: ${{ needs.write.outputs.newest }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -188,6 +202,14 @@ jobs:
       # nothing else gets through. Of the artifact, only CHANGELOG.md is used.
       - name: Take the file, if it is a week's name and a change
         run: |
+          if ! [[ "$WRITTEN_FROM" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "::error::'$WRITTEN_FROM' is not a commit"
+            exit 1
+          fi
+          if ! git diff --quiet "$WRITTEN_FROM" HEAD -- CHANGELOG.md; then
+            echo "::error::CHANGELOG.md changed on the default branch while the writer ran. Run the workflow again"
+            exit 1
+          fi
           for week in $WEEKS; do
             if ! [[ "$week" =~ ^[0-9]{4}-W[0-9]{2}$ ]]; then
               echo "::error::'$week' is not a week name"
@@ -203,6 +225,17 @@ jobs:
             echo "::error::the writer changed nothing in CHANGELOG.md"
             exit 1
           fi
+
+      # What the agent wrote is published, so what the agent could read must not
+      # be in it. The message names the pattern and never prints the match.
+      - name: Look for a token or a key in what was added
+        run: |
+          for pattern in 'sk-ant-' 'ghs_' 'ghp_' 'gho_' 'ghu_' 'ghr_' 'github_pat_' '-----BEGIN'; do
+            if git diff -U0 -- CHANGELOG.md | grep '^+' | grep -q -F -e "$pattern"; then
+              echo "::error::CHANGELOG.md has added text with '$pattern' in it, which starts a token or a key. Nothing was committed"
+              exit 1
+            fi
+          done
 
       # A week that fails the check is still published, as a draft: a person
       # finishes it.
@@ -239,6 +272,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
+          set -o pipefail
           numbers=$(gh issue list --author app/github-actions --state open --search "in:title Changelog:" --limit 100 --json number,title \
             | jq -r --arg weeks "$WEEKS" '($weeks | split(" ")) as $due | .[] | select(.title as $title | any($due[]; . as $week | $title | endswith($week))) | .number' \
             | paste -sd ' ' -)

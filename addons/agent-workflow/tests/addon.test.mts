@@ -375,13 +375,15 @@ describe("the writer workflow", () => {
     expect(due).toMatch(/^ {16}echo "due=true"$/m);
     expect(due).toMatch(/ {10}else\n {12}cat "\$RUNNER_TEMP\/due\.txt"\n {12}exit 1\n {10}fi/);
     expect(due).toMatch(/^ {16}echo "weeks=\$weeks"$/m);
-    expect(due).toMatch(/^ {16}echo "newest=\$\{weeks##\* \}"\n {14}\} >> "\$GITHUB_OUTPUT"$/m);
+    expect(due).toMatch(/^ {16}echo "sha=\$\(git rev-parse HEAD\)"$/m);
+    expect(due).toMatch(/^ {16}echo "newest=\$\{weeks##\* \}"$/m);
+    expect(due).toMatch(/^ {16}echo "sha=\$\(git rev-parse HEAD\)"\n {14}\} >> "\$GITHUB_OUTPUT"$/m);
   });
 
   it("does not write while a changelog pull request is open", () => {
     const due = writeSteps[indexOf(writeSteps, "id: due")] ?? "";
 
-    expect(due).toContain('gh pr list --state open --search "docs(changelog) in:title" --json number --jq length');
+    expect(due).toContain(`gh pr list --state open --author app/github-actions --json headRefName --jq '[.[] | select(.headRefName | startswith("changelog/"))] | length'`);
     expect(due).toMatch(/if \[ "\$open" -gt 0 \]; then\n {14}echo "due=false" >> "\$GITHUB_OUTPUT"\n {14}echo "an open changelog pull request is waiting for review" >> "\$GITHUB_STEP_SUMMARY"/);
     expect(due).toMatch(/^ {10}GH_TOKEN: \$\{\{ github\.token \}\}$/m);
   });
@@ -418,14 +420,16 @@ describe("the writer workflow", () => {
   it("hands the file over: publish needs write, runs only when write found a week due, and takes its outputs", () => {
     expect(publishJob).toMatch(/^ {4}needs: write$/m);
     expect(publishJob).toMatch(/^ {4}if: needs\.write\.result == 'success' && needs\.write\.outputs\.due == 'true'$/m);
-    expect(writeJob).toMatch(/^ {4}outputs:\n {6}due: \$\{\{ steps\.due\.outputs\.due \}\}\n {6}weeks: \$\{\{ steps\.due\.outputs\.weeks \}\}\n {6}newest: \$\{\{ steps\.due\.outputs\.newest \}\}\n/m);
+    expect(writeJob).toMatch(/^ {4}outputs:\n {6}due: \$\{\{ steps\.due\.outputs\.due \}\}\n {6}sha: \$\{\{ steps\.due\.outputs\.sha \}\}\n {6}weeks: \$\{\{ steps\.due\.outputs\.weeks \}\}\n {6}newest: \$\{\{ steps\.due\.outputs\.newest \}\}\n/m);
     expect(writeSteps[indexOf(writeSteps, "actions/upload-artifact@")]).toMatch(/^ {10}path: CHANGELOG\.md$/m);
-    expect(publishSteps.map((step) => /actions\/(checkout|setup-node|download-artifact)@/.exec(step)?.[1])).toEqual(["checkout", "setup-node", "download-artifact", undefined, undefined, undefined, undefined, undefined, undefined]);
+    expect(publishSteps.map((step) => /actions\/(checkout|setup-node|download-artifact)@/.exec(step)?.[1])).toEqual(["checkout", "setup-node", "download-artifact", undefined, undefined, undefined, undefined, undefined, undefined, undefined]);
+    expect(writeJob).toMatch(/^ {6}sha: \$\{\{ steps\.due\.outputs\.sha \}\}$/m);
+    expect(publishJob).toMatch(/^ {6}WRITTEN_FROM: \$\{\{ needs\.write\.outputs\.sha \}\}$/m);
   });
 
   it("gives the agent only what it needs: its allowed tools are exact, with no git, no write through gh and no bare Write or Edit", () => {
     expect(allowedTools()).toEqual([
-      "Read",
+      "Read(./**)",
       "Edit(./CHANGELOG.md)",
       "Write(./CHANGELOG.md)",
       "Bash(pnpm changelog weeks)",
@@ -436,6 +440,8 @@ describe("the writer workflow", () => {
       "Bash(gh pr view:*)",
     ]);
     expect(WRITER_WORKFLOW).toMatch(/^ {12}--max-turns 40$/m);
+    expect(WRITER_WORKFLOW).toMatch(/^ {12}--disallowedTools "Read\(\/\/proc\/\*\*\)"$/m);
+    expect(WRITER_WORKFLOW).toMatch(/^ {12}--setting-sources user$/m);
     expect(WRITER_WORKFLOW).toMatch(/^ {6}CLAUDE_CODE_SUBPROCESS_ENV_SCRUB: "1"$/m);
   });
 
@@ -454,9 +460,26 @@ describe("the writer workflow", () => {
     expect(take.match(/\^\[0-9\]\{4\}-W\[0-9\]\{2\}\$/g)?.length).toBe(2);
     expect(take).toContain('"$week" =~');
     expect(take).toContain('"$NEWEST" =~');
+    expect(take).toMatch(/if ! git diff --quiet "\$WRITTEN_FROM" HEAD -- CHANGELOG\.md; then\n {12}echo "::error::CHANGELOG\.md changed on the default branch while the writer ran\. Run the workflow again"\n {12}exit 1/);
+    expect(take.indexOf("WRITTEN_FROM\" HEAD")).toBeLessThan(take.indexOf("cp "));
     expect(take).toMatch(/cp "\$RUNNER_TEMP\/changelog\/CHANGELOG\.md" CHANGELOG\.md/);
     expect(take).toContain("git diff --quiet -- CHANGELOG.md");
     expect(take).toMatch(/the writer changed nothing in CHANGELOG\.md"\n {12}exit 1/);
+  });
+
+  it("refuses a file that has a token or a key added to it, and never prints the match", () => {
+    const scan = publishSteps[indexOf(publishSteps, "Look for a token or a key")] ?? "";
+
+    expect(indexOf(publishSteps, "Take the file")).toBeLessThan(indexOf(publishSteps, "Look for a token or a key"));
+    expect(indexOf(publishSteps, "Look for a token or a key")).toBeLessThan(indexOf(publishSteps, "Commit CHANGELOG.md alone"));
+
+    for (const pattern of ["sk-ant-", "ghs_", "ghp_", "gho_", "ghu_", "ghr_", "github_pat_", "-----BEGIN"]) {
+      expect(scan).toContain(`'${pattern}'`);
+    }
+
+    expect(scan).toContain('git diff -U0 -- CHANGELOG.md | grep \'^+\' | grep -q -F -e "$pattern"');
+    expect(scan).toMatch(/Nothing was committed"\n {14}exit 1/);
+    expect(scan).not.toMatch(/echo [^\n]*\$match/);
   });
 
   it("checks each week, then commits CHANGELOG.md alone as the bot", () => {
@@ -477,7 +500,7 @@ describe("the writer workflow", () => {
     expect(push).toContain('echo "::add-mask::$auth"');
     expect(push).not.toMatch(/--force|-f |--mirror|--all|--tags|push -u/);
     expect(WRITER_WORKFLOW.match(/git (-c \S+ |-c "[^"]+" )*push/g)?.length).toBe(1);
-    expect(WRITER_WORKFLOW).not.toMatch(/git config|git remote/);
+    expect(WRITER_WORKFLOW.replace(/^\s*#.*$/gm, "")).not.toMatch(/git config|git remote/);
   });
 
   it("opens the pull request with a body of its own: the issues it closes, and a draft when a check failed", () => {
@@ -486,6 +509,7 @@ describe("the writer workflow", () => {
 
     expect(issues).toContain('gh issue list --author app/github-actions --state open --search "in:title Changelog:"');
     expect(issues).toContain("endswith($week)");
+    expect(issues).toMatch(/run: \|\n {10}set -o pipefail\n/);
     expect(open).toContain('body+=$\'\\n\'"Closes #$number"');
     expect(open).toContain("draft=(--draft)");
     expect(open).toContain('gh pr create --title "docs(changelog): ${WEEKS// /, }" --body "$body" --head "changelog/$NEWEST" "${draft[@]}"');
@@ -495,7 +519,7 @@ describe("the writer workflow", () => {
   it("puts no expression in a command line: every one goes through env", () => {
     const blocks = runsOf(WRITER_WORKFLOW);
 
-    expect(blocks.length).toBe(10);
+    expect(blocks.length).toBe(11);
     expect(blocks.filter((block) => block.includes("${{"))).toEqual([]);
   });
 });

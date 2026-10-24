@@ -6587,5 +6587,82 @@
     "find": "        run: node tools/arch/ci/enable-corepack.mts",
     "replace": "        run: node tools/arch/ci/enable-corepack.mts ${{ github.ref }}",
     "test": "pnpm vitest run addons/agent-workflow/tests/addon.test.mts --testNamePattern=\"puts no expression in a command line: every one goes through env\""
+  },
+  {
+    "name": "the writer lets the agent read any file",
+    "file": "addons/agent-workflow/files/.github/workflows/changelog-writer.yml",
+    "find": "\"Read(./**),Edit",
+    "replace": "\"Read,Edit",
+    "test": "pnpm vitest run addons/agent-workflow/tests/addon.test.mts --testNamePattern=\"gives the agent only what it needs\""
+  },
+  {
+    "name": "the writer lets the agent read under proc",
+    "file": "addons/agent-workflow/files/.github/workflows/changelog-writer.yml",
+    "find": "            --disallowedTools \"Read(//proc/**)\"\n",
+    "replace": "",
+    "test": "pnpm vitest run addons/agent-workflow/tests/addon.test.mts --testNamePattern=\"gives the agent only what it needs\""
+  },
+  {
+    "name": "the writer loads the project's settings",
+    "file": "addons/agent-workflow/files/.github/workflows/changelog-writer.yml",
+    "find": "            --setting-sources user\n",
+    "replace": "",
+    "test": "pnpm vitest run addons/agent-workflow/tests/addon.test.mts --testNamePattern=\"gives the agent only what it needs\""
+  },
+  {
+    "name": "the writer does not scan for a token",
+    "file": "addons/agent-workflow/files/.github/workflows/changelog-writer.yml",
+    "find": "if git diff -U0 -- CHANGELOG.md | grep '^+' | grep -q -F -e \"$pattern\"; then",
+    "replace": "if false; then",
+    "test": "pnpm vitest run addons/agent-workflow/tests/addon.test.mts --testNamePattern=\"refuses a file that has a token\""
+  },
+  {
+    "name": "the writer's scan misses an Anthropic key",
+    "file": "addons/agent-workflow/files/.github/workflows/changelog-writer.yml",
+    "find": "'sk-ant-' ",
+    "replace": "",
+    "test": "pnpm vitest run addons/agent-workflow/tests/addon.test.mts --testNamePattern=\"refuses a file that has a token\""
+  },
+  {
+    "name": "the writer's scan misses a private key",
+    "file": "addons/agent-workflow/files/.github/workflows/changelog-writer.yml",
+    "find": "'-----BEGIN'; do",
+    "replace": "'-----BEGIN-NOT'; do",
+    "test": "pnpm vitest run addons/agent-workflow/tests/addon.test.mts --testNamePattern=\"refuses a file that has a token\""
+  },
+  {
+    "name": "the writer's guard counts any author's pull request",
+    "file": "addons/agent-workflow/files/.github/workflows/changelog-writer.yml",
+    "find": "--state open --author app/github-actions --json headRefName",
+    "replace": "--state open --json headRefName",
+    "test": "pnpm vitest run addons/agent-workflow/tests/addon.test.mts --testNamePattern=\"does not write while a changelog pull request is open\""
+  },
+  {
+    "name": "the writer's guard counts any branch",
+    "file": "addons/agent-workflow/files/.github/workflows/changelog-writer.yml",
+    "find": "startswith(\"changelog/\"))] | length",
+    "replace": "startswith(\"x/\"))] | length",
+    "test": "pnpm vitest run addons/agent-workflow/tests/addon.test.mts --testNamePattern=\"does not write while a changelog pull request is open\""
+  },
+  {
+    "name": "the writer's issue lookup hides a failure",
+    "file": "addons/agent-workflow/files/.github/workflows/changelog-writer.yml",
+    "find": "          set -o pipefail\n",
+    "replace": "",
+    "test": "pnpm vitest run addons/agent-workflow/tests/addon.test.mts --testNamePattern=\"opens the pull request with a body of its own\""
+  },
+  {
+    "name": "the writer reverts a manual edit",
+    "file": "addons/agent-workflow/files/.github/workflows/changelog-writer.yml",
+    "find": "if ! git diff --quiet \"$WRITTEN_FROM\" HEAD -- CHANGELOG.md; then",
+    "replace": "if false; then",
+    "test": "pnpm vitest run addons/agent-workflow/tests/addon.test.mts --testNamePattern=\"checks the week names before it uses them\""
+  },
+  {
+    "name": "the writer does not hand over the commit it wrote from",
+    "file": "addons/agent-workflow/files/.github/workflows/changelog-writer.yml",
+    "find": "                echo \"sha=$(git rev-parse HEAD)\"\n",
+    "replace": "",
+    "test": "pnpm vitest run addons/agent-workflow/tests/addon.test.mts --testNamePattern=\"maps the exit of due to a flag\""
   }
 ]
