@@ -8,6 +8,7 @@
         "worktree": "node tools/agent-workflow/new-worktree.mts",
         "worktree:audit": "node tools/agent-workflow/audit-worktrees.mts",
         "changelog": "node tools/agent-workflow/changelog.mts",
+        "changelog:releases": "node tools/agent-workflow/sync-releases.mts",
         "agent-workflow:check": "node tools/agent-workflow/check.mts",
         "check:status": "node tools/agent-workflow/check-status.mts"
       }

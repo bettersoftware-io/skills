@@ -26,6 +26,7 @@ Leave it out of a project where one of the three is not so.
 | `pnpm worktree:audit [filter]` | `tools/agent-workflow/audit-worktrees.mts` | One verdict for each linked worktree, against `origin`'s main: merged, merged with files not committed, or work main does not have. Then orphan branches and stray folders. It only reads |
 | `pnpm changelog weeks\|prs\|check` | `tools/agent-workflow/changelog.mts` | The weeks with no entry, a week's merged pull requests, and the proof that each is cited |
 | Weekly tag | `.github/workflows/weekly-tag.yml`, `tools/agent-workflow/close-week.mts` | Monday 00:05 UTC: tags the finished ISO week, opens "Changelog: write `<week>`" |
+| `pnpm changelog:releases [--apply]` | `.github/workflows/sync-releases.yml`, `tools/agent-workflow/sync-releases.mts` | One GitHub Release for each tagged week, made from that week's section of `CHANGELOG.md`. Off until the repository variable `CHANGELOG_RELEASES` is `true`. `--check` renders every week offline, and `pnpm agent-workflow:check` runs it too |
 | `CHANGELOG.md` | project root | A starting file: the format, no week yet. The project owns it |
 | `docs/STATUS.md` | `docs/` | A starting file: the six sections of what is left, no entry yet. The project owns it |
 | `pnpm check:status` | `tools/agent-workflow/check-status.mts` | Joins `gate:fast`. The page has the six sections, each once, in order, one "Last updated" line with a real date that is not after today, and each entry starts with its name in bold. A page that differs from the last commit's has today's date |

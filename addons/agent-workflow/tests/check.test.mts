@@ -4,7 +4,7 @@ import { check, type CheckOptions, createHookRunner } from "../files/tools/agent
 import { ASK_RULES, EDIT_ASK_RULES, RETIRED_ARGUMENT, RETIRED_ASK_RULES, RETIRED_FILES, WIDE_ALLOW } from "../files/tools/agent-workflow/lib/host.mts";
 import { installedIn, requires } from "../files/tools/agent-workflow/requires.mts";
 import { OLD_SETTING_ON } from "./shapes.mts";
-import { createFolder } from "./support.mts";
+import { createFolder, writeFile } from "./support.mts";
 
 const CLAUDE_HOOK = 'node "$CLAUDE_PROJECT_DIR/tools/agent-workflow/hooks/split-outward-commands.mts"';
 const CODEX_HOOK = "node tools/agent-workflow/hooks/split-outward-commands.mts";
@@ -45,7 +45,40 @@ describe("the add-on's check", () => {
       'NOTE command /workflow:coverage-backfill: needs the "coverage" add-on, which this project does not have. It stops and says so when run',
       'NOTE command /workflow:visual-tolerance-audit: needs the "visual" add-on, which this project does not have. It stops and says so when run',
       'NOTE command /workflow:perf-audit: needs the "performance" add-on, which this project does not have. It stops and says so when run',
+      "SKIP changelog releases: there is no CHANGELOG.md, so there is no release to render",
     ]);
+  });
+
+  it("passes when every week of CHANGELOG.md renders as release notes", () => {
+    const { status, lines } = runCheck(withChangelog(createProject(), CHANGELOG));
+
+    expect(status).toBe(0);
+    expect(lines.at(-1)).toBe("PASS changelog releases: 1 week(s) of CHANGELOG.md render as release notes");
+  });
+
+  it("fails, naming the week and the commit, when a week cites a commit with no definition", () => {
+    const { status, lines } = runCheck(withChangelog(createProject(), CHANGELOG.replace("[`abc1234`]: https://github.com/o/r/commit/abc1234\n", "")));
+
+    expect(status).toBe(1);
+    expect(lines.filter((line) => line.startsWith("FAIL"))).toEqual([
+      "FAIL changelog releases: 2026-W41: commit [`abc1234`] has no definition. Add the definition, or run `pnpm changelog defs --write`",
+    ]);
+    expect(lines.join("\n")).not.toContain("PASS changelog releases");
+  });
+
+  it("skips, and does not fail, a CHANGELOG.md with no week yet", () => {
+    const { status, lines } = runCheck(withChangelog(createProject(), "# Changelog\n\nNothing yet.\n"));
+
+    expect(status).toBe(0);
+    expect(lines.at(-1)).toBe("SKIP changelog releases: CHANGELOG.md has no week yet, so there is no release to render");
+  });
+
+  it("does not turn a project with no host settings file into a pass because its changelog renders", () => {
+    const root = withChangelog(createProject({ ".codex/hooks.json": undefined, ".claude/settings.json": undefined }), CHANGELOG);
+    const { status, lines } = runCheck(root);
+
+    expect(status).toBe(2);
+    expect(lines.at(-1)).toContain("SKIP agent-workflow: neither");
   });
 
   it.each(RETIRED_FILES)("says %s is no longer read, when a project still has one, whatever it holds", (path) => {
@@ -430,6 +463,14 @@ interface ProjectShape {
   installed?: string[];
   /** A file's content, or undefined for a file that is not there. Overrides what the project would have. */
   [path: `.${string}` | `tools/${string}`]: unknown;
+}
+
+const CHANGELOG = "# Changelog\n\n## 2026-W41 — 5 Oct – 11 Oct\n\n- A fix ([`abc1234`]).\n\n[`abc1234`]: https://github.com/o/r/commit/abc1234\n";
+
+function withChangelog(root: string, text: string): string {
+  writeFile(root, "CHANGELOG.md", text);
+
+  return root;
 }
 
 function createProject(shape: ProjectShape = {}): string {

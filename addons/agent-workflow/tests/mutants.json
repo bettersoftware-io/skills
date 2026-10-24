@@ -5901,5 +5901,411 @@
     "find": "there is nothing to tag`);\n\n    return 1;",
     "replace": "there is nothing to tag`);\n\n    return 0;",
     "test": "pnpm vitest run addons/agent-workflow/tests/changelog-tag.test.mts --testNamePattern=\"fails, planning or applying, when no commit reached\""
+  },
+  {
+    "name": "releases: relative links point at main whatever branch is given",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/releases.mts",
+    "find": "const blob = `${repo}/blob/${branch}`;",
+    "replace": "const blob = `${repo}/blob/main`;",
+    "test": "pnpm vitest run addons/agent-workflow/tests/releases.test.mts --testNamePattern=\"links relative paths at the default branch it is given\""
+  },
+  {
+    "name": "releases: the branch defaults to nothing given",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/sync-releases.mts",
+    "find": "const branch = args.branch ?? \"main\";",
+    "replace": "const branch = \"main\";",
+    "test": "pnpm vitest run addons/agent-workflow/tests/releases.test.mts --testNamePattern=\"links relative paths at the default branch it is given\""
+  },
+  {
+    "name": "releases: a commit with no definition renders",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/releases.mts",
+    "find": "if (url === undefined) {",
+    "replace": "if (false) {",
+    "test": "pnpm vitest run addons/agent-workflow/tests/releases.test.mts --testNamePattern=\"fails on a cited commit with no definition\""
+  },
+  {
+    "name": "releases: a pull request keeps its brackets",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/releases.mts",
+    "find": ".replace(/\\[(#\\d+)\\](?![(:[])/g, \"$1\")",
+    "replace": ".replace(/\\[(#\\d+)\\](?![(:[])/g, \"[$1]\")",
+    "test": "pnpm vitest run addons/agent-workflow/tests/releases.test.mts --testNamePattern=\"rewrites the section's links\""
+  },
+  {
+    "name": "releases: an absolute link is made relative",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/releases.mts",
+    "find": "if (/^[a-z][a-z0-9+.-]*:/.test(target) || target.startsWith(\"//\")) {",
+    "replace": "if (target.startsWith(\"//\")) {",
+    "test": "pnpm vitest run addons/agent-workflow/tests/releases.test.mts --testNamePattern=\"leaves an absolute link and a protocol-relative one\""
+  },
+  {
+    "name": "releases: a protocol-relative link is made relative",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/releases.mts",
+    "find": " || target.startsWith(\"//\")) {",
+    "replace": ") {",
+    "test": "pnpm vitest run addons/agent-workflow/tests/releases.test.mts --testNamePattern=\"leaves an absolute link and a protocol-relative one\""
+  },
+  {
+    "name": "releases: a link to a heading of the file is made a path",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/releases.mts",
+    "find": "return target.startsWith(\"#\") ?",
+    "replace": "return false ?",
+    "test": "pnpm vitest run addons/agent-workflow/tests/releases.test.mts --testNamePattern=\"rewrites the section's links\""
+  },
+  {
+    "name": "releases: a leading ./ is kept",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/releases.mts",
+    "find": "target.replace(/^\\.\\//, \"\")",
+    "replace": "target",
+    "test": "pnpm vitest run addons/agent-workflow/tests/releases.test.mts --testNamePattern=\"leaves an absolute link and a protocol-relative one\""
+  },
+  {
+    "name": "releases: only the first space of a heading becomes a hyphen",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/releases.mts",
+    "find": ".replace(/ /g, \"-\")",
+    "replace": ".replace(/ /, \"-\")",
+    "test": "pnpm vitest run addons/agent-workflow/tests/releases.test.mts --testNamePattern=\"ends with a link back to the week\""
+  },
+  {
+    "name": "releases: the dashes of a heading stay in its anchor",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/releases.mts",
+    "find": ".replace(/[^\\p{L}\\p{N}\\p{M}\\s_-]/gu, \"\")",
+    "replace": "",
+    "test": "pnpm vitest run addons/agent-workflow/tests/releases.test.mts --testNamePattern=\"ends with a link back to the week\""
+  },
+  {
+    "name": "releases: the definitions stay in the last week",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/releases.mts",
+    "find": ".filter((line) => !DEFINITION_LINE.test(line))",
+    "replace": ".filter(() => true)",
+    "test": "pnpm vitest run addons/agent-workflow/tests/releases.test.mts --testNamePattern=\"takes each heading, its tag\""
+  },
+  {
+    "name": "releases: the intro is a week",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/releases.mts",
+    "find": ".slice(1)\n",
+    "replace": ".slice(0)\n",
+    "test": "pnpm vitest run addons/agent-workflow/tests/releases.test.mts --testNamePattern=\"takes each heading, its tag\""
+  },
+  {
+    "name": "releases: weeks are written newest first",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/releases.mts",
+    "find": "a.tag.localeCompare(b.tag)",
+    "replace": "b.tag.localeCompare(a.tag)",
+    "test": "pnpm vitest run addons/agent-workflow/tests/releases.test.mts --testNamePattern=\"plans the same whatever order\""
+  },
+  {
+    "name": "releases: the oldest tagged week is Latest",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/releases.mts",
+    "find": "tagged.at(-1)?.tag",
+    "replace": "tagged.at(0)?.tag",
+    "test": "pnpm vitest run addons/agent-workflow/tests/releases.test.mts --testNamePattern=\"creates a missing release, oldest first\""
+  },
+  {
+    "name": "releases: a changed name is not an update",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/releases.mts",
+    "find": "existing.name !== week.title ||",
+    "replace": "false ||",
+    "test": "pnpm vitest run addons/agent-workflow/tests/releases.test.mts --testNamePattern=\"updates a release whose name changed\""
+  },
+  {
+    "name": "releases: trailing whitespace of a body is a change",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/releases.mts",
+    "find": "existing.body.trim() !== body.trim()",
+    "replace": "existing.body !== body",
+    "test": "pnpm vitest run addons/agent-workflow/tests/releases.test.mts --testNamePattern=\"updates a release whose name changed\""
+  },
+  {
+    "name": "releases: Latest is not moved",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/releases.mts",
+    "find": "(latest && state.latestTag !== week.tag)",
+    "replace": "false",
+    "test": "pnpm vitest run addons/agent-workflow/tests/releases.test.mts --testNamePattern=\"moves Latest to the newest week\""
+  },
+  {
+    "name": "releases: a week with no tag gets a release",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/releases.mts",
+    "find": "weeks.filter((week) => tags.has(week.tag))",
+    "replace": "weeks.filter(() => true)",
+    "test": "pnpm vitest run addons/agent-workflow/tests/releases.test.mts --testNamePattern=\"never releases a week whose tag does not exist yet\""
+  },
+  {
+    "name": "releases: --only writes every week",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/sync-releases.mts",
+    "find": "full.changes.filter(({ tag }) => tag === args.only)",
+    "replace": "full.changes",
+    "test": "pnpm vitest run addons/agent-workflow/tests/releases.test.mts --testNamePattern=\"writes just one week with --only\""
+  },
+  {
+    "name": "releases: a plan is written without --apply",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/sync-releases.mts",
+    "find": "return args.apply ? applyPlan(plan, repo, root, runProgram, report) : 0;",
+    "replace": "return applyPlan(plan, repo, root, runProgram, report);",
+    "test": "pnpm vitest run addons/agent-workflow/tests/releases.test.mts --testNamePattern=\"writes nothing to GitHub without --apply\""
+  },
+  {
+    "name": "releases: a refused write does not stop the run",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/sync-releases.mts",
+    "find": "if (wrote.status !== 0) {",
+    "replace": "if (false) {",
+    "test": "pnpm vitest run addons/agent-workflow/tests/releases.test.mts --testNamePattern=\"stops at the first release GitHub refuses\""
+  },
+  {
+    "name": "releases: an update is a POST",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/sync-releases.mts",
+    "find": "change.action === \"create\" ? [\"POST\"",
+    "replace": "change.action !== \"create\" ? [\"POST\"",
+    "test": "pnpm vitest run addons/agent-workflow/tests/releases.test.mts --testNamePattern=\"creates and updates through the API\""
+  },
+  {
+    "name": "releases: every release is Latest",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/sync-releases.mts",
+    "find": "`make_latest=${change.latest ? \"true\" : \"false\"}`",
+    "replace": "`make_latest=true`",
+    "test": "pnpm vitest run addons/agent-workflow/tests/releases.test.mts --testNamePattern=\"creates and updates through the API\""
+  },
+  {
+    "name": "releases: the repository is not asked of gh",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/sync-releases.mts",
+    "find": "args.repo ?? nameRepository(root, runProgram)",
+    "replace": "args.repo ?? \"o/r\"",
+    "test": "pnpm vitest run addons/agent-workflow/tests/releases.test.mts --testNamePattern=\"names the repository with gh\""
+  },
+  {
+    "name": "releases: a repository gh cannot name is accepted",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/sync-releases.mts",
+    "find": "if (named.status !== 0 || !/^[\\w.-]+\\/[\\w.-]+$/.test(repo)) {",
+    "replace": "if (false) {",
+    "test": "pnpm vitest run addons/agent-workflow/tests/releases.test.mts --testNamePattern=\"cannot name the repository\""
+  },
+  {
+    "name": "releases: GitHub that cannot be asked is a plan of nothing",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/sync-releases.mts",
+    "find": "if (got.status !== 0) {",
+    "replace": "if (false) {",
+    "test": "pnpm vitest run addons/agent-workflow/tests/releases.test.mts --testNamePattern=\"cannot be asked what exists\""
+  },
+  {
+    "name": "releases: --check passes a missing definition",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/releases.mts",
+    "find": "problems.push(error.message);",
+    "replace": "",
+    "test": "pnpm vitest run addons/agent-workflow/tests/releases.test.mts --testNamePattern=\"fails naming the week and the commit that has no definition\""
+  },
+  {
+    "name": "releases: --check names only the first week that fails",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/releases.mts",
+    "find": "for (const week of parseWeeks(text)) {\n    try {",
+    "replace": "for (const week of parseWeeks(text).slice(0, 1)) {\n    try {",
+    "test": "pnpm vitest run addons/agent-workflow/tests/releases.test.mts --testNamePattern=\"names every week that fails\""
+  },
+  {
+    "name": "releases: --check exits 0 on a week that does not render",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/sync-releases.mts",
+    "find": "return problems.length === 0 ? 0 : 1;",
+    "replace": "return 0;",
+    "test": "pnpm vitest run addons/agent-workflow/tests/releases.test.mts --testNamePattern=\"fails naming the week and the commit that has no definition\""
+  },
+  {
+    "name": "releases: --check on a file with no week is a pass",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/sync-releases.mts",
+    "find": "if (count === 0) {",
+    "replace": "if (false) {",
+    "test": "pnpm vitest run addons/agent-workflow/tests/releases.test.mts --testNamePattern=\"skips the check on a file with no week\""
+  },
+  {
+    "name": "releases: --check on a file with no week fails",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/sync-releases.mts",
+    "find": "report(\"SKIP sync-releases: CHANGELOG.md has no week yet, so there is no release to render\");\n\n    return 0;",
+    "replace": "report(\"SKIP sync-releases: CHANGELOG.md has no week yet, so there is no release to render\");\n\n    return 1;",
+    "test": "pnpm vitest run addons/agent-workflow/tests/releases.test.mts --testNamePattern=\"skips the check on a file with no week\""
+  },
+  {
+    "name": "releases: no CHANGELOG.md is read",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/sync-releases.mts",
+    "find": "if (!existsSync(file)) {",
+    "replace": "if (false) {",
+    "test": "pnpm vitest run addons/agent-workflow/tests/releases.test.mts --testNamePattern=\"says nothing was judged with no CHANGELOG.md\""
+  },
+  {
+    "name": "releases: --check asks GitHub",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/sync-releases.mts",
+    "find": "if (args.check) {",
+    "replace": "if (false) {",
+    "test": "pnpm vitest run addons/agent-workflow/tests/releases.test.mts --testNamePattern=\"checks every week renders, offline\""
+  },
+  {
+    "name": "releases: an unknown flag is a crash",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/sync-releases.mts",
+    "find": "throw new SkipError(`${(error as Error).message}. ${USAGE}`);",
+    "replace": "throw error;",
+    "test": "pnpm vitest run addons/agent-workflow/tests/releases.test.mts --testNamePattern=\"for a flag it does not know\""
+  },
+  {
+    "name": "releases: a week with no section is a failure",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/sync-releases.mts",
+    "find": "throw new SkipError(`there is no ${args.body} section in CHANGELOG.md`);",
+    "replace": "report(\"FAIL\");\n      return 1;",
+    "test": "pnpm vitest run addons/agent-workflow/tests/releases.test.mts --testNamePattern=\"for a week that has no section\""
+  },
+  {
+    "name": "releases: a commit with no definition is a crash",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/sync-releases.mts",
+    "find": "if (error instanceof ReleaseError) {\n      report(`FAIL sync-releases",
+    "replace": "if (false) {\n      report(`FAIL sync-releases",
+    "test": "pnpm vitest run addons/agent-workflow/tests/releases.test.mts --testNamePattern=\"fails on a cited commit with no definition\""
+  },
+  {
+    "name": "check: a week that does not render is not a failure",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/check.mts",
+    "find": "return problems.length > 0;",
+    "replace": "return false;",
+    "test": "pnpm vitest run addons/agent-workflow/tests/check.test.mts --testNamePattern=\"fails, naming the week and the commit\""
+  },
+  {
+    "name": "check: the render check's failure is dropped",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/check.mts",
+    "find": "failed = judgeRendering(root, report) || failed;",
+    "replace": "judgeRendering(root, report);",
+    "test": "pnpm vitest run addons/agent-workflow/tests/check.test.mts --testNamePattern=\"fails, naming the week and the commit\""
+  },
+  {
+    "name": "check: a project with no CHANGELOG.md is judged",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/check.mts",
+    "find": "if (!existsSync(file)) {\n    report(\"SKIP changelog releases",
+    "replace": "if (false) {\n    report(\"SKIP changelog releases",
+    "test": "pnpm vitest run addons/agent-workflow/tests/check.test.mts --testNamePattern=\"passes a project as the add-on leaves it\""
+  },
+  {
+    "name": "check: a CHANGELOG.md with no week fails",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/check.mts",
+    "find": "if (weeks === 0) {",
+    "replace": "if (false) {",
+    "test": "pnpm vitest run addons/agent-workflow/tests/check.test.mts --testNamePattern=\"skips, and does not fail, a CHANGELOG.md with no week yet\""
+  },
+  {
+    "name": "check: a CHANGELOG.md with no week is not skipped quietly",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/check.mts",
+    "find": "report(\"SKIP changelog releases: CHANGELOG.md has no week yet, so there is no release to render\");\n\n    return false;",
+    "replace": "return true;",
+    "test": "pnpm vitest run addons/agent-workflow/tests/check.test.mts --testNamePattern=\"skips, and does not fail, a CHANGELOG.md with no week yet\""
+  },
+  {
+    "name": "check: a passing changelog is not reported",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/check.mts",
+    "find": "if (problems.length === 0) {\n    report(`PASS changelog releases",
+    "replace": "if (false) {\n    report(`PASS changelog releases",
+    "test": "pnpm vitest run addons/agent-workflow/tests/check.test.mts --testNamePattern=\"passes when every week of CHANGELOG.md renders\""
+  },
+  {
+    "name": "check: the render check is a pass whatever the file holds",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/check.mts",
+    "find": "const problems = checkRendering(text, \"https://github.com/owner/repo\", \"main\");",
+    "replace": "const problems: string[] = [];",
+    "test": "pnpm vitest run addons/agent-workflow/tests/check.test.mts --testNamePattern=\"fails, naming the week and the commit\""
+  },
+  {
+    "name": "check: the render check turns exit 2 into a pass",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/check.mts",
+    "find": "  failed = judgeRendering(root, report) || failed;\n",
+    "replace": "  failed = judgeRendering(root, report) || failed;\n  judged += 1;\n",
+    "test": "pnpm vitest run addons/agent-workflow/tests/check.test.mts --testNamePattern=\"does not turn a project with no host settings file into a pass\""
+  },
+  {
+    "name": "workflow: the job runs without the variable",
+    "file": "addons/agent-workflow/files/.github/workflows/sync-releases.yml",
+    "find": "    if: vars.CHANGELOG_RELEASES == 'true'\n",
+    "replace": "",
+    "test": "pnpm vitest run addons/agent-workflow/tests/addon.test.mts --testNamePattern=\"does nothing until the project sets the variable\""
+  },
+  {
+    "name": "workflow: a run cancels one that is writing",
+    "file": "addons/agent-workflow/files/.github/workflows/sync-releases.yml",
+    "find": "cancel-in-progress: false",
+    "replace": "cancel-in-progress: true",
+    "test": "pnpm vitest run addons/agent-workflow/tests/addon.test.mts --testNamePattern=\"never runs twice at once, and never cancels a run that may be half way through writing\""
+  },
+  {
+    "name": "workflow: the token stays in the checkout",
+    "file": "addons/agent-workflow/files/.github/workflows/sync-releases.yml",
+    "find": "persist-credentials: false",
+    "replace": "persist-credentials: true",
+    "test": "pnpm vitest run addons/agent-workflow/tests/addon.test.mts --testNamePattern=\"does not leave the token in the checkout, and takes only\""
+  },
+  {
+    "name": "workflow: the whole repository is checked out",
+    "file": "addons/agent-workflow/files/.github/workflows/sync-releases.yml",
+    "find": "            tools/agent-workflow\n",
+    "replace": "            .\n",
+    "test": "pnpm vitest run addons/agent-workflow/tests/addon.test.mts --testNamePattern=\"does not leave the token in the checkout, and takes only\""
+  },
+  {
+    "name": "workflow: every job can write",
+    "file": "addons/agent-workflow/files/.github/workflows/sync-releases.yml",
+    "find": "permissions:\n  contents: read\n\njobs:",
+    "replace": "permissions:\n  contents: write\n\njobs:",
+    "test": "pnpm vitest run addons/agent-workflow/tests/addon.test.mts --testNamePattern=\"can only read by default, and gives the one job exactly contents: write\""
+  },
+  {
+    "name": "workflow: the job can also write issues",
+    "file": "addons/agent-workflow/files/.github/workflows/sync-releases.yml",
+    "find": "      contents: write\n    steps:",
+    "replace": "      contents: write\n      issues: write\n    steps:",
+    "test": "pnpm vitest run addons/agent-workflow/tests/addon.test.mts --testNamePattern=\"can only read by default, and gives the one job exactly contents: write\""
+  },
+  {
+    "name": "workflow: the branch is not passed",
+    "file": "addons/agent-workflow/files/.github/workflows/sync-releases.yml",
+    "find": " --branch \"$DEFAULT_BRANCH\"",
+    "replace": "",
+    "test": "pnpm vitest run addons/agent-workflow/tests/addon.test.mts --testNamePattern=\"puts no expression in the release job\""
+  },
+  {
+    "name": "workflow: the default branch is taken in the command line",
+    "file": "addons/agent-workflow/files/.github/workflows/sync-releases.yml",
+    "find": "DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}",
+    "replace": "DEFAULT_BRANCH: main",
+    "test": "pnpm vitest run addons/agent-workflow/tests/addon.test.mts --testNamePattern=\"puts no expression in the release job\""
+  },
+  {
+    "name": "workflow: a change to the script does not run it",
+    "file": "addons/agent-workflow/files/.github/workflows/sync-releases.yml",
+    "find": "      - tools/agent-workflow/lib/releases.mts\n",
+    "replace": "",
+    "test": "pnpm vitest run addons/agent-workflow/tests/addon.test.mts --testNamePattern=\"runs on a change to the changelog or to the script it runs\""
+  },
+  {
+    "name": "workflow: a pull request's code runs where the token writes",
+    "file": "addons/agent-workflow/files/.github/workflows/sync-releases.yml",
+    "find": "  workflow_dispatch:\n",
+    "replace": "  workflow_dispatch:\n  pull_request_target:\n",
+    "test": "pnpm vitest run addons/agent-workflow/tests/addon.test.mts --testNamePattern=\"runs on a change to the changelog or to the script it runs\""
+  },
+  {
+    "name": "workflow: a dependency is installed before the token is used",
+    "file": "addons/agent-workflow/files/.github/workflows/sync-releases.yml",
+    "find": "      # Plain Node, no dependency installed",
+    "replace": "      - run: pnpm install\n      # Plain Node, no dependency installed",
+    "test": "pnpm vitest run addons/agent-workflow/tests/addon.test.mts --testNamePattern=\"installs nothing before the release step\""
+  },
+  {
+    "name": "workflow: setup-node is pinned to another commit",
+    "file": "addons/agent-workflow/files/.github/workflows/sync-releases.yml",
+    "find": "820762786026740c76f36085b0efc47a31fe5020",
+    "replace": "820762786026740c76f36085b0efc47a31fe5021",
+    "test": "pnpm vitest run addons/agent-workflow/tests/addon.test.mts --testNamePattern=\"pins the same actions, by the same commits, as the weekly-tag workflow\""
+  },
+  {
+    "name": "workflow: checkout is not pinned by a hash",
+    "file": "addons/agent-workflow/files/.github/workflows/sync-releases.yml",
+    "find": "actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7",
+    "replace": "actions/checkout@v7",
+    "test": "pnpm vitest run addons/agent-workflow/tests/addon.test.mts --testNamePattern=\"pins the same actions, by the same commits, as the weekly-tag workflow\""
+  },
+  {
+    "name": "manifest: changelog:releases runs a tool the add-on does not ship",
+    "file": "addons/agent-workflow/addon.json",
+    "find": "\"changelog:releases\": \"node tools/agent-workflow/sync-releases.mts\"",
+    "replace": "\"changelog:releases\": \"node tools/agent-workflow/sync-release.mts\"",
+    "test": "pnpm vitest run addons/agent-workflow/tests/addon.test.mts --testNamePattern=\"adds scripts that each run a tool it ships\""
   }
 ]

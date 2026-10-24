@@ -1,0 +1,64 @@
+name: Sync releases
+
+# GitHub Releases mirror CHANGELOG.md: one release per tagged ISO week, titled
+# like its heading, the notes made from that week's section by
+# tools/agent-workflow/sync-releases.mts. CHANGELOG.md is the only source: a
+# release edited by hand is overwritten on the next change to its section.
+#
+# Off until a project switches it on: set the repository variable
+# CHANGELOG_RELEASES to `true` (Settings, Secrets and variables, Actions,
+# Variables). Without it the job is skipped, and no release is written.
+#
+# Runs when CHANGELOG.md (or the script) changes on the default branch, which
+# is when a week's entry lands; and on Monday just after weekly-tag.yml, so a
+# week whose entry was written before its tag existed gets its release once
+# the tag appears. Idempotent: an unchanged section writes nothing.
+on:
+  push:
+    branches: [main]
+    paths:
+      - CHANGELOG.md
+      - tools/agent-workflow/sync-releases.mts
+      - tools/agent-workflow/lib/releases.mts
+  schedule:
+    - cron: "30 0 * * 1"
+  workflow_dispatch:
+
+concurrency:
+  group: sync-releases
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  sync:
+    name: sync releases from CHANGELOG.md
+    if: vars.CHANGELOG_RELEASES == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      # Creates and edits releases through the API.
+      contents: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          # The script needs these paths and no dependency (plain `node`).
+          sparse-checkout: |
+            CHANGELOG.md
+            tools/agent-workflow
+          sparse-checkout-cone-mode: false
+          # Releases are written through the API, not `git push`: keep the
+          # token out of .git/config.
+          persist-credentials: false
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 26
+
+      # Plain Node, no dependency installed: no package's code runs where the
+      # token that can write is.
+      - name: Create or update one release per tagged week
+        env:
+          GH_TOKEN: ${{ github.token }}
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+        run: node tools/agent-workflow/sync-releases.mts --repo "$GITHUB_REPOSITORY" --branch "$DEFAULT_BRANCH" --apply

@@ -37,6 +37,7 @@ interface Manifest {
 const MANIFEST = readJson<Manifest>(ADDON, "addon.json");
 const FILES = readdirSync(join(ADDON, "files"), { recursive: true, encoding: "utf8" });
 const WORKFLOW = readFileSync(join(ADDON, "files/.github/workflows/weekly-tag.yml"), "utf8");
+const RELEASE_WORKFLOW = readFileSync(join(ADDON, "files/.github/workflows/sync-releases.yml"), "utf8");
 const COMMANDS = Object.keys(COMMAND_NEEDS);
 const SECTION = readFileSync(join(ADDON, "AGENTS.section.md"), "utf8");
 const CLAUDE_HOOK = `node "$CLAUDE_PROJECT_DIR/${HOOK_SCRIPT}"`;
@@ -57,7 +58,7 @@ describe("the add-on's manifest", () => {
   it("adds scripts that each run a tool it ships, and proves itself with one of them", () => {
     const scripts = MANIFEST.packageJson["."]?.scripts ?? {};
 
-    expect(Object.keys(scripts)).toEqual(["worktree", "worktree:audit", "changelog", "agent-workflow:check", "check:status"]);
+    expect(Object.keys(scripts)).toEqual(["worktree", "worktree:audit", "changelog", "changelog:releases", "agent-workflow:check", "check:status"]);
 
     for (const script of Object.values(scripts)) {
       const tool = /^node (tools\/agent-workflow\/[\w-]+\.mts)$/.exec(script)?.[1];
@@ -268,6 +269,58 @@ describe("the weekly-tag workflow", () => {
   it("installs nothing before the step that holds the token that can write", () => {
     expect(WORKFLOW).not.toMatch(/pnpm install|npm install|corepack/);
     expect(WORKFLOW).toMatch(/GH_TOKEN: \$\{\{ github\.token \}\}/);
+  });
+});
+
+describe("the release workflow", () => {
+  const pins = (text: string): string[] => [...text.matchAll(/^\s*-?\s*uses: (.+)$/gm)].map((match) => match[1] ?? "");
+
+  it("pins the same actions, by the same commits, as the weekly-tag workflow", () => {
+    expect(pins(RELEASE_WORKFLOW).length).toBeGreaterThan(0);
+    expect(pins(RELEASE_WORKFLOW)).toEqual(pins(WORKFLOW));
+    expect(pins(RELEASE_WORKFLOW).filter((action) => !/^[\w.-]+\/[\w./-]+@[0-9a-f]{40} # v\d+/.test(action))).toEqual([]);
+  });
+
+  it("does nothing until the project sets the variable to true", () => {
+    expect(RELEASE_WORKFLOW).toMatch(/^ {4}if: vars\.CHANGELOG_RELEASES == 'true'$/m);
+  });
+
+  it("can only read by default, and gives the one job exactly contents: write", () => {
+    const [top, job] = RELEASE_WORKFLOW.split(/^jobs:$/m);
+
+    expect(top).toMatch(/^permissions:\n {2}contents: read\n/m);
+    expect([...(job ?? "").matchAll(/^ {6}([\w-]+): (read|write)$/gm)].map((match) => `${match[1]}: ${match[2]}`)).toEqual(["contents: write"]);
+  });
+
+  it("never runs twice at once, and never cancels a run that may be half way through writing", () => {
+    expect(RELEASE_WORKFLOW).toMatch(/^concurrency:\n {2}group: sync-releases\n {2}cancel-in-progress: false\n/m);
+  });
+
+  it("does not leave the token in the checkout, and takes only the files it needs", () => {
+    expect(RELEASE_WORKFLOW).toMatch(/persist-credentials: false/);
+    expect(RELEASE_WORKFLOW).toMatch(/sparse-checkout: \|\n {12}CHANGELOG\.md\n {12}tools\/agent-workflow\n/);
+  });
+
+  it("runs on a change to the changelog or to the script it runs, and nowhere else but the clock and by hand", () => {
+    expect(RELEASE_WORKFLOW).toMatch(/^on:\n {2}push:\n {4}branches: \[main\]\n {4}paths:\n {6}- CHANGELOG\.md\n {6}- tools\/agent-workflow\/sync-releases\.mts\n {6}- tools\/agent-workflow\/lib\/releases\.mts\n {2}schedule:\n {4}- cron: "30 0 \* \* 1"\n {2}workflow_dispatch:\n/m);
+    expect(RELEASE_WORKFLOW).not.toMatch(/pull_request_target|workflow_run/);
+  });
+
+  it("puts no expression in the release job's command line: the repository and branch come through the environment", () => {
+    const runs = [...RELEASE_WORKFLOW.matchAll(/^\s*run: (.+)$/gm)].map((match) => match[1] ?? "");
+
+    expect(runs).toEqual(['node tools/agent-workflow/sync-releases.mts --repo "$GITHUB_REPOSITORY" --branch "$DEFAULT_BRANCH" --apply']);
+    expect(RELEASE_WORKFLOW).toMatch(/^ {10}DEFAULT_BRANCH: \$\{\{ github\.event\.repository\.default_branch \}\}$/m);
+  });
+
+  it("installs nothing before the release step that holds the token that can write", () => {
+    expect(RELEASE_WORKFLOW).not.toMatch(/pnpm install|npm install|corepack/);
+    expect(RELEASE_WORKFLOW).toMatch(/GH_TOKEN: \$\{\{ github\.token \}\}/);
+  });
+
+  it("runs the script the manifest's changelog:releases runs, and ships it with what it imports", () => {
+    expect(MANIFEST.packageJson["."]?.scripts?.["changelog:releases"]).toBe("node tools/agent-workflow/sync-releases.mts");
+    expect(existsSync(join(ADDON, "files/tools/agent-workflow/lib/releases.mts"))).toBe(true);
   });
 });
 

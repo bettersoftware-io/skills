@@ -39,6 +39,10 @@
 // merge run unasked while the `ask` rules that catch a forced or destructive
 // one are missing.
 //
+// It also renders each week of the project's CHANGELOG.md as the notes of a
+// GitHub Release, offline, with the same function `sync-releases.mts --check`
+// uses. A missing file or a file with no week is a SKIP line, not a failure.
+//
 // Exit 0: nothing failed. Exit 1: a FAIL line says what and how to fix it.
 // Exit 2: no host settings file exists, so there was nothing to judge.
 
@@ -50,6 +54,7 @@ import { fileURLToPath } from "node:url";
 import { ASK_RULES, CLAUDE_LOCAL_SETTINGS, CLAUDE_SETTINGS, CODEX_HOOKS, COMMAND_NEEDS, DUE_HOOK_COMMANDS, DUE_HOOK_SCRIPT, EDIT_ASK_RULES, HOOK_COMMANDS, HOOK_SCRIPT, RETIRED_ARGUMENT, RETIRED_ASK_RULES, RETIRED_FILES, WIDE_ALLOW } from "./lib/host.mts";
 import { groupRuns, hostOf } from "./lib/hook-registration.mts";
 import { isMainModule } from "./lib/main.mts";
+import { checkRendering, parseWeeks } from "./lib/releases.mts";
 import { installedIn } from "./requires.mts";
 
 /** The name both hosts give the tool that runs a shell command. */
@@ -192,6 +197,8 @@ export function check({ root, runHook, report }: CheckOptions): number {
     }
   }
 
+  failed = judgeRendering(root, report) || failed;
+
   if (failed) {
     return 1;
   }
@@ -203,6 +210,43 @@ export function check({ root, runHook, report }: CheckOptions): number {
   }
 
   return 0;
+}
+
+/**
+ * Reports whether each week of CHANGELOG.md renders as the notes of a GitHub
+ * Release, offline. A project with no file, or no week yet, has nothing to
+ * render: that is a SKIP, not a failure. Returns true when a week fails.
+ */
+function judgeRendering(root: string, report: (line: string) => void): boolean {
+  const file = join(root, "CHANGELOG.md");
+
+  if (!existsSync(file)) {
+    report("SKIP changelog releases: there is no CHANGELOG.md, so there is no release to render");
+
+    return false;
+  }
+
+  const text = readFileSync(file, "utf8");
+  const weeks = parseWeeks(text).length;
+
+  if (weeks === 0) {
+    report("SKIP changelog releases: CHANGELOG.md has no week yet, so there is no release to render");
+
+    return false;
+  }
+
+  // The address only shapes the links of the notes. Whether a week renders does not depend on it.
+  const problems = checkRendering(text, "https://github.com/owner/repo", "main");
+
+  for (const problem of problems) {
+    report(`FAIL changelog releases: ${problem}. Add the definition, or run \`pnpm changelog defs --write\``);
+  }
+
+  if (problems.length === 0) {
+    report(`PASS changelog releases: ${weeks} week(s) of CHANGELOG.md render as release notes`);
+  }
+
+  return problems.length > 0;
 }
 
 /** Reports on the permission rules. Returns true when something failed. */
