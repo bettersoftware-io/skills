@@ -255,7 +255,18 @@ function tagWeek(week: Week, { root, now, run: runProgram, report, apply }: TagO
   }
 
   if (!apply) {
-    report(`would tag ${sha} as ${week.name}, dated ${tagDate(week)}`);
+    // The commit's date and subject, so that the person approves a commit they know.
+    const shown = runProgram("git", ["log", "-1", "--format=%cI%x09%s", "--end-of-options", sha], root);
+
+    if (shown.status !== 0) {
+      report(`FAIL changelog tag: git could not read the commit ${sha} (${shown.stderr.trim()})`);
+
+      return 1;
+    }
+
+    const [committed = "", ...subject] = shown.stdout.trim().split("\t");
+
+    report(`would tag ${sha} (${new Date(committed).toISOString().replace(".000Z", "Z")}, "${subject.join("\t")}") as ${week.name}, dated ${tagDate(week)}`);
 
     return 0;
   }

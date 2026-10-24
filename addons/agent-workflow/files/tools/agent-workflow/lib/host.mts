@@ -34,10 +34,10 @@ export const DUE_HOOK_COMMANDS: Record<string, string> = {
   [CODEX_HOOKS]: `node ${DUE_HOOK_SCRIPT}`,
 };
 
-/** The start sources each host runs the session-start hook for. Codex has no `clear` that matters here. */
+/** The start sources each host runs the session-start hook for: the same three in both, since Codex has `clear` too. */
 export const DUE_HOOK_MATCHERS: Record<string, string> = {
   [CLAUDE_SETTINGS]: "startup|resume|clear",
-  [CODEX_HOOKS]: "startup|resume",
+  [CODEX_HOOKS]: "startup|resume|clear",
 };
 
 /**

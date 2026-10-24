@@ -75,6 +75,17 @@ describe("reading the pull requests merged into a branch", () => {
     expect(existsSync(target)).toBe(false);
   });
 
+  it("reads only the merges since the instant it is given, that instant included", () => {
+    const folder = repository();
+
+    commit(folder, "Add a (#1)", { a: "1" }, "2026-10-04T23:59:59Z");
+    commit(folder, "Add b (#2)", { a: "2" }, "2026-10-05T00:00:00Z");
+    commit(folder, "Add c (#3)", { a: "3" }, "2026-10-06T10:00:00Z");
+
+    expect(readHistory(folder, "main", run, "2026-10-05T00:00:00.000Z").map(({ number }) => number)).toEqual([2, 3]);
+    expect(readHistory(folder, "main", run).map(({ number }) => number)).toEqual([1, 2, 3]);
+  });
+
   it("throws HistoryError when git cannot read the ref", () => {
     expect(() => readHistory(repository(), "nowhere", run)).toThrow(HistoryError);
   });

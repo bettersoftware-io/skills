@@ -4,6 +4,8 @@ import { join } from "node:path";
 
 import { describe, expect, it } from "vitest";
 
+import { replyTo } from "../files/tools/agent-workflow/lib/due-reminder.mts";
+import { run } from "../files/tools/agent-workflow/lib/system.mts";
 import { lastFinishedWeek } from "../files/tools/agent-workflow/lib/week.mts";
 import { commit, createFolder, createRemote, git, TOOLS } from "./support.mts";
 
@@ -54,6 +56,31 @@ describe("the session-start reminder", () => {
     expect(runHook(due, "not json").stdout).toContain("SessionStart");
     expect(runHook(due, { cwd: 7 }).stdout).toContain("SessionStart");
     expect(runHook(elsewhere, {})).toEqual({ status: 0, stdout: "", stderr: "" });
+  });
+
+  it("names five weeks at most, and says how many more there are and where to see them", () => {
+    const { clone } = createRemote();
+
+    commit(clone, "the changelog", { "CHANGELOG.md": "# Changelog\n\n## 2026-W30 — a week\n" }, "2026-07-21T10:00:00Z");
+
+    // One merge in each of 2026-W31 to 2026-W37.
+    for (let week = 0; week < 7; week += 1) {
+      commit(clone, `Add ${week} (#${week + 1})`, { [`file-${week}`]: "1" }, new Date(Date.parse("2026-07-28T10:00:00Z") + week * 7 * DAY_MS).toISOString());
+    }
+
+    git(clone, "push", "--quiet", "origin", "main");
+
+    const reply = JSON.parse(replyTo(JSON.stringify({ cwd: clone }), run, new Date("2026-09-15T09:00:00Z"), clone)) as { hookSpecificOutput: { additionalContext: string } };
+    const lines = reply.hookSpecificOutput.additionalContext.split("\n");
+
+    expect(lines.slice(1, -1)).toEqual([
+      "2026-W31  1 merged, no entry: write it with /workflow:changelog 2026-W31",
+      "2026-W32  1 merged, no entry: write it with /workflow:changelog 2026-W32",
+      "2026-W33  1 merged, no entry: write it with /workflow:changelog 2026-W33",
+      "2026-W34  1 merged, no entry: write it with /workflow:changelog 2026-W34",
+      "2026-W35  1 merged, no entry: write it with /workflow:changelog 2026-W35",
+      "… and 2 more: run pnpm changelog due",
+    ]);
   });
 
   it("says nothing when nothing is due", () => {

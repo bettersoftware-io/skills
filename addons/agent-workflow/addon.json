@@ -115,7 +115,7 @@
         ],
         "SessionStart": [
           {
-            "matcher": "startup|resume",
+            "matcher": "startup|resume|clear",
             "hooks": [
               {
                 "type": "command",
@@ -137,7 +137,8 @@
         "Sessions now start with the changelog weeks that are due. In Codex, trust the new hook with `/hooks`.",
         "`pnpm changelog check` now fails a definitions block that differs from what `pnpm changelog defs --write` writes, and a citation in the wrong week. Run `pnpm changelog defs --write` once.",
         "The new workflows `sync-releases.yml` and `changelog-writer.yml` are skipped until the repository variable `CHANGELOG_RELEASES` or `CHANGELOG_WRITER` is `true`. The README says how to switch each on, and what the writer costs.",
-        "Tags are now dated by their week: `changelog tag` and the weekly tag give a tag the Monday 00:05 UTC after its week."
+        "Tags are now dated by their week: `changelog tag` and the weekly tag give a tag the Monday 00:05 UTC after its week.",
+        "The Monday issue is now titled `Changelog: extend <week>` when the week already has a heading, and no issue is opened when the entry already cites every pull request GitHub lists for the week."
       ]
     }
   ]

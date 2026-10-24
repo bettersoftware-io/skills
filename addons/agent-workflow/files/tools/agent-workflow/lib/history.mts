@@ -50,9 +50,14 @@ export function parseHistory(log: string): Merge[] {
   return merges.reverse();
 }
 
-/** The pull requests merged into `ref`, following first parents only. */
-export function readHistory(root: string, ref: string, run: Run): Merge[] {
-  const log = run("git", ["log", "--first-parent", "--format=%H%x09%cI%x09%s", "--end-of-options", ref], root);
+/**
+ * The pull requests merged into `ref`, following first parents only. With
+ * `since` (an ISO instant), only those committed at or after it: git stops
+ * walking there, so a long history costs no more than the weeks judged.
+ */
+export function readHistory(root: string, ref: string, run: Run, since?: string): Merge[] {
+  const bound = since === undefined ? [] : [`--since=${since}`];
+  const log = run("git", ["log", "--first-parent", ...bound, "--format=%H%x09%cI%x09%s", "--end-of-options", ref], root);
 
   if (log.status !== 0) {
     throw new HistoryError(`git could not read the history of ${ref}: ${log.stderr.trim()}`);

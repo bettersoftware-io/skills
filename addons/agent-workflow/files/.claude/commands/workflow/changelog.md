@@ -98,8 +98,10 @@ pnpm changelog check 2026-W41
 ```
 
 It must end in `PASS` with exit 0. `FAIL` names the pull requests that are
-not cited and the citations with no definition: fix the file and run it
-again. `SKIP` (exit 2) means nothing was judged; report it as not checked,
+not cited, the ones cited in a week they were not merged in (a reference to
+earlier work is a plain link, not a citation), and a definitions block that
+differs from what `pnpm changelog defs --write` writes: fix the file and run
+it again. `SKIP` (exit 2) means nothing was judged; report it as not checked,
 never as a pass. Then run `pnpm gate:fast`.
 
 ## 7. Ship
@@ -117,10 +119,12 @@ gh pr create --title 'docs(changelog): 2026-W41' --body 'Adds the entry for 2026
 Closes #31'
 ```
 
-The `Weekly tag` workflow opens an issue titled `Changelog: write 2026-W41`
-when it tags a finished week. If one is open
-(`gh issue list --search "in:title Changelog: write 2026-W41"`), put
-`Closes #<n>` in the pull request's body.
+When the `Weekly tag` workflow tags a finished week whose entry does not cite
+every pull request GitHub lists for it, it opens an issue titled
+`Changelog: write 2026-W41`, or `Changelog: extend 2026-W41` when the week
+already has a heading. If one is open
+(`gh issue list --search "in:title Changelog: 2026-W41"`, which finds both),
+put `Closes #<n>` in the pull request's body.
 
 Do not create or move a week's tag here. Only a backfill of past weeks
 (below) tags one, and never moves it. The workflow owns the tags, and it tags
@@ -135,8 +139,9 @@ in one conversation.
 1. Write one brief: the format (read the top of `CHANGELOG.md`), the tone, the
    sections, and what a citation looks like. Every agent gets the same one.
 2. Start one agent per week, each told its week and nothing else to write.
-   `pnpm changelog weeks` lists them. Each runs steps 2, 4 and 6 for its
-   week.
+   The person gives the range of weeks: `pnpm changelog weeks` lists only the
+   weeks after the newest heading, and `git tag --list '????-W??'` lists the
+   weeks already tagged. Each agent runs steps 2, 4 and 6 for its week.
 3. A week in the era of pull requests cites every one of them
    (`pnpm changelog prs <week>`).
 4. A week before pull requests has none to cite. Write the key commits, then
@@ -155,10 +160,10 @@ A past week with no tag can be tagged:
 pnpm changelog tag 2026-W30
 ```
 
-That prints the plan: the commit and the date the tag will carry. It writes
-nothing. Show it to the person, and run it again with `--apply` only after
-they say yes. The command does not grant `tag`, so the call asks. It never
-moves a tag that exists.
+That prints the plan: the commit, with its date and subject, and the date the
+tag will carry. It writes nothing. Show it to the person, and run it again
+with `--apply` only after they say yes. The command does not grant `tag`, so
+the call asks. It never moves a tag that exists.
 
 ## In CI
 

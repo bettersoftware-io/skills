@@ -29,13 +29,9 @@ export interface DueWeek {
  */
 export function dueWeeks(texts: string[], merges: Merge[], now: Date): DueWeek[] {
   const last = lastFinishedWeek(now);
-  const newest = texts
-    .flatMap(weeksIn)
-    .map(parseWeek)
-    .sort((a, b) => startOf(b) - startOf(a))[0];
   const due: DueWeek[] = [];
 
-  for (let week = newest === undefined ? last : newest; startOf(week) <= startOf(last); week = weekAfter(week)) {
+  for (let week = firstWeekJudged(texts, now); startOf(week) <= startOf(last); week = weekAfter(week)) {
     const merged = [...new Set(merges.filter(({ mergedAt }) => isInWeek(week, mergedAt)).map(({ number }) => number))].sort((a, b) => a - b);
     const missing = texts.map((text) => notCitedIn(text, week.name, merged));
 
@@ -50,6 +46,16 @@ export function dueWeeks(texts: string[], merges: Merge[], now: Date): DueWeek[]
   }
 
   return due;
+}
+
+/** The week `dueWeeks` starts from: the newest heading in any text, else the last finished week. */
+function firstWeekJudged(texts: string[], now: Date): Week {
+  const newest = texts
+    .flatMap(weeksIn)
+    .map(parseWeek)
+    .sort((a, b) => startOf(b) - startOf(a))[0];
+
+  return newest ?? lastFinishedWeek(now);
 }
 
 /** One line for the session reminder and the weekly issue. */
@@ -75,10 +81,12 @@ export function findDue(root: string, run: Run, now: Date, ref?: string): DueWee
     throw new ChangelogError("there is no remote branch (origin/HEAD or origin/main) to read the merged pull requests from");
   }
 
-  const merges = readHistory(root, at, run);
   const shown = run("git", ["show", "--end-of-options", `${at}:CHANGELOG.md`], root);
+  const texts = [readFileSync(file, "utf8"), shown.status === 0 ? shown.stdout : ""];
+  // Nothing before the first week judged is needed.
+  const merges = readHistory(root, at, run, new Date(startOf(firstWeekJudged(texts, now))).toISOString());
 
-  return dueWeeks([readFileSync(file, "utf8"), shown.status === 0 ? shown.stdout : ""], merges, now);
+  return dueWeeks(texts, merges, now);
 }
 
 /** The merged numbers the week's section in `text` does not cite; all of them when it has no section. */

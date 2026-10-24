@@ -122,7 +122,7 @@ describe("the add-on's manifest", () => {
       SessionStart: [{ matcher: "startup|resume|clear", hooks: [{ type: "command", command: `node "$CLAUDE_PROJECT_DIR/${DUE_HOOK_SCRIPT}"`, timeout: 5 }] }],
     });
     expect(Object.keys(codex ?? {})).toEqual(["hooks"]);
-    expect(codex?.hooks?.SessionStart).toEqual([{ matcher: "startup|resume", hooks: [{ type: "command", command: `node ${DUE_HOOK_SCRIPT}`, statusMessage: "Checking the changelog", timeout: 5 }] }]);
+    expect(codex?.hooks?.SessionStart).toEqual([{ matcher: "startup|resume|clear", hooks: [{ type: "command", command: `node ${DUE_HOOK_SCRIPT}`, statusMessage: "Checking the changelog", timeout: 5 }] }]);
     expect(codex?.hooks?.PreToolUse).toHaveLength(1);
     expect(codex?.hooks?.PreToolUse?.[0]?.matcher).toBe("Bash");
     expect(codex?.hooks?.PreToolUse?.[0]?.hooks[0]?.command).toBe(`node ${HOOK_SCRIPT}`);
@@ -134,7 +134,7 @@ describe("the add-on's manifest", () => {
   it("registers the reminder in both hosts with the matcher and command the check looks for", () => {
     expect(DUE_HOOK_SCRIPT).toBe("tools/agent-workflow/hooks/changelog-due.mts");
     expect(DUE_HOOK_COMMANDS).toEqual({ [CLAUDE_SETTINGS]: `node "$CLAUDE_PROJECT_DIR/${DUE_HOOK_SCRIPT}"`, [CODEX_HOOKS]: `node ${DUE_HOOK_SCRIPT}` });
-    expect(DUE_HOOK_MATCHERS).toEqual({ [CLAUDE_SETTINGS]: "startup|resume|clear", [CODEX_HOOKS]: "startup|resume" });
+    expect(DUE_HOOK_MATCHERS).toEqual({ [CLAUDE_SETTINGS]: "startup|resume|clear", [CODEX_HOOKS]: "startup|resume|clear" });
 
     for (const path of [CLAUDE_SETTINGS, CODEX_HOOKS]) {
       const groups = MANIFEST.hostSettings[path]?.hooks?.SessionStart ?? [];
@@ -532,6 +532,60 @@ describe("the writer workflow", () => {
     expect(open).toMatch(/if \[ -n "\$FAILED" \]; then/);
   });
 
+  it("names in the summary and in the draft's body what each failing week lacks, and nothing of a week not judged", () => {
+    const scriptOf = (step: string): string => {
+      const lines = (step.split(/^ {8}run: \|\n/m)[1] ?? "").split("\n");
+      const end = lines.findIndex((line) => line !== "" && !line.startsWith(" ".repeat(10)));
+
+      return `${(end === -1 ? lines : lines.slice(0, end)).map((line) => line.slice(10)).join("\n")}\n`;
+    };
+    const folder = createFolder({
+      "check.sh": scriptOf(publishSteps[indexOf(publishSteps, "id: check")] ?? ""),
+      "open.sh": scriptOf(publishSteps[indexOf(publishSteps, "Open the pull request")] ?? ""),
+      // `changelog check` as it prints for a week that fails, one that passes, and one it cannot judge.
+      "bin/node": [
+        "#!/bin/sh",
+        'case "$3" in',
+        '  2026-W40) printf \'  merged in 2026-W40 and not cited in its section: #16\\nFAIL changelog 2026-W40: 1 problem(s). Fix CHANGELOG.md and run this again\\n\'; exit 1 ;;',
+        "  2026-W41) echo 'PASS changelog 2026-W41: 2 merged pull request(s), all cited, every citation defined' ;;",
+        "  *) echo 'SKIP changelog: gh could not list the merged pull requests (token ghs_secret123). Nothing was judged'; exit 2 ;;",
+        "esac",
+        "",
+      ].join("\n"),
+      "bin/gh": '#!/bin/sh\nfor argument in "$@"; do printf \'%s\\0\' "$argument"; done > "$RUNNER_TEMP/gh.txt"\n',
+      "temp/output.txt": "",
+      "temp/summary.txt": "",
+    });
+    const temp = join(folder, "temp");
+    const env = { PATH: `${join(folder, "bin")}:${process.env.PATH ?? ""}`, RUNNER_TEMP: temp, GITHUB_OUTPUT: join(temp, "output.txt"), GITHUB_STEP_SUMMARY: join(temp, "summary.txt"), WEEKS: "2026-W40 2026-W41 2026-W42", NEWEST: "2026-W42" };
+
+    spawnSync("chmod", ["+x", join(folder, "bin/node"), join(folder, "bin/gh")]);
+
+    const checked = spawnSync("bash", ["--noprofile", "--norc", "-eo", "pipefail", join(folder, "check.sh")], { cwd: folder, env, encoding: "utf8" });
+    const failed = /^failed=(.*)$/m.exec(readFileSync(join(temp, "output.txt"), "utf8"))?.[1] ?? "";
+    const summary = readFileSync(join(temp, "summary.txt"), "utf8");
+    const opened = spawnSync("bash", ["--noprofile", "--norc", "-eo", "pipefail", join(folder, "open.sh")], { cwd: folder, env: { ...env, FAILED: failed, ISSUES: "31" }, encoding: "utf8" });
+    const args = readFileSync(join(temp, "gh.txt"), "utf8").split("\0");
+    const body = args[args.indexOf("--body") + 1] ?? "";
+    const details = [
+      "  merged in 2026-W40 and not cited in its section: #16",
+      "FAIL changelog 2026-W40: 1 problem(s). Fix CHANGELOG.md and run this again",
+      "2026-W42 was not judged: changelog check exited 2",
+    ].join("\n");
+
+    expect([checked.status, checked.stderr, opened.status, opened.stderr]).toEqual([0, "", 0, ""]);
+    expect(failed).toBe("2026-W40 2026-W42");
+    expect(summary).toContain(`~~~text\n${details}\n~~~`);
+    expect(body).toContain("The changelog check failed for 2026-W40, 2026-W42.");
+    expect(body).toContain(`~~~text\n${details}\n~~~`);
+    expect(args).toContain("--draft");
+
+    for (const text of [summary, body]) {
+      expect(text).not.toContain("PASS");
+      expect(text).not.toContain("ghs_secret123");
+    }
+  });
+
   it("puts no expression in a command line: every one goes through env", () => {
     const blocks = runsOf(WRITER_WORKFLOW);
 
@@ -541,13 +595,15 @@ describe("the writer workflow", () => {
 });
 
 describe("the release notes", () => {
-  it("has release notes for 0.20.0 that name both variables and /hooks", () => {
+  it("has release notes for 0.20.0 that name both variables, /hooks, and the issue that may be extend or skipped", () => {
     const { releaseNotes } = readJson<{ releaseNotes: { id: string; notes: string[] }[] }>(ADDON, "addon.json");
     const notes = releaseNotes.find(({ id }) => id === "0.20.0")?.notes ?? [];
     const text = notes.join("\n");
 
-    expect(notes).toHaveLength(4);
+    expect(notes).toHaveLength(5);
     expect(text).toContain("/hooks");
+    expect(text).toContain("`Changelog: extend <week>`");
+    expect(text).toContain("no issue is opened");
     expect(text).toContain("CHANGELOG_RELEASES");
     expect(text).toContain("CHANGELOG_WRITER");
   });

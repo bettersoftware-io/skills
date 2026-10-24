@@ -118,7 +118,7 @@ describe("the add-on's check", () => {
 
   it.each([
     ["Claude Code", ".claude/settings.json", CLAUDE_HOOK, CLAUDE_DUE, "startup|resume|clear"],
-    ["Codex", ".codex/hooks.json", CODEX_HOOK, CODEX_DUE, "startup|resume"],
+    ["Codex", ".codex/hooks.json", CODEX_HOOK, CODEX_DUE, "startup|resume|clear"],
   ])("fails the check when the reminder is not registered in %s", (host, path, hook, due, matcher) => {
     const registered = (SessionStart: unknown[]): unknown => ({ permissions: { ask: [...ASK_RULES, ...EDIT_ASK_RULES] }, hooks: { PreToolUse: [createGroup(hook, "Bash", 5), createGroup(hook, "Monitor", 5)], SessionStart } });
     const missing = new RegExp(`^FAIL ${host}: ${path.replace(".", "\\.")} does not run tools/agent-workflow/hooks/changelog-due\\.mts at the start of a session .* Run the installer again`);
@@ -479,7 +479,7 @@ function createProject(shape: ProjectShape = {}): string {
       permissions: { allow: shape.allow ?? [], ask: shape.ask ?? [...ASK_RULES, ...EDIT_ASK_RULES] },
       hooks: { PreToolUse: [createGroup(CLAUDE_HOOK, "Bash", 5), createGroup(CLAUDE_HOOK, "Monitor", 5)], SessionStart: [createGroup(CLAUDE_DUE, "startup|resume|clear", 5)] },
     },
-    ".codex/hooks.json": { hooks: { PreToolUse: [createGroup(CODEX_HOOK, "Bash")], SessionStart: [createGroup(CODEX_DUE, "startup|resume")] } },
+    ".codex/hooks.json": { hooks: { PreToolUse: [createGroup(CODEX_HOOK, "Bash")], SessionStart: [createGroup(CODEX_DUE, "startup|resume|clear")] } },
     "tools/installed.json": Object.fromEntries((shape.installed ?? ["kit", "agent-workflow"]).map((unit) => [unit, { files: {} }])),
     ...COMMANDS,
   };
@@ -505,7 +505,7 @@ function createProject(shape: ProjectShape = {}): string {
  * (even an empty list) is left as the test wrote it.
  */
 function withReminder(path: string, content: unknown): unknown {
-  const reminder = path === ".claude/settings.json" ? [createGroup(CLAUDE_DUE, "startup|resume|clear", 5)] : path === ".codex/hooks.json" ? [createGroup(CODEX_DUE, "startup|resume")] : undefined;
+  const reminder = path === ".claude/settings.json" ? [createGroup(CLAUDE_DUE, "startup|resume|clear", 5)] : path === ".codex/hooks.json" ? [createGroup(CODEX_DUE, "startup|resume|clear")] : undefined;
 
   if (reminder === undefined || typeof content !== "object" || content === null || Array.isArray(content)) {
     return content;

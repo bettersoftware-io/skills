@@ -13,12 +13,12 @@ import { ADDON, commit, createFolder, git, mergeAt } from "./support.mts";
 const NOW = new Date("2026-10-12T09:00:00Z");
 
 describe("changelog tag", () => {
-  it("plans without --apply and writes nothing", () => {
+  it("plans without --apply, naming the commit's date and subject, and writes nothing", () => {
     const { repository, shas } = createHistory();
     const { status, lines, calls } = tag(repository, ["tag", "2026-W40"]);
 
     expect(status).toBe(0);
-    expect(lines).toEqual([`would tag ${shas.lastOfWeek} as 2026-W40, dated 2026-10-05T00:05:00Z`]);
+    expect(lines).toEqual([`would tag ${shas.lastOfWeek} (2026-10-04T22:00:00Z, "late on sunday") as 2026-W40, dated 2026-10-05T00:05:00Z`]);
     expect(calls.filter((call) => call.includes("git/tags") || call.includes("git/refs"))).toEqual([]);
   });
 
@@ -45,7 +45,7 @@ describe("changelog tag", () => {
 
     commit(repository, "local only, in the week", { a: "5" }, "2026-10-04T23:00:00Z");
 
-    expect(tag(repository, ["tag", "2026-W40"]).lines).toEqual([`would tag ${shas.lastOfWeek} as 2026-W40, dated 2026-10-05T00:05:00Z`]);
+    expect(tag(repository, ["tag", "2026-W40"]).lines).toEqual([`would tag ${shas.lastOfWeek} (2026-10-04T22:00:00Z, "late on sunday") as 2026-W40, dated 2026-10-05T00:05:00Z`]);
   });
 
   it("follows the branch itself: a commit that came in by a later merge is not the week's", () => {
@@ -61,7 +61,7 @@ describe("changelog tag", () => {
     mergeAt(repository, "side", "merge side", "2026-10-05T09:00:00Z");
     git(repository, "update-ref", "refs/remotes/origin/main", "HEAD");
 
-    expect(tag(repository, ["tag", "2026-W40"]).lines).toEqual([`would tag ${onMain} as 2026-W40, dated 2026-10-05T00:05:00Z`]);
+    expect(tag(repository, ["tag", "2026-W40"]).lines).toEqual([`would tag ${onMain} (2026-09-30T10:00:00Z, "on main, in the week") as 2026-W40, dated 2026-10-05T00:05:00Z`]);
   });
 
   it("refuses a week that is not over, naming the weekly workflow", () => {

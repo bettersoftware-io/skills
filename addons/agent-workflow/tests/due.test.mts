@@ -4,9 +4,10 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
 import { changelog } from "../files/tools/agent-workflow/changelog.mts";
-import { describeDue, dueWeeks } from "../files/tools/agent-workflow/lib/due.mts";
+import { withDefinitions } from "../files/tools/agent-workflow/lib/changelog.mts";
+import { describeDue, dueWeeks, findDue } from "../files/tools/agent-workflow/lib/due.mts";
 import type { Merge } from "../files/tools/agent-workflow/lib/history.mts";
-import { run } from "../files/tools/agent-workflow/lib/system.mts";
+import { type Run, run } from "../files/tools/agent-workflow/lib/system.mts";
 import { parseWeek } from "../files/tools/agent-workflow/lib/week.mts";
 import { commit, createFolder, createRemote, git } from "./support.mts";
 
@@ -173,6 +174,54 @@ describe("the command", () => {
     expect(refused.status).toBe(2);
     expect(refused.lines).toEqual([`SKIP changelog: --ref needs a git ref, and "--output=${target}" starts with a dash. Nothing was judged`]);
     expect(existsSync(target)).toBe(false);
+  });
+
+  it("reads the history only from the start of the first week it judges", () => {
+    const { clone } = createRemote();
+    const logged: string[][] = [];
+    const recording: Run = (program, args, cwd) => {
+      if (args[0] === "log") {
+        logged.push(args);
+      }
+
+      return run(program, args, cwd);
+    };
+
+    commit(clone, "Add a (#12)", { "CHANGELOG.md": createText() }, "2026-09-30T12:00:00Z");
+    git(clone, "push", "--quiet", "origin", "main");
+    findDue(clone, recording, new Date("2026-10-08T09:00:00Z"));
+
+    writeFileSync(join(clone, "CHANGELOG.md"), createText({ "2026-W39": [] }));
+    findDue(clone, recording, new Date("2026-10-08T09:00:00Z"));
+
+    expect(logged.map((args) => args.find((arg) => arg.startsWith("--since=")))).toEqual(["--since=2026-09-28T00:00:00.000Z", "--since=2026-09-21T00:00:00.000Z"]);
+  });
+
+  it("reads a commit pushed straight to main with (#N) in its subject as a merge, which gh does not list: due and check disagree", () => {
+    const { clone } = createRemote();
+    const check = (): { status: number; lines: string[] } => {
+      const lines: string[] = [];
+      // `--merged ""` is gh's answer: no pull request was merged in the week.
+      const status = changelog({ root: clone, argv: ["check", "2026-W40", "--merged", ""], now: new Date("2026-10-08T09:00:00Z"), run, report: (line) => lines.push(line) });
+
+      return { status, lines };
+    };
+
+    commit(clone, "Fix a typo (#40)", { "CHANGELOG.md": createText() }, "2026-09-30T12:00:00Z");
+    git(clone, "push", "--quiet", "origin", "main");
+    git(clone, "remote", "set-url", "origin", "https://github.com/acme/app.git");
+
+    // Not cited: due names the week, and check passes it.
+    expect(runDue(clone)).toEqual({ status: 1, lines: ["2026-W40  1 merged, no entry: write it with /workflow:changelog 2026-W40"] });
+    expect(check().status).toBe(0);
+
+    // Cited: due is satisfied, and check fails the citation.
+    writeFileSync(join(clone, "CHANGELOG.md"), withDefinitions(createText({ "2026-W40": [40] }), "https://github.com/acme/app"));
+    expect(runDue(clone)).toEqual({ status: 0, lines: [] });
+    expect(check()).toEqual({
+      status: 1,
+      lines: ["  cited in 2026-W40 and not merged in it: #40. A reference to earlier work is a plain link, not a citation", "FAIL changelog 2026-W40: 1 problem(s). Fix CHANGELOG.md and run this again"],
+    });
   });
 
   it("weeks adds the newest week to extend", () => {

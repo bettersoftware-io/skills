@@ -6,8 +6,10 @@ name: Weekly tag
 #   1. it tags the last commit that reached the default branch before Monday
 #      00:00 UTC as `<year>-W<week>`, so `git diff 2026-W39 2026-W40` is
 #      exactly what the changelog's W40 section describes;
-#   2. it opens an issue that asks for the week's entry, when any pull
-#      request was merged in the week.
+#   2. it opens an issue that asks for the week's entry, when a pull request
+#      was merged in the week and the entry does not cite every one GitHub
+#      lists: "Changelog: write <week>" with no heading for the week,
+#      "Changelog: extend <week>" with one. A complete entry gets no issue.
 #
 # Writing the entry needs judgement, so it is not done here. Only the two
 # steps a script gets right are.

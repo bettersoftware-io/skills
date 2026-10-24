@@ -17,8 +17,9 @@
 // weekly-tag workflow makes it). The newest tagged week is marked Latest.
 //
 // Exit 0: nothing wrong (a plan, or --check with no week yet). Exit 1: a week
-// does not render, or GitHub refused a write. Exit 2: nothing was judged
-// (no CHANGELOG.md, no repository, GitHub could not be asked).
+// does not render, GitHub refused a write, or --only names no tagged week.
+// Exit 2: nothing was judged (no CHANGELOG.md, no repository, GitHub could
+// not be asked).
 
 import { existsSync, readFileSync } from "node:fs";
 import { join, resolve } from "node:path";
@@ -95,6 +96,14 @@ function sync({ root, argv, run: runProgram, report }: SyncOptions): number {
 
   const state = args.state === undefined ? fetchRemoteState(repo, root, runProgram) : (JSON.parse(readFileSync(resolve(root, args.state), "utf8")) as RemoteState);
   const full = planReleases(weeks, state, (week) => renderReleaseBody(week, definitions, repoUrl, branch));
+
+  // A week that is not tagged, or has no section, would give an empty plan that reads as nothing to do.
+  if (args.only !== undefined && ![...full.changes.map(({ tag }) => tag), ...full.unchanged].includes(args.only)) {
+    report(`FAIL sync-releases: no tagged week ${args.only} in CHANGELOG.md`);
+
+    return 1;
+  }
+
   const plan = args.only === undefined ? full : { ...full, changes: full.changes.filter(({ tag }) => tag === args.only) };
 
   printPlan(plan, report);

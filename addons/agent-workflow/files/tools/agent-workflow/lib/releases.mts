@@ -59,7 +59,7 @@ export function parseWeeks(text: string): ReleaseWeek[] {
     .join("\n");
 
   return body
-    .split(/\n(?=## \d{4}-W\d\d )/)
+    .split(/\n(?=## \d{4}-W\d\d\b)/)
     .slice(1)
     .map((part) => {
       const [heading = "", ...rest] = part.split("\n");

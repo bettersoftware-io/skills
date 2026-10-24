@@ -5,11 +5,17 @@
 import { describeDue, findDue } from "./due.mts";
 import { type Run } from "./system.mts";
 
+/** The most weeks the reminder names. A project far behind gets a count for the rest. */
+const MOST_WEEKS = 5;
+
 /** The text for the due weeks, as the session context. */
 function contextFor(lines: string[]): string {
+  const more = lines.length - MOST_WEEKS;
+
   return [
     "Changelog: as of the last fetch of the default branch, these weeks are due in CHANGELOG.md:",
-    ...lines,
+    ...lines.slice(0, MOST_WEEKS),
+    ...(more > 0 ? [`… and ${more} more: run pnpm changelog due`] : []),
     "Mention this to the person at a natural point; do not drop the task you were given to write it. In Codex the command is $workflow-changelog <week>.",
   ].join("\n");
 }

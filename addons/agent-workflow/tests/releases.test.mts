@@ -121,6 +121,15 @@ describe("reading the weeks", () => {
     expect(definitionMap(text).get("#1")).toBe("u/1");
   });
 
+  it("reads a heading that is the week's name alone", () => {
+    const weeks = parseWeeks("# C\n\n## 2026-W41\n\n- a\n\n## 2026-W40\n\n- b\n");
+
+    expect(weeks).toEqual([
+      { tag: "2026-W41", title: "2026-W41", section: "- a" },
+      { tag: "2026-W40", title: "2026-W40", section: "- b" },
+    ]);
+  });
+
   it("reads a pull request's and a commit's definition by the label the section cites", () => {
     expect(definitionMap(changelogText()).get("#964")).toBe("https://github.com/o/r/pull/964");
     expect(definitionMap(changelogText()).get("`abc123456`")).toBe("https://github.com/o/r/commit/abc123456ffff");
@@ -164,6 +173,23 @@ describe("sync-releases plan", () => {
     const { lines } = plan({ tags: ["2026-W40", "2026-W41"], releases: [], latestTag: null }, ["--only", "2026-W40"]);
 
     expect(lines).toEqual(["create 2026-W40", "sync-releases: 1 to write, 0 unchanged"]);
+  });
+
+  it("fails with --only for a week that has no tag or no section, and writes nothing", () => {
+    for (const week of ["2026-W41", "2026-W39"]) {
+      const { status, lines, calls } = plan({ tags: ["2026-W40"], releases: [], latestTag: null }, ["--only", week, "--apply"]);
+
+      expect(status).toBe(1);
+      expect(lines).toEqual([`FAIL sync-releases: no tagged week ${week} in CHANGELOG.md`]);
+      expect(calls).toEqual([]);
+    }
+  });
+
+  it("does not fail with --only for a tagged week that has nothing to write", () => {
+    const { status, lines } = plan({ tags: ["2026-W40", "2026-W41"], releases: both(), latestTag: "2026-W41" }, ["--only", "2026-W40"]);
+
+    expect(status).toBe(0);
+    expect(lines).toEqual(["sync-releases: 0 to write, 2 unchanged"]);
   });
 
   it("never releases a week whose tag does not exist yet", () => {

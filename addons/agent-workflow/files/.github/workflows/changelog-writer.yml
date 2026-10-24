@@ -255,19 +255,34 @@ jobs:
           fi
 
       # A week that fails the check is still published, as a draft: a person
-      # finishes it.
+      # finishes it. What each failing week lacks goes to the job summary and
+      # the pull request's body: only the FAIL line and the lines above it,
+      # which are fixed text and pull request numbers. A SKIP line may hold
+      # what gh printed, so a week not judged is named and nothing more.
       - name: Check each week
         id: check
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           failed=""
+          : > "$RUNNER_TEMP/check.txt"
           for week in $WEEKS; do
-            if ! node tools/agent-workflow/changelog.mts check "$week"; then
+            status=0
+            node tools/agent-workflow/changelog.mts check "$week" > "$RUNNER_TEMP/week.txt" || status=$?
+            cat "$RUNNER_TEMP/week.txt"
+            if [ "$status" -ne 0 ]; then
               failed="$failed $week"
+              if [ "$status" -eq 1 ]; then
+                grep -E '^(FAIL |  )' "$RUNNER_TEMP/week.txt" >> "$RUNNER_TEMP/check.txt" || true
+              else
+                echo "$week was not judged: changelog check exited $status" >> "$RUNNER_TEMP/check.txt"
+              fi
             fi
           done
           echo "failed=${failed# }" >> "$GITHUB_OUTPUT"
+          if [ -s "$RUNNER_TEMP/check.txt" ]; then
+            { echo "~~~text"; cat "$RUNNER_TEMP/check.txt"; echo "~~~"; } >> "$GITHUB_STEP_SUMMARY"
+          fi
 
       - name: Commit CHANGELOG.md alone
         run: |
@@ -309,5 +324,6 @@ jobs:
           if [ -n "$FAILED" ]; then
             draft=(--draft)
             body+=$'\n'"The changelog check failed for ${FAILED// /, }. Finish the entry before it is merged."
+            body+=$'\n\n'"~~~text"$'\n'"$(cat "$RUNNER_TEMP/check.txt")"$'\n'"~~~"
           fi
           gh pr create --title "docs(changelog): ${WEEKS// /, }" --body "$body" --head "changelog/$NEWEST" "${draft[@]}"
