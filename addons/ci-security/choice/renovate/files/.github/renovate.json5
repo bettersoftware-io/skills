@@ -32,9 +32,11 @@
   // opens at once with a pending check.
   "internalChecksFilter": "strict",
 
-  // One wave, early on Monday (UTC). Without a schedule a merged pull request
-  // is replaced by the next at once, and the list never looks finished.
-  "schedule": ["before 6am on monday"],
+  // One wave, on Monday (UTC). Without a schedule a merged pull request is
+  // replaced by the next at once, and the list never looks finished. The whole
+  // day, not a few hours of it: the app does not run every repository in every
+  // window, and a missed one waits a week.
+  "schedule": ["on monday"],
   // How many may be open at once. The rest wait on the Dependency Dashboard
   // issue, which is where the whole list is.
   "prConcurrentLimit": 5,
@@ -46,6 +48,21 @@
   // `tools/` holds what the kit and the add-ons installed. An update of the
   // add-on replaces those files, and refuses one that was changed here.
   "ignorePaths": ["**/node_modules/**", "tools/**"],
+
+  "customManagers": [
+    {
+      // A workflow's Playwright image is read as the npm package it carries,
+      // so the two move to one version: a project's `playwright-pin` gate
+      // fails when they differ. An image tag has no release date, so the
+      // week's wait above could not hold the image back on its own.
+      "customType": "regex",
+      "description": "The Playwright image of a workflow, at the version of @playwright/test",
+      "managerFilePatterns": ["/(^|/)\\.github/workflows/[^/]+\\.ya?ml$/"],
+      "matchStrings": ["mcr\\.microsoft\\.com/playwright:v(?<currentValue>\\d+\\.\\d+\\.\\d+)-noble"],
+      "depNameTemplate": "@playwright/test",
+      "datasourceTemplate": "npm"
+    }
+  ],
 
   "packageRules": [
     {
@@ -59,6 +76,22 @@
       // above, so that it wins for an action: a later rule overrides.
       "groupName": "actions",
       "matchManagers": ["github-actions"]
+    },
+    {
+      // Playwright is pinned in a package, in the performance add-on's root
+      // dependency and in the image of each browser workflow, and the goldens
+      // were drawn by one version of it. Moving it is a piece of work (the
+      // goldens are drawn again), begun from the Dependency Dashboard, not on
+      // a Monday. After the two rules above, so that it wins.
+      "groupName": "playwright",
+      "matchPackageNames": ["playwright", "@playwright/test"],
+      "dependencyDashboardApproval": true
+    },
+    {
+      // The image is read above, as the npm package.
+      "matchDatasources": ["docker"],
+      "matchPackageNames": ["mcr.microsoft.com/playwright"],
+      "enabled": false
     },
     {
       // Nothing in pnpm-workspace.yaml is moved. Its `overrides` are pins

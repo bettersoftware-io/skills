@@ -14,7 +14,7 @@
   // day), or the pull request could not update the lockfile.
   "minimumReleaseAge": "7 days",
   "internalChecksFilter": "strict",
-  "schedule": ["before 6am on monday"],
+  "schedule": ["on monday"],
   "prConcurrentLimit": 5,
 
   // Dependabot cannot open these: its updater runs Node 24, and the starter

@@ -1736,6 +1736,48 @@
     "test": "pnpm vitest run addons/ci-security/tests/addon.test.mts -t \"opens the security fixes itself\""
   },
   {
+    "name": "renovate: the whole of Monday",
+    "file": "addons/ci-security/choice/renovate/files/.github/renovate.json5",
+    "find": "\"schedule\": [\"on monday\"],",
+    "replace": "\"schedule\": [\"before 6am on monday\"],",
+    "test": "pnpm vitest run addons/ci-security/tests/addon.test.mts -t \"looks once a week, on the whole of Monday\""
+  },
+  {
+    "name": "renovate: Playwright waits to be asked",
+    "file": "addons/ci-security/choice/renovate/files/.github/renovate.json5",
+    "find": "      \"dependencyDashboardApproval\": true",
+    "replace": "      \"dependencyDashboardApproval\": false",
+    "test": "pnpm vitest run addons/ci-security/tests/addon.test.mts -t \"moves every Playwright pin to one version\""
+  },
+  {
+    "name": "renovate: Playwright is one group",
+    "file": "addons/ci-security/choice/renovate/files/.github/renovate.json5",
+    "find": "      \"groupName\": \"playwright\",",
+    "replace": "      \"groupName\": \"browsers\",",
+    "test": "pnpm vitest run addons/ci-security/tests/addon.test.mts -t \"groups as Dependabot does\""
+  },
+  {
+    "name": "renovate: the image is the npm package",
+    "file": "addons/ci-security/choice/renovate/files/.github/renovate.json5",
+    "find": "      \"depNameTemplate\": \"@playwright/test\",",
+    "replace": "      \"depNameTemplate\": \"mcr.microsoft.com/playwright\",",
+    "test": "pnpm vitest run addons/ci-security/tests/addon.test.mts -t \"reads a workflow's Playwright image as @playwright/test\""
+  },
+  {
+    "name": "renovate: the image is not moved as an image",
+    "file": "addons/ci-security/choice/renovate/files/.github/renovate.json5",
+    "find": "      \"matchDatasources\": [\"docker\"],\n      \"matchPackageNames\": [\"mcr.microsoft.com/playwright\"],\n      \"enabled\": false",
+    "replace": "      \"matchDatasources\": [\"docker\"],\n      \"matchPackageNames\": [\"mcr.microsoft.com/playwright\"],\n      \"enabled\": true",
+    "test": "pnpm vitest run addons/ci-security/tests/addon.test.mts -t \"reads a workflow's Playwright image as @playwright/test\""
+  },
+  {
+    "name": "renovate: every shipped image line is read",
+    "file": "addons/ci-security/choice/renovate/files/.github/renovate.json5",
+    "find": "-noble\"],",
+    "replace": "-jammy\"],",
+    "test": "pnpm vitest run addons/ci-security/tests/addon.test.mts -t \"reads a workflow's Playwright image as @playwright/test\""
+  },
+  {
     "name": "renovate: tools/ is not moved",
     "file": "addons/ci-security/choice/renovate/files/.github/renovate.json5",
     "find": "\"ignorePaths\": [\"**/node_modules/**\", \"tools/**\"]",

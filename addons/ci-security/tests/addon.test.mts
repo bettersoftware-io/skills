@@ -339,6 +339,7 @@ describe("the Renovate config", () => {
     vulnerabilityAlerts: { enabled: boolean };
     ignorePaths: string[];
     packageRules: Record<string, unknown>[];
+    customManagers: { managerFilePatterns: string[]; matchStrings: string[]; depNameTemplate?: string; datasourceTemplate?: string }[];
     automerge?: boolean;
   };
   const dependabot = readFileSync(join(ADDON, DEPENDABOT), "utf8");
@@ -366,18 +367,19 @@ describe("the Renovate config", () => {
     expect(Number.parseInt(config.minimumReleaseAge, 10) * 24 * 60).toBeGreaterThanOrEqual(minutes);
   });
 
-  it("looks once a week, and keeps as many pull requests open as Dependabot does", () => {
-    expect(config.schedule).toEqual(["before 6am on monday"]);
+  it("looks once a week, on the whole of Monday: a window of hours can pass with no run of the app in it", () => {
+    expect(config.schedule).toEqual(["on monday"]);
     expect(config.prConcurrentLimit).toBe(Number(/open-pull-requests-limit: (\d+)/.exec(dependabot)?.[1]));
   });
 
-  it("groups as Dependabot does: minor and patch together, the actions together, the actions rule last so it wins", () => {
+  it("groups as Dependabot does: minor and patch together, the actions together, the actions rule after so it wins", () => {
     const groups = config.packageRules.filter((rule) => rule.groupName !== undefined);
 
-    expect(groups).toEqual([
+    expect(groups.slice(0, 2)).toEqual([
       { groupName: "minor and patch", matchUpdateTypes: ["minor", "patch"] },
       { groupName: "actions", matchManagers: ["github-actions"] },
     ]);
+    expect(groups.slice(2).map((rule) => rule.groupName)).toEqual(["playwright"]);
     expect(dependabot).toContain('update-types: ["minor", "patch"]');
     expect(dependabot).toContain('      actions:\n        patterns: ["*"]');
   });
@@ -389,6 +391,40 @@ describe("the Renovate config", () => {
   it("moves nothing in pnpm-workspace.yaml and nothing the add-ons installed", () => {
     expect(config.packageRules).toContainEqual({ matchFileNames: ["pnpm-workspace.yaml"], enabled: false });
     expect(config.ignorePaths).toEqual(["**/node_modules/**", "tools/**"]);
+  });
+
+  it("moves every Playwright pin to one version, and only when someone asks for it on the Dependency Dashboard", () => {
+    const rule = config.packageRules.find((candidate) => candidate.groupName === "playwright");
+
+    expect(rule?.matchPackageNames).toEqual(["playwright", "@playwright/test"]);
+    expect(rule?.dependencyDashboardApproval).toBe(true);
+    // After the two groups above, so that it wins for a Playwright package.
+    expect(config.packageRules.indexOf(rule as Record<string, unknown>)).toBeGreaterThan(config.packageRules.findIndex((candidate) => candidate.groupName === "actions"));
+  });
+
+  it("reads a workflow's Playwright image as @playwright/test, so that the image never moves ahead of the package", () => {
+    const images = config.customManagers.filter((manager) => manager.depNameTemplate === "@playwright/test");
+
+    expect(images).toHaveLength(1);
+    expect(images[0]?.datasourceTemplate).toBe("npm");
+    expect(config.packageRules).toContainEqual({ matchDatasources: ["docker"], matchPackageNames: ["mcr.microsoft.com/playwright"], enabled: false });
+
+    const [manager] = images as [(typeof images)[number]];
+    const pattern = new RegExp((manager.managerFilePatterns[0] as string).slice(1, -1));
+    const shipped = readdirSync(join(ADDON, ".."), { recursive: true, withFileTypes: true })
+      .filter((entry) => entry.isFile() && /\/files\/\.github\/workflows\/[^/]+\.ya?ml$/.test(join(entry.parentPath, entry.name)))
+      .map((entry) => join(entry.parentPath, entry.name));
+    const withImage = shipped.filter((path) => readFileSync(path, "utf8").includes("mcr.microsoft.com/playwright"));
+
+    expect(withImage.length).toBeGreaterThan(0);
+
+    for (const path of withImage) {
+      const workflow = path.slice(path.indexOf("/files/") + "/files/".length);
+      const text = readFileSync(path, "utf8");
+
+      expect(pattern.test(workflow), workflow).toBe(true);
+      expect([...text.matchAll(new RegExp(manager.matchStrings[0] as string, "g"))].length, workflow).toBe(text.match(/mcr\.microsoft\.com\/playwright:\S+/g)?.length);
+    }
   });
 
   it("merges nothing by itself", () => {

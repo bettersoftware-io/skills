@@ -3,7 +3,7 @@
 What is not done yet. Finished work is removed from this page, not archived;
 the test records in this folder and the git log say what was done.
 
-**Last updated: 2026-10-17**
+**Last updated: 2026-10-24**
 
 ## Waiting on something outside this repository
 
@@ -70,11 +70,17 @@ on 2026-10-05, on pushes to main and on a pull request
 - **Nothing here has run on Linux outside GitHub's CI,** and nothing through
   a real `docker build`. The Dockerfile check was compared with BuildKit's own
   parser, built from source; the `e2e` workflow and its container have not run.
-- **Renovate has read the shipped config, and opened nothing yet.** In
-  origamic on 2026-10-16 its Dependency Dashboard shows the config applied:
-  the "actions" and "minor and patch" groups, both waiting for Monday's
-  wave. The first pull requests, and whether pnpm accepts the lockfile each
-  writes, are due on 2026-10-19.
+- **The shipped Renovate config has opened one wave.** On 2026-10-19, in
+  condo-ledger and origamic: "actions" passed in condo-ledger (#17, merged),
+  and pnpm installed every lockfile it wrote. "minor and patch" moved
+  Playwright's package without its image, and `playwright-pin` failed it;
+  0.19.1 gives Playwright a group of its own, read from the image too. The
+  next wave, on 2026-10-26, is the first under that rule. In this repository
+  the app ran no job inside "before 6am on monday" and opened nothing; the
+  schedule is now the whole of Monday.
+- **Renovate has never run in skills-demo.** No issue and no pull request
+  from it there, so its app is not given that repository. A person adds it,
+  in the account's settings for the Renovate app.
 - **No run where the coverage gate fails has been seen.** The report is meant
   to publish then too.
 - **The motion audit had nothing to judge.** The starter has no animation, so
