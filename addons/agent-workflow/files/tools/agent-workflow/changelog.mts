@@ -2,6 +2,7 @@
 // The checkable half of writing CHANGELOG.md.
 //
 //   node tools/agent-workflow/changelog.mts weeks            which weeks have no entry yet
+//   node tools/agent-workflow/changelog.mts due [--ref <ref>]  which finished weeks still need writing or extending, offline
 //   node tools/agent-workflow/changelog.mts prs 2026-W40     what was merged in a week
 //   node tools/agent-workflow/changelog.mts check 2026-W40   do the week's citations equal its merges?
 //   node tools/agent-workflow/changelog.mts defs [--write]   are the link definitions the generated ones?
@@ -20,8 +21,9 @@ import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { checkWeek, type MergedPullRequest, weeksToWrite, withDefinitions } from "./lib/changelog.mts";
-import { repositoryUrl } from "./lib/history.mts";
+import { ChangelogError, checkWeek, type MergedPullRequest, weeksIn, weeksToWrite, withDefinitions } from "./lib/changelog.mts";
+import { describeDue, type DueWeek, findDue } from "./lib/due.mts";
+import { HistoryError, repositoryUrl } from "./lib/history.mts";
 import { isMainModule } from "./lib/main.mts";
 import { type Run, run } from "./lib/system.mts";
 import { isInWeek, parseWeek, type Week, WeekError } from "./lib/week.mts";
@@ -29,7 +31,7 @@ import { isInWeek, parseWeek, type Week, WeekError } from "./lib/week.mts";
 /** `gh pr list` returns at most this many. A week that reaches it may be cut short. */
 const LIMIT = 500;
 
-export class ChangelogError extends Error {}
+export { ChangelogError };
 
 export interface ChangelogOptions {
   root: string;
@@ -49,7 +51,29 @@ export function changelog({ root, argv, now, run: runProgram, report }: Changelo
         report(describeWeek(week));
       }
 
+      const extend = newestExtension(root, runProgram, now);
+
+      if (extend !== undefined) {
+        report(`${describeWeek(extend.week)}  extend: ${extend.missing.length} not cited`);
+      }
+
       return 0;
+    }
+
+    if (command === "due") {
+      const at = argv.indexOf("--ref");
+
+      if (at !== -1 && argv[at + 1] === undefined) {
+        throw new ChangelogError("--ref needs a git ref");
+      }
+
+      const due = findDue(root, runProgram, now, at === -1 ? undefined : argv[at + 1]);
+
+      for (const week of due) {
+        report(describeDue(week));
+      }
+
+      return due.length === 0 ? 0 : 1;
     }
 
     if (command === "prs" && weekName !== undefined) {
@@ -112,7 +136,7 @@ export function changelog({ root, argv, now, run: runProgram, report }: Changelo
       return 1;
     }
   } catch (error) {
-    if (error instanceof ChangelogError || error instanceof WeekError) {
+    if (error instanceof ChangelogError || error instanceof HistoryError || error instanceof WeekError) {
       report(`SKIP changelog: ${error.message}. Nothing was judged`);
 
       return 2;
@@ -121,7 +145,7 @@ export function changelog({ root, argv, now, run: runProgram, report }: Changelo
     throw error;
   }
 
-  report("usage: changelog.mts weeks | prs <week> | check <week> [--merged 12,15] | defs [--write]   (a week is written 2026-W40)");
+  report("usage: changelog.mts weeks | due [--ref <ref>] | prs <week> | check <week> [--merged 12,15] | defs [--write]   (a week is written 2026-W40)");
 
   return 2;
 }
@@ -189,6 +213,21 @@ function parseNumbers(text: string | undefined): number[] {
   }
 
   return numbers;
+}
+
+/** The due week that has a heading and is the newest one in the working file, when it can be judged. */
+function newestExtension(root: string, runProgram: Run, now: Date): DueWeek | undefined {
+  try {
+    const newest = weeksIn(readChangelog(root)).sort().at(-1);
+
+    return findDue(root, runProgram, now).find(({ week, extend }) => extend && week.name === newest);
+  } catch (error) {
+    if (error instanceof ChangelogError || error instanceof HistoryError) {
+      return undefined;
+    }
+
+    throw error;
+  }
 }
 
 function describeWeek(week: Week): string {

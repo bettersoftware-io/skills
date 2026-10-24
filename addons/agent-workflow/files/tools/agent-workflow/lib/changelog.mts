@@ -20,6 +20,9 @@ const DEFINITION = /^\[(#\d+|`[0-9a-f]{7,40}`)\]:[ \t]*(\S+)[ \t]*$/gm;
 /** The start of any line that defines a citation, whatever follows. */
 const DEFINITION_LINE = /^(?:\[#\d+\]:|\[`[0-9a-f]{7,40}`\]:)/;
 
+/** A reason `changelog` could not judge anything. */
+export class ChangelogError extends Error {}
+
 export interface MergedPullRequest {
   number: number;
   title: string;

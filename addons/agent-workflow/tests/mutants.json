@@ -5530,5 +5530,131 @@
     "find": "if (repository === undefined) {",
     "replace": "if (repository === \"\") {",
     "test": "pnpm vitest run addons/agent-workflow/tests/changelog.test.mts --testNamePattern=\"skips defs, and check, when origin is not a GitHub address\""
+  },
+  {
+    "name": "due: judge the current week too",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/due.mts",
+    "find": "startOf(week) <= startOf(last)",
+    "replace": "startOf(week) <= startOf(weekAfter(last))",
+    "test": "pnpm vitest run addons/agent-workflow/tests/due.test.mts -t \"never judges the current week\""
+  },
+  {
+    "name": "due: require both texts to cite",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/due.mts",
+    "find": "!missing.some((numbers) => numbers.length === 0)",
+    "replace": "missing.some((numbers) => numbers.length > 0)",
+    "test": "pnpm vitest run addons/agent-workflow/tests/due.test.mts -t \"counts a week written when either the working or the remote text cites it all\""
+  },
+  {
+    "name": "due: judge every week when the file has none",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/due.mts",
+    "find": "newest === undefined ? last : newest",
+    "replace": "newest === undefined ? parseWeek(\"2026-W01\") : newest",
+    "test": "pnpm vitest run addons/agent-workflow/tests/due.test.mts -t \"judges only the last finished week in a file with no week yet\""
+  },
+  {
+    "name": "due: weeks drops the extend line",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/changelog.mts",
+    "find": "if (extend !== undefined) {",
+    "replace": "if (extend !== undefined && extend.missing.length < 0) {",
+    "test": "pnpm vitest run addons/agent-workflow/tests/due.test.mts -t \"weeks adds the newest week to extend\""
+  },
+  {
+    "name": "due: oldest heading is the newest",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/due.mts",
+    "find": "startOf(b) - startOf(a))[0]",
+    "replace": "startOf(a) - startOf(b))[0]",
+    "test": "pnpm vitest run addons/agent-workflow/tests/due.test.mts -t \"judges the newest heading's week\""
+  },
+  {
+    "name": "due: heading in any text is not taken over all texts",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/due.mts",
+    "find": ".flatMap(weeksIn)",
+    "replace": ".flatMap((text) => (text === texts[0] ? weeksIn(text) : []))",
+    "test": "pnpm vitest run addons/agent-workflow/tests/due.test.mts -t \"takes the newest heading over all texts\""
+  },
+  {
+    "name": "due: Monday 00:00:00Z is the week before",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/due.mts",
+    "find": "isInWeek(week, mergedAt)",
+    "replace": "isInWeek(week, new Date(Date.parse(mergedAt) - 1).toISOString())",
+    "test": "pnpm vitest run addons/agent-workflow/tests/due.test.mts -t \"leaves a merge at Monday 00:00:00Z to the next week\""
+  },
+  {
+    "name": "due: the week after W52 is always W53",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/due.mts",
+    "find": "week = weekAfter(week)",
+    "replace": "week = parseWeek(`${week.name.slice(0, 4)}-W${String(Number(week.name.slice(6)) + 1).padStart(2, \"0\")}`)",
+    "test": "pnpm vitest run addons/agent-workflow/tests/due.test.mts -t \"lists W53 and the next year's W01\""
+  },
+  {
+    "name": "due: the fewest missing is not the one named",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/due.mts",
+    "find": "numbers.length < fewest.length",
+    "replace": "numbers.length > fewest.length",
+    "test": "pnpm vitest run addons/agent-workflow/tests/due.test.mts -t \"counts a week written when either the working or the remote text cites it all\""
+  },
+  {
+    "name": "due: extend is never set",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/due.mts",
+    "find": "extend: texts.some(",
+    "replace": "extend: false && texts.some(",
+    "test": "pnpm vitest run addons/agent-workflow/tests/due.test.mts -t \"is due to extend when a section written early misses merges after it\""
+  },
+  {
+    "name": "due: the remote text is not read",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/due.mts",
+    "find": "shown.status === 0 ? shown.stdout : \"\"",
+    "replace": "\"\"",
+    "test": "pnpm vitest run addons/agent-workflow/tests/due.test.mts -t \"reads the remote text and history through git\""
+  },
+  {
+    "name": "due: the history is read at HEAD, not the ref",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/due.mts",
+    "find": "readHistory(root, at, run)",
+    "replace": "readHistory(root, \"HEAD\", run)",
+    "test": "pnpm vitest run addons/agent-workflow/tests/due.test.mts -t \"reads the remote text and history through git\""
+  },
+  {
+    "name": "due: a missing CHANGELOG.md is not a skip",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/due.mts",
+    "find": "if (!existsSync(file)) {",
+    "replace": "if (false) {",
+    "test": "pnpm vitest run addons/agent-workflow/tests/due.test.mts -t \"reads the remote text and history through git\""
+  },
+  {
+    "name": "due: --ref with no value is read as no ref",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/changelog.mts",
+    "find": "if (at !== -1 && argv[at + 1] === undefined) {",
+    "replace": "if (at !== -1 && false) {",
+    "test": "pnpm vitest run addons/agent-workflow/tests/due.test.mts -t \"reads the remote text and history through git\""
+  },
+  {
+    "name": "due: exit code is 1 with none due",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/changelog.mts",
+    "find": "return due.length === 0 ? 0 : 1;",
+    "replace": "return 1;",
+    "test": "pnpm vitest run addons/agent-workflow/tests/due.test.mts -t \"reads the remote text and history through git\""
+  },
+  {
+    "name": "due: a week with a heading is described as no entry",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/due.mts",
+    "find": "if (!extend) {",
+    "replace": "if (extend) {",
+    "test": "pnpm vitest run addons/agent-workflow/tests/due.test.mts -t \"names the merges not cited, and says to extend\""
+  },
+  {
+    "name": "due: weeks raises when due cannot judge",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/changelog.mts",
+    "find": "if (error instanceof ChangelogError || error instanceof HistoryError) {\n      return undefined;",
+    "replace": "if (false) {\n      return undefined;",
+    "test": "pnpm vitest run addons/agent-workflow/tests/due.test.mts -t \"weeks prints nothing extra when due cannot judge\""
+  },
+  {
+    "name": "due: a week with no merges is due",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/due.mts",
+    "find": "  return merged.filter((number) => !cited.includes(number));",
+    "replace": "  return merged.length === 0 ? [0] : merged.filter((number) => !cited.includes(number));",
+    "test": "pnpm vitest run addons/agent-workflow/tests/due.test.mts -t \"never judges a week with no merges\""
   }
 ]
