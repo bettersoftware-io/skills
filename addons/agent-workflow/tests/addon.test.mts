@@ -524,6 +524,26 @@ describe("the writer workflow", () => {
   });
 });
 
+describe("the release notes", () => {
+  it("has release notes for 0.20.0 that name both variables and /hooks", () => {
+    const { releaseNotes } = readJson<{ releaseNotes: { id: string; notes: string[] }[] }>(ADDON, "addon.json");
+    const notes = releaseNotes.find(({ id }) => id === "0.20.0")?.notes ?? [];
+    const text = notes.join("\n");
+
+    expect(notes).toHaveLength(4);
+    expect(text).toContain("/hooks");
+    expect(text).toContain("CHANGELOG_RELEASES");
+    expect(text).toContain("CHANGELOG_WRITER");
+  });
+
+  it("go out with the plugin's version", () => {
+    const { releaseNotes } = readJson<{ releaseNotes: { id: string }[] }>(ADDON, "addon.json");
+
+    expect(readJson<{ version: string }>(REPOSITORY, ".codex-plugin/plugin.json").version).toBe("0.20.0");
+    expect(releaseNotes[0]?.id).toBe("0.20.0");
+  });
+});
+
 describe("the mutants of this add-on", () => {
   // `mutation-check.mts` runs each `test` in a shell. Between backticks, or after
   // a dollar sign and a bracket, a shell runs what is written: a filter that
@@ -561,14 +581,27 @@ describe("the commands", () => {
       ...(needs === undefined ? [] : scriptsOf(join(REPOSITORY, "addons", needs, "addon.json"))),
     ]);
     const tools = (/^allowed-tools: (.+)$/m.exec(frontmatter)?.[1] ?? "").split(", ");
-    const programs = tools.filter((tool) => tool.startsWith("Bash")).map((tool) => /^Bash\((.+):\*\)$/.exec(tool)?.[1] ?? `not a grant by first words: ${tool}`);
+    // A grant is a program's first words, with `:*` after for any arguments, or the exact command.
+    const programs = tools.filter((tool) => tool.startsWith("Bash")).map((tool) => /^Bash\((.+?)(?::\*)?\)$/.exec(tool)?.[1] ?? `not a grant by first words: ${tool}`);
     const reads = /^(?:git (?:rev-parse|status|worktree list|rev-list|ls-files)|gh (?:pr (?:list|view)|run list|issue list|repo view)|grep|ls|node tools\/agent-workflow\/requires\.mts)$/;
 
     expect(tools.filter((tool) => !tool.startsWith("Bash") && !["Read", "Write", "Edit"].includes(tool))).toEqual([]);
     expect(programs.length).toBeGreaterThan(0);
-    expect(programs.filter((program) => !reads.test(program) && !(program.startsWith("pnpm ") && scripts.has(program.slice(5))))).toEqual([]);
+    expect(programs.filter((program) => !reads.test(program) && !(program.startsWith("pnpm ") && scripts.has(program.slice(5).split(" ")[0] ?? "")))).toEqual([]);
     expect(programs.filter((program) => isOutward(program.split(" ")))).toEqual([]);
     expect(programs.filter((program) => !body.includes(program))).toEqual([]);
+  });
+
+  it("does not let the changelog command run changelog tag without a prompt", () => {
+    const tools = (/^allowed-tools: (.+)$/m.exec(readCommand("changelog").frontmatter)?.[1] ?? "").split(", ");
+
+    expect(tools.filter((tool) => tool.startsWith("Bash(pnpm changelog"))).toEqual([
+      "Bash(pnpm changelog weeks)",
+      "Bash(pnpm changelog due:*)",
+      "Bash(pnpm changelog prs:*)",
+      "Bash(pnpm changelog check:*)",
+      "Bash(pnpm changelog defs:*)",
+    ]);
   });
 
   it.each(["git push", "gh pr create", "gh pr merge", "gh workflow run", "gh api", "git fetch", "git grep", "git log", "gh run download", "git worktree remove", "git branch"])("no command may run %s unasked", (step) => {

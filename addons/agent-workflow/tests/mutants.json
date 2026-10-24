@@ -1003,8 +1003,8 @@
   {
     "name": "changelog names only scripts that this add-on",
     "file": "addons/agent-workflow/files/.claude/commands/workflow/changelog.md",
-    "find": "pnpm changelog weeks",
-    "replace": "pnpm changelogs weeks",
+    "find": "```bash\npnpm changelog weeks",
+    "replace": "```bash\npnpm changelogs weeks",
     "test": "pnpm vitest run addons/agent-workflow/tests/addon.test.mts --testNamePattern=\"changelog names only scripts that this add-on\""
   },
   {
@@ -6664,5 +6664,26 @@
     "find": "                echo \"sha=$(git rev-parse HEAD)\"\n",
     "replace": "",
     "test": "pnpm vitest run addons/agent-workflow/tests/addon.test.mts --testNamePattern=\"maps the exit of due to a flag\""
+  },
+  {
+    "name": "the changelog command is given changelog tag",
+    "file": "addons/agent-workflow/files/.claude/commands/workflow/changelog.md",
+    "find": "Bash(pnpm changelog defs:*)",
+    "replace": "Bash(pnpm changelog defs:*), Bash(pnpm changelog tag:*)",
+    "test": "pnpm vitest run addons/agent-workflow/tests/addon.test.mts --testNamePattern=\"does not let the changelog command run changelog tag without a prompt\""
+  },
+  {
+    "name": "the 0.20.0 notes no longer name /hooks",
+    "file": "addons/agent-workflow/addon.json",
+    "find": "trust the new hook with `/hooks`",
+    "replace": "trust the new hook",
+    "test": "pnpm vitest run addons/agent-workflow/tests/addon.test.mts --testNamePattern=\"has release notes for 0.20.0\""
+  },
+  {
+    "name": "the plugin is not at 0.20.0",
+    "file": ".codex-plugin/plugin.json",
+    "find": "\"version\": \"0.20.0\"",
+    "replace": "\"version\": \"0.19.0\"",
+    "test": "pnpm vitest run addons/agent-workflow/tests/addon.test.mts --testNamePattern=\"go out with the plugin's version\""
   }
 ]

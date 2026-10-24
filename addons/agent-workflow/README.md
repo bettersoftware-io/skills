@@ -21,12 +21,14 @@ Leave it out of a project where one of the three is not so.
 |---|---|---|
 | The hook | `tools/agent-workflow/hooks/split-outward-commands.mts` | Before each shell command: refuses one that joins an outward step to anything else, and of Claude Code asks about a push that is not written plainly. It says nothing about any other command |
 | Its registration | `.claude/settings.json`, `.codex/hooks.json` | Merged in under `hooks.PreToolUse`, matcher `Bash`, beside the kit's hooks. For Claude Code a second group, matcher `Monitor`: that tool runs a shell command too |
-| Permission rules | `.claude/settings.json` | Merged in: twelve `ask` rules for a forced or destructive push and an `--admin` merge, and one for an edit of the hook. No `allow` rule |
+| Permission rules | `.claude/settings.json` | Merged in: eighteen `ask` rules (twelve for a forced or destructive push and an `--admin` merge, six for the spellings of `--apply` on `changelog tag` and `changelog:releases`), and one for an edit of the hook. No `allow` rule |
 | `pnpm worktree <name> [--ready]` | `tools/agent-workflow/new-worktree.mts` | A worktree beside the project on `worktree-<name>`, cut from `origin`'s main by name |
 | `pnpm worktree:audit [filter]` | `tools/agent-workflow/audit-worktrees.mts` | One verdict for each linked worktree, against `origin`'s main: merged, merged with files not committed, or work main does not have. Then orphan branches and stray folders. It only reads |
-| `pnpm changelog weeks\|prs\|check` | `tools/agent-workflow/changelog.mts` | The weeks with no entry, a week's merged pull requests, and the proof that each is cited |
+| `pnpm changelog weeks\|due\|prs\|check\|defs\|tag` | `tools/agent-workflow/changelog.mts` | The weeks with no entry, the finished weeks still due (offline), a week's merged pull requests, the proof that each is cited, the link definitions (`defs --write` writes them), and a week's tag, dated by its week (`tag <week> --apply`; it plans without `--apply`) |
+| The session-start reminder | `tools/agent-workflow/hooks/changelog-due.mts` | Under `hooks.SessionStart`: names the finished weeks that are due as context for the session ([below](#the-session-start-reminder)) |
 | Weekly tag | `.github/workflows/weekly-tag.yml`, `tools/agent-workflow/close-week.mts` | Monday 00:05 UTC: tags the finished ISO week, opens "Changelog: write `<week>`" |
-| `pnpm changelog:releases [--apply]` | `.github/workflows/sync-releases.yml`, `tools/agent-workflow/sync-releases.mts` | One GitHub Release for each tagged week, made from that week's section of `CHANGELOG.md`. Off until the repository variable `CHANGELOG_RELEASES` is `true`. `--check` renders every week offline, and `pnpm agent-workflow:check` runs it too |
+| `pnpm changelog:releases [--apply]` | `.github/workflows/sync-releases.yml`, `tools/agent-workflow/sync-releases.mts` | One GitHub Release for each tagged week, made from that week's section of `CHANGELOG.md`. Off until the repository variable `CHANGELOG_RELEASES` is `true` ([Releases](#releases)). `--check` renders every week offline, and `pnpm agent-workflow:check` runs it too |
+| Changelog writer | `.github/workflows/changelog-writer.yml` | Monday 01:00 UTC: Claude Code writes the due weeks and a pull request is opened. Off until `CHANGELOG_WRITER` is `true`, and it costs money ([The writer in CI](#the-writer-in-ci)) |
 | `CHANGELOG.md` | project root | A starting file: the format, no week yet. The project owns it |
 | `docs/STATUS.md` | `docs/` | A starting file: the six sections of what is left, no entry yet. The project owns it |
 | `pnpm check:status` | `tools/agent-workflow/check-status.mts` | Joins `gate:fast`. The page has the six sections, each once, in order, one "Last updated" line with a real date that is not after today, and each entry starts with its name in bold. A page that differs from the last commit's has today's date |
@@ -296,7 +298,7 @@ The setting file and that rule can be deleted by hand.
 
 ### The ask rules
 
-Twelve `ask` rules for commands are merged into `.claude/settings.json`.
+Eighteen `ask` rules for commands are merged into `.claude/settings.json`.
 For the add-on alone they change nothing: without an `allow` rule those
 commands ask anyway. They are a backstop for a project that adds an `allow`
 rule of its own: `ask` wins over `allow`.
@@ -309,6 +311,8 @@ rule of its own: `ask` wins over `allow`.
 | `Bash(git push *--delete*)`, `Bash(git push -d*)`, `Bash(git push * -d*)` | deleting a branch on the remote |
 | `Bash(git push *--mirror*)`, `*--all*`, `*--tags*`, `*--prune*` | pushing or pruning more than one branch |
 | `Bash(gh pr merge *--admin*)` | merging past the branch's protections |
+| `Bash(pnpm changelog tag *--apply*)`, `Bash(pnpm run changelog tag *--apply*)`, `Bash(node tools/agent-workflow/changelog.mts tag *--apply*)` | creating a week's tag, by each way to run it |
+| `Bash(pnpm changelog:releases *--apply*)`, `Bash(pnpm run changelog:releases *--apply*)`, `Bash(node tools/agent-workflow/sync-releases.mts *--apply*)` | writing GitHub Releases, by each way to run it |
 
 **No rule catches `source:target`.** An older version merged in
 `Bash(git push *:*)` for it. Claude Code reads a rule that ends in `:*` as
@@ -554,6 +558,118 @@ in its own week's section, a definition must point at that number, and the
 definitions must be in ascending order. It asks `gh` for the week's merged
 pull requests and keeps those merged inside the week to the second.
 
+## The session-start reminder
+
+A `SessionStart` hook, `changelog-due.mts`, runs when a session starts (for
+Claude Code on `startup`, `resume` and `clear`, for Codex on `startup` and
+`resume`). When a finished week has no entry, or its entry does not cite every
+pull request merged in it, it gives the agent this as context:
+
+```text
+Changelog: as of the last fetch of the default branch, these weeks are due in CHANGELOG.md:
+2026-W41  7 merged, no entry: write it with /workflow:changelog 2026-W41
+Mention this to the person at a natural point; do not drop the task you were given to write it. In Codex the command is $workflow-changelog <week>.
+```
+
+- **It reads git only, as of the last fetch.** It asks no network. A week
+  merged since `origin`'s default branch was last fetched is not in it. Run
+  `git fetch` first, or `pnpm changelog due`, which reads the same.
+- **It is silent when it cannot judge.** No git, no `origin`, no
+  `CHANGELOG.md`, or anything unforeseen: it prints nothing and exits 0. A
+  session is never held up or alarmed by it, and silence is not "nothing is
+  due".
+- **Codex needs `/hooks`.** A hook it has not seen is not run until you trust
+  it. Open `/hooks` in Codex and trust the new one.
+
+## Releases
+
+`sync-releases.yml` mirrors `CHANGELOG.md` onto GitHub Releases: one release
+for each tagged week, titled like its heading, its notes made from that
+week's section. The newest tagged week is marked Latest. It runs when the
+file changes on the default branch, on Monday at 00:30 UTC, and by hand.
+
+It is off. To switch it on:
+
+```bash
+gh variable set CHANGELOG_RELEASES --body true
+```
+
+**Publish one week first, and look at it.** Setting the variable, or the next
+change to `CHANGELOG.md`, publishes every tagged week at once. So before it:
+
+```bash
+pnpm changelog:releases --only <week> --apply
+```
+
+Open that release on GitHub. `pnpm changelog:releases --body <week>` prints
+what any week would say, and `pnpm changelog:releases` alone prints the plan.
+
+- **The script takes the default branch from GitHub**, for the links that
+  point at files. A push to another branch writes nothing.
+- **Never edit a release by hand.** `CHANGELOG.md` is the only source. The
+  next run rewrites a release whose section differs, and your edit goes.
+- **A tag that carries the wrong date lists out of order.** A release takes
+  its place in GitHub's list from the date of its tag. Tags are now dated by
+  their week (the Monday 00:05 UTC after it), but one made before that keeps
+  the date it has. The add-on does not repair a tag, and never moves one. RTC
+  backdated its 28 past tags to the Monday 00:05 UTC after each week by hand.
+
+## The writer in CI
+
+`changelog-writer.yml` writes the weeks `pnpm changelog due` lists, with
+Claude Code, and opens one pull request for them. A person reviews and merges
+it. The workflow never merges.
+
+**What it costs.** One paid run each Monday when a week is due, billed to your
+Anthropic account and bounded by its 40-turn cap. A run that finds nothing
+due installs nothing and calls nothing. A project that will not pay leaves it
+off, and RTC leaves it off.
+
+**How to switch it on:**
+
+```bash
+gh variable set CHANGELOG_WRITER --body true
+gh secret set ANTHROPIC_API_KEY
+```
+
+It also needs the repository setting "Allow GitHub Actions to create and
+approve pull requests" (Settings, Actions, General). Without the variable the
+job is skipped. With it and without the secret the run fails, and says so.
+
+**How it is built.** Two jobs, so that the agent never holds a token that can
+write:
+
+- `write` runs Claude Code with a read-only token. It may edit only
+  `./CHANGELOG.md`, reads only inside the checkout, runs with
+  `--setting-sources user`, and uploads the file.
+- `publish` runs no agent and installs nothing. It checks that `CHANGELOG.md`
+  did not change on the default branch during the run, scans the added lines
+  for token-shaped strings, runs `pnpm changelog check` for each week, commits,
+  pushes `changelog/<newest week>`, finds the reminder issue by its bot
+  author, and opens the pull request with a body the workflow writes. The
+  pull request is a draft when a check failed.
+
+A free first step skips the run when an open changelog pull request by
+`app/github-actions` exists.
+
+What to know:
+
+- **Checks do not start on its pull request.** A pull request opened with the
+  job token starts no checks. A person closes and reopens it, or the project
+  gives the job a token that does start them.
+- **The action's human-actor check.** The Claude Code action may refuse a
+  scheduled run when a bot last edited the cron line. Its `allowed_bots` input
+  lets one through.
+- **A leftover branch.** A `changelog/<week>` branch left from a closed pull
+  request makes the push fail. Delete it.
+- **When the agent stops early.** If it hits the turn cap, no pull request is
+  opened, and the week stays due: the next session's reminder names it again.
+- **Protect the default branch.** The workflow pushes a branch and never the
+  default one, and a branch rule is what keeps it so.
+- **The secret scan is a prefix list, not a proof.** It finds the shapes of
+  the common tokens and keys. A secret of another shape passes it. The pull
+  request is read before it is merged.
+
 ## Commands, and the three that need another add-on
 
 All seven commands are always installed. The three that need another add-on
@@ -649,6 +765,7 @@ the agent to run. That also lets Codex use the same file.
 | The refusal | `permissionDecision: "deny"` | The same shape |
 | The question about a push not written plainly | `permissionDecision: "ask"` | Not given. Codex calls that answer unsupported, so the hook says nothing to a payload that holds a `turn_id`, which Codex sends with every call |
 | Permission rules | `permissions.ask` in the project | None in the project. Codex's approval mode and sandbox decide |
+| The changelog reminder | `SessionStart` in `.claude/settings.json`, matcher `startup\|resume\|clear` | `SessionStart` in `.codex/hooks.json`, matcher `startup\|resume`. Codex asks you to trust a new hook: run `/hooks` |
 | Commands | `/workflow:changelog` and the two others | No project slash commands. The skills `$workflow-changelog` and the two others point at the same files |
 | `$ARGUMENTS` | Filled in | Not filled in; each command says to take the arguments from the request |
 | `allowed-tools` | Read: what the command may run with no prompt while it runs. Each command names only what it uses, and nothing outward ([below](#what-a-command-may-run-unasked)) | Ignored |
