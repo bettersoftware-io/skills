@@ -5666,36 +5666,36 @@
   },
   {
     "name": "due hook: prints when nothing is due",
-    "file": "addons/agent-workflow/files/tools/agent-workflow/hooks/changelog-due.mts",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/due-reminder.mts",
     "find": "return due.length === 0",
     "replace": "return due.length === -1",
     "test": "pnpm vitest run addons/agent-workflow/tests/changelog-due-hook.test.mts --testNamePattern=\"says nothing when nothing is due\""
   },
   {
     "name": "due hook: names the wrong event",
-    "file": "addons/agent-workflow/files/tools/agent-workflow/hooks/changelog-due.mts",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/due-reminder.mts",
     "find": "hookEventName: \"SessionStart\"",
     "replace": "hookEventName: \"PreToolUse\"",
     "test": "pnpm vitest run addons/agent-workflow/tests/changelog-due-hook.test.mts --testNamePattern=\"gives the due weeks as session context, with the command for each host\""
   },
   {
     "name": "due hook: leaves out the Codex command",
-    "file": "addons/agent-workflow/files/tools/agent-workflow/hooks/changelog-due.mts",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/due-reminder.mts",
     "find": " In Codex the command is $workflow-changelog <week>.",
     "replace": "",
     "test": "pnpm vitest run addons/agent-workflow/tests/changelog-due-hook.test.mts --testNamePattern=\"gives the due weeks as session context, with the command for each host\""
   },
   {
     "name": "due hook: ignores the folder the host names",
-    "file": "addons/agent-workflow/files/tools/agent-workflow/hooks/changelog-due.mts",
-    "find": "typeof cwd === \"string\" && cwd !== \"\" ? cwd : process.cwd()",
-    "replace": "process.cwd()",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/due-reminder.mts",
+    "find": "typeof cwd === \"string\" && cwd !== \"\" ? cwd : fallback",
+    "replace": "fallback",
     "test": "pnpm vitest run addons/agent-workflow/tests/changelog-due-hook.test.mts --testNamePattern=\"reads the folder the host names, and the folder it was started in when none is named\""
   },
   {
     "name": "due hook: crashes on a payload that is not JSON",
-    "file": "addons/agent-workflow/files/tools/agent-workflow/hooks/changelog-due.mts",
-    "find": "  } catch {\n    return process.cwd();",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/due-reminder.mts",
+    "find": "  } catch {\n    return fallback;",
     "replace": "  } catch {\n    throw new Error(\"not json\");",
     "test": "pnpm vitest run addons/agent-workflow/tests/changelog-due-hook.test.mts --testNamePattern=\"reads the folder the host names, and the folder it was started in when none is named\""
   },
@@ -5733,5 +5733,19 @@
     "find": "commands.every((command) => tools.every((tool) => groupRuns(existing, command, tool, host)));",
     "replace": "commands.every((command) => tools.some((tool) => groupRuns(existing, command, tool, host)));",
     "test": "pnpm vitest run scripts/host-settings.test.mts --testNamePattern=\"merges a SessionStart group once, and covers it by a group with the same sources\""
+  },
+  {
+    "name": "due hook: loads the lib files outside a guard",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/hooks/changelog-due.mts",
+    "find": "} catch {\n  // A lib file that will not load, or no input to read: nothing to say.\n}",
+    "replace": "} finally {\n}",
+    "test": "pnpm vitest run addons/agent-workflow/tests/changelog-due-hook.test.mts --testNamePattern=\"says nothing and exits 0 when a lib file it needs\""
+  },
+  {
+    "name": "due hook: a closed pipe is reported on stderr",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/hooks/changelog-due.mts",
+    "find": "  process.stdout.on(\"error\", () => {});\n",
+    "replace": "",
+    "test": "pnpm vitest run addons/agent-workflow/tests/changelog-due-hook.test.mts --testNamePattern=\"says nothing and exits 0 when the host has closed the pipe\""
   }
 ]

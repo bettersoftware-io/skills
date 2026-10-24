@@ -1,4 +1,5 @@
 import { spawnSync } from "node:child_process";
+import { cpSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
 import { describe, expect, it } from "vitest";
@@ -9,9 +10,9 @@ import { commit, createFolder, createRemote, git, TOOLS } from "./support.mts";
 const HOOK = join(TOOLS, "hooks/changelog-due.mts");
 const DAY_MS = 24 * 60 * 60 * 1000;
 
-/** Runs the hook as a host does: a payload on its standard input, started in `cwd`. */
-function runHook(cwd: string, payload: unknown = { hook_event_name: "SessionStart", source: "startup", cwd }): { status: number | null; stdout: string; stderr: string } {
-  const ran = spawnSync(process.execPath, [HOOK], { cwd, input: typeof payload === "string" ? payload : JSON.stringify(payload), encoding: "utf8" });
+/** Runs the hook (or a copy of it at `hook`) as a host does: a payload on its standard input, started in `cwd`. */
+function runHook(cwd: string, payload: unknown = { hook_event_name: "SessionStart", source: "startup", cwd }, hook = HOOK): { status: number | null; stdout: string; stderr: string } {
+  const ran = spawnSync(process.execPath, [hook], { cwd, input: typeof payload === "string" ? payload : JSON.stringify(payload), encoding: "utf8" });
 
   return { status: ran.status, stdout: ran.stdout, stderr: ran.stderr };
 }
@@ -78,5 +79,33 @@ describe("the session-start reminder", () => {
       expect(runHook(folder)).toEqual({ status: 0, stdout: "", stderr: "" });
       expect(Date.now() - started).toBeLessThan(1000);
     }
+  });
+
+  it.each([
+    ["is missing", (file: string) => rmSync(file)],
+    ["does not parse", (file: string) => writeFileSync(file, "export const = ;\n")],
+    ["throws as it loads", (file: string) => writeFileSync(file, 'throw new Error("half updated");\n')],
+  ])("says nothing and exits 0 when a lib file it needs %s", (_name, damage) => {
+    const due = createDueProject();
+    const tools = join(createFolder(), "tools/agent-workflow");
+
+    cpSync(TOOLS, tools, { recursive: true });
+    expect(runHook(due, { cwd: due }, join(tools, "hooks/changelog-due.mts")).stdout).toContain("SessionStart");
+
+    for (const lib of ["due.mts", "week.mts", "system.mts", "due-reminder.mts"]) {
+      const copy = join(createFolder(), "tools/agent-workflow");
+
+      cpSync(TOOLS, copy, { recursive: true });
+      damage(join(copy, "lib", lib));
+
+      expect(runHook(due, { cwd: due }, join(copy, "hooks/changelog-due.mts")), lib).toEqual({ status: 0, stdout: "", stderr: "" });
+    }
+  });
+
+  it("says nothing and exits 0 when the host has closed the pipe", () => {
+    const ran = spawnSync("sh", ["-c", `echo '{}' | node ${JSON.stringify(HOOK)} | true; echo done`], { cwd: createDueProject(), encoding: "utf8" });
+
+    expect(ran.stderr).toBe("");
+    expect(ran.stdout).toBe("done\n");
   });
 });

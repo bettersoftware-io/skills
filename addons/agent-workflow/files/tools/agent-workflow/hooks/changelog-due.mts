@@ -17,59 +17,35 @@
 // (`startup`, `resume`, `clear`, `compact`, `fork`); its payload has `cwd`
 // and no `turn_id`, so the two hosts cannot be told apart here and need not
 // be. The JSON form is used for both.
+//
+// This file imports nothing of the add-on at the top: the lib modules are
+// loaded inside the guard below, so that one that is missing, half updated or
+// broken (a project caught midway through an update) still gives silence and
+// exit 0, not a stack trace. The work is in `lib/due-reminder.mts`. The hook is
+// only ever started as a script, so it has no `isMainModule` guard.
 
 import { readFileSync } from "node:fs";
 
-import { describeDue, findDue } from "../lib/due.mts";
-import { isMainModule } from "../lib/main.mts";
-import { run, type Run } from "../lib/system.mts";
+let reply = "";
 
-/** The text for the due weeks, as the session context. */
-function contextFor(lines: string[]): string {
-  return [
-    "Changelog: as of the last fetch of the default branch, these weeks are due in CHANGELOG.md:",
-    ...lines,
-    "Mention this to the person at a natural point; do not drop the task you were given to write it. In Codex the command is $workflow-changelog <week>.",
-  ].join("\n");
+try {
+  const { replyTo } = (await import("../lib/due-reminder.mts")) as typeof import("../lib/due-reminder.mts");
+  const { run } = (await import("../lib/system.mts")) as typeof import("../lib/system.mts");
+
+  reply = replyTo(readFileSync(0, "utf8"), run, new Date(), process.cwd());
+} catch {
+  // A lib file that will not load, or no input to read: nothing to say.
 }
 
-/** The folder the host names as the session's, else the one the hook was started in. */
-function rootOf(input: string): string {
-  try {
-    const { cwd } = JSON.parse(input) as { cwd?: unknown };
-
-    return typeof cwd === "string" && cwd !== "" ? cwd : process.cwd();
-  } catch {
-    return process.cwd();
-  }
-}
-
-/** The reply for one payload, as the text to print. Empty when there is nothing to say. */
-export function replyTo(input: string, runProgram: Run, now: Date): string {
-  try {
-    const due = findDue(rootOf(input), runProgram, now);
-
-    return due.length === 0
-      ? ""
-      : JSON.stringify({ hookSpecificOutput: { hookEventName: "SessionStart", additionalContext: contextFor(due.map(describeDue)) } });
-  } catch {
-    // Not judged, or anything nobody foresaw: no reminder.
-    return "";
-  }
-}
-
-if (isMainModule(import.meta.url)) {
-  let reply = "";
-
-  try {
-    reply = replyTo(readFileSync(0, "utf8"), run, new Date());
-  } catch {
-    // No input to read: nothing to say.
-  }
+try {
+  // A closed pipe is reported as an event, after the write: it too is ignored.
+  process.stdout.on("error", () => {});
 
   if (reply !== "") {
     process.stdout.write(`${reply}\n`);
   }
-
-  process.exitCode = 0;
+} catch {
+  // The host closed the pipe: nothing to tell it.
 }
+
+process.exitCode = 0;
