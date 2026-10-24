@@ -422,7 +422,7 @@ describe("the writer workflow", () => {
     expect(publishJob).toMatch(/^ {4}if: needs\.write\.result == 'success' && needs\.write\.outputs\.due == 'true'$/m);
     expect(writeJob).toMatch(/^ {4}outputs:\n {6}due: \$\{\{ steps\.due\.outputs\.due \}\}\n {6}sha: \$\{\{ steps\.due\.outputs\.sha \}\}\n {6}weeks: \$\{\{ steps\.due\.outputs\.weeks \}\}\n {6}newest: \$\{\{ steps\.due\.outputs\.newest \}\}\n/m);
     expect(writeSteps[indexOf(writeSteps, "actions/upload-artifact@")]).toMatch(/^ {10}path: CHANGELOG\.md$/m);
-    expect(publishSteps.map((step) => /actions\/(checkout|setup-node|download-artifact)@/.exec(step)?.[1])).toEqual(["checkout", "setup-node", "download-artifact", undefined, undefined, undefined, undefined, undefined, undefined, undefined]);
+    expect(publishSteps.map((step) => /actions\/(checkout|setup-node|download-artifact)@/.exec(step)?.[1])).toEqual(["checkout", "setup-node", "download-artifact", undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined]);
     expect(writeJob).toMatch(/^ {6}sha: \$\{\{ steps\.due\.outputs\.sha \}\}$/m);
     expect(publishJob).toMatch(/^ {6}WRITTEN_FROM: \$\{\{ needs\.write\.outputs\.sha \}\}$/m);
   });
@@ -440,7 +440,7 @@ describe("the writer workflow", () => {
       "Bash(gh pr view:*)",
     ]);
     expect(WRITER_WORKFLOW).toMatch(/^ {12}--max-turns 40$/m);
-    expect(WRITER_WORKFLOW).toMatch(/^ {12}--disallowedTools "Read\(\/\/proc\/\*\*\)"$/m);
+    expect(WRITER_WORKFLOW).toMatch(/^ {12}--disallowedTools "Read\(\/\/proc\/\*\*\),Read\(\/\/dev\/\*\*\),Read\(\/\/home\/runner\/work\/_temp\/\*\*\)"$/m);
     expect(WRITER_WORKFLOW).toMatch(/^ {12}--setting-sources user$/m);
     expect(WRITER_WORKFLOW).toMatch(/^ {6}CLAUDE_CODE_SUBPROCESS_ENV_SCRUB: "1"$/m);
   });
@@ -482,6 +482,22 @@ describe("the writer workflow", () => {
     expect(scan).not.toMatch(/echo [^\n]*\$match/);
   });
 
+  it("refuses a file that has the API key itself added to it, without printing it", () => {
+    const step = publishSteps[indexOf(publishSteps, "Look for the API key itself")] ?? "";
+
+    expect(indexOf(publishSteps, "Look for a token or a key")).toBeLessThan(indexOf(publishSteps, "Look for the API key itself"));
+    expect(indexOf(publishSteps, "Look for the API key itself")).toBeLessThan(indexOf(publishSteps, "Commit CHANGELOG.md alone"));
+    expect(step).toMatch(/^ {10}KEY: \$\{\{ secrets\.ANTHROPIC_API_KEY \}\}$/m);
+    expect(step).toContain('if [ -n "$KEY" ] && git diff -U0 -- CHANGELOG.md | grep \'^+\' | grep -qF -- "$KEY"; then');
+    expect(step).toMatch(/equal to the Anthropic API key\. Nothing was committed"\n {12}exit 1/);
+    expect(step).not.toMatch(/set -x|echo [^\n]*\$KEY|printf [^\n]*\$KEY/);
+    expect(publishJob.match(/secrets\.ANTHROPIC_API_KEY/g)?.length).toBe(1);
+  });
+
+  it("does not start a line of the pull request body with pnpm: publish has no Corepack", () => {
+    expect(publishJob).not.toMatch(/"pnpm /);
+  });
+
   it("checks each week, then commits CHANGELOG.md alone as the bot", () => {
     const check = publishSteps[indexOf(publishSteps, "id: check")] ?? "";
     const commit = publishSteps[indexOf(publishSteps, "Commit CHANGELOG.md alone")] ?? "";
@@ -519,7 +535,7 @@ describe("the writer workflow", () => {
   it("puts no expression in a command line: every one goes through env", () => {
     const blocks = runsOf(WRITER_WORKFLOW);
 
-    expect(blocks.length).toBe(11);
+    expect(blocks.length).toBe(12);
     expect(blocks.filter((block) => block.includes("${{"))).toEqual([]);
   });
 });

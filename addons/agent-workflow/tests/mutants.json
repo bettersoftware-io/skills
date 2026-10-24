@@ -6598,8 +6598,8 @@
   {
     "name": "the writer lets the agent read under proc",
     "file": "addons/agent-workflow/files/.github/workflows/changelog-writer.yml",
-    "find": "            --disallowedTools \"Read(//proc/**)\"\n",
-    "replace": "",
+    "find": "\"Read(//proc/**),Read(//dev/**)",
+    "replace": "\"Read(//dev/**)",
     "test": "pnpm vitest run addons/agent-workflow/tests/addon.test.mts --testNamePattern=\"gives the agent only what it needs\""
   },
   {
@@ -6685,5 +6685,47 @@
     "find": "\"version\": \"0.20.0\"",
     "replace": "\"version\": \"0.19.0\"",
     "test": "pnpm vitest run addons/agent-workflow/tests/addon.test.mts --testNamePattern=\"go out with the plugin's version\""
+  },
+  {
+    "name": "the writer lets the agent read dev",
+    "file": "addons/agent-workflow/files/.github/workflows/changelog-writer.yml",
+    "find": ",Read(//dev/**)",
+    "replace": "",
+    "test": "pnpm vitest run addons/agent-workflow/tests/addon.test.mts --testNamePattern=\"gives the agent only what it needs\""
+  },
+  {
+    "name": "the writer lets the agent read the runner's temp folder",
+    "file": "addons/agent-workflow/files/.github/workflows/changelog-writer.yml",
+    "find": ",Read(//home/runner/work/_temp/**)",
+    "replace": "",
+    "test": "pnpm vitest run addons/agent-workflow/tests/addon.test.mts --testNamePattern=\"gives the agent only what it needs\""
+  },
+  {
+    "name": "the writer does not look for the API key itself",
+    "file": "addons/agent-workflow/files/.github/workflows/changelog-writer.yml",
+    "find": "if [ -n \"$KEY\" ] && git diff -U0 -- CHANGELOG.md | grep '^+' | grep -qF -- \"$KEY\"; then",
+    "replace": "if false; then",
+    "test": "pnpm vitest run addons/agent-workflow/tests/addon.test.mts --testNamePattern=\"refuses a file that has the API key itself\""
+  },
+  {
+    "name": "the writer matches an empty key",
+    "file": "addons/agent-workflow/files/.github/workflows/changelog-writer.yml",
+    "find": "if [ -n \"$KEY\" ] && git diff",
+    "replace": "if git diff",
+    "test": "pnpm vitest run addons/agent-workflow/tests/addon.test.mts --testNamePattern=\"refuses a file that has the API key itself\""
+  },
+  {
+    "name": "the writer does not stop on the API key itself",
+    "file": "addons/agent-workflow/files/.github/workflows/changelog-writer.yml",
+    "find": "equal to the Anthropic API key. Nothing was committed\"\n            exit 1\n",
+    "replace": "equal to the Anthropic API key. Nothing was committed\"\n",
+    "test": "pnpm vitest run addons/agent-workflow/tests/addon.test.mts --testNamePattern=\"refuses a file that has the API key itself\""
+  },
+  {
+    "name": "the writer's pull request body starts a line with pnpm",
+    "file": "addons/agent-workflow/files/.github/workflows/changelog-writer.yml",
+    "find": "\"The changelog check failed for",
+    "replace": "\"pnpm changelog check failed for",
+    "test": "pnpm vitest run addons/agent-workflow/tests/addon.test.mts --testNamePattern=\"does not start a line of the pull request body with pnpm\""
   }
 ]

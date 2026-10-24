@@ -594,8 +594,10 @@ It is off. To switch it on:
 gh variable set CHANGELOG_RELEASES --body true
 ```
 
-**Publish one week first, and look at it.** Setting the variable, or the next
-change to `CHANGELOG.md`, publishes every tagged week at once. So before it:
+**Publish one week first, and look at it.** Setting the variable takes effect
+at the next trigger: a push that changes `CHANGELOG.md` or the sync scripts,
+Monday 00:30 UTC, or a run by hand. That run publishes every tagged week at
+once. So before it:
 
 ```bash
 pnpm changelog:releases --only <week> --apply
@@ -666,9 +668,13 @@ What to know:
   opened, and the week stays due: the next session's reminder names it again.
 - **Protect the default branch.** The workflow pushes a branch and never the
   default one, and a branch rule is what keeps it so.
+- **The read rules are not a sandbox.** The agent may read only inside the
+  checkout, and the rules deny `/proc`, `/dev` and the runner's temp folder.
+  The secret scan and the exact-key check in `publish` are a backstop.
 - **The secret scan is a prefix list, not a proof.** It finds the shapes of
-  the common tokens and keys. A secret of another shape passes it. The pull
-  request is read before it is merged.
+  the common tokens and keys, and the exact value of `ANTHROPIC_API_KEY`. A
+  secret of another shape passes it. The pull request is read before it is
+  merged.
 
 ## Commands, and the three that need another add-on
 

@@ -20,8 +20,8 @@ pnpm changelog due
 
 It lists the finished weeks whose entry is missing, or does not cite every
 pull request merged in them, as of the last fetch of the default branch. It
-reads git only. Exit 0 with nothing printed means nothing is due; exit 2 means
-it could not judge. Then:
+reads git only. Exit 0 with nothing printed means nothing is due; exit 1
+means weeks are listed, one on each line; exit 2 means it could not judge. Then:
 
 ```bash
 pnpm changelog weeks

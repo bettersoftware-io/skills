@@ -43,6 +43,10 @@ concurrency:
 permissions:
   contents: read
 
+env:
+  # pnpm comes from Corepack; without this its first run can stop to ask.
+  COREPACK_ENABLE_DOWNLOAD_PROMPT: "0"
+
 jobs:
   write:
     name: write the changelog entries that are due
@@ -58,8 +62,6 @@ jobs:
       weeks: ${{ steps.due.outputs.weeks }}
       newest: ${{ steps.due.outputs.newest }}
     env:
-      # pnpm comes from Corepack; without this its first run can stop to ask.
-      COREPACK_ENABLE_DOWNLOAD_PROMPT: "0"
       # Claude Code scrubs the Anthropic, cloud and GitHub Actions secrets from
       # the environment of what it runs. action.yml reads this variable, and
       # docs/security.md of the pinned release describes it.
@@ -142,7 +144,10 @@ jobs:
       # The action writes this token into .git/config and the environment of
       # the job. It is read-only, and it expires when this job ends, before the
       # next job pushes. The API key is the secret that matters here: Claude
-      # Code may read files under the checkout and no path under /proc, and
+      # Code may read files under the checkout and no path under /proc or /dev.
+      # It may not read the runner's temp folder either. `//home/runner/work/_temp`
+      # is the ubuntu-latest layout: the rule is an absolute path, so it cannot
+      # name $RUNNER_TEMP. These rules are not a sandbox.
       # `--setting-sources user` keeps a committed .claude/settings.json from
       # widening its tools (parse-sdk-options.ts of the pinned release reads it).
       # The next job refuses a file that holds a token.
@@ -157,7 +162,7 @@ jobs:
           claude_args: |
             --max-turns 40
             --setting-sources user
-            --disallowedTools "Read(//proc/**)"
+            --disallowedTools "Read(//proc/**),Read(//dev/**),Read(//home/runner/work/_temp/**)"
             --allowedTools "Read(./**),Edit(./CHANGELOG.md),Write(./CHANGELOG.md),Bash(pnpm changelog weeks),Bash(pnpm changelog prs:*),Bash(pnpm changelog check:*),Bash(pnpm changelog defs:*),Bash(pnpm changelog due:*),Bash(gh pr view:*)"
 
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
@@ -237,6 +242,18 @@ jobs:
             fi
           done
 
+      # The exact value of the key, which the prefix list may not know the shape
+      # of. It is in this step's environment and nowhere else in the job. It is
+      # never printed, and the message names no value.
+      - name: Look for the API key itself in what was added
+        env:
+          KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          if [ -n "$KEY" ] && git diff -U0 -- CHANGELOG.md | grep '^+' | grep -qF -- "$KEY"; then
+            echo "::error::CHANGELOG.md has added text equal to the Anthropic API key. Nothing was committed"
+            exit 1
+          fi
+
       # A week that fails the check is still published, as a draft: a person
       # finishes it.
       - name: Check each week
@@ -291,6 +308,6 @@ jobs:
           draft=()
           if [ -n "$FAILED" ]; then
             draft=(--draft)
-            body+=$'\n'"pnpm changelog check failed for ${FAILED// /, }. Finish the entry before it is merged."
+            body+=$'\n'"The changelog check failed for ${FAILED// /, }. Finish the entry before it is merged."
           fi
           gh pr create --title "docs(changelog): ${WEEKS// /, }" --body "$body" --head "changelog/$NEWEST" "${draft[@]}"
