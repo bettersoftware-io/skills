@@ -878,7 +878,8 @@ turn's stop is judged as usual.
   quoted in `hooks/hooks.test.mts`, and against the timeline of the session
   that hit it (the gate's block came 69 seconds after a background agent was
   launched into the same checkout, and 38 seconds before it reported done).
-  It has not been run in a live session with a background agent.
+  Each of its 20 mutants (`scripts/mutants/stop-waits-for-agents.json`) is
+  killed. It has not been run in a live session with a background agent.
 
 It was `gate:fast` until a run with the smallest model stopped there with
 `gate:full` red and reported green

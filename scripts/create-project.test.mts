@@ -1,10 +1,12 @@
+import { spawnSync } from "node:child_process";
 import { existsSync, lstatSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { join, relative } from "node:path";
 import { describe, expect, it } from "vitest";
 
-import { addToProject } from "./add-to-project.mts";
+import { addToProject, listAddons } from "./add-to-project.mts";
 import { createProject, parseArguments, ProjectError, projectReadme, type ProjectSteps } from "./create-project.mts";
+import { findIgnored } from "./lib/git-ignored.mts";
 
 describe("creating a project from the starter", () => {
   it("copies the starter and names the root package after the target folder", () => {
@@ -55,6 +57,22 @@ describe("creating a project from the starter", () => {
     expect(update.yours).toEqual([]);
     expect(update.newGates).toEqual([]);
     expect(readFileSync(join(project, "tools/arch/templates/AGENTS.md.txt"), "utf8")).toBe(readFileSync(join(project, "AGENTS.md"), "utf8"));
+  });
+
+  // Nothing the kit or an add-on installs is meant to stay out of a commit. So
+  // a project that ignores one of those files has a rule to change, and the
+  // installer says so with no list of files to leave out.
+  it("ignores none of the files it was created with, with every add-on, once it is a repository", () => {
+    const { destination: project } = createProject({ target: createTarget("price-desk"), addons: listAddons().map(({ name }) => name) });
+
+    const files = listFiles(project).map((file) => relative(project, file));
+
+    expect(files).toContain(".claude/commands/workflow/status.md");
+    expect(spawnSync("git", ["-C", project, "init", "--quiet"]).status).toBe(0);
+    // The project's own rules only: the person's ignore file is not the project's.
+    expect(spawnSync("git", ["-C", project, "config", "core.excludesFile", "/dev/null"]).status).toBe(0);
+    expect(findIgnored(project, files)).toEqual([]);
+    expect(findIgnored(project, ["node_modules/x/package.json", "coverage/lcov.info"])).not.toEqual([]);
   });
 
   it("refuses a target that already holds files", () => {
