@@ -34,9 +34,11 @@ const ALIAS_SETTING = /^(?:alias|include|includeif)\./i;
  * cannot see. Set anywhere in a script (in front of git, as a step of its own,
  * or with `export`), it makes every `git` of that script one this cannot judge.
  */
-const GIT_SETTINGS = /^(?:GIT_CONFIG\w*|GIT_DIR|GIT_EXEC_PATH|HOME|XDG_CONFIG_HOME)=/;
+const GIT_SETTINGS = /^(?:GIT_CONFIG\w*|GIT_DIR|GIT_COMMON_DIR|GIT_EXEC_PATH|HOME|XDG_CONFIG_HOME)=/;
 /** `git config` arguments that only read. */
 const CONFIG_READS = ["--get", "--get-all", "--get-regexp", "--get-urlmatch", "--list", "-l", "get", "list"];
+/** `git config` options that take the next word as their value, so a read word after one is no action: `--comment --get`. */
+const CONFIG_OPTIONS_WITH_VALUE = ["--comment", "--file", "-f", "--blob", "--type", "--default", "--value"];
 /** How many words behind a wrapper that name a program this reads are tried as the command, before the stage is not read at all. */
 const WRAPPED_CANDIDATES = 32;
 
@@ -94,6 +96,8 @@ export interface Verdict {
 interface Reading extends Verdict {
   pushed: boolean;
   runs: boolean;
+  /** Whether the script itself sets what git reads its settings from: `eval` runs it in the shell of the step after. */
+  moves: boolean;
 }
 
 /**
@@ -123,7 +127,9 @@ function judgeScript(script: Script, depth = 0, settingsMoved = false): Reading 
   }
 
   // A setting made in an outer script holds in what it runs; one made inside `$(…)` does not hold outside it.
-  const moved = settingsMoved || script.steps.some((step) => step.some((stage) => stage.some((word) => GIT_SETTINGS.test(word))));
+  const moves = script.steps.some((step) => step.some((stage) => stage.some((word) => GIT_SETTINGS.test(word))));
+  let moved = settingsMoved || moves;
+  let movedByEval = false;
   const outward: string[] = [];
   let chained = false;
   let redirected = false;
@@ -163,6 +169,9 @@ function judgeScript(script: Script, depth = 0, settingsMoved = false): Reading 
         chained ||= inner.chained;
         redirected ||= inner.redirected;
         pushed ||= inner.pushed;
+        // `eval 'export HOME=…'` sets it in this shell, for the steps after; `bash -c` sets it in a shell that ends.
+        movedByEval ||= programName(words[0] ?? "") === "eval" && inner.moves;
+        moved ||= movedByEval;
       }
     }
   }
@@ -188,7 +197,14 @@ function judgeScript(script: Script, depth = 0, settingsMoved = false): Reading 
   // One outward step with a filter behind a pipe, or with a `$(cat …)` that
   // only feeds it, is still one step. Two of them, or one beside any other
   // step, is a chain.
-  return { outward, chained: chained || (outward.length > 0 && (steps > 1 || outward.length > 1)), redirected, pushed, runs: steps > 0 || beside > 0 };
+  return {
+    outward,
+    chained: chained || (outward.length > 0 && (steps > 1 || outward.length > 1)),
+    redirected,
+    pushed,
+    runs: steps > 0 || beside > 0,
+    moves: moves || movedByEval,
+  };
 }
 
 /**
@@ -395,7 +411,9 @@ function setsAlias(options: string[]): boolean {
 function writesAlias(own: string[]): boolean {
   const args = own.slice(1);
 
-  return own[0] === "config" && !args.some((word) => CONFIG_READS.includes(word)) && args.some((word) => ALIAS_SETTING.test(word));
+  const reads = args.some((word, index) => CONFIG_READS.includes(word) && !CONFIG_OPTIONS_WITH_VALUE.includes(args[index - 1] ?? ""));
+
+  return own[0] === "config" && !reads && args.some((word) => ALIAS_SETTING.test(word));
 }
 
 /** `gh -R owner/name pr merge` → `pr merge`. */
@@ -440,6 +458,11 @@ function splitStringScript(stage: Stage): Script | undefined {
     const text = word === "-S" || word === "--split-string" ? stage[index + 1] : own;
 
     if (text !== undefined) {
+      // env reads its own escapes (`\_`, `\t`) and `${NAME}` in the text: what it runs is then not this text.
+      if (/[\\$]/.test(text)) {
+        throw new ShellError("env -S is given text with a backslash or a $, which env changes before it runs it");
+      }
+
       return readScript([text, ...stage.slice(index + (own === undefined ? 2 : 1))].join(" "));
     }
 

@@ -161,9 +161,13 @@ alias's name is the only word the hook sees of what it runs:
 file (`-c include.path=…`, `includeIf.…`), a `git config` that writes one
 (`git config alias.p push && git p`), and any `git` in a script that sets
 what git reads its settings or its commands from (`GIT_CONFIG_*`, `GIT_DIR`,
-`GIT_EXEC_PATH`, `HOME`, `XDG_CONFIG_HOME`), in front of it, as a step of its
-own or with `export`. It is refused in a chain and asked about alone; so is
-a plain push in such a script. `env -S '…'` is read as `bash -c '…'` is.
+`GIT_COMMON_DIR`, `GIT_EXEC_PATH`, `HOME`, `XDG_CONFIG_HOME`), in front of it,
+as a step of its own, with `export`, or inside an `eval` (which runs in the
+same shell; `bash -c` does not). It is refused in a chain and asked about
+alone; so is a plain push in such a script. `env -S '…'` is read as `bash -c
+'…'` is, unless its text holds a backslash or a `$`, which env changes before
+it runs it: that text is not read, and is asked about when it names `push`
+or `gh`.
 
 It is let through when the outward step is alone: with a pipe into a filter
 (`git push 2>&1 | tail -2`), with redirections, with a `$(cat <<'EOF' … EOF)`

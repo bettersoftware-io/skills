@@ -513,6 +513,23 @@ describe("a step that gives git a meaning another step of the script uses", () =
     expect(judgeCommand("git push origin worktree-a")).toMatchObject({ redirected: false });
   });
 
+  it("takes a write for a write when a read word is only the value of an option", () => {
+    expect(judgeCommand("git config --comment --get alias.p push && git p")?.chained).toBe(true);
+  });
+
+  it("follows a setting made inside eval, which runs in the same shell, and GIT_COMMON_DIR", () => {
+    expect(judgeCommand("eval 'export HOME=/tmp/x'; git p")).toMatchObject({ chained: true });
+    expect(judgeCommand("eval 'export HOME=/tmp/x'; git p")?.outward).toContain("git p");
+    expect(judgeCommand("export GIT_COMMON_DIR=/tmp/r; git p")?.outward).toContain("git p");
+    expect(judgeCommand(`eval "eval 'export HOME=/tmp/x'"; git p`)?.outward).toContain("git p");
+    expect(judgeCommand("bash -c 'export HOME=/tmp/x'; git status")).toEqual({ outward: [], chained: false, redirected: false });
+  });
+
+  it("does not read env -S text that env would change: a backslash or a $", () => {
+    expect(judgeCommand("env -S 'git\\_push origin worktree-a' && ls")).toBeUndefined();
+    expect(judgeCommand("env -S '${X}git push origin worktree-a' && ls")).toBeUndefined();
+  });
+
   it("leaves git alone when the script sets nothing it reads its settings from", () => {
     expect(judgeCommand("export PAGER=cat; git log")).toEqual({ outward: [], chained: false, redirected: false });
   });

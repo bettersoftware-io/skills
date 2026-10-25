@@ -3959,8 +3959,8 @@
   {
     "name": "a substitution runs something when one inside it does",
     "file": "addons/agent-workflow/files/tools/agent-workflow/lib/outward.mts",
-    "find": "runs: steps > 0 || beside > 0 };",
-    "replace": "runs: steps > 0 };",
+    "find": "runs: steps > 0 || beside > 0,",
+    "replace": "runs: steps > 0,",
     "test": "pnpm vitest run addons/agent-workflow/tests/outward.test.mts --testNamePattern=\"refuses an outward step that fills a variable beside another\""
   },
   {
@@ -7305,8 +7305,8 @@
   {
     "name": "HOME in front of git is not looked at",
     "file": "addons/agent-workflow/files/tools/agent-workflow/lib/outward.mts",
-    "find": "const GIT_SETTINGS = /^(?:GIT_CONFIG\\w*|GIT_DIR|GIT_EXEC_PATH|HOME|XDG_CONFIG_HOME)=/;",
-    "replace": "const GIT_SETTINGS = /^(?:GIT_CONFIG\\w*|GIT_DIR|GIT_EXEC_PATH|XDG_CONFIG_HOME)=/;",
+    "find": "const GIT_SETTINGS = /^(?:GIT_CONFIG\\w*|GIT_DIR|GIT_COMMON_DIR|GIT_EXEC_PATH|HOME|XDG_CONFIG_HOME)=/;",
+    "replace": "const GIT_SETTINGS = /^(?:GIT_CONFIG\\w*|GIT_DIR|GIT_COMMON_DIR|GIT_EXEC_PATH|XDG_CONFIG_HOME)=/;",
     "test": "pnpm vitest run addons/agent-workflow/tests/outward.test.mts -t \"and asks: HOME\""
   },
   {
@@ -7354,22 +7354,22 @@
   {
     "name": "a setting earlier in the script is not followed",
     "file": "addons/agent-workflow/files/tools/agent-workflow/lib/outward.mts",
-    "find": "const moved = settingsMoved || script.steps.some(",
-    "replace": "const moved = settingsMoved || [script.steps[0] ?? []].some(",
+    "find": "const moves = script.steps.some(",
+    "replace": "const moves = [script.steps[0] ?? []].some(",
     "test": "pnpm vitest run addons/agent-workflow/tests/outward.test.mts -t \"points its settings elsewhere for an outward step: export HOME\""
   },
   {
     "name": "GIT_DIR is not taken for a setting",
     "file": "addons/agent-workflow/files/tools/agent-workflow/lib/outward.mts",
-    "find": "GIT_CONFIG\\w*|GIT_DIR|GIT_EXEC_PATH|HOME",
-    "replace": "GIT_CONFIG\\w*|GIT_EXEC_PATH|HOME",
+    "find": "GIT_CONFIG\\w*|GIT_DIR|GIT_COMMON_DIR",
+    "replace": "GIT_CONFIG\\w*|GIT_COMMON_DIR",
     "test": "pnpm vitest run addons/agent-workflow/tests/outward.test.mts -t \"settings elsewhere for an outward step: GIT_DIR in front\""
   },
   {
     "name": "GIT_EXEC_PATH is not taken for a setting",
     "file": "addons/agent-workflow/files/tools/agent-workflow/lib/outward.mts",
-    "find": "GIT_DIR|GIT_EXEC_PATH|HOME",
-    "replace": "GIT_DIR|HOME",
+    "find": "GIT_COMMON_DIR|GIT_EXEC_PATH|HOME",
+    "replace": "GIT_COMMON_DIR|HOME",
     "test": "pnpm vitest run addons/agent-workflow/tests/outward.test.mts -t \"settings elsewhere for an outward step: export GIT_EXEC_PATH\""
   },
   {
@@ -7389,8 +7389,8 @@
   {
     "name": "reading an alias is taken for writing one",
     "file": "addons/agent-workflow/files/tools/agent-workflow/lib/outward.mts",
-    "find": "!args.some((word) => CONFIG_READS.includes(word)) && ",
-    "replace": "",
+    "find": "  return own[0] === \"config\" && !reads && ",
+    "replace": "  return own[0] === \"config\" && ",
     "test": "pnpm vitest run addons/agent-workflow/tests/outward.test.mts -t \"asks about writing an alias alone, and lets reading one through\""
   },
   {
@@ -7434,5 +7434,47 @@
     "find": "word === \"-S\" || word === \"--split-string\" ?",
     "replace": "word === \"-S\" ?",
     "test": "pnpm vitest run addons/agent-workflow/tests/outward.test.mts -t \"reads the text of env -S as a command: env --split-string\""
+  },
+  {
+    "name": "a read word that is an option's value is taken for a read",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/outward.mts",
+    "find": " && !CONFIG_OPTIONS_WITH_VALUE.includes(args[index - 1] ?? \"\")",
+    "replace": "",
+    "test": "pnpm vitest run addons/agent-workflow/tests/outward.test.mts -t \"a read word is only the value of an option\""
+  },
+  {
+    "name": "a setting made inside eval is not followed",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/outward.mts",
+    "find": "programName(words[0] ?? \"\") === \"eval\" && inner.moves",
+    "replace": "false",
+    "test": "pnpm vitest run addons/agent-workflow/tests/outward.test.mts -t \"follows a setting made inside eval\""
+  },
+  {
+    "name": "a setting made inside bash -c is followed",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/outward.mts",
+    "find": "programName(words[0] ?? \"\") === \"eval\" && inner.moves",
+    "replace": "inner.moves",
+    "test": "pnpm vitest run addons/agent-workflow/tests/outward.test.mts -t \"follows a setting made inside eval\""
+  },
+  {
+    "name": "a setting made in an eval inside an eval is not carried out",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/outward.mts",
+    "find": "moves: moves || movedByEval,",
+    "replace": "moves,",
+    "test": "pnpm vitest run addons/agent-workflow/tests/outward.test.mts -t \"follows a setting made inside eval\""
+  },
+  {
+    "name": "GIT_COMMON_DIR is not taken for a setting",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/outward.mts",
+    "find": "GIT_DIR|GIT_COMMON_DIR|GIT_EXEC_PATH",
+    "replace": "GIT_DIR|GIT_EXEC_PATH",
+    "test": "pnpm vitest run addons/agent-workflow/tests/outward.test.mts -t \"follows a setting made inside eval\""
+  },
+  {
+    "name": "env -S text that env changes is read as written",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/outward.mts",
+    "find": "if (/[\\\\$]/.test(text)) {",
+    "replace": "if (false) {",
+    "test": "pnpm vitest run addons/agent-workflow/tests/outward.test.mts -t \"does not read env -S text that env would change\""
   }
 ]
