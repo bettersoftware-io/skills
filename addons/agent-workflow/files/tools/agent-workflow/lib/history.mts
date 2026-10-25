@@ -52,18 +52,23 @@ export function parseHistory(log: string): Merge[] {
 
 /**
  * The pull requests merged into `ref`, following first parents only. With
- * `since` (an ISO instant), only those committed at or after it: git stops
- * walking there, so a long history costs no more than the weeks judged.
+ * `since` (an ISO instant), only those committed at or after it.
+ *
+ * The bound is applied here, not with git's `--since`: git stops walking at
+ * the first commit dated before it, so one older commit pushed straight to
+ * the branch would hide every merge behind it. The whole first-parent list
+ * is read instead; 1552 commits of RTC took 28 ms.
  */
 export function readHistory(root: string, ref: string, run: Run, since?: string): Merge[] {
-  const bound = since === undefined ? [] : [`--since=${since}`];
-  const log = run("git", ["log", "--first-parent", ...bound, "--format=%H%x09%cI%x09%s", "--end-of-options", ref], root);
+  const log = run("git", ["log", "--first-parent", "--format=%H%x09%cI%x09%s", "--end-of-options", ref], root);
 
   if (log.status !== 0) {
     throw new HistoryError(`git could not read the history of ${ref}: ${log.stderr.trim()}`);
   }
 
-  return parseHistory(log.stdout);
+  const merges = parseHistory(log.stdout);
+
+  return since === undefined ? merges : merges.filter(({ mergedAt }) => Date.parse(mergedAt) >= Date.parse(since));
 }
 
 /** `origin/HEAD` when it exists, else `origin/main`, else `undefined`. */

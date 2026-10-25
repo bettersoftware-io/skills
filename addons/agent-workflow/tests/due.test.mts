@@ -176,7 +176,7 @@ describe("the command", () => {
     expect(existsSync(target)).toBe(false);
   });
 
-  it("reads the history only from the start of the first week it judges", () => {
+  it("reads the whole first-parent history, never git's --since, which stops at the first commit dated too early", () => {
     const { clone } = createRemote();
     const logged: string[][] = [];
     const recording: Run = (program, args, cwd) => {
@@ -194,7 +194,8 @@ describe("the command", () => {
     writeFileSync(join(clone, "CHANGELOG.md"), createText({ "2026-W39": [] }));
     findDue(clone, recording, new Date("2026-10-08T09:00:00Z"));
 
-    expect(logged.map((args) => args.find((arg) => arg.startsWith("--since=")))).toEqual(["--since=2026-09-28T00:00:00.000Z", "--since=2026-09-21T00:00:00.000Z"]);
+    expect(logged).toHaveLength(2);
+    expect(logged.flat().filter((arg) => arg.startsWith("--since") || arg.startsWith("--after"))).toEqual([]);
   });
 
   it("reads a commit pushed straight to main with (#N) in its subject as a merge, which gh does not list: due and check disagree", () => {

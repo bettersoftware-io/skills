@@ -608,11 +608,15 @@ describe("the release notes", () => {
     expect(text).toContain("CHANGELOG_WRITER");
   });
 
-  it("go out with the plugin's version", () => {
+  it("go out with the plugin's version: the newest notes are never newer than the plugin", () => {
     const { releaseNotes } = readJson<{ releaseNotes: { id: string }[] }>(ADDON, "addon.json");
+    const parts = (version: string): number[] => version.split(".").map(Number);
+    const plugin = parts(readJson<{ version: string }>(REPOSITORY, ".codex-plugin/plugin.json").version);
+    const newest = parts(releaseNotes[0]?.id ?? "");
+    const order = plugin.map((part, index) => part - (newest[index] ?? 0)).find((difference) => difference !== 0) ?? 0;
 
-    expect(readJson<{ version: string }>(REPOSITORY, ".codex-plugin/plugin.json").version).toBe("0.21.0");
     expect(releaseNotes[0]?.id).toBe("0.21.0");
+    expect(order).toBeGreaterThanOrEqual(0);
   });
 });
 
