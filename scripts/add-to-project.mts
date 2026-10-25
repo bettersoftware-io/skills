@@ -1,14 +1,22 @@
 #!/usr/bin/env node
-// Adds the kit or an add-on to a project, or updates the copy it already has.
+// Adds the kit, the starter or an add-on to a project, or updates the copy it already has.
 //
-//   node scripts/add-to-project.mts <project> <kit|add-on name> [--force] [--scope @acme]
+//   node scripts/add-to-project.mts <project> <kit|starter|add-on name> [--force] [--scope @acme]
 //   node scripts/add-to-project.mts <project> <add-on name>:<option>
 //   node scripts/add-to-project.mts --list
-//   node scripts/add-to-project.mts <project> --compare [<kit|add-on name>]
+//   node scripts/add-to-project.mts <project> --compare [<kit|starter|add-on name>]
 //
 // `--compare` writes nothing. It lists every file the project owns that
 // differs from its template as this repository ships it now, for the kit and
 // every add-on the project has, or for the one named.
+//
+// `starter` gives a project that was not created from the starter what one
+// that was has: its settings files, its CI workflow and its packages. It goes
+// in after the kit, and writes only what the project lacks. A file the project
+// has is kept, and named with the command that shows how it differs; a
+// package the project has gets no file of the starter's; the root
+// package.json gains the entries it lacks, and keeps one that differs unless
+// --force is given.
 //
 // An add-on may offer a choice between sets of starting files (one bot or
 // another). `<add-on>:<option>` takes that option, on a first install or to
@@ -29,13 +37,14 @@
 // there. The summary lists them under "Not merged".
 
 import { existsSync, readdirSync, readFileSync } from "node:fs";
+import { createRequire } from "node:module";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { isMainModule } from "../kit/gates/lib/files.mts";
 import { LINT_DEPENDENCIES } from "../kit/lint-dependencies.mts";
 import { findSection, judgeSection, readSection, sectionHash, sectionMarkers, type SectionState, sectionTemplateOf } from "./lib/agents-section.mts";
-import { type Declaration, declarePackages } from "./lib/architecture.mts";
+import { type Declaration, declarePackages, renderDeclaration } from "./lib/architecture.mts";
 import { type Json, mergeSettings, parseSettings, refuseRetired, type RetiredCommands, SettingsError } from "./lib/host-settings.mts";
 import {
   assertInside,
@@ -80,8 +89,30 @@ import {
 const REPOSITORY = dirname(dirname(fileURLToPath(import.meta.url)));
 const STARTER_SCOPE = "@app";
 
-/** The kit installs under this name; every other unit is an add-on. */
+/** The kit installs under this name; every other unit but the starter is an add-on. */
 export const KIT = "kit";
+
+/**
+ * The starter installs under this name, into a project that was not created
+ * from it. Every file of it is the project's own: written when the project
+ * lacks it, and never again. It keeps no template of its own: the kit already
+ * keeps one of each of the starter's settings files, and says when one changes.
+ */
+export const STARTER = "starter";
+
+/**
+ * Never copied from the starter, wherever they are in it: installed or built
+ * files, the kit's link, and the two hosts' settings folders. Those are
+ * written by the kit's setup, from the kit's own templates, which also knows
+ * what to do when a host does not let them be written.
+ */
+export const SKIPPED_IN_STARTER = new Set(["node_modules", "dist", "coverage", ".turbo", "tools", ".claude", ".codex"]);
+
+/** Files of the starter's root that a project never takes from the unit: pnpm writes the lockfile, and the README is the project's. */
+const NOT_TAKEN_FROM_STARTER = new Set(["pnpm-lock.yaml", "README.md"]);
+
+/** The sections of the starter's root package.json that are merged entry by entry. Every other key is taken whole, or kept whole. */
+const MERGED_BY_ENTRY = new Set(["scripts", "dependencies", "devDependencies"]);
 
 /** What setting up the kit may create or edit, beyond the kit's own files. */
 /** The kit's checks that `gates/run.mts` does not run: each is a script the project calls. */
@@ -397,6 +428,10 @@ export function addToProject({ project, unit, force = false, scope, repository =
     };
   }
 
+  if (unit === STARTER) {
+    return addStarter(destination, project, force, scope, repository);
+  }
+
   return addAddon(destination, project, unit, force, scope, repository);
 }
 
@@ -431,7 +466,8 @@ export function compareWithTemplates({ project, unit, scope, repository = REPOSI
   }
 
   const installed = installedUnits(destination);
-  const units = unit === undefined ? installed : [parseUnit(unit).name];
+  // The starter's templates are the kit's: with the kit among them, every unit compares each file once.
+  const units = unit === undefined ? installed.filter((name) => name !== STARTER || !installed.includes(KIT)) : [parseUnit(unit).name];
   const unknown = units.filter((name) => !installed.includes(name));
 
   if (unknown.length > 0) {
@@ -439,7 +475,12 @@ export function compareWithTemplates({ project, unit, scope, repository = REPOSI
   }
 
   return units.flatMap((name) => {
-    const { shipped, templates } = name === KIT ? readKitTemplates(destination, repository, scope) : readAddonTemplates(destination, name, repository, scope);
+    const { shipped, templates } =
+      name === KIT
+        ? readKitTemplates(destination, repository, scope)
+        : name === STARTER
+          ? readStarterTemplates(destination, repository, scope)
+          : readAddonTemplates(destination, name, repository, scope);
 
     return [...shipped].map(([owned, content]): Comparison => {
       const template = templates.find((candidate) => candidate.owned === owned)?.template;
@@ -491,13 +532,21 @@ interface ShippedTemplates {
   templates: Template[];
 }
 
-function readKitTemplates(destination: string, repository: string, scope: string | undefined): ShippedTemplates {
+function readKitTemplates(destination: string, repository: string, scope: string | undefined): Omit<ShippedTemplates, "templates"> & { templates: KitTemplate[] } {
   const files = readFileSet(join(repository, "kit"), "tools/arch", (path) => SKIPPED_IN_KIT.test(path));
   const templates = withKitTemplates(files, repository, scope ?? scopeIfShared(destination))
     // A package of the starter's that this project does not have is not a file it lacks.
     .filter(({ onlyIn }) => onlyIn === undefined || projectHas(destination, onlyIn));
 
   return { shipped: new Map(templates.flatMap(({ owned, template }) => (files.has(template) ? [[owned, files.get(template) as Buffer]] : []))), templates };
+}
+
+/** The kit's templates whose source is the starter: the files the starter unit gave, or found the project had. */
+function readStarterTemplates(destination: string, repository: string, scope: string | undefined): ShippedTemplates {
+  const { shipped, templates } = readKitTemplates(destination, repository, scope);
+  const fromStarter = templates.filter(({ source }) => source?.startsWith(`${STARTER}/`) === true);
+
+  return { shipped: new Map([...shipped].filter(([owned]) => fromStarter.some((template) => template.owned === owned))), templates: fromStarter };
 }
 
 function readAddonTemplates(destination: string, unit: string, repository: string, scope: string | undefined): ShippedTemplates {
@@ -573,9 +622,7 @@ function addAddon(destination: string, project: string, asked: string, force: bo
     throw new InstallError(`there is no add-on called "${unit}" — available: ${listAddons(repository).map((entry) => entry.name).join(", ") || "none"}`);
   }
 
-  if (!projectHas(destination, "tools/arch/gates/run.mts")) {
-    throw new InstallError(`${destination} does not have the kit (no tools/arch) — add it first: add-to-project.mts ${project} kit`);
-  }
+  assertHasKit(destination, project);
 
   const projectScope = scope ?? detectScope(destination);
   const manifest = JSON.parse(
@@ -827,6 +874,266 @@ function addAddon(destination: string, project: string, asked: string, force: bo
     choiceRemoved,
     releaseNotes,
   };
+}
+
+/**
+ * The starter, into a project that has the kit and was not created from the
+ * starter. What a project has is its own and is never written over: a file
+ * that differs is kept and named with the command that shows how, a package
+ * the project has gets no file of the starter's, and the root package.json is
+ * merged entry by entry, keeping an entry that differs unless `--force` is
+ * given. Each file the starter ships is met once: on a later run, one the
+ * project was given or found to have is left as it is, even when deleted, and
+ * only one the starter has shipped since is written.
+ */
+function addStarter(destination: string, project: string, force: boolean, scope: string | undefined, repository: string): AddResult {
+  assertHasKit(destination, project);
+
+  const projectScope = scope ?? detectScope(destination);
+  const files = rewriteScope(readStarterFiles(join(repository, STARTER)), STARTER_SCOPE, projectScope);
+  const met = new Set(installedStarting(destination, STARTER) ?? []);
+  const templates = kitTemplates(repository);
+  const writes: string[] = [];
+  const kept: string[] = [];
+  const packages = new Map<string, string[]>();
+
+  // Everything is worked out before anything is written: a path that leaves the project refuses the run here.
+  for (const path of files.keys()) {
+    const folder = /^packages\/[^/]+/.exec(path)?.[0];
+
+    if (folder !== undefined) {
+      packages.set(folder, [...(packages.get(folder) ?? []), path]);
+    } else if (path !== "package.json" && path !== ARCHITECTURE_CONFIG && !met.has(path)) {
+      if (!projectHas(destination, path)) {
+        writes.push(path);
+      } else if (!sameAsStarter(destination, path, files.get(path) as Buffer)) {
+        kept.push(describeKeptFile(destination, project, path, templates));
+      }
+    }
+  }
+
+  // A package goes in whole or not at all: a file of the starter's in a package of the project's would be half of something.
+  const written: string[] = [];
+
+  for (const [folder, paths] of packages) {
+    if (paths.some((path) => met.has(path))) {
+      continue;
+    }
+
+    if (projectHas(destination, folder)) {
+      // A package that is the starter's word for word, as in a project created from it, has nothing to say.
+      if (paths.some((path) => !projectHas(destination, path) || !sameAsStarter(destination, path, files.get(path) as Buffer))) {
+        kept.push(`${folder} is this project's own, so no file of the starter's package was written into it. To see how its settings differ: add-to-project.mts ${project} --compare ${STARTER}`);
+      }
+    } else {
+      writes.push(...paths);
+      written.push(folder);
+    }
+  }
+
+  const manifest = met.has("package.json") ? { changes: [], kept: [] } : mergeStarterManifest(destination, project, files.get("package.json"), force);
+  const architecture = met.has(ARCHITECTURE_CONFIG) ? { notes: [], declared: [] } : planStarterArchitecture(destination, repository, projectScope, files, written, packages.size);
+
+  for (const path of writes) {
+    writeProjectFile(destination, path, files.get(path) as Buffer);
+  }
+
+  if (manifest.json !== undefined) {
+    writeProjectFile(destination, "package.json", `${JSON.stringify(manifest.json, null, 2)}\n`);
+  }
+
+  if (architecture.text !== undefined) {
+    writeProjectFile(destination, ARCHITECTURE_CONFIG, architecture.text);
+  }
+
+  // The starter owns no file: its record is the list of what it shipped, which is what the next run reads.
+  const outcome = installFiles(destination, STARTER, new Map(), false);
+
+  recordStarting(destination, STARTER, [...files.keys()].sort());
+
+  return {
+    unit: STARTER,
+    files: outcome,
+    packageChanges: manifest.changes,
+    settingsChanges: [],
+    declared: architecture.declared,
+    agents: "none",
+    created: [...writes, ...(architecture.replaced === true ? [ARCHITECTURE_CONFIG] : [])].sort(),
+    notes: [...kept.sort(), ...manifest.kept, ...architecture.notes],
+    unmerged: [],
+    yours: [],
+    newGates: [],
+    releaseNotes: [],
+  };
+}
+
+/** Every file of the starter the unit may give, by its path in the starter, without a folder it never copies. */
+function readStarterFiles(starter: string, folder = ""): Map<string, Buffer> {
+  const files = new Map<string, Buffer>();
+
+  for (const entry of readdirSync(join(starter, folder), { withFileTypes: true })) {
+    const path = folder === "" ? entry.name : `${folder}/${entry.name}`;
+
+    if (SKIPPED_IN_STARTER.has(entry.name) || (folder === "" && NOT_TAKEN_FROM_STARTER.has(entry.name)) || entry.name.endsWith(".tsbuildinfo")) {
+      continue;
+    }
+
+    if (entry.isDirectory()) {
+      for (const [inner, content] of readStarterFiles(starter, path)) {
+        files.set(inner, content);
+      }
+    } else if (entry.isFile()) {
+      files.set(path, readFileSync(join(starter, path)));
+    }
+  }
+
+  return files;
+}
+
+/** True when the project's file is the starter's word for word. AGENTS.md is read without the sections the add-ons append to it. */
+function sameAsStarter(project: string, path: string, content: Buffer): boolean {
+  return path === "AGENTS.md" ? withoutAddonSections(readProjectText(project, path)) === content.toString("utf8") : readProjectFile(project, path).equals(content);
+}
+
+/** What is said of a file the project has that differs from the starter's: that it was kept, and the command that shows how. */
+function describeKeptFile(project: string, asked: string, path: string, templates: KitTemplate[]): string {
+  const template = templates.find(({ owned }) => owned === path)?.template;
+  const compare = `add-to-project.mts ${asked} --compare ${STARTER}`;
+  const how =
+    template === undefined
+      ? `the starter's is starter/${path} in bettersoftware-skills`
+      : projectHas(project, template)
+        ? `diff ${template} ${path} (or ${compare})`
+        : `add-to-project.mts ${asked} ${KIT} brings the kit's copy of the starter's file to ${template}, then ${compare}`;
+
+  return `${path} is this project's own and differs from the starter's, so it was kept. To see how: ${how}`;
+}
+
+interface ManifestMerge {
+  json?: PackageJson;
+  changes: string[];
+  kept: string[];
+}
+
+/**
+ * The project's root package.json with what the starter's has and it lacks.
+ * Its name stays. An entry it has that differs is kept and named, and replaced
+ * under `--force`: a project has scripts of its own, and refusing over them
+ * would refuse every project.
+ */
+function mergeStarterManifest(project: string, asked: string, shipped: Buffer | undefined, force: boolean): ManifestMerge {
+  if (shipped === undefined) {
+    return { changes: [], kept: [] };
+  }
+
+  const starter = JSON.parse(shipped.toString("utf8")) as Record<string, unknown>;
+  const json = JSON.parse(readProjectText(project, "package.json")) as PackageJson;
+  const changes: string[] = [];
+  const kept: string[] = [];
+  const take = (label: string, existing: unknown, value: unknown, set: () => void): void => {
+    if (JSON.stringify(existing) === JSON.stringify(value)) {
+      return;
+    }
+
+    if (existing === undefined || force) {
+      set();
+      changes.push(`package.json: ${label}${existing === undefined ? "" : " (--force)"}`);
+    } else {
+      kept.push(
+        `package.json: ${label} is this project's ${JSON.stringify(existing)}, and was kept. The starter's is ${JSON.stringify(value)}. add-to-project.mts ${asked} ${STARTER} --force takes the starter's, for every entry of package.json named here`,
+      );
+    }
+  };
+
+  for (const [key, value] of Object.entries(starter)) {
+    if (key === "name") {
+      continue;
+    }
+
+    if (MERGED_BY_ENTRY.has(key) && typeof value === "object" && value !== null) {
+      const section = key as (typeof PATCHED_SECTIONS)[number];
+
+      for (const [entry, command] of Object.entries(value as Record<string, string>)) {
+        take(`${key}.${entry}`, json[section]?.[entry], command, () => {
+          json[section] = withEntry(section, json[section], entry, command);
+        });
+      }
+    } else {
+      take(key, json[key], value, () => {
+        json[key] = value;
+      });
+    }
+  }
+
+  return { ...(changes.length === 0 ? {} : { json }), changes, kept };
+}
+
+interface StarterArchitecture {
+  text?: string;
+  /** True when the text is the starter's whole config, in place of the kit's example. */
+  replaced?: boolean;
+  declared: string[];
+  notes: string[];
+}
+
+/**
+ * The project's architecture config with the starter's packages it was given.
+ * The kit's example, never changed, is replaced by the starter's config when
+ * every package of the starter's went in: it then says all there is to say.
+ * Any other config is the project's: only the packages are declared in it,
+ * and the rest of the starter's config is named for the project to take.
+ */
+function planStarterArchitecture(project: string, repository: string, scope: string, files: Map<string, Buffer>, written: string[], packages: number): StarterArchitecture {
+  const shipped = files.get(ARCHITECTURE_CONFIG);
+
+  if (shipped === undefined) {
+    return { declared: [], notes: [] };
+  }
+
+  const example = readProjectTextIfThere(project, "tools/arch/templates/architecture.config.mts.txt");
+  const current = readProjectTextIfThere(project, ARCHITECTURE_CONFIG);
+
+  if ((current === undefined && !projectHas(project, "architecture.config.mjs")) || (current !== undefined && current === example && written.length === packages)) {
+    return { text: shipped.toString("utf8"), replaced: true, declared: [], notes: [] };
+  }
+
+  if (written.length === 0) {
+    return { declared: [], notes: [] };
+  }
+
+  const config = JSON.parse(
+    JSON.stringify((createRequire(import.meta.url)(join(repository, STARTER, ARCHITECTURE_CONFIG)) as { default: Record<string, Json> }).default).replaceAll(`${STARTER_SCOPE}/`, `${scope}/`),
+  ) as { packages?: Record<string, Declaration> } & Record<string, Json>;
+  const declarations = Object.fromEntries(Object.entries(config.packages ?? {}).filter(([path]) => written.includes(path)));
+  const rest = Object.entries(config).filter(([key]) => key !== "packages");
+  const restNote =
+    rest.length === 0
+      ? []
+      : [
+          `${ARCHITECTURE_CONFIG} is this project's own, so only the starter's packages were declared in it. The starter's config also has: ${rest.map(([key, value]) => `${key}: ${JSON.stringify(value)}`).join("; ")}. Add what applies to the packages it wrote`,
+        ];
+
+  if (current === undefined) {
+    return {
+      declared: [],
+      notes: [`architecture.config.mjs is this project's own: declare the starter's packages in it by hand: ${Object.entries(declarations).map(([path, declaration]) => `${JSON.stringify(path)}: ${renderDeclaration(declaration)}`).join(", ")}`, ...restNote],
+    };
+  }
+
+  const { text, added, byHand } = declarePackages(current, declarations);
+
+  return {
+    ...(text === undefined ? {} : { text }),
+    declared: added,
+    notes: [...byHand.map((line) => `${ARCHITECTURE_CONFIG}: add ${line} to its packages by hand: it could not be read as a packages map`), ...restNote],
+  };
+}
+
+/** Refuses a project that does not have the kit: an add-on and the starter both run on it. */
+function assertHasKit(destination: string, project: string): void {
+  if (!projectHas(destination, "tools/arch/gates/run.mts")) {
+    throw new InstallError(`${destination} does not have the kit (no tools/arch) — add it first: add-to-project.mts ${project} kit`);
+  }
 }
 
 /** The option the project gets: the one asked for, else the one it has, else the add-on's default. */
@@ -1436,7 +1743,10 @@ function writeAgentsSection(project: string, unit: string, { shipped, state, cur
 export function describe(result: AddResult, project: string): string {
   const { files } = result;
   const lines = [
-    `${result.unit}: ${files.written.length} file(s) written, ${files.unchanged.length} already up to date, ${files.removed.length} removed`,
+    // The starter owns no file, so what it wrote is what it created.
+    result.unit === STARTER
+      ? `${result.unit}: ${result.created.length} file(s) written, each the project's own from now on`
+      : `${result.unit}: ${files.written.length} file(s) written, ${files.unchanged.length} already up to date, ${files.removed.length} removed`,
     ...(result.choice === undefined ? [] : [`  option   ${result.choice}: ${result.choiceSays ?? ""}`]),
     ...files.written.map((path) =>
       files.repinned.includes(path) ? `  wrote    ${path} (its only changes here were moved action versions, and the newer of each is kept)` : `  wrote    ${path}`,
@@ -1554,6 +1864,7 @@ function usage(): string {
     "",
     "units:",
     `  ${KIT.padEnd(12)} the architecture gates, lint rules and hooks (tools/arch)`,
+    `  ${STARTER.padEnd(12)} the starter's settings, CI workflow and packages, for a project not created from it (after the kit)`,
     ...listAddons().flatMap(({ name, summary, recommended, choice }) => [
       `  ${name.padEnd(12)} ${recommended ? "(recommended) " : ""}${summary}`,
       ...Object.entries(choice?.options ?? {}).map(

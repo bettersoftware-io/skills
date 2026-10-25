@@ -189,6 +189,7 @@ describe("a job", () => {
       contexts: [
         "typecheck · tests",
         ...["none", "coverage", "visual", "performance", "format-lint", "ci-security", "repo-hygiene", "strict-lint", "agent-workflow", "e2e"].map((addon) => `a created project passes its gate (${addon})`),
+        "a project with only a package.json passes its gate after the kit and the starter",
         "a project created with every add-on passes its gate (@ci-organisation-with-a-long-name)",
         "a project created with every add-on passes its gate (@zeta)",
       ],
