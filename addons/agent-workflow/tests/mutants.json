@@ -6680,10 +6680,10 @@
     "test": "pnpm vitest run addons/agent-workflow/tests/addon.test.mts --testNamePattern=\"has release notes for 0.21.0\""
   },
   {
-    "name": "the plugin is not at 0.21.0",
+    "name": "the plugin is older than the newest notes",
     "file": ".codex-plugin/plugin.json",
-    "find": "\"version\": \"0.21.0\"",
-    "replace": "\"version\": \"0.19.0\"",
+    "find": "\"version\": \"0.21.1\"",
+    "replace": "\"version\": \"0.20.9\"",
     "test": "pnpm vitest run addons/agent-workflow/tests/addon.test.mts --testNamePattern=\"go out with the plugin's version\""
   },
   {
@@ -6855,10 +6855,24 @@
     "test": "pnpm vitest run addons/agent-workflow/tests/releases.test.mts -t \"reads a heading that is the week's name alone\""
   },
   {
-    "name": "history: --since is not passed to git",
+    "name": "history: the bound is handed to git's --since",
     "file": "addons/agent-workflow/files/tools/agent-workflow/lib/history.mts",
-    "find": "const bound = since === undefined ? [] : [`--since=${since}`];",
-    "replace": "const bound: string[] = [];",
+    "find": "run(\"git\", [\"log\", \"--first-parent\", \"--format=%H%x09%cI%x09%s\", \"--end-of-options\", ref], root);",
+    "replace": "run(\"git\", [\"log\", \"--first-parent\", ...(since === undefined ? [] : [`--since=${since}`]), \"--format=%H%x09%cI%x09%s\", \"--end-of-options\", ref], root);",
+    "test": "pnpm vitest run addons/agent-workflow/tests/history.test.mts -t \"keeps a merge that sits behind a commit dated before the instant\""
+  },
+  {
+    "name": "history: the bound is not applied",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/history.mts",
+    "find": "return since === undefined ? merges : merges.filter(({ mergedAt }) => Date.parse(mergedAt) >= Date.parse(since));",
+    "replace": "return merges;",
+    "test": "pnpm vitest run addons/agent-workflow/tests/history.test.mts -t \"reads only the merges since the instant it is given\""
+  },
+  {
+    "name": "history: the bound leaves out its own instant",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/history.mts",
+    "find": "Date.parse(mergedAt) >= Date.parse(since)",
+    "replace": "Date.parse(mergedAt) > Date.parse(since)",
     "test": "pnpm vitest run addons/agent-workflow/tests/history.test.mts -t \"reads only the merges since the instant it is given\""
   },
   {

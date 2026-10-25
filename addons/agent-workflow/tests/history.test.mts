@@ -86,6 +86,16 @@ describe("reading the pull requests merged into a branch", () => {
     expect(readHistory(folder, "main", run).map(({ number }) => number)).toEqual([1, 2, 3]);
   });
 
+  it("keeps a merge that sits behind a commit dated before the instant: git's --since would stop at that commit", () => {
+    const folder = repository();
+
+    commit(folder, "Add a (#1)", { a: "1" }, "2026-09-29T10:00:00Z");
+    commit(folder, "an older local commit, pushed straight to main", { a: "2" }, "2026-09-10T10:00:00Z");
+    commit(folder, "Add b (#2)", { a: "3" }, "2026-09-30T10:00:00Z");
+
+    expect(readHistory(folder, "main", run, "2026-09-28T00:00:00.000Z").map(({ number }) => number)).toEqual([1, 2]);
+  });
+
   it("throws HistoryError when git cannot read the ref", () => {
     expect(() => readHistory(repository(), "nowhere", run)).toThrow(HistoryError);
   });
