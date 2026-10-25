@@ -40,5 +40,26 @@
     "find": "  if (result.releaseNotes.length > 0) {",
     "replace": "  if (false) {",
     "test": "pnpm vitest run scripts/add-to-project.test.mts -t \"under 'Release notes:'\""
+  },
+  {
+    "name": "release notes: an add-on with no releases writes an empty list where there was none",
+    "file": "scripts/lib/install.mts",
+    "find": "const nothingToSay = ids.length === 0 && entry?.releasesSeen === undefined;",
+    "replace": "const nothingToSay = false;",
+    "test": "pnpm vitest run scripts/add-to-project.test.mts -t \"never had a release note\""
+  },
+  {
+    "name": "release notes: the kit has no release notes in its result",
+    "file": "scripts/add-to-project.mts",
+    "find": "      releaseNotes: [],\n      ...setup,",
+    "replace": "      ...setup,",
+    "test": "pnpm vitest run scripts/add-to-project.test.mts -t \"gives the kit no release notes\""
+  },
+  {
+    "name": "release notes: the notes come before what was not merged",
+    "file": "scripts/add-to-project.mts",
+    "find": "\n  if (result.unmerged.length > 0) {\n    lines.push(\"\", `Not merged:",
+    "replace": "\n  if (result.releaseNotes.length > 0) {\n    lines.push(\"\", \"Release notes:\");\n  }\n\n  if (result.unmerged.length > 0) {\n    lines.push(\"\", `Not merged:",
+    "test": "pnpm vitest run scripts/add-to-project.test.mts -t \"after what was not merged\""
   }
 ]

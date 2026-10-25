@@ -54,5 +54,12 @@
     "find": "examplesNotGiven: (manifest.examples ?? []).filter((example) => examplesLeftOut.some((path) => matchesPattern(path, [example]))),",
     "replace": "examplesNotGiven: examplesLeftOut,",
     "test": "pnpm vitest run scripts/add-to-project.test.mts -t \"is named once under\""
+  },
+  {
+    "name": "examples: a record with no starting list does not count a new template as never given",
+    "file": "scripts/add-to-project.mts",
+    "find": "    (keepsTemplates && templates.some(({ owned, template }) => owned === path && !templatesBefore.has(template)));",
+    "replace": "    false;",
+    "test": "pnpm vitest run scripts/add-to-project.test.mts -t \"has no starting list, when its template is new\""
   }
 ]

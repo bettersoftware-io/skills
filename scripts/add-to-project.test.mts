@@ -1702,6 +1702,15 @@ describe("an add-on's release notes", () => {
     expect(addToProject({ project, unit: "demo", repository }).releaseNotes.map(({ id }) => id)).toEqual(["a", "b"]);
   });
 
+  it("writes no releasesSeen for an add-on that has never had a release note", () => {
+    const { repository, project } = createWorldWithKit();
+    addToProject({ project, unit: "demo", repository });
+    write(repository, "addons/demo/files/tools/demo/check.mts", "// the add-on's check, version 2\n");
+    addToProject({ project, unit: "demo", repository });
+
+    expect(readJson(project, "tools/installed.json").demo).not.toHaveProperty("releasesSeen");
+  });
+
   it("keeps releasesSeen through an update that changes other files", () => {
     const { repository, project } = createWorldWithKit();
     withReleases(repository, ["a"]);
@@ -1726,6 +1735,28 @@ describe("an add-on's release notes", () => {
 
     expect(printed).toContain("Release notes:\n  b\n    - note of b");
     expect(printed.indexOf("Release notes:")).toBeLessThan(printed.indexOf("Still to do by hand:"));
+  });
+
+  it("shows the notes after what was not merged", () => {
+    const { repository, project } = createWorldWithKit();
+    withReleases(repository, ["a"]);
+    addToProject({ project, unit: "demo", repository });
+    withReleases(repository, ["a", "b"]);
+    const result = addToProject({ project, unit: "demo", repository });
+
+    const printed = describeResult({ ...result, unmerged: ["merge this by hand"], notes: ["merge this by hand"] }, project);
+
+    expect(printed.indexOf("Not merged:")).toBeGreaterThan(-1);
+    expect(printed.indexOf("Not merged:")).toBeLessThan(printed.indexOf("Release notes:"));
+  });
+
+  it("gives the kit no release notes", () => {
+    const { repository, project } = createWorld();
+
+    const result = addToProject({ project, unit: "kit", repository });
+
+    expect(result.releaseNotes).toEqual([]);
+    expect(describeResult(result, project)).not.toContain("Release notes:");
   });
 });
 
@@ -1784,6 +1815,23 @@ describe("an example starting file", () => {
 
     expect(existsSync(join(project, "packages/web/tests/registry2.tsx"))).toBe(false);
     expect(result.created).toEqual([]);
+  });
+
+  it("is named under \"Yours to change\" in a project that keeps templates and has no starting list, when its template is new there", () => {
+    const { repository, project } = createWorldWithKit();
+    withExamples(repository);
+    addToProject({ project, unit: "demo", repository });
+    write(repository, "addons/demo/files/packages/web/tests/registry2.tsx", "// another\n");
+    write(repository, "addons/demo/files/packages/web/tests/scenarios.ts", "// scenarios, version 2\n");
+    const manifest = readJson(repository, "addons/demo/addon.json");
+
+    write(repository, "addons/demo/addon.json", JSON.stringify({ ...manifest, startingFiles: [...manifest.startingFiles, "packages/web/tests/registry2.tsx"], examples: [...manifest.examples, "packages/web/tests/registry2.tsx"] }));
+    forgetStartingFiles(project);
+
+    const result = addToProject({ project, unit: "demo", repository });
+
+    expect(result.examplesNotGiven).toEqual(["packages/web/tests/registry2.tsx"]);
+    expect(describeYours(result).slice(-1)[0]).toMatch(/^ {2}- Examples this project was never given: packages\/web\/tests\/registry2\.tsx\. /);
   });
 
   it("is named once under \"Yours to change\" when it was never given, since a template there may import it", () => {
