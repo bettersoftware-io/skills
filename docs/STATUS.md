@@ -235,6 +235,14 @@ Added on 2026-10-11 ([the record](documenting-architecture-2026-10-11.md)).
 - **A feature that touches more of the app:** sign-in, routing. The hardest
   test so far (users and categories with create, edit and delete, over REST)
   added a second transport and forms, but no navigation and no session.
+  *The test:* a project made by `create-project.mts`, and one fresh session
+  with the plugin, asked in a person's words for sign-in with a login page
+  and a part of the app only a signed-in user reaches, and left to finish.
+  Then read: where the session and the routes ended up (core or UI), whether
+  the gates and the review named what went in the wrong place, and what the
+  tests and the e2e specs cover. A record in `docs/`, and the fixes it points
+  to in the starter, the kit or the skills. About half a day and the cost of
+  one long session.
 - **`extending-a-project` in a Codex session that can write.** The other two
   are checked there ([the record](codex-test-2026-10-04.md)). Read-only runs
   load it in 12 runs of 12 since 0.16.0, 7 of 12 before
@@ -247,13 +255,32 @@ Added on 2026-10-11 ([the record](documenting-architecture-2026-10-11.md)).
   command the agent names, not the project after it runs: no eval run here
   can have a shell (see Known limits).
 - **A review case the skill makes a difference to.** The planted average is
-  found in every run without the plugin as well.
+  found in every run without the plugin as well. *The test:* plant a problem
+  that a good general review passes over and the skill's questions name, for
+  example a presenter that reads `new Date()` where the core should reach the
+  clock through a port, or a fixture factory named with a bare noun. Add it as
+  an outcome case beside `outcome-review-planted-average` and run it with and
+  without the plugin (`pnpm evals:outcome --case <name>`, a few dollars on
+  Sonnet). A case where both sides pass is a finding about the skill as well.
 - **The evals on Claude Opus, three runs a case.** Once a case, Opus passed
   every trigger case and, with the plugin, every outcome case.
 - **The kit in a real existing project.** The script sets up the files and says
   what is left. Declaring each package's role, and deciding what to do with the
   findings on code that was never held to these rules, is judgement nobody has
-  watched an agent do.
+  watched an agent do. *The test:* condo-ledger as it was before the plugin,
+  at `b7a88de` (2026-06-20): about 16,000 lines of TypeScript, an app and
+  three packages, on pnpm 9. A copy at that commit, with no remote, and one
+  fresh session with the plugin, asked to add the architecture gates to the
+  project, with the owner there to answer it. Then read how it declared each
+  package's role,
+  what it did with the findings on the old code (fixed, listed as an
+  exception, or a rule loosened), and whether the result is one to keep. The
+  owner's own adoption, on 2026-10-11, is the reference: it moved the project
+  onto the starter's layout and archived the old web app
+  ([condo-ledger's merge log](https://github.com/bettersoftware-io/condo-ledger/blob/main/docs/superpowers/notes/2026-10-11-m0-merge-log.md)).
+  `extending-a-project` says the roles are decided with the user, not for
+  them, so the owner answers the session's questions as it goes: that is
+  part of what is watched.
 
 ## Known limits
 
