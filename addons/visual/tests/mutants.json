@@ -273,6 +273,13 @@
     "test": "pnpm vitest run addons/visual/tests/budget.test.mts"
   },
   {
+    "name": "budget: tolerance.ts states a count the test does not measure",
+    "file": "addons/visual/files/packages/client-react/tests/visual/tolerance.ts",
+    "find": "280 changed, 160 counted",
+    "replace": "280 changed, 161 counted",
+    "test": "pnpm vitest run addons/visual/tests/budget.test.mts -t \"described in tolerance.ts\""
+  },
+  {
     "name": "host: a face is loaded without being awaited, so the first render does not wait for it",
     "file": "addons/visual/files/packages/client-react/tests/visual/host/render.tsx",
     "find": "await loadEveryFace(document.fonts);",

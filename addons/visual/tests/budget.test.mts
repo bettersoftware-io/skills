@@ -8,6 +8,8 @@
 // rim pixels it takes for anti-aliasing and counts fewer than changed. Both
 // kinds are here so the half-rule is held by the counted number, not the changed.
 
+import { readFileSync } from "node:fs";
+
 import { describe, expect, it } from "vitest";
 
 import { TOLERANCE } from "../files/packages/client-react/tests/visual/tolerance.ts";
@@ -182,6 +184,9 @@ const regressions = [
   },
 ];
 
+const shade = (level: number): Paint => (x, y) => (within(x, y, [0, 0, 8, 5]) ? [level, level, level, 255] : undefined);
+const wobble = { before: picture(shade(200), text), after: picture(shade(202), text), changed: 40, counted: 0 };
+
 describe("the default tolerance", () => {
   for (const regression of regressions) {
     it(regression.name, () => {
@@ -196,17 +201,21 @@ describe("the default tolerance", () => {
   }
 
   it("lets through a one- or two-level shading wobble", () => {
-    const shade = (level: number): Paint => (x, y) => (within(x, y, [0, 0, 8, 5]) ? [level, level, level, 255] : undefined);
-    const before = picture(shade(200), text);
-    const after = picture(shade(202), text);
-
-    expect(changed(before, after)).toBe(40);
-    expect(counted(before, after)).toBe(0);
+    expect(changed(wobble.before, wobble.after)).toBe(wobble.changed);
+    expect(counted(wobble.before, wobble.after)).toBe(wobble.counted);
   });
 
   it("keeps the budget at most half the smallest regression", () => {
     const counts = regressions.map(({ before, after }) => counted(before, after));
 
     expect(budget() * 2).toBeLessThanOrEqual(Math.min(...counts));
+  });
+
+  // tolerance.ts copies these counts into its comment, for a reader of that file. This holds the copy to them.
+  it("is described in tolerance.ts's comment with the counts measured here", () => {
+    const comment = readFileSync(new URL("../files/packages/client-react/tests/visual/tolerance.ts", import.meta.url), "utf8");
+    const written = [...comment.matchAll(/^\/\/ .* (\d+) changed, (\d+) counted$/gm)].map(([, changedThere, countedThere]) => `${changedThere}/${countedThere}`);
+
+    expect(written.sort()).toEqual([...regressions, wobble].map((pair) => `${pair.changed}/${pair.counted}`).sort());
   });
 });
