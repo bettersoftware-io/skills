@@ -1465,7 +1465,7 @@
   {
     "name": "is left to the host when it is nested too deep and names none",
     "file": "addons/agent-workflow/files/tools/agent-workflow/hooks/split-outward-commands.mts",
-    "find": "    return command !== undefined && (mentionsOutward(command) || mentionsGit(command))\n",
+    "find": "    return command !== undefined && (error instanceof WrappedLimitError || mentionsOutward(command) || mentionsGit(command))\n",
     "replace": "    return command !== undefined\n",
     "test": "pnpm vitest run addons/agent-workflow/tests/never-allows.test.mts --testNamePattern=\"is left to the host when it is nested too deep and names none\""
   },
@@ -1535,7 +1535,7 @@
   {
     "name": "refuses the deep chain when run as a program",
     "file": "addons/agent-workflow/files/tools/agent-workflow/hooks/split-outward-commands.mts",
-    "find": "  } catch {\n    // Not read: too long, nested too deep, or the reader itself failed. A chain must not pass for that.\n    return command",
+    "find": "  } catch (error) {\n    // Not read: too long, nested too deep, or the reader itself failed. A chain must not pass for that.\n    return command",
     "replace": "  } catch (error) {\n    // Not read: too long, nested too deep, or the reader itself failed. A chain must not pass for that.\n    throw error;\n    return command",
     "test": "pnpm vitest run addons/agent-workflow/tests/never-allows.test.mts --testNamePattern=\"refuses the deep chain when run as a program\""
   },
@@ -1859,7 +1859,7 @@
   {
     "name": "refuses the deep chain when run as a program",
     "file": "addons/agent-workflow/files/tools/agent-workflow/hooks/split-outward-commands.mts",
-    "find": "  } catch {\n    // Not read: too long, nested too deep, or the reader itself failed. A chain must not pass for that.\n    return command",
+    "find": "  } catch (error) {\n    // Not read: too long, nested too deep, or the reader itself failed. A chain must not pass for that.\n    return command",
     "replace": "  } catch (error) {\n    // Not read: too long, nested too deep, or the reader itself failed. A chain must not pass for that.\n    if (error instanceof Error) {\n      throw error;\n    }\n\n    return command",
     "test": "pnpm vitest run addons/agent-workflow/tests/never-allows.test.mts --testNamePattern=\"refuses the deep chain when run as a program\""
   },
@@ -7326,15 +7326,22 @@
   {
     "name": "an unread command that names git and no outward step is let through",
     "file": "addons/agent-workflow/files/tools/agent-workflow/hooks/split-outward-commands.mts",
-    "find": "(mentionsOutward(command) || mentionsGit(command))",
-    "replace": "mentionsOutward(command)",
-    "test": "pnpm vitest run addons/agent-workflow/tests/never-allows.test.mts -t \"is refused when it names git and no outward step\""
+    "find": "mentionsOutward(command) || mentionsGit(command))",
+    "replace": "mentionsOutward(command))",
+    "test": "pnpm vitest run addons/agent-workflow/tests/never-allows.test.mts -t \"is refused when it names git and no outward step: nested too deep\""
   },
   {
     "name": "git is not found in an unread command",
     "file": "addons/agent-workflow/files/tools/agent-workflow/lib/outward.mts",
     "find": "return mentions(text, /(?:^|[^A-Za-z0-9_-])git(?:\\.exe)?(?:$|[^A-Za-z0-9_-])/i);",
     "replace": "return false;",
-    "test": "pnpm vitest run addons/agent-workflow/tests/never-allows.test.mts -t \"is refused when it names git and no outward step\""
+    "test": "pnpm vitest run addons/agent-workflow/tests/never-allows.test.mts -t \"is refused when it names git and no outward step: nested too deep\""
+  },
+  {
+    "name": "a wrapper with too many git words is refused only by its text",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/hooks/split-outward-commands.mts",
+    "find": "(error instanceof WrappedLimitError || ",
+    "replace": "(",
+    "test": "pnpm vitest run addons/agent-workflow/tests/never-allows.test.mts -t \"however the text spells them\""
   }
 ]

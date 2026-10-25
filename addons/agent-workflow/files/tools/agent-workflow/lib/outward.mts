@@ -32,6 +32,13 @@ const ALIAS_SETTING = /^(?:alias|include|includeif)\./i;
 const CONFIG_IN_FRONT = /^(?:GIT_CONFIG\w*|HOME|XDG_CONFIG_HOME)=/;
 /** How many words behind a wrapper that name a program this reads are tried as the command, before the stage is not read at all. */
 const WRAPPED_CANDIDATES = 32;
+
+/**
+ * A stage not read because a wrapper is followed by more than
+ * `WRAPPED_CANDIDATES` words that name git, gh or a shell. Those words were
+ * read, so the hook refuses it whatever the text looks like.
+ */
+export class WrappedLimitError extends LimitError {}
 /**
  * Words before a command that are not the command: what a shell allows there,
  * and programs that run the command that follows them. Claude Code looks past
@@ -246,7 +253,7 @@ function wrappedStart(stage: Stage, start: number): number {
     tried += 1;
 
     if (tried > WRAPPED_CANDIDATES) {
-      throw new LimitError(`a program that runs a command is followed by more than ${WRAPPED_CANDIDATES} words that name git, gh or a shell`);
+      throw new WrappedLimitError(`a program that runs a command is followed by more than ${WRAPPED_CANDIDATES} words that name git, gh or a shell`);
     }
 
     const words = stage.slice(index);

@@ -177,8 +177,15 @@ describe("a command the hook does not read", () => {
   });
 
   // git may run an outward step under another name (an alias from HOME's settings), so naming git is enough.
-  it("is refused when it names git and no outward step: a wrapper followed by too many words that name git", () => {
-    const answer = judgeCall(createCall(`HOME=/tmp/x stdbuf -o L ${"git ".repeat(40)}p && ls`));
+  it("is refused when a wrapper is followed by too many words that name git, however the text spells them", () => {
+    const answer = judgeCall(createCall(`HOME=/tmp/x stdbuf -o L ${'g"i"t '.repeat(40)}p && ls`));
+
+    expect(answer?.decision).toBe("deny");
+    expect(answer?.reason).toContain("too long or too deeply nested");
+  });
+
+  it("is refused when it names git and no outward step: nested too deep to read", () => {
+    const answer = judgeCall(createCall(deep(20_000, "HOME=/tmp/x git p && ls")));
 
     expect(answer?.decision).toBe("deny");
     expect(answer?.reason).toContain("too long or too deeply nested");

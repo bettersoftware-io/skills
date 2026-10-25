@@ -62,7 +62,7 @@
 import { readFileSync } from "node:fs";
 
 import { isMainModule } from "../lib/main.mts";
-import { judgeCommand, mentionsGit, mentionsOutward, type Verdict } from "../lib/outward.mts";
+import { judgeCommand, mentionsGit, mentionsOutward, type Verdict, WrappedLimitError } from "../lib/outward.mts";
 
 /** The fields a host sends that this hook reads. */
 export interface CommandPayload {
@@ -101,9 +101,9 @@ export function judgeCall(payload: CommandPayload): Answer | undefined {
 
   try {
     verdict = command === undefined ? undefined : judgeCommand(command);
-  } catch {
+  } catch (error) {
     // Not read: too long, nested too deep, or the reader itself failed. A chain must not pass for that.
-    return command !== undefined && (mentionsOutward(command) || mentionsGit(command))
+    return command !== undefined && (error instanceof WrappedLimitError || mentionsOutward(command) || mentionsGit(command))
       ? {
           decision: "deny",
           reason: [
