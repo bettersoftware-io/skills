@@ -756,6 +756,62 @@
     "test": "pnpm vitest run addons/visual/tests/reach.test.mts -t \"stops at the limit and says how many more there are\""
   },
   {
+    "name": "coverage: --limit=N is refused",
+    "file": "addons/visual/files/tools/visual/coverage.mts",
+    "find": "argv.length === 1 ? (argv[0] ?? \"\").split(/=(.*)/s) : argv",
+    "replace": "argv",
+    "test": "pnpm vitest run addons/visual/tests/coverage.test.mts -t \"reads --limit N and --limit=N\""
+  },
+  {
+    "name": "coverage: a third argument is let through",
+    "file": "addons/visual/files/tools/visual/coverage.mts",
+    "find": "argv.length > 2 || ",
+    "replace": "",
+    "test": "pnpm vitest run addons/visual/tests/coverage.test.mts -t \"refuses --limit 3 4\""
+  },
+  {
+    "name": "coverage: an argument it cannot read still runs",
+    "file": "addons/visual/files/tools/visual/coverage.mts",
+    "find": "    return 2;\n  }\n\n  const directory",
+    "replace": "    return 0;\n  }\n\n  const directory",
+    "test": "pnpm vitest run addons/visual/tests/coverage.test.mts -t \"argument it cannot read\""
+  },
+  {
+    "name": "coverage: Vitest's packages on different versions still run",
+    "file": "addons/visual/files/tools/visual/coverage.mts",
+    "find": "  if (versions !== undefined) {",
+    "replace": "  if (false) {",
+    "test": "pnpm vitest run addons/visual/tests/coverage.test.mts -t \"on different versions\""
+  },
+  {
+    "name": "coverage: a missing vitest is run anyway",
+    "file": "addons/visual/files/tools/visual/coverage.mts",
+    "find": "  if (!existsSync(vitest)) {",
+    "replace": "  if (false) {",
+    "test": "pnpm vitest run addons/visual/tests/coverage.test.mts -t \"no vitest to run\""
+  },
+  {
+    "name": "coverage: a failed run is ranked",
+    "file": "addons/visual/files/tools/visual/coverage.mts",
+    "find": "  if (run.status !== 0) {",
+    "replace": "  if (false) {",
+    "test": "pnpm vitest run addons/visual/tests/coverage.test.mts -t \"was not rendered\""
+  },
+  {
+    "name": "coverage: a failed run's output is not printed",
+    "file": "addons/visual/files/tools/visual/coverage.mts",
+    "find": "    console.error([run.stdout, run.stderr, run.error?.message].filter(Boolean).join(\"\\n\"));\n",
+    "replace": "",
+    "test": "pnpm vitest run addons/visual/tests/coverage.test.mts -t \"was not rendered\""
+  },
+  {
+    "name": "coverage: a run that wrote no coverage is read anyway",
+    "file": "addons/visual/files/tools/visual/coverage.mts",
+    "find": "  if (!existsSync(path)) {",
+    "replace": "  if (false) {",
+    "test": "pnpm vitest run addons/visual/tests/coverage.test.mts -t \"wrote no coverage\""
+  },
+  {
     "name": "vitest-versions: different versions pass",
     "file": "addons/visual/files/tools/visual/lib/vitestVersions.mts",
     "find": "new Set(VITEST_PACKAGES.map((name) => installed[name])).size > 1",

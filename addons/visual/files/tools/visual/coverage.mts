@@ -2,7 +2,7 @@
 // Ranks the UI files by what no visual scenario renders.
 //
 //   node tools/visual/coverage.mts              the thirty files with most left out
-//   node tools/visual/coverage.mts --limit 10   the ten
+//   node tools/visual/coverage.mts --limit 10   the ten (or --limit=10)
 //
 // Every scenario is rendered in Chromium through the host's own render path
 // (tests/visual/reach/), with no picture taken, and the coverage of
@@ -11,10 +11,11 @@
 // taken and the functions never called: states no picture shows yet. The
 // reports (json, summary, html) are in tests/visual/reports/coverage/.
 //
-// This is a report, not a gate. Exit 0: every scenario was rendered. Exit 2:
-// Vitest and its two packages here are missing or on different versions, a
-// scenario could not be rendered, or the run wrote no coverage. The full
-// output of the run is printed.
+// This is a report, not a gate. Exit 0: every scenario was rendered, and the
+// list is printed. Exit 2: there is no list, and the reason is printed: an
+// argument it cannot read; Vitest and its two packages here missing or on
+// different versions; a scenario that could not be rendered; or a run that
+// wrote no coverage. After a run, its full output is printed with the reason.
 
 import { spawnSync } from "node:child_process";
 import { existsSync, readFileSync, realpathSync } from "node:fs";
@@ -29,14 +30,15 @@ const CONFIG = "tests/visual/reach/vite.config.ts";
 const COVERAGE = "tests/visual/reports/coverage/coverage-final.json";
 const DEFAULT_LIMIT = 30;
 
-function parseLimit(argv: string[]): number {
+/** The number of files to list: `--limit 10` or `--limit=10`, thirty when not given. */
+export function parseLimit(argv: string[]): number {
   if (argv.length === 0) {
     return DEFAULT_LIMIT;
   }
 
-  const [flag, value] = argv;
+  const [flag, value] = argv.length === 1 ? (argv[0] ?? "").split(/=(.*)/s) : argv;
 
-  if (flag !== "--limit" || argv.length !== 2 || !Number.isInteger(Number(value)) || Number(value) < 1) {
+  if (flag !== "--limit" || argv.length > 2 || !Number.isInteger(Number(value)) || Number(value) < 1) {
     throw new Error(`usage: node tools/visual/coverage.mts [--limit <a whole number above 0>], got "${argv.join(" ")}"`);
   }
 
