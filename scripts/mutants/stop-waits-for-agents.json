@@ -156,22 +156,22 @@
   {
     "name": "before-stop: every running shell holds the gate back",
     "file": "kit/hooks/before-stop.mts",
-    "find": "const task = transcript === undefined ? undefined : tasks.find((waited) => transcript.includes(`\"backgroundTaskId\":${JSON.stringify(waited.id)}`));",
-    "replace": "const task = transcript === undefined ? undefined : tasks[0];",
+    "find": "const task = tasks.find((waited) => waited.id !== undefined && started.has(waited.id));",
+    "replace": "const task = started.size > 0 ? tasks[0] : undefined;",
     "test": "pnpm vitest run kit/hooks/hooks.test.mts -t \"waits on a shell of its own\""
   },
   {
     "name": "before-stop: an id that only begins the shell's matches",
     "file": "kit/hooks/before-stop.mts",
-    "find": "transcript.includes(`\"backgroundTaskId\":${JSON.stringify(waited.id)}`)",
-    "replace": "transcript.includes(`\"backgroundTaskId\":\"${waited.id}`)",
+    "find": "started.has(waited.id)",
+    "replace": "[...started].some((startedId) => startedId.startsWith(waited.id as string))",
     "test": "pnpm vitest run kit/hooks/hooks.test.mts -t \"waits on a shell of its own\""
   },
   {
     "name": "before-stop: a finished subagent still holds the gate back",
     "file": "kit/hooks/before-stop.mts",
-    "find": "    if (meta.finished === true) {\n      return [];\n    }\n",
-    "replace": "",
+    "find": "const started = meta.finished === false ? tasksStartedIn(",
+    "replace": "const started = meta.finished !== true ? tasksStartedIn(",
     "test": "pnpm vitest run kit/hooks/hooks.test.mts -t \"waits on a shell of its own\""
   },
   {
@@ -212,8 +212,8 @@
   {
     "name": "before-stop: a record that is not JSON stops the hook",
     "file": "kit/hooks/before-stop.mts",
-    "find": "    const meta: unknown = JSON.parse(readFileSync(path, \"utf8\"));\n\n    return typeof meta === \"object\" && meta !== null ? (meta as Record<string, unknown>) : {};\n  } catch {\n    return {};\n  }",
-    "replace": "    const meta: unknown = JSON.parse(readFileSync(path, \"utf8\"));\n\n    return typeof meta === \"object\" && meta !== null ? (meta as Record<string, unknown>) : {};\n  } finally {\n  }",
+    "find": "    return typeof meta === \"object\" && meta !== null ? (meta as Record<string, unknown>) : {};\n  } catch {\n    return {};\n  }",
+    "replace": "    return typeof meta === \"object\" && meta !== null ? (meta as Record<string, unknown>) : {};\n  } finally {\n  }",
     "test": "pnpm vitest run kit/hooks/hooks.test.mts -t \"waits on a shell of its own\""
   },
   {
@@ -221,6 +221,27 @@
     "file": "kit/hooks/before-stop.mts",
     "find": "    names = readdirSync(folder);\n  } catch {\n    return [];\n  }",
     "replace": "    names = readdirSync(folder);\n  } finally {\n  }",
+    "test": "pnpm vitest run kit/hooks/hooks.test.mts -t \"waits on a shell of its own\""
+  },
+  {
+    "name": "before-stop: the id is found anywhere in a line",
+    "file": "kit/hooks/before-stop.mts",
+    "find": "const result: unknown = typeof record === \"object\" && record !== null ? (record as Record<string, unknown>).toolUseResult : undefined;",
+    "replace": "const result: unknown = typeof record === \"object\" && record !== null ? ((record as Record<string, unknown>).toolUseResult ?? record) : undefined;",
+    "test": "pnpm vitest run kit/hooks/hooks.test.mts -t \"waits on a shell of its own\""
+  },
+  {
+    "name": "before-stop: a line that is not JSON stops the reading",
+    "file": "kit/hooks/before-stop.mts",
+    "find": "    try {\n      record = JSON.parse(line);\n    } catch {\n      continue;\n    }",
+    "replace": "    try {\n      record = JSON.parse(line);\n    } catch {\n      break;\n    }",
+    "test": "pnpm vitest run kit/hooks/hooks.test.mts -t \"waits on a shell of its own\""
+  },
+  {
+    "name": "before-stop: a tool result that is text is read for an id",
+    "file": "kit/hooks/before-stop.mts",
+    "find": "const id: unknown = typeof result === \"object\" && result !== null ? (result as Record<string, unknown>).backgroundTaskId : undefined;",
+    "replace": "const id: unknown = (result as Record<string, unknown>).backgroundTaskId;",
     "test": "pnpm vitest run kit/hooks/hooks.test.mts -t \"waits on a shell of its own\""
   }
 ]

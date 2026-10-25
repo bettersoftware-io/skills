@@ -872,9 +872,10 @@ turn's stop is judged as usual.
   Claude Code lists the shell and not the subagent, so the hook looks for the
   shell's id in the session's subagent transcripts
   (`<session>/subagents/agent-<id>.jsonl`, beside `transcript_path`). If a
-  subagent that has not finished started it, the gate waits for that
-  subagent too. That layout is Claude Code's own and not documented: when it
-  cannot be read, the gate runs.
+  subagent whose `.meta.json` says `"finished": false` started it, the gate
+  waits for that subagent too. That layout is Claude Code's own and not
+  documented: when it is not there, cannot be read or says anything else,
+  the gate runs.
 - An entry in a shape the reference does not document (no status, a type or
   a status it does not list) does not either: what cannot be read runs the
   gate.
