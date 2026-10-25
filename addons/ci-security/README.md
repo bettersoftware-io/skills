@@ -100,6 +100,11 @@ longer, and Renovate must never wait less: pnpm refuses a younger release,
 and the pull request could not update the lockfile. A test holds the three
 numbers together.
 
+Both bots move the action commits in the workflows the add-ons wrote. That
+does not make a workflow one the project edited: the next update of its
+add-on takes the new copy and keeps the newer version of each action. A
+workflow changed in any other way is refused, as any edited file is.
+
 What only Renovate does, and the file settles:
 
 - It reads every file it knows, so it is told to leave `tools/` alone. That

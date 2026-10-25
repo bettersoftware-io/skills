@@ -13,6 +13,8 @@ import { createHash } from "node:crypto";
 import { accessSync, constants, existsSync, lstatSync, mkdirSync, readdirSync, readFileSync, renameSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { dirname, isAbsolute, join, relative, sep } from "node:path";
 
+import { isWorkflow, keepNewerActionRefs, withoutActionRefs } from "./action-pins.mts";
+
 export class InstallError extends Error {}
 
 /** Path in the project (posix separators) → content to write there. */
@@ -28,6 +30,8 @@ export interface InstallOutcome {
   refused: string[];
   /** Files replaced under `--force` whose content now has a place in the project's own files, each with where the project's version was kept. */
   saved: { path: string; copy: string }[];
+  /** Workflows whose only changes here were an update bot's moved action refs: they took the new copy, at the newer version of each action. */
+  repinned: string[];
 }
 
 /**
@@ -49,6 +53,8 @@ export function savedCopyOf(unit: string, path: string): string {
 interface InstalledRecord {
   [unit: string]: {
     files: Record<string, string>;
+    /** Each workflow's hash with its action refs taken out, so a file an update bot moved still matches what was installed. */
+    withoutActionRefs?: Record<string, string>;
     /** The option of the add-on's choice the project has, when the add-on offers one. */
     choice?: string;
     /**
@@ -195,10 +201,13 @@ export function installFiles(
 ): InstallOutcome {
   const record = readRecord(project);
   const before = record[unit]?.files ?? {};
+  const beforeWithoutRefs = record[unit]?.withoutActionRefs ?? {};
+  // A workflow that only an update bot changed is written at the newer action versions, not as shipped.
+  const toWrite: FileSet = new Map(files);
   const conflicts: string[] = [];
   /** Files the project changed that `--force` is about to replace. */
   const edited: string[] = [];
-  const outcome: InstallOutcome = { written: [], unchanged: [], removed: [], kept: [], refused: [], saved: [] };
+  const outcome: InstallOutcome = { written: [], unchanged: [], removed: [], kept: [], refused: [], saved: [], repinned: [] };
 
   // Both lists of paths are checked before anything is touched. The record is
   // a file in the project, so it is input like any other: a path in it that
@@ -214,11 +223,20 @@ export function installFiles(
     }
 
     const current = hash(readProjectFile(project, path));
+    // A file untouched here takes the shipped copy as it is, even an action the add-on moved back.
+    const repinned = current === before[path] ? undefined : repin(path, readProjectText(project, path), content, beforeWithoutRefs[path]);
 
-    if (current === hash(content)) {
+    if (repinned !== undefined) {
+      toWrite.set(path, repinned);
+    }
+
+    if (current === hash(toWrite.get(path) as Buffer)) {
       outcome.unchanged.push(path);
     } else if (current === before[path]) {
       outcome.written.push(path);
+    } else if (repinned !== undefined) {
+      outcome.written.push(path);
+      outcome.repinned.push(path);
     } else if (force) {
       outcome.written.push(path);
       edited.push(path);
@@ -263,7 +281,7 @@ export function installFiles(
 
   for (const path of outcome.written) {
     try {
-      writeProjectFile(project, path, files.get(path) as Buffer);
+      writeProjectFile(project, path, toWrite.get(path) as Buffer);
     } catch (error) {
       // That is the host's rule to make. The rest goes in, and the caller says what is left.
       if (!HOST_FOLDER.test(path) || !isRefusal(error)) {
@@ -276,13 +294,14 @@ export function installFiles(
 
   outcome.written = outcome.written.filter((path) => !outcome.refused.includes(path));
 
+  const recorded = [...toWrite].filter(([path]) => !outcome.refused.includes(path));
+  const workflows = recorded.filter(([path]) => isWorkflow(path));
+
   record[unit] = {
-    files: Object.fromEntries(
-      [...files]
-        .filter(([path]) => !outcome.refused.includes(path))
-        .map(([path, content]) => [path, hash(content)])
-        .sort(),
-    ),
+    files: Object.fromEntries(recorded.map(([path, content]) => [path, hash(content)]).sort()),
+    ...(workflows.length === 0
+      ? {}
+      : { withoutActionRefs: Object.fromEntries(workflows.map(([path, content]) => [path, hash(Buffer.from(withoutActionRefs(content.toString("utf8"))))]).sort()) }),
     // Written with every install, so an update that names no option must pass the one the project has.
     ...(choice === undefined ? {} : { choice }),
     // Kept through the install: it is read after it, to tell a new starting file from a deleted one.
@@ -292,6 +311,27 @@ export function installFiles(
   writeRecord(project, record);
 
   return outcome;
+}
+
+/**
+ * The add-on's new copy of a workflow at the newer version of each action,
+ * when the project's only changes to it are moved action refs: it reads as
+ * the new copy, or as what was installed, once the refs are taken out.
+ * Undefined for any other file, and for a workflow edited in another way.
+ */
+function repin(path: string, current: string, shipped: Buffer, installedWithoutRefs: string | undefined): Buffer | undefined {
+  if (!isWorkflow(path)) {
+    return undefined;
+  }
+
+  const text = shipped.toString("utf8");
+  const mine = withoutActionRefs(current);
+
+  if (mine !== withoutActionRefs(text) && hash(Buffer.from(mine)) !== installedWithoutRefs) {
+    return undefined;
+  }
+
+  return Buffer.from(keepNewerActionRefs(current, text));
 }
 
 /** What a refusal says under a file whose edits have a place in the project's own files. Nothing for any other file. */

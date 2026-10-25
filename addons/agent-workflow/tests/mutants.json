@@ -1199,8 +1199,8 @@
   {
     "name": "installs the rest, and records nothing for a file the host keeps it from writing",
     "file": "scripts/lib/install.mts",
-    "find": "        .filter(([path]) => !outcome.refused.includes(path))\n",
-    "replace": "",
+    "find": "  const recorded = [...toWrite].filter(([path]) => !outcome.refused.includes(path));",
+    "replace": "  const recorded = [...toWrite];",
     "test": "pnpm vitest run scripts/add-to-project.test.mts --testNamePattern=\"installs the rest, and records nothing for a file the host keeps it from writing\""
   },
   {
