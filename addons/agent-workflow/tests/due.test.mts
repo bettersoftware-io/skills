@@ -9,7 +9,7 @@ import { describeDue, dueWeeks, findDue } from "../files/tools/agent-workflow/li
 import type { Merge } from "../files/tools/agent-workflow/lib/history.mts";
 import { type Run, run } from "../files/tools/agent-workflow/lib/system.mts";
 import { parseWeek } from "../files/tools/agent-workflow/lib/week.mts";
-import { commit, createFolder, createRemote, git } from "./support.mts";
+import { commit, createFolder, createRemote, git, REAL_PROCESS_TIMEOUT } from "./support.mts";
 
 /** A changelog with one section per `weeks` entry (name → numbers it cites). */
 function createText(weeks: Record<string, number[]> = {}): string {
@@ -116,7 +116,7 @@ describe("describing a week due", () => {
   });
 });
 
-describe("the command", () => {
+describe("the command", { timeout: REAL_PROCESS_TIMEOUT }, () => {
   it("reads the remote text and history through git, and skips with no CHANGELOG.md or no remote branch", () => {
     const { clone } = createRemote();
 

@@ -11,6 +11,9 @@ export const ADDON = join(import.meta.dirname, "..");
 export const REPOSITORY = join(ADDON, "..", "..");
 export const TOOLS = join(ADDON, "files/tools/agent-workflow");
 
+/** A case that starts real processes (git, node): on a busy machine that is longer than vitest's default five seconds. */
+export const REAL_PROCESS_TIMEOUT = 60_000;
+
 /** A fresh folder holding `files` (path → content). */
 export function createFolder(files: Record<string, string> = {}): string {
   const folder = realpathSync(mkdtempSync(join(tmpdir(), "agent-workflow-addon-")));

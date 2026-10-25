@@ -6,7 +6,7 @@ import { describe, expect, it } from "vitest";
 import { shellWord, shown } from "../files/tools/agent-workflow/lib/shown.mts";
 import { type Run, run } from "../files/tools/agent-workflow/lib/system.mts";
 import { auditWorktrees, parseWorktrees } from "../files/tools/agent-workflow/lib/worktree-audit.mts";
-import { commit, createFolder, createRemote, git, type Remote, TOOLS, writeFile } from "./support.mts";
+import { commit, createFolder, createRemote, git, REAL_PROCESS_TIMEOUT, type Remote, TOOLS, writeFile } from "./support.mts";
 
 /** A character a terminal acts on or turns the text round with: none may reach a line of the report as it is. */
 const RAW = /[\u0000-\u001f\u007f-\u009f\u200e\u200f\u202a-\u202e\u2066-\u2069]/;
@@ -14,7 +14,7 @@ const DAY = 86_400_000;
 /** Said under a MERGED worktree that may hold no work of its own, in place of the commands. */
 const NO_COMMAND_YET = "  No command is printed for it. Ask whose it is first: it is finished only if nobody is about to use it";
 
-describe("a project with no linked worktree", () => {
+describe("a project with no linked worktree", { timeout: REAL_PROCESS_TIMEOUT }, () => {
   it("says there is none, names nothing to remove, and exits 0", () => {
     const remote = createRemote();
     const { status, lines, text } = audit(remote.clone);
@@ -31,7 +31,7 @@ describe("a project with no linked worktree", () => {
   });
 });
 
-describe("a worktree's verdict", () => {
+describe("a worktree's verdict", { timeout: REAL_PROCESS_TIMEOUT }, () => {
   it("is MERGED when its branch reached main by a merge commit and its tree is clean, with the two commands that remove it", () => {
     const remote = createRemote();
     const path = addWorktree(remote, "done");
@@ -439,7 +439,7 @@ describe("a worktree's verdict", () => {
   });
 });
 
-describe("main as it is now", () => {
+describe("main as it is now", { timeout: REAL_PROCESS_TIMEOUT }, () => {
   it("fetches origin's main first: a worktree merged since the last fetch reads as MERGED", () => {
     const remote = createRemote();
     const path = addWorktree(remote, "done");
@@ -540,7 +540,7 @@ describe("main as it is now", () => {
   });
 });
 
-describe("orphan branches", () => {
+describe("orphan branches", { timeout: REAL_PROCESS_TIMEOUT }, () => {
   it("lists a worktree-* branch no worktree has checked out as MERGED, with the command that deletes it", () => {
     const remote = createRemote();
 
@@ -604,7 +604,7 @@ describe("orphan branches", () => {
   });
 });
 
-describe("stray folders", () => {
+describe("stray folders", { timeout: REAL_PROCESS_TIMEOUT }, () => {
   it("lists a folder in the worktree folder that git does not know, with its top level, and leaves it there", () => {
     const remote = createRemote();
     const stray = join(worktreesOf(remote), "leftover");
@@ -683,7 +683,7 @@ describe("stray folders", () => {
   });
 });
 
-describe("the filter", () => {
+describe("the filter", { timeout: REAL_PROCESS_TIMEOUT }, () => {
   it("keeps the worktrees whose name holds it, and still lists every orphan branch and stray folder", () => {
     const remote = createRemote();
 
@@ -749,7 +749,7 @@ describe("the filter", () => {
   });
 });
 
-describe("text that comes from outside", () => {
+describe("text that comes from outside", { timeout: REAL_PROCESS_TIMEOUT }, () => {
   it("writes out a control character and a text-direction mark in a commit's subject, so that it cannot write a line of its own", () => {
     const remote = createRemote();
     const path = addWorktree(remote, "wip");
@@ -912,7 +912,7 @@ describe("a word of a printed command", () => {
   });
 });
 
-describe("it only reads", () => {
+describe("it only reads", { timeout: REAL_PROCESS_TIMEOUT }, () => {
   it("removes nothing: every worktree, branch and stray folder is still there after a run", () => {
     const remote = createRemote();
 

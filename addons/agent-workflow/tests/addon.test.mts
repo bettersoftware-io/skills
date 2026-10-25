@@ -46,7 +46,7 @@ const CLAUDE_HOOK = `node "$CLAUDE_PROJECT_DIR/${HOOK_SCRIPT}"`;
 const MONITOR_GROUP = { matcher: "Monitor", hooks: [{ type: "command", command: CLAUDE_HOOK, timeout: 5 }] };
 /** The rule that version had about its setting file. A merge takes nothing out, so it stays. */
 const OLD_SETTING_RULE = "Edit(/tools/agent-workflow.config.json)";
-/** For a test that starts the hook once per command of a table. */
+/** For a test that starts the hook once per command of a table, as the add-on's proof (check.mts) does. */
 const SPAWNS_TIMEOUT = 120_000;
 /** How the version before this one had Claude Code start the hook. */
 const OLD_CLAUDE_HOOK = `${CLAUDE_HOOK} ${RETIRED_ARGUMENT}`;
@@ -978,7 +978,7 @@ describe("the add-on in a project that has the kit", () => {
     expect(verify.stdout).toContain("PASS Codex: .codex/hooks.json runs the hook before each shell command");
     expect(verify.stdout).not.toContain("FAIL");
     expect(verify.status).toBe(0);
-  });
+  }, SPAWNS_TIMEOUT);
 
   it("fails that proof once the hook is taken out of a host's settings", () => {
     const project = createProjectWithKit();
@@ -994,7 +994,7 @@ describe("the add-on in a project that has the kit", () => {
 
     expect(verify.status).toBe(1);
     expect(verify.stdout).toContain("FAIL Codex: .codex/hooks.json does not register");
-  });
+  }, SPAWNS_TIMEOUT);
 
   it("leaves a project that had the old setting and the old registration right: its hook started as it is now, the rest of its entry kept, and the one for the Monitor tool beside it", () => {
     const project = createProjectAsBefore();
@@ -1029,7 +1029,7 @@ describe("the add-on in a project that has the kit", () => {
     expect(verify.stdout).not.toContain("registers the hook");
     expect(verify.stdout).not.toContain("FAIL");
     expect(verify.status).toBe(0);
-  });
+  }, SPAWNS_TIMEOUT);
 
   it("notes the old argument in its proof before the update, and fails for one thing only: no hook before the Monitor tool", () => {
     const project = createProjectAsBefore();

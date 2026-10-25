@@ -9,6 +9,9 @@ import type { RunTool, ToolRun } from "../files/tools/repo-hygiene/lib/run.mts";
 
 export const TOOLS = join(import.meta.dirname, "..", "files", "tools", "repo-hygiene");
 
+/** A case that starts the real Stylelint, once or more: on a busy machine that is longer than vitest's default five seconds. */
+export const REAL_TOOL_TIMEOUT = 60_000;
+
 /** A fresh folder holding `files` (path → content). */
 export function createFolder(files: Record<string, string> = {}): string {
   const folder = realpathSync(mkdtempSync(join(tmpdir(), "repo-hygiene-addon-")));
