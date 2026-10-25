@@ -1,0 +1,142 @@
+[
+  {
+    "name": "before-stop: a teammate is not an agent",
+    "file": "kit/hooks/before-stop.mts",
+    "find": "const AGENT_TASKS = [\"subagent\", \"teammate\", \"workflow\"];",
+    "replace": "const AGENT_TASKS = [\"subagent\", \"workflow\"];",
+    "test": "pnpm vitest run kit/hooks/hooks.test.mts -t \"while a teammate is running\""
+  },
+  {
+    "name": "before-stop: a workflow is not an agent",
+    "file": "kit/hooks/before-stop.mts",
+    "find": "const AGENT_TASKS = [\"subagent\", \"teammate\", \"workflow\"];",
+    "replace": "const AGENT_TASKS = [\"subagent\", \"teammate\"];",
+    "test": "pnpm vitest run kit/hooks/hooks.test.mts -t \"while a workflow is running\""
+  },
+  {
+    "name": "before-stop: a subagent is not an agent",
+    "file": "kit/hooks/before-stop.mts",
+    "find": "const AGENT_TASKS = [\"subagent\", \"teammate\", \"workflow\"];",
+    "replace": "const AGENT_TASKS = [\"teammate\", \"workflow\"];",
+    "test": "pnpm vitest run kit/hooks/hooks.test.mts -t \"while a subagent is running\""
+  },
+  {
+    "name": "before-stop: a shell task holds the gate back",
+    "file": "kit/hooks/before-stop.mts",
+    "find": "const AGENT_TASKS = [\"subagent\", \"teammate\", \"workflow\"];",
+    "replace": "const AGENT_TASKS = [\"subagent\", \"teammate\", \"workflow\", \"shell\"];",
+    "test": "pnpm vitest run kit/hooks/hooks.test.mts -t \"only a shell task is running\""
+  },
+  {
+    "name": "before-stop: a monitor holds the gate back",
+    "file": "kit/hooks/before-stop.mts",
+    "find": "const AGENT_TASKS = [\"subagent\", \"teammate\", \"workflow\"];",
+    "replace": "const AGENT_TASKS = [\"subagent\", \"teammate\", \"workflow\", \"monitor\"];",
+    "test": "pnpm vitest run kit/hooks/hooks.test.mts -t \"only a monitor is running\""
+  },
+  {
+    "name": "before-stop: the type is matched in part",
+    "file": "kit/hooks/before-stop.mts",
+    "find": "!AGENT_TASKS.includes(type)",
+    "replace": "!AGENT_TASKS.some((kind) => { return type.startsWith(kind); })",
+    "test": "pnpm vitest run kit/hooks/hooks.test.mts -t \"a type that is not an agent's\""
+  },
+  {
+    "name": "before-stop: a pending agent is not at work",
+    "file": "kit/hooks/before-stop.mts",
+    "find": "const IN_FLIGHT = [\"pending\", \"running\"];",
+    "replace": "const IN_FLIGHT = [\"running\"];",
+    "test": "pnpm vitest run kit/hooks/hooks.test.mts -t \"still waiting to start\""
+  },
+  {
+    "name": "before-stop: a completed agent is still at work",
+    "file": "kit/hooks/before-stop.mts",
+    "find": "const IN_FLIGHT = [\"pending\", \"running\"];",
+    "replace": "const IN_FLIGHT = [\"pending\", \"running\", \"completed\"];",
+    "test": "pnpm vitest run kit/hooks/hooks.test.mts -t \"when the agent's task is completed\""
+  },
+  {
+    "name": "before-stop: a failed agent is still at work",
+    "file": "kit/hooks/before-stop.mts",
+    "find": "const IN_FLIGHT = [\"pending\", \"running\"];",
+    "replace": "const IN_FLIGHT = [\"pending\", \"running\", \"failed\"];",
+    "test": "pnpm vitest run kit/hooks/hooks.test.mts -t \"when the agent's task is failed\""
+  },
+  {
+    "name": "before-stop: a killed agent is still at work",
+    "file": "kit/hooks/before-stop.mts",
+    "find": "const IN_FLIGHT = [\"pending\", \"running\"];",
+    "replace": "const IN_FLIGHT = [\"pending\", \"running\", \"killed\"];",
+    "test": "pnpm vitest run kit/hooks/hooks.test.mts -t \"when the agent's task is killed\""
+  },
+  {
+    "name": "before-stop: an entry with no status is at work",
+    "file": "kit/hooks/before-stop.mts",
+    "find": "typeof status !== \"string\" || !IN_FLIGHT.includes(status)",
+    "replace": "(typeof status === \"string\" && !IN_FLIGHT.includes(status))",
+    "test": "pnpm vitest run kit/hooks/hooks.test.mts -t \"only entry has no status\""
+  },
+  {
+    "name": "before-stop: an entry with no type is an agent",
+    "file": "kit/hooks/before-stop.mts",
+    "find": "typeof type !== \"string\" || !AGENT_TASKS.includes(type)",
+    "replace": "(typeof type === \"string\" && !AGENT_TASKS.includes(type))",
+    "test": "pnpm vitest run kit/hooks/hooks.test.mts -t \"only entry has no type\""
+  },
+  {
+    "name": "before-stop: a list that is not one is read as one",
+    "file": "kit/hooks/before-stop.mts",
+    "find": "  if (!Array.isArray(tasks)) {\n    return [];\n  }\n\n  return tasks.flatMap(",
+    "replace": "  return (Array.isArray(tasks) ? tasks : [tasks]).flatMap(",
+    "test": "pnpm vitest run kit/hooks/hooks.test.mts -t \"when the list of tasks is not a list\""
+  },
+  {
+    "name": "before-stop: the agents are not named",
+    "file": "kit/hooks/before-stop.mts",
+    "find": "still at work, and may be editing this tree (${named.join(\"; \")}).",
+    "replace": "still at work, and may be editing this tree.",
+    "test": "pnpm vitest run kit/hooks/hooks.test.mts -t \"names every agent still at work\""
+  },
+  {
+    "name": "before-stop: only the first agent is named",
+    "file": "kit/hooks/before-stop.mts",
+    "find": "(${named.join(\"; \")})",
+    "replace": "(${named[0]})",
+    "test": "pnpm vitest run kit/hooks/hooks.test.mts -t \"names every agent still at work\""
+  },
+  {
+    "name": "before-stop: the next stop is not mentioned",
+    "file": "kit/hooks/before-stop.mts",
+    "find": "`It runs at the next stop, once ${agents.length === 1 ? \"it has\" : \"they have\"} finished.`,",
+    "replace": "``,",
+    "test": "pnpm vitest run kit/hooks/hooks.test.mts -t \"while a subagent is running, and says so\""
+  },
+  {
+    "name": "before-stop: a long description is not cut",
+    "file": "kit/hooks/before-stop.mts",
+    "find": "const DESCRIPTION_CHARACTERS = 120;",
+    "replace": "const DESCRIPTION_CHARACTERS = 1200;",
+    "test": "pnpm vitest run kit/hooks/hooks.test.mts -t \"cuts a long description\""
+  },
+  {
+    "name": "before-stop: one agent at work does not hold the gate back",
+    "file": "kit/hooks/before-stop.mts",
+    "find": "if (agents.length > 0) {",
+    "replace": "if (agents.length > 1) {",
+    "test": "pnpm vitest run kit/hooks/hooks.test.mts -t \"while a subagent is running, and says so\""
+  },
+  {
+    "name": "before-stop: the deferral also records the tree as green",
+    "file": "kit/hooks/before-stop.mts",
+    "find": "    return { systemMessage: deferral(agents) };",
+    "replace": "    const root = findProject(String(payload.cwd))?.root;\n    const tree = root === undefined ? undefined : hashWorkingTree(root);\n\n    if (root !== undefined && tree !== undefined) {\n      writeLastGreen(root, tree);\n    }\n\n    return { systemMessage: deferral(agents) };",
+    "test": "pnpm vitest run kit/hooks/hooks.test.mts -t \"keeps no record of a tree it did not judge\""
+  },
+  {
+    "name": "before-stop: the command still writes a block",
+    "file": "kit/hooks/before-stop.mts",
+    "find": "const reply = answer ? `${JSON.stringify(answer)}\\n` : \"\";",
+    "replace": "const reply = answer ? `${JSON.stringify({ decision: \"block\", reason: answer.reason ?? answer.systemMessage })}\\n` : \"\";",
+    "test": "pnpm vitest run kit/hooks/hooks.test.mts -t \"answers with a message and no decision when run as a command\""
+  }
+]
