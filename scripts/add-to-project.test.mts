@@ -745,8 +745,8 @@ describe("adding the starter to a project that was not created from it", () => {
       "package.json: devDependencies.@types/node",
     ]);
     expect(result.notes).toContain(
-      'package.json: scripts.gate:fast is this project\'s "pnpm gates && pnpm lint", and was kept. The starter\'s is "pnpm gates && pnpm lint && pnpm typecheck". To take the starter\'s: add-to-project.mts ' +
-        `${project} starter --force`,
+      'package.json: scripts.gate:fast is this project\'s "pnpm gates && pnpm lint", and was kept. The starter\'s is "pnpm gates && pnpm lint && pnpm typecheck". add-to-project.mts ' +
+        `${project} starter --force takes the starter's, for every entry of package.json named here`,
     );
   });
 

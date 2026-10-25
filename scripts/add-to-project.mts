@@ -1040,7 +1040,7 @@ function mergeStarterManifest(project: string, asked: string, shipped: Buffer | 
       changes.push(`package.json: ${label}${existing === undefined ? "" : " (--force)"}`);
     } else {
       kept.push(
-        `package.json: ${label} is this project's ${JSON.stringify(existing)}, and was kept. The starter's is ${JSON.stringify(value)}. To take the starter's: add-to-project.mts ${asked} ${STARTER} --force`,
+        `package.json: ${label} is this project's ${JSON.stringify(existing)}, and was kept. The starter's is ${JSON.stringify(value)}. add-to-project.mts ${asked} ${STARTER} --force takes the starter's, for every entry of package.json named here`,
       );
     }
   };

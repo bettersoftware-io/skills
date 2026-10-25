@@ -77,6 +77,7 @@ node scripts/add-to-project.mts <project> coverage
 | [`strict-lint`](addons/strict-lint/README.md) | The ESLint rules that need types (a promise nothing waits for, a `switch` that misses a case), and knip for unused files, exports and dependencies |
 | [`agent-workflow`](addons/agent-workflow/README.md) | A hook that keeps each push and pull request step in a tool call of its own, a worktree script and an audit of the worktrees that are left, a page of what is left, a weekly tag, and a changelog whose completeness is checked |
 | `kit` | The same command brings a project's copy of the gates up to date, or sets them up in a project that did not start here |
+| `starter` | After `kit`, in a project that did not start here: the starter's settings files, CI workflow and packages, each written only where the project has none |
 
 `coverage`, `format-lint`, `ci-security`, `strict-lint` and `agent-workflow` are
 marked recommended: a new project should take them unless it has a reason
@@ -98,6 +99,25 @@ written over. An add-on may offer a choice between two sets of such files
 (`ci-security:dependabot`); the project has one, and moving to the other removes
 the first only if the project never changed it.
 [The contract an add-on follows](addons/README.md).
+
+A project that was not created from the starter takes it with `node
+scripts/add-to-project.mts <project> starter`, after the kit. It never writes
+over a file the project has. A file that differs is kept, and "Still to do by
+hand" names it with the `diff` that shows how, against the kit's copy of the
+starter's file. A package the project has gets none of the starter's files. The
+root `package.json` gains the scripts, dependencies and fields it lacks, and
+keeps one that differs; `--force` replaces those entries, never a file. The
+packages it wrote are declared in the project's `architecture.config.mts`, and
+the kit's example config, if the project never changed it, becomes the
+starter's when every package went in. A later run writes only what the starter
+has shipped since: one the project deleted does not come back. Tested by
+`scripts/add-to-project.test.mts` ("adding the starter to a project that was
+not created from it") against a stand-in starter, by
+`scripts/dependency-order.test.mts` against the real one under three scopes,
+and by CI's `bare-project` job: a project with only a `package.json` takes the
+kit, then the starter, installs, passes `pnpm gate:full`, and a second run of
+the starter changes nothing. That job ran on the pull request that added the
+unit, and on 2026-10-25 on macOS by hand, both green.
 
 ## Architecture documents
 
