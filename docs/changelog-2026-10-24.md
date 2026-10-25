@@ -269,3 +269,27 @@ add-on, and `agent-workflow` for the first time. Then:
 Still not seen: `weekly-tag.yml`'s first scheduled run (Monday 2026-10-26,
 00:05 UTC), a release made by merging an entry whose tag already exists, the
 writer, and the reminder in Codex.
+
+## Codex, 2026-10-25
+
+The person trusted skills-demo's four Codex hooks with `/hooks` in an
+interactive session (Codex 0.164.0). `~/.codex/config.toml` then holds one
+`trusted_hash` for each, keyed by the path of `.codex/hooks.json`. Two
+`codex exec -s read-only` runs followed, with no `--dangerously-bypass-hook-trust`:
+
+- **The push hook.** Asked to run `git status && git push --dry-run origin
+  main` as one command, Codex logged `hook: PreToolUse Blocked` with the
+  hook's refusal ("Refused: this command joins an outward step (git push
+  --dry-run) to other commands. …"). Nothing ran. `SessionStart` and `Stop`
+  ran as well.
+- **The reminder.** With the checkout and its `origin/main` moved back to
+  `ff57ed2` (before the W42 entry, the same `.codex/hooks.json`), so that
+  `pnpm changelog due` named `2026-W42  3 merged, no entry`, Codex was asked
+  what its session context says about the changelog, and quoted:
+  "Changelog: as of the last fetch of the default branch, these weeks are due
+  in CHANGELOG.md: 2026-W42  3 merged, no entry: write it with
+  /workflow:changelog 2026-W42 … In Codex the command is $workflow-changelog
+  <week>." The checkout and `origin/main` were put back (`git switch main`,
+  `git fetch`), and `due` was quiet again.
+
+Not seen: either hook in an interactive session of Codex or Claude Code.
