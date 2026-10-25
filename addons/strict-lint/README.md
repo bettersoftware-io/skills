@@ -18,7 +18,7 @@ cd <project> && pnpm install && pnpm lint:types && pnpm lint:dead
 | Typed rules | `tools/strict-lint/eslint.typed.base.mts` | The three rules, the parser settings and what is not judged. Belongs to the add-on: an update replaces it |
 | ESLint config | `tools/strict-lint/eslint.config.mts` | The project's `eslint.config.mts`, then the typed rules. A starting file: written once, then the project's own. A rule is added, changed or switched off here |
 | knip config | `tools/strict-lint/knip.jsonc` | What knip reads and what it leaves alone, each line with its reason. A starting file |
-| AGENTS section | `AGENTS.md` | What to do with a promise nothing waits for, and with something knip calls unused |
+| AGENTS section | `AGENTS.md` | What to do with a promise nothing waits for, and with something knip calls unused. That a plan of several tasks adds each export in the task that first imports it |
 
 One dev dependency in the root `package.json`: `knip` `^6.17.1`, the range the
 source uses. ESLint and typescript-eslint are already in the starter. No
@@ -208,6 +208,13 @@ the tests here and by the local runs above.
   starter's four index files. A project that wants its index files left alone
   adds `"ignore": ["src/index.ts"]` to `packages/*` (tried: the unused line
   is then not reported), and gives up findings in them.
+- **An export cannot wait for a later task.** knip judges the tree as it is.
+  In a plan carried out task by task, each task ending with the gate passing,
+  a name one task exports for a caller in a later task fails `pnpm lint:dead`
+  in between, as any unused export does (the planted unused export in
+  `tests/dead.test.mts`). An export arrives with its first caller; a plan
+  names the task that adds it. The AGENTS section says so, where the agent
+  that writes the plan reads.
 - **TypeScript is two installs in the starter.** `tsc` is TypeScript 7;
   the `typescript` package is the 6.x JavaScript API, and typescript-eslint
   (`typescript >=4.8.4 <6.1.0`) reads types through that one. So
