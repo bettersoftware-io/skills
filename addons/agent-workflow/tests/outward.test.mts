@@ -474,6 +474,78 @@ describe("a push the reader once took for another command", () => {
   });
 });
 
+describe("a step that gives git a meaning another step of the script uses", () => {
+  // An alias set by one step is all the next step's `git p` stands for.
+  it.each([
+    ["git config", "git config alias.p push && git p origin worktree-a"],
+    ["git config --global", "git config --global alias.p push; git p"],
+    ["git config set", "git config set alias.p push && git p"],
+    ["git config --add, an include", "git config --add include.path /tmp/a && git p"],
+  ])("refuses a chain whose step writes an alias: %s", (_name, command) => {
+    expect(judgeCommand(command)?.chained).toBe(true);
+  });
+
+  it("asks about writing an alias alone, and lets reading one through", () => {
+    expect(judgeCommand("git config alias.p push")).toMatchObject({ chained: false, redirected: true });
+    expect(judgeCommand("git config --get alias.p")).toEqual({ outward: [], chained: false, redirected: false });
+    expect(judgeCommand("git config get alias.p")).toEqual({ outward: [], chained: false, redirected: false });
+    expect(judgeCommand("git config --list")).toEqual({ outward: [], chained: false, redirected: false });
+    expect(judgeCommand("git config user.name x && git status")).toEqual({ outward: [], chained: false, redirected: false });
+  });
+
+  // git reads its settings from where these point, wherever in the script they were set.
+  it.each([
+    ["export HOME", "export HOME=/tmp/x; git p"],
+    ["HOME as a step of its own", "HOME=/tmp/x\ngit p"],
+    ["declare XDG_CONFIG_HOME", "declare -x XDG_CONFIG_HOME=/tmp/x && git p"],
+    ["export GIT_CONFIG_GLOBAL", "export GIT_CONFIG_GLOBAL=/tmp/g; git p"],
+    ["GIT_DIR in front", "GIT_DIR=/tmp/r git p"],
+    ["export GIT_EXEC_PATH", "export GIT_EXEC_PATH=/tmp/bin; git p"],
+  ])("takes git after a step that points its settings elsewhere for an outward step: %s", (_name, command) => {
+    expect(judgeCommand(command)?.outward.length).toBeGreaterThan(0);
+    expect(judgeCommand(command)?.redirected).toBe(true);
+    expect(judgeCommand(`ls && ${command}`)?.chained).toBe(true);
+  });
+
+  // The settings HOME points to may say where a push goes (`remote.origin.push`), so even a plain one is asked about.
+  it("asks about a plain push after a step that points git's settings elsewhere", () => {
+    expect(judgeCommand("HOME=/tmp/x\ngit push origin worktree-a")).toMatchObject({ outward: ["git push origin"], chained: false, redirected: true });
+    expect(judgeCommand("git push origin worktree-a")).toMatchObject({ redirected: false });
+  });
+
+  it("takes a write for a write when a read word is only the value of an option", () => {
+    expect(judgeCommand("git config --comment --get alias.p push && git p")?.chained).toBe(true);
+  });
+
+  it("follows a setting made inside eval, which runs in the same shell, and GIT_COMMON_DIR", () => {
+    expect(judgeCommand("eval 'export HOME=/tmp/x'; git p")).toMatchObject({ chained: true });
+    expect(judgeCommand("eval 'export HOME=/tmp/x'; git p")?.outward).toContain("git p");
+    expect(judgeCommand("export GIT_COMMON_DIR=/tmp/r; git p")?.outward).toContain("git p");
+    expect(judgeCommand(`eval "eval 'export HOME=/tmp/x'"; git p`)?.outward).toContain("git p");
+    expect(judgeCommand("bash -c 'export HOME=/tmp/x'; git status")).toEqual({ outward: [], chained: false, redirected: false });
+  });
+
+  it("does not read env -S text that env would change: a backslash or a $", () => {
+    expect(judgeCommand("env -S 'git\\_push origin worktree-a' && ls")).toBeUndefined();
+    expect(judgeCommand("env -S '${X}git push origin worktree-a' && ls")).toBeUndefined();
+  });
+
+  it("leaves git alone when the script sets nothing it reads its settings from", () => {
+    expect(judgeCommand("export PAGER=cat; git log")).toEqual({ outward: [], chained: false, redirected: false });
+  });
+
+  // `env -S` splits its text into a command line, as `bash -c` runs one.
+  it.each([
+    ["env -S", "env -S 'git push origin worktree-a' && ls"],
+    ["env --split-string", "env --split-string 'git push origin worktree-a' && ls"],
+    ["env -S joined", "env '-Sgit push origin worktree-a' && ls"],
+    ["env --split-string=", "env '--split-string=git push origin worktree-a' && ls"],
+    ["env -S, the push alone inside", "ls && env -S 'git push origin worktree-a'"],
+  ])("reads the text of env -S as a command: %s", (_name, command) => {
+    expect(judgeCommand(command)).toMatchObject({ outward: ["git push origin"], chained: true });
+  });
+});
+
 // Bash takes each backslash and the new line after it out of the command
 // before it reads it, outside single quotes, a comment and the body of a
 // quoted heredoc. So the reader does the same, once, for the whole command.
