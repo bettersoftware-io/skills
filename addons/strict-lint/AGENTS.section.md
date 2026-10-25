@@ -42,6 +42,14 @@ it under `tools/` to hide it.
 Never turn a kind of finding off, and never add a file to `ignore`, to get
 past one finding.
 
+**A plan in several tasks.** An export arrives with its first caller. When
+each task ends with the gate passing, a task cannot export a name for a later
+task to use: `pnpm lint:dead` fails on it until something imports it. So a
+plan names, for each new export and each new line of an `index.ts`, the task
+that writes its first importer, and adds it in that task, not before. A test
+that imports it counts; for a line of an `index.ts`, only one that imports
+through that `index.ts`.
+
 A new package needs nothing: `packages/*` covers it. Skip all of this for a
 change that touches no TypeScript file and no `package.json`.
 
