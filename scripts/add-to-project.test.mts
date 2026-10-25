@@ -1618,6 +1618,19 @@ describe("a starting file that a later version of an add-on is the first to ship
     expect(addToProject({ project, unit: "demo", repository }).yours).toEqual([]);
   });
 
+  it("is written by the update, once, in a project that keeps templates and has no starting list, when its template is new there", () => {
+    const { repository, project } = createWorldWithKit();
+    withStartingFiles(repository);
+    addToProject({ project, unit: "demo", repository });
+    forgetStartingFiles(project);
+    withPolicyFile(repository);
+
+    const result = addToProject({ project, unit: "demo", repository });
+
+    expect(result.created).toEqual(["POLICY.md"]);
+    expect(read(project, "POLICY.md")).toBe("# Policy, as shipped\n");
+  });
+
   it("is written whether it is text or not, in a project whose record lists the starting files it was given", () => {
     const { repository, project } = createWorldWithKit();
     withStartingFiles(repository);
