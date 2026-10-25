@@ -196,7 +196,7 @@ function deferral(agents: AgentAtWork[]): string {
 
   return [
     `The gate was not run: ${agents.length === 1 ? "an agent of this session is" : `${agents.length} agents of this session are`} still at work, and may be editing this tree (${named.join("; ")}).`,
-    "It runs at the next stop, once they have finished.",
+    `It runs at the next stop, once ${agents.length === 1 ? "it has" : "they have"} finished.`,
   ].join(" ");
 }
 
