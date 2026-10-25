@@ -36,12 +36,13 @@ A project declares its layers once, in `architecture.config.mts`
 | `typescript-only` | The project holds a `.js`, `.jsx`, `.mjs` or `.cjs` source file that is not listed as an exception |
 | `dumb-ui` | A UI file imports the stream library, touches storage, reads configuration, opens a connection, or sets a timer |
 | `port-contracts` | A port has no contract test; the contract never calls one of the port's methods; the contract imports an implementation; an adapter folder that implements a port does not run that port's contract; adapter folders are declared and no port is found |
-| `dependencies` | An import points outward; the domain, or a package that asked, uses a Node built-in; the core imports a UI framework; a presenter or a state machine imports an adapter; production code imports test scaffolding; a confined library is imported outside its packages; the UI imports the composition root or an adapter; anything imports an integration package or an e2e package; an e2e package imports any of the application but a client's test ids; there is a cycle |
+| `dependencies` | An import points outward; the domain, or a package that asked, uses a Node built-in; the core imports a UI framework, installed or not; a presenter or a state machine imports an adapter; production code imports test scaffolding; a confined library is imported outside its packages; the UI imports the composition root or an adapter; anything imports an integration package or an e2e package; an e2e package imports any of the application but a client's test ids; there is a cycle |
 | `agent-docs` | `AGENTS.md` or `CLAUDE.md` names a file or folder that does not exist |
 | `task-cache` | A cached task in `turbo.json` has a key that leaves out the packages a package imports; a package's tsconfig extends a file outside the package that is not a global dependency; a package with tests that need a port caches its `test` task |
-| `package-scripts` | A workspace package has no `typecheck` script, or no `test` (or `test:…`) script and no listed reason; an e2e package has a `test` script; a script, the root's or a package's, runs `eslint` without `--max-warnings 0` |
+| `package-scripts` | A workspace package has no `typecheck` script, or no `test` (or `test:…`) script and no listed reason; an e2e package has a `test` script; a script, the root's or a package's, runs `eslint` without `--max-warnings 0`, or `vitest` without `--no-fsModuleCache` |
 | `node-floor` | A `package.json`, the root's or a package's, has `engines.node`; the root's has no `devEngines.runtime` that names `node` with a version and `"onFail": "error"` |
 | `package-manager` | The root `package.json` has no `packageManager`, or one that is not an exact version followed by `+sha512.` and the hash of that release |
+| `lockfile` | A package of the workspace has no entry under `importers:` in `pnpm-lock.yaml`. pnpm writes none for a package with no dependency, and the frozen install CI runs then refuses the lockfile while every gate passes locally |
 | `app-harness` | A test calls the function that builds the whole application, anywhere but the one harness file |
 | `test-ids` | A test id is written as a string literal, in a component, a selector or a query, outside the client's test-ids file |
 | `types-only` | A package declared `typesOnly` exports a runtime value |
@@ -49,7 +50,7 @@ A project declares its layers once, in `architecture.config.mts`
 
 ```bash
 node tools/arch/gates/run.mts                 # every gate
-node tools/arch/gates/run.mts --file src/ui/A.tsx   # per-file gates only: all but dependencies, agent-docs, task-cache, playwright-pin
+node tools/arch/gates/run.mts --file src/ui/A.tsx   # per-file gates only: all but dependencies, agent-docs, task-cache, lockfile, playwright-pin
 node tools/arch/gates/run.mts --json          # machine-readable
 ```
 
@@ -367,6 +368,18 @@ preset it takes in, then reports on every run and stops nothing. The
 `--max-warnings 0`, in the root `package.json` and in each package's. A script
 that passes `--fix` is left alone: a fixer gives no verdict.
 
+### Tests run without vitest's shared module cache
+
+vitest 5.0.4 and later keep one module cache for the whole workspace, in the
+root's `node_modules/.vitest-cache`, and delete it whole when the lockfile
+changed. The task runner starts packages' tests side by side, so one deletes
+the folder while another writes into it, and a run fails with `ENOTEMPTY`:
+three times on this plugin's CI on 2026-10-24, after vitest 5.0.5 came in.
+The `package-scripts` gate fails on a script that runs `vitest` without
+`--no-fsModuleCache` (or `--fsModuleCache=false`), which runs it as 5.0.3 did.
+A CI job starts with no cache, so it loses nothing there; a person loses the
+faster second run on their own machine.
+
 ### Test scaffolding stays in tests
 
 A `testing/` folder, a page object (`*.page.*`), a `*.testHelpers.*` file, a
@@ -598,7 +611,7 @@ A client whose build runs the React Compiler says so:
   role: "client",
   reactCompiler: true,
   compilerTracked: [
-    { file: "src/ui/PriceList.tsx", fn: "PriceRowView" },
+    { file: "src/ui/PriceRow.tsx", fn: "PriceRow" },
     { file: "src/ui/Chart.tsx", fn: "Chart", values: ["path"] },
   ],
 },

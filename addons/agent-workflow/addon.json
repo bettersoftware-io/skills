@@ -132,7 +132,7 @@
   "verify": "pnpm agent-workflow:check",
   "releaseNotes": [
     {
-      "id": "0.20.0",
+      "id": "0.21.0",
       "notes": [
         "Sessions now start with the changelog weeks that are due. In Codex, trust the new hook with `/hooks`.",
         "`pnpm changelog check` now fails a definitions block that differs from what `pnpm changelog defs --write` writes, and a citation in the wrong week. Run `pnpm changelog defs --write` once.",

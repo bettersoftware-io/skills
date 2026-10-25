@@ -1,4 +1,4 @@
-# The changelog features of agent-workflow 0.20.0, tried in skills-demo, 2026-10-24
+# The changelog features of agent-workflow 0.21.0 (built as 0.20.0), tried in skills-demo, 2026-10-24
 
 The changelog reminder, the new `pnpm changelog` subcommands, the release
 mirror (`pnpm changelog:releases`) and the two workflows that are off until

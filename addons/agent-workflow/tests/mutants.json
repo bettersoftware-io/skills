@@ -912,7 +912,7 @@
   {
     "name": "uses the same pins as the starter's own workflow",
     "file": "addons/agent-workflow/files/.github/workflows/weekly-tag.yml",
-    "find": "setup-node@820762786026740c76f36085b0efc47a31fe5020",
+    "find": "setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1",
     "replace": "setup-node@820762786026740c76f36085b0efc47a31fe5021",
     "test": "pnpm vitest run addons/agent-workflow/tests/addon.test.mts --testNamePattern=\"uses the same pins as the starter's own workflow\""
   },
@@ -1171,8 +1171,8 @@
   {
     "name": "installs the rest, and records nothing for a file the host keeps it from writing",
     "file": "scripts/lib/install.mts",
-    "find": "        .filter(([path]) => !outcome.refused.includes(path))\n",
-    "replace": "",
+    "find": "  const recorded = [...toWrite].filter(([path]) => !outcome.refused.includes(path));",
+    "replace": "  const recorded = [...toWrite];",
     "test": "pnpm vitest run scripts/add-to-project.test.mts --testNamePattern=\"installs the rest, and records nothing for a file the host keeps it from writing\""
   },
   {
@@ -6290,7 +6290,7 @@
   {
     "name": "workflow: setup-node is pinned to another commit",
     "file": "addons/agent-workflow/files/.github/workflows/sync-releases.yml",
-    "find": "820762786026740c76f36085b0efc47a31fe5020",
+    "find": "949feb2413d6458794dcd2491c4babbbce0c15c1",
     "replace": "820762786026740c76f36085b0efc47a31fe5021",
     "test": "pnpm vitest run addons/agent-workflow/tests/addon.test.mts --testNamePattern=\"pins the same actions, by the same commits, as the weekly-tag workflow\""
   },
@@ -6673,16 +6673,16 @@
     "test": "pnpm vitest run addons/agent-workflow/tests/addon.test.mts --testNamePattern=\"does not let the changelog command run changelog tag without a prompt\""
   },
   {
-    "name": "the 0.20.0 notes no longer name /hooks",
+    "name": "the 0.21.0 notes no longer name /hooks",
     "file": "addons/agent-workflow/addon.json",
     "find": "trust the new hook with `/hooks`",
     "replace": "trust the new hook",
-    "test": "pnpm vitest run addons/agent-workflow/tests/addon.test.mts --testNamePattern=\"has release notes for 0.20.0\""
+    "test": "pnpm vitest run addons/agent-workflow/tests/addon.test.mts --testNamePattern=\"has release notes for 0.21.0\""
   },
   {
-    "name": "the plugin is not at 0.20.0",
+    "name": "the plugin is not at 0.21.0",
     "file": ".codex-plugin/plugin.json",
-    "find": "\"version\": \"0.20.0\"",
+    "find": "\"version\": \"0.21.0\"",
     "replace": "\"version\": \"0.19.0\"",
     "test": "pnpm vitest run addons/agent-workflow/tests/addon.test.mts --testNamePattern=\"go out with the plugin's version\""
   },
@@ -6799,18 +6799,18 @@
     "test": "pnpm vitest run addons/agent-workflow/tests/addon.test.mts --testNamePattern=\"registers the reminder in both hosts with the matcher and command the check looks for\""
   },
   {
-    "name": "the 0.20.0 notes no longer name the extend issue",
+    "name": "the 0.21.0 notes no longer name the extend issue",
     "file": "addons/agent-workflow/addon.json",
     "find": "The Monday issue is now titled `Changelog: extend <week>`",
     "replace": "The Monday issue is now titled `Changelog: write <week>`",
-    "test": "pnpm vitest run addons/agent-workflow/tests/addon.test.mts --testNamePattern=\"has release notes for 0.20.0\""
+    "test": "pnpm vitest run addons/agent-workflow/tests/addon.test.mts --testNamePattern=\"has release notes for 0.21.0\""
   },
   {
-    "name": "the 0.20.0 notes no longer say a complete entry gets no issue",
+    "name": "the 0.21.0 notes no longer say a complete entry gets no issue",
     "file": "addons/agent-workflow/addon.json",
     "find": "and no issue is opened when the entry already cites",
     "replace": "and an issue is opened when the entry already cites",
-    "test": "pnpm vitest run addons/agent-workflow/tests/addon.test.mts --testNamePattern=\"has release notes for 0.20.0\""
+    "test": "pnpm vitest run addons/agent-workflow/tests/addon.test.mts --testNamePattern=\"has release notes for 0.21.0\""
   },
   {
     "name": "the writer's summary does not name what a week lacks",

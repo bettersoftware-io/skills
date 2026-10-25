@@ -33,7 +33,7 @@ describe("a project whose React packages are not", () => {
 
   it("fails, with one line for each finding", () => {
     expect(status).toBe(1);
-    expect(findings).toHaveLength(13);
+    expect(findings).toHaveLength(15);
   });
 
   it("names a client that bans memoization while its build compiles nothing, and is not fooled by a comment or an import", () => {
@@ -41,6 +41,16 @@ describe("a project whose React packages are not", () => {
       expect.stringContaining("declares reactCompiler: true, so manual memoization is banned there, but its vite.config.ts does not run the React Compiler"),
     ]);
     expect(about("packages/client-bare")).toEqual([expect.stringContaining("but it has no vite.config.ts")]);
+  });
+
+  it("names an explicit package that declares the compiler, and each build that includes it and runs none, though another runs it", () => {
+    expect(about("packages/catalog-plain")).toEqual([
+      expect.stringContaining("packages/catalog-plain declares reactCompiler: true, so manual memoization is banned there, but packages/client-react builds it and does not run the React Compiler"),
+    ]);
+  });
+
+  it("names an explicit package that declares the compiler, when no package with a build depends on it", () => {
+    expect(about("packages/catalog-unbuilt")).toEqual([expect.stringContaining("no package of the workspace that depends on it has a vite.config.ts, so no build is seen to compile it")]);
   });
 
   it("names a client that runs the compiler and does not declare it", () => {

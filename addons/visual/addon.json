@@ -79,6 +79,13 @@
         "`pnpm visual:check:styles` joins `gate:fast`: it fails when `packages/client-react/src/main.tsx` imports a stylesheet or font other than `index.css`. Move such an import into `index.css`, the one file the visual host loads.",
         "`pnpm visual:coverage` lists the UI no scenario renders. It adds `vitest`, `@vitest/browser-playwright` and `@vitest/coverage-v8` to `packages/client-react`; the `pnpm -r update` command under \"Next\" puts them on one version, which Vitest needs."
       ]
+    },
+    {
+      "id": "0.20.0",
+      "notes": [
+        "A new project's starter now draws in Inter, from woff2 files in `packages/client-react/src/fonts/` declared with `@font-face` in `index.css`. Your project keeps its own fonts, and nothing in your goldens changes. In the pinned container on linux-x64, `system-ui` draws no bold: to have bold there, serve a face of your own the same way, in `index.css`, which the visual host loads.",
+        "The example goldens are redrawn in Inter, and `price-list-stale` is a new example section whose row goes stale on the host's clock (`stalePrices`). Neither is added to your project; the templates of `scenarios.ts` and `tolerance.ts` (its comments only) changed, and \"Yours to change\" shows how."
+      ]
     }
   ],
   "firstRun": "pnpm -r update --no-save vitest @vitest/browser-playwright @vitest/coverage-v8",

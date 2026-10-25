@@ -29,6 +29,10 @@ export default {
     "packages/icons": { role: "leaf" },
     // Explicit, and it does not say whose React rules it takes.
     "packages/catalog-bare": { role: "explicit" },
+    // Explicit, and says the compiler runs on it; no package with a build depends on it.
+    "packages/catalog-unbuilt": { role: "explicit", reactRules: "client", reactCompiler: true },
+    // Explicit, and says the compiler runs on it; client-loose builds it with the compiler, client-react without.
+    "packages/catalog-plain": { role: "explicit", reactRules: "client", reactCompiler: true },
   },
   reactWithoutPolicies: {
     "packages/icons": "generated from the design files and never edited by hand",

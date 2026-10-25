@@ -346,7 +346,7 @@ describe("the writer workflow", () => {
   // Each of these is the commit of a release that was at least 7 days old when it was chosen.
   const PINS = [
     "actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7",
-    "actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0",
+    "actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0",
     "anthropics/claude-code-action@f27be6b65a4652f08a2ba3cff79114829b588967 # v1.0.252",
     "actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2",
     "actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2",
@@ -595,9 +595,9 @@ describe("the writer workflow", () => {
 });
 
 describe("the release notes", () => {
-  it("has release notes for 0.20.0 that name both variables, /hooks, and the issue that may be extend or skipped", () => {
+  it("has release notes for 0.21.0 that name both variables, /hooks, and the issue that may be extend or skipped", () => {
     const { releaseNotes } = readJson<{ releaseNotes: { id: string; notes: string[] }[] }>(ADDON, "addon.json");
-    const notes = releaseNotes.find(({ id }) => id === "0.20.0")?.notes ?? [];
+    const notes = releaseNotes.find(({ id }) => id === "0.21.0")?.notes ?? [];
     const text = notes.join("\n");
 
     expect(notes).toHaveLength(5);
@@ -611,8 +611,8 @@ describe("the release notes", () => {
   it("go out with the plugin's version", () => {
     const { releaseNotes } = readJson<{ releaseNotes: { id: string }[] }>(ADDON, "addon.json");
 
-    expect(readJson<{ version: string }>(REPOSITORY, ".codex-plugin/plugin.json").version).toBe("0.20.0");
-    expect(releaseNotes[0]?.id).toBe("0.20.0");
+    expect(readJson<{ version: string }>(REPOSITORY, ".codex-plugin/plugin.json").version).toBe("0.21.0");
+    expect(releaseNotes[0]?.id).toBe("0.21.0");
   });
 });
 

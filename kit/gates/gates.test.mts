@@ -10,9 +10,10 @@ import { ConfigError, loadConfig, readVendorEntries } from "./lib/config.mts";
 import { buildRules, type Rule, vendorRuleName } from "./lib/depcruise.mts";
 import { resolveSubpathImport } from "./lib/files.mts";
 import { checkPortContracts, portContractsSkipReason } from "./lib/contracts.mts";
+import { checkLockfile, lockfileSkipReason, readImporters } from "./lib/lockfile.mts";
 import { checkNodeFloor } from "./lib/node-floor.mts";
 import { checkPackageManager } from "./lib/package-manager.mts";
-import { lenientLintCommands } from "./lib/package-scripts.mts";
+import { cachedVitestCommands, lenientLintCommands } from "./lib/package-scripts.mts";
 import { formatFindings, runGates } from "./run.mts";
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -38,6 +39,7 @@ describe("a project that follows the rules", () => {
       "package-scripts",
       "node-floor",
       "package-manager",
+      "lockfile",
       "app-harness",
       "test-ids",
       "types-only",
@@ -185,6 +187,12 @@ describe("a project that breaks the rules", () => {
     );
   });
 
+  it("names a package the lockfile has no entry for, which CI's frozen install would refuse", () => {
+    expect(of("lockfile").map(({ file, message }) => [file, message.split(".")[0]])).toEqual([
+      ["pnpm-lock.yaml", "packages/rogue is a package of the workspace and has no entry under importers: in pnpm-lock"],
+    ]);
+  });
+
   it("names every cached task whose key ignores the packages it imports", () => {
     const blind = of("task-cache", "turbo.json").map((finding) => finding.message);
 
@@ -230,6 +238,10 @@ describe("a project that breaks the rules", () => {
     expect(messages("dependencies", "packages/client-core/src/usesTheWidgets.ts")).toContain(
       "client-core-imports-inward-only: imports packages/widgets/src/index.ts. A core package may import only:",
     );
+  });
+
+  it("names a core that imports a UI framework, even one that is not installed and that vendorOnlyIn does not name", () => {
+    expect(messages("dependencies", "packages/client-core/src/usesReact.ts")).toContain("client-core-framework-free: imports react.");
   });
 
   it("names an integration package that imports an e2e package, in words that read", () => {
@@ -311,6 +323,12 @@ describe("a project that breaks the rules", () => {
     expect(of("package-scripts", "packages/client-react/package.json")).toEqual([]);
     expect(of("package-scripts", "packages/rogue/package.json")).toEqual([]);
     expect(of("package-scripts", "packages/domain/package.json")).toEqual([]);
+  });
+
+  it("names a script that runs vitest with its shared module cache on", () => {
+    expect(of("package-scripts", "packages/widgets/package.json").map((finding) => finding.message)).toEqual([
+      expect.stringContaining('The script "test" runs `vitest run` without --no-fsModuleCache'),
+    ]);
   });
 
   it("names each script that runs ESLint and lets a warning through, in the root and in a package", () => {
@@ -612,6 +630,7 @@ describe("a gate with nothing to judge", () => {
 
     expect(result.skipped).toEqual({
       "dumb-ui": "no UI files were found, so there was nothing to check",
+    lockfile: "there is no pnpm-lock.yaml at the root, so there was nothing to check",
       "port-contracts": "no port interfaces were found, so there was nothing to check",
       "agent-docs": "no AGENTS.md or CLAUDE.md was found, so there was nothing to check",
       "task-cache": "no turbo.json was found, so there was nothing to check",
@@ -713,6 +732,26 @@ describe("a #… import, read from the package's own package.json", () => {
   });
 });
 
+describe("a vitest command in a script", () => {
+  it("is held to --no-fsModuleCache, wherever in the script it is", () => {
+    expect(cachedVitestCommands("vitest run")).toEqual(["vitest run"]);
+    expect(cachedVitestCommands("pnpm build && vitest run --coverage && pnpm lint")).toEqual(["vitest run --coverage"]);
+    expect(cachedVitestCommands("pnpm exec vitest run")).toEqual(["vitest run"]);
+    expect(cachedVitestCommands("vitest")).toEqual(["vitest"]);
+  });
+
+  it("passes with the cache off in either spelling", () => {
+    expect(cachedVitestCommands("vitest run --no-fsModuleCache")).toEqual([]);
+    expect(cachedVitestCommands("vitest --no-fsModuleCache run src")).toEqual([]);
+    expect(cachedVitestCommands("vitest run --fsModuleCache=false")).toEqual([]);
+    expect(cachedVitestCommands("vitest run --fsModuleCache")).toEqual(["vitest run --fsModuleCache"]);
+  });
+
+  it("leaves a command that only has vitest in its name alone", () => {
+    expect(cachedVitestCommands("vitest-browser run && node_modules/vitest/x && my-vitest")).toEqual([]);
+  });
+});
+
 describe("an ESLint command in a script", () => {
   it("is held to --max-warnings 0, wherever in the script it is", () => {
     expect(lenientLintCommands("eslint .")).toEqual(["eslint ."]);
@@ -803,6 +842,86 @@ describe("the package manager the root package.json names", () => {
 
     expect(checkPackageManager({ root }, ["packages/domain/package.json"])).toEqual([]);
     expect(checkPackageManager({ root }, ["package.json"])).toHaveLength(1);
+  });
+});
+
+describe("the workspace packages pnpm-lock.yaml has an entry for", () => {
+  // pnpm 12 writes two documents in one file: pnpm's own first, then the project's.
+  const LOCKFILE = [
+    "---",
+    "lockfileVersion: '9.0'",
+    "",
+    "importers:",
+    "",
+    "  .:",
+    "    configDependencies: {}",
+    "",
+    "packages:",
+    "",
+    "---",
+    "lockfileVersion: '9.0'",
+    "",
+    "importers:",
+    "",
+    "  .:",
+    "    devDependencies:",
+    "      typescript:",
+    "        specifier: 7.0.2",
+    "        version: 7.0.2",
+    "",
+    "  packages/domain:",
+    "    dependencies:",
+    "      rxjs:",
+    "        specifier: ^7.8.2",
+    "        version: 7.8.2",
+    "",
+    "  'packages/it''s quoted': {}",
+    "",
+    "  packages/shared: {}",
+    "",
+    "packages:",
+    "",
+    "  rxjs@7.8.2:",
+    "    resolution: {integrity: sha512-x}",
+    "",
+  ].join("\n");
+
+  it("are read from every importers: section, keys in quotes included, and nothing after it", () => {
+    expect([...(readImporters(LOCKFILE) ?? [])].sort()).toEqual([".", "packages/domain", "packages/it's quoted", "packages/shared"]);
+  });
+
+  it("are none to read when the file has no importers: section", () => {
+    expect(readImporters("lockfileVersion: '9.0'\n\npackages:\n\n  rxjs@7.8.2: {}\n")).toBeUndefined();
+  });
+
+  it("are every package of the workspace in a lockfile pnpm wrote, so the gate says nothing", () => {
+    const root = createLockfileRoot(LOCKFILE);
+
+    expect(checkLockfile({ root, workspace: workspaceOf("packages/domain", "packages/shared") })).toEqual([]);
+  });
+
+  it("leave out a package with no entry, which the gate names with the line to add", () => {
+    const root = createLockfileRoot(LOCKFILE);
+
+    expect(checkLockfile({ root, workspace: workspaceOf("packages/domain", "packages/client", "packages/shared") })).toEqual([
+      {
+        gate: "lockfile",
+        file: "pnpm-lock.yaml",
+        message: expect.stringContaining('packages/client is a package of the workspace and has no entry under importers: in pnpm-lock.yaml. pnpm writes none for a package with no dependency, and the frozen install that CI runs then refuses the lockfile, while every gate passes here. Add "  packages/client: {}" under importers:'),
+      },
+    ]);
+  });
+
+  it("are a finding of their own when the lockfile has no importers: section, and a skip when there is no lockfile", () => {
+    expect(checkLockfile({ root: createLockfileRoot("lockfileVersion: '9.0'\n"), workspace: workspaceOf("packages/client") })).toEqual([
+      expect.objectContaining({ message: expect.stringContaining("has no importers: section") }),
+    ]);
+
+    const empty = mkdtempSync(join(tmpdir(), "arch-lockfile-"));
+
+    expect(checkLockfile({ root: empty, workspace: workspaceOf("packages/client") })).toEqual([]);
+    expect(lockfileSkipReason({ root: empty })).toBe("there is no pnpm-lock.yaml at the root, so there was nothing to check");
+    expect(lockfileSkipReason({ root: createLockfileRoot(LOCKFILE) })).toBeUndefined();
   });
 });
 
@@ -945,4 +1064,18 @@ function floorFindings(manifest: object): string[] {
   writeFileSync(join(root, "package.json"), JSON.stringify(manifest));
 
   return checkNodeFloor({ root, workspace: [] }).map((finding) => finding.message);
+}
+
+/** A folder with this pnpm-lock.yaml at its root. */
+function createLockfileRoot(lockfile: string): string {
+  const root = mkdtempSync(join(tmpdir(), "arch-lockfile-"));
+
+  writeFileSync(join(root, "pnpm-lock.yaml"), lockfile);
+
+  return root;
+}
+
+/** A workspace of these folders, each named after its last part. */
+function workspaceOf(...paths: string[]): { path: string; name: string }[] {
+  return paths.map((path) => ({ path, name: `@fx/${path.split("/").at(-1)}` }));
 }

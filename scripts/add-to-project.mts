@@ -1326,7 +1326,9 @@ export function describe(result: AddResult, project: string): string {
   const lines = [
     `${result.unit}: ${files.written.length} file(s) written, ${files.unchanged.length} already up to date, ${files.removed.length} removed`,
     ...(result.choice === undefined ? [] : [`  option   ${result.choice}: ${result.choiceSays ?? ""}`]),
-    ...files.written.map((path) => `  wrote    ${path}`),
+    ...files.written.map((path) =>
+      files.repinned.includes(path) ? `  wrote    ${path} (its only changes here were moved action versions, and the newer of each is kept)` : `  wrote    ${path}`,
+    ),
     ...files.removed.map((path) => `  removed  ${path}`),
     ...files.kept.map((path) => `  kept     ${path} (no longer shipped, but edited in the project)`),
     ...(result.choiceRemoved ?? []).map((path) => `  removed  ${path} (an option this project no longer has; it was never changed here)`),
@@ -1389,7 +1391,7 @@ export function describeYours({
     ...(yours.length > 0 && examplesNotGiven.length > 0
       ? [
           [
-            `Examples this project was never given: ${examplesNotGiven.join(", ")}. A template above may import one. Start it from its template in tools/templates/, with this project's own entries.`,
+            `Examples this project was never given: ${examplesNotGiven.join(", ")}. A template above may import one. Each text file among them has a template in tools/templates/ to start from, with this project's own entries; an image has none, and is the project's to make.`,
           ],
         ]
       : []),

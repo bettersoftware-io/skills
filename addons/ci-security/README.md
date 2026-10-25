@@ -88,7 +88,7 @@ The two files hold one policy:
 
 | | `dependabot.yml` | `renovate.json5` |
 |---|---|---|
-| When | `interval: weekly` | `schedule: before 6am on monday` (UTC) |
+| When | `interval: weekly` | `schedule: on monday` (UTC) |
 | How young a release may be | `cooldown: default-days: 7` | `minimumReleaseAge: 7 days`, held back until then (`internalChecksFilter: strict`) |
 | Grouping | Minor and patch in one pull request, each major alone; the actions in one | The same two groups |
 | Open at once | `open-pull-requests-limit: 5` | `prConcurrentLimit: 5` |
@@ -99,6 +99,11 @@ The two files hold one policy:
 longer, and Renovate must never wait less: pnpm refuses a younger release,
 and the pull request could not update the lockfile. A test holds the three
 numbers together.
+
+Both bots move the action commits in the workflows the add-ons wrote. That
+does not make a workflow one the project edited: the next update of its
+add-on takes the new copy and keeps the newer version of each action. A
+workflow changed in any other way is refused, as any edited file is.
 
 What only Renovate does, and the file settles:
 
@@ -111,6 +116,14 @@ What only Renovate does, and the file settles:
 - It moves the `packageManager` field with its hash, and the digest of a base
   image in a Dockerfile. Dependabot needs a `docker` entry for the second,
   and leaves the first to a person (`tools/arch/ci/pin-package-manager.mts`).
+- It reads the Playwright image of a workflow as the npm package
+  `@playwright/test`, so the package, the performance add-on's `playwright`
+  and every image move to one version, in one pull request of their own that
+  waits until someone asks for it on the Dependency Dashboard: the goldens
+  were drawn by one version, so a move means drawing them again. Without
+  this, "minor and patch" moved the package alone, and the `playwright-pin`
+  gate failed it (condo-ledger and origamic, 2026-10-19). Dependabot has no
+  such rule: under the starter's Node its npm updates do not run.
 
 Left out of the source's Renovate config: its auto-merge rules (a policy a
 project decides for itself; Dependabot's file has none either), its hourly
@@ -207,9 +220,13 @@ in the tool. A job is named when every pull request runs it:
 |---|---|
 | Its workflow has no `pull_request` under `on:`, or has anything under it (`paths`, `paths-ignore`, `branches`, `branches-ignore`, `types`) | Some pull requests do not start it. A required check that never reports holds the pull request for good |
 | It has an `if:` of its own. A step's `if:` does not count | A pull request can skip it |
-| It has a `strategy:`, calls another workflow with `uses:`, or has an expression in its `name:` | Its check has no one name that the file gives |
+| It calls another workflow with `uses:`, or has an expression in its `name:` other than a value of its matrix | Its checks have no names that the file gives |
+| Its matrix has an `include:` or an `exclude:`, is computed in an expression, or has a value that is not written out as one word or string | Its combinations are not read |
 
-The check's name is the job's `name:`, or its id. So the Scorecard job, the
+The check's name is the job's `name:`, or its id. A job with a matrix has one
+check per combination: its name with each `${{ matrix.<key> }}` replaced, or,
+when the name shows no value, the name with the values in brackets
+(`test (24, ubuntu-latest)`), as GitHub names them. So the Scorecard job, the
 coverage add-on's job that publishes the report and the weekly tag are not
 asked for, and the coverage gate is. The jobs left out are named on the
 line, and each with its reason above the command.
@@ -446,7 +463,7 @@ It was run against GitHub, reading only:
 | The folder | Result |
 |---|---|
 | A project made from the starter, with six workflows and every setting on | exit 0, nine `PASS`. The five checks read from its workflows are the five its ruleset requires; three jobs were left out |
-| This repository, where only the workflow permissions are as asked | exit 1: one `PASS`, eight `FAIL`, each single setting with its place and its command, and the ruleset command with this repository's one check. Its two matrix jobs were left out, with the reason |
+| This repository, where only the workflow permissions are as asked | exit 1: one `PASS`, eight `FAIL`, each single setting with its place and its command, and the ruleset command with this repository's one check. Its two matrix jobs were left out, with the reason (before 0.20.3, which reads their twelve checks) |
 | A folder whose `origin` names someone else's public repository | exit 1: five `SKIP` with GitHub's reason (two 404, two 403, one field left out), one `PASS`, three `FAIL` for the ruleset, and the line that says the branch has a classic protection rule |
 | A folder with no `origin` | exit 2, one `SKIP` line |
 | The first folder again: with no login, with a token GitHub refuses, through a proxy that takes no connection, with no `gh` on the `PATH` | exit 2 each time, one `SKIP` line that names the reason |

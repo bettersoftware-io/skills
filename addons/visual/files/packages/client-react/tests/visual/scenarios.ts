@@ -107,6 +107,15 @@ export const scenarios: Record<string, Scenario> = {
     prices: [...MOVES, USDJPY],
     selected: "GBPUSD",
   },
+  // The stale wait, on the presenter's own timer: USDJPY arrives, the seeding
+  // moves the host's clock past `STALE_AFTER_MS`, then the other two move.
+  // Only USDJPY's row has gone stale.
+  "price-list-stale": {
+    level: "section",
+    mount: "price-list",
+    stalePrices: [USDJPY],
+    prices: MOVES,
+  },
 
   // Page: the whole app, once, at the framing's viewport.
   app: {

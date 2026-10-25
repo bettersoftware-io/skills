@@ -1736,6 +1736,48 @@
     "test": "pnpm vitest run addons/ci-security/tests/addon.test.mts -t \"opens the security fixes itself\""
   },
   {
+    "name": "renovate: the whole of Monday",
+    "file": "addons/ci-security/choice/renovate/files/.github/renovate.json5",
+    "find": "\"schedule\": [\"on monday\"],",
+    "replace": "\"schedule\": [\"before 6am on monday\"],",
+    "test": "pnpm vitest run addons/ci-security/tests/addon.test.mts -t \"looks once a week, on the whole of Monday\""
+  },
+  {
+    "name": "renovate: Playwright waits to be asked",
+    "file": "addons/ci-security/choice/renovate/files/.github/renovate.json5",
+    "find": "      \"dependencyDashboardApproval\": true",
+    "replace": "      \"dependencyDashboardApproval\": false",
+    "test": "pnpm vitest run addons/ci-security/tests/addon.test.mts -t \"moves every Playwright pin to one version\""
+  },
+  {
+    "name": "renovate: Playwright is one group",
+    "file": "addons/ci-security/choice/renovate/files/.github/renovate.json5",
+    "find": "      \"groupName\": \"playwright\",",
+    "replace": "      \"groupName\": \"browsers\",",
+    "test": "pnpm vitest run addons/ci-security/tests/addon.test.mts -t \"groups as Dependabot does\""
+  },
+  {
+    "name": "renovate: the image is the npm package",
+    "file": "addons/ci-security/choice/renovate/files/.github/renovate.json5",
+    "find": "      \"depNameTemplate\": \"@playwright/test\",",
+    "replace": "      \"depNameTemplate\": \"mcr.microsoft.com/playwright\",",
+    "test": "pnpm vitest run addons/ci-security/tests/addon.test.mts -t \"reads a workflow's Playwright image as @playwright/test\""
+  },
+  {
+    "name": "renovate: the image is not moved as an image",
+    "file": "addons/ci-security/choice/renovate/files/.github/renovate.json5",
+    "find": "      \"matchDatasources\": [\"docker\"],\n      \"matchPackageNames\": [\"mcr.microsoft.com/playwright\"],\n      \"enabled\": false",
+    "replace": "      \"matchDatasources\": [\"docker\"],\n      \"matchPackageNames\": [\"mcr.microsoft.com/playwright\"],\n      \"enabled\": true",
+    "test": "pnpm vitest run addons/ci-security/tests/addon.test.mts -t \"reads a workflow's Playwright image as @playwright/test\""
+  },
+  {
+    "name": "renovate: every shipped image line is read",
+    "file": "addons/ci-security/choice/renovate/files/.github/renovate.json5",
+    "find": "-noble\"],",
+    "replace": "-jammy\"],",
+    "test": "pnpm vitest run addons/ci-security/tests/addon.test.mts -t \"reads a workflow's Playwright image as @playwright/test\""
+  },
+  {
     "name": "renovate: tools/ is not moved",
     "file": "addons/ci-security/choice/renovate/files/.github/renovate.json5",
     "find": "\"ignorePaths\": [\"**/node_modules/**\", \"tools/**\"]",
@@ -2604,24 +2646,94 @@
     "test": "pnpm vitest run addons/ci-security/tests/required-checks.test.mts -t \"is kept when its steps are a list that is not indented\""
   },
   {
-    "name": "required checks: a matrix leaves the job out",
+    "name": "required checks: a matrix is one check per combination",
     "file": "addons/ci-security/files/tools/ci-security/lib/required-checks.mts",
-    "find": "if (keys.has(\"strategy\")) {",
+    "find": "combinations.flatMap((combination) => values.map(",
+    "replace": "combinations.flatMap((combination) => values.slice(0, 1).map(",
+    "test": "pnpm vitest run addons/ci-security/tests/required-checks.test.mts -t \"the values in brackets after a name that shows none\""
+  },
+  {
+    "name": "required checks: the values follow a name that shows none",
+    "file": "addons/ci-security/files/tools/ci-security/lib/required-checks.mts",
+    "find": "names.push(replaced === name ?",
+    "replace": "names.push(false ?",
+    "test": "pnpm vitest run addons/ci-security/tests/required-checks.test.mts -t \"the values in brackets after a name that shows none\""
+  },
+  {
+    "name": "required checks: a value of the matrix goes into the name",
+    "file": "addons/ci-security/files/tools/ci-security/lib/required-checks.mts",
+    "find": "(expression, key: string) => values.get(key) ?? expression)",
+    "replace": "(expression) => expression)",
+    "test": "pnpm vitest run addons/ci-security/tests/required-checks.test.mts -t \"takes each value into a name that shows it\""
+  },
+  {
+    "name": "required checks: a list in brackets is split outside quotes",
+    "file": "addons/ci-security/files/tools/ci-security/lib/required-checks.mts",
+    "find": "if (quote === \"\" && character === \",\") {",
+    "replace": "if (character === \",\") {",
+    "test": "pnpm vitest run addons/ci-security/tests/required-checks.test.mts -t \"takes each value into a name that shows it\""
+  },
+  {
+    "name": "required checks: a matrix written as lines",
+    "file": "addons/ci-security/files/tools/ci-security/lib/required-checks.mts",
+    "find": "blockAfter(block, index).map(({ text: item }) => item.replace(/^-\\s*/, \"\"))",
+    "replace": "[]",
+    "test": "pnpm vitest run addons/ci-security/tests/required-checks.test.mts -t \"the values in brackets after a name that shows none\""
+  },
+  {
+    "name": "required checks: a strategy with no matrix is one check",
+    "file": "addons/ci-security/files/tools/ci-security/lib/required-checks.mts",
+    "find": "if (at === -1) {\n    return [];\n  }",
+    "replace": "if (at === -1) {\n    return \"no matrix\";\n  }",
+    "test": "pnpm vitest run addons/ci-security/tests/required-checks.test.mts -t \"with a .strategy:. and no matrix\""
+  },
+  {
+    "name": "required checks: include and exclude are not read",
+    "file": "addons/ci-security/files/tools/ci-security/lib/required-checks.mts",
+    "find": "if (key === \"include\" || key === \"exclude\") {",
+    "replace": "if (key === \"include\") {",
+    "test": "pnpm vitest run addons/ci-security/tests/required-checks.test.mts -t \"is left out when it has\""
+  },
+  {
+    "name": "required checks: a matrix in an expression is not read",
+    "file": "addons/ci-security/files/tools/ci-security/lib/required-checks.mts",
+    "find": "if (((under[at] as Line).text.replace(/^matrix\\s*:/, \"\").trim()) !== \"\") {",
     "replace": "if (false) {",
-    "test": "pnpm vitest run addons/ci-security/tests/required-checks.test.mts -t \"is left out when a matrix gives it one check\""
+    "test": "pnpm vitest run addons/ci-security/tests/required-checks.test.mts -t \"with a matrix that is one expression, is left out\""
+  },
+  {
+    "name": "required checks: an object is not a value",
+    "file": "addons/ci-security/files/tools/ci-security/lib/required-checks.mts",
+    "find": "if (value === undefined || value.includes(\"${{\") ||",
+    "replace": "if (value.includes(\"${{\") ||",
+    "test": "pnpm vitest run addons/ci-security/tests/required-checks.test.mts -t \"is left out when it has\""
+  },
+  {
+    "name": "required checks: a number with a fraction is not a value",
+    "file": "addons/ci-security/files/tools/ci-security/lib/required-checks.mts",
+    "find": "(!/^[\"']/.test(item) && /^[-+]?\\d*\\.\\d+$/.test(item))",
+    "replace": "false",
+    "test": "pnpm vitest run addons/ci-security/tests/required-checks.test.mts -t \"is left out when it has\""
+  },
+  {
+    "name": "required checks: an expression other than the matrix leaves the job out",
+    "file": "addons/ci-security/files/tools/ci-security/lib/required-checks.mts",
+    "find": "if (replaced.includes(\"${{\")) {",
+    "replace": "if (false) {",
+    "test": "pnpm vitest run addons/ci-security/tests/required-checks.test.mts -t \"other than a value of the matrix\""
   },
   {
     "name": "required checks: a called workflow leaves the job out",
     "file": "addons/ci-security/files/tools/ci-security/lib/required-checks.mts",
-    "find": "if (keys.has(\"uses\")) {",
-    "replace": "if (false) {",
+    "find": "return keys.has(\"uses\") ?",
+    "replace": "return false ?",
     "test": "pnpm vitest run addons/ci-security/tests/required-checks.test.mts -t \"is left out when it calls another workflow\""
   },
   {
     "name": "required checks: an expression in the name leaves the job out",
     "file": "addons/ci-security/files/tools/ci-security/lib/required-checks.mts",
-    "find": "name?.includes(\"${{\") === true ?",
-    "replace": "false ?",
+    "find": "return name.includes(\"${{\") ?",
+    "replace": "return false ?",
     "test": "pnpm vitest run addons/ci-security/tests/required-checks.test.mts -t \"is left out when its name holds an expression\""
   },
   {

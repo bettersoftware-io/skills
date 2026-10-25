@@ -3,23 +3,24 @@
 What is not done yet. Finished work is removed from this page, not archived;
 the test records in this folder and the git log say what was done.
 
-**Last updated: 2026-10-24**
+**Last updated: 2026-10-25**
 
 ## Waiting on something outside this repository
+
+- **`bettersoftware-io/skills-visual-proof` is still on GitHub.** It drew the
+  `linux-x64` goldens of 0.20.0 on 2026-10-24
+  ([the record](visual-update-2026-10-17.md#inter-and-a-stale-section-2026-10-24))
+  and is public, with nothing in it but a created project. The session's
+  token lacked the `delete_repo` scope. A person runs
+  `gh auth refresh -h github.com -s delete_repo`, then
+  `gh repo delete bettersoftware-io/skills-visual-proof --yes`.
 
 - **The starter's server uses `rx-ws-effects`.** It is a plain imperative
   handler today. The package
   ([bettersoftware-io/rx-ws-effects](https://github.com/bettersoftware-io/rx-ws-effects))
-  is not on npm yet, and pnpm refuses a version younger than 24 hours, so this
-  starts a day after it is published.
-- **condo-ledger has not taken the visual add-on's 0.19.0.** That version
-  carries the two changes condo-ledger made to its copy: Chromium starts with
-  `--disable-partial-raster`, and a scenario's own `width` and `height` size
-  the viewport, in place of an edited `visual.pw.ts`. The update refuses the
-  two edited files until `--force` (seen with 0.18.1 on 2026-10-17,
-  condo-ledger #13), and its release notes say what to move and that every
-  golden is redrawn once. Bringing back its three wizard goldens, as
-  components, is condo-ledger's work after that.
+  is on npm since 2026-10-25, 13:05 UTC, as `@better-software/rx-ws-effects`
+  0.1.0 (tag `v0.1.0`). pnpm refuses a version younger than 24 hours, so this
+  can start from 2026-10-26, 13:05 UTC.
 
 ## Seen on GitHub only in part
 
@@ -79,16 +80,33 @@ on 2026-10-05, on pushes to main and on a pull request
   Supabase.
 - **The visual add-on's browser counts of a real regression were taken on
   darwin-arm64 only.** The up colour and a one-pixel shift failed every
-  scenario that shows them (84 pixels or more, ten times the budget). On
-  linux-x64 only the noise was measured (five runs, byte-identical).
+  scenario that shows them (108 pixels or more in Inter, 2026-10-24,
+  thirteen times the budget). On linux-x64 only the noise was measured (five
+  runs, byte-identical).
 - **Nothing here has run on Linux outside GitHub's CI,** and nothing through
   a real `docker build`. The Dockerfile check was compared with BuildKit's own
   parser, built from source; the `e2e` workflow and its container have not run.
-- **Renovate has read the shipped config, and opened nothing yet.** In
-  origamic on 2026-10-16 its Dependency Dashboard shows the config applied:
-  the "actions" and "minor and patch" groups, both waiting for Monday's
-  wave. The first pull requests, and whether pnpm accepts the lockfile each
-  writes, are due on 2026-10-19.
+- **The shipped Renovate config has opened one wave.** On 2026-10-19, in
+  condo-ledger and origamic: "actions" passed in condo-ledger (#17, merged),
+  and pnpm installed every lockfile it wrote. "minor and patch" moved
+  Playwright's package without its image, and `playwright-pin` failed it;
+  0.19.1 gives Playwright a group of its own, read from the image too. The
+  next wave, on 2026-10-26, is the first under that rule, in all four
+  repositories: skills-demo was given the app on 2026-10-25 and has its
+  Dependency Dashboard (skills-demo #16). In this repository the app ran no
+  job inside "before 6am on monday" and opened nothing; the schedule is now
+  the whole of Monday.
+- **An update has not yet kept a bot's action versions in a real project.**
+  Since 0.20.2 a workflow whose only changes are moved action commits
+  (`uses: …@<commit> # <version>`) takes the add-on's new copy, at the newer
+  version of each action, where it used to be refused. condo-ledger's
+  `ci-security` update refused `ci-security.yml` and `scorecard.yml` on
+  2026-10-24, after Renovate's actions pull request (#17); its next update
+  should take both. A project installed before 0.20.2 has no record of its
+  workflows without their refs, so until one update has run, a workflow
+  whose template changed as well is still refused. The Playwright image of a
+  workflow is not compared this way: Renovate moves it with the package, and
+  an update puts back the add-on's.
 - **No run where the coverage gate fails has been seen.** The report is meant
   to publish then too.
 - **The motion audit had nothing to judge.** The starter has no animation, so
@@ -99,22 +117,19 @@ on 2026-10-05, on pushes to main and on a pull request
 
 Added on 2026-10-11 ([the record](documenting-architecture-2026-10-11.md)).
 
-- **The skill has never been run from its first step.** It was written from
-  two runs made without it. Steps 5 to 7 were then run once, on a third set
-  written without it, by the session that wrote that set: 47 findings in
-  about 650 checked claims. Whether an agent that has the skill does the
-  fact-check of step 6 unprompted, and what is left wrong in the set
-  afterwards, is not known. The test to make is the one the review skill had:
-  the same request, several fresh sessions, with and without.
+- **It has been run from its first step once: two runs a side, on one
+  codebase** ([the record](documenting-architecture-2026-10-25.md),
+  2026-10-25). Both runs with the skill fact-checked their set unprompted,
+  and a second check of the finished sets found 2.8 findings per 100 claims
+  with it and 5.9 without, at about $16 a run against $3. The judge was the
+  skill's own fact-check brief, which the sets with the skill had been
+  through once already. Not tried: a judge by another method or a person, a
+  larger codebase or one the plugin did not make, another model.
 - **Three sentences were tried and left out.** A line on quotations in the
   fact-check brief, a line on re-reading a figure from a repository's own
   documents, and a line on re-counting step numbers. Agents with the skill as
   it was did each small task right, two of two. The tasks were small: the
   record says what was not tried.
-- **What an agent says it would do is the only evidence for two sentences.**
-  The index's list of where a repository's documents are wrong, and looking
-  for a repository's own checks on documents before writing, were each tried
-  on a handful of single-shot agents that ran nothing.
 - **The widths `check-diagrams.mts` names come from one Mermaid on one
   machine.** Mermaid 11.4 and 12.1 disagreed on which way three of four
   diagrams were narrower. What the page that shows the set draws is not known
@@ -177,42 +192,12 @@ Added on 2026-10-11 ([the record](documenting-architecture-2026-10-11.md)).
 
 ## Next, with no plan yet
 
-- **An update bot's pull request edits files the installer owns.** Both bots
-  move the action commits in `.github/workflows/`, which the add-ons wrote
-  and `tools/installed.json` records. A merged bump makes each file one the
-  next update of its add-on refuses, unless the add-on's new copy is the same
-  byte for byte. Read from the installer's code; not yet seen in a project.
-  Leaving the add-ons' workflows to the add-on updates, as `tools/` is
-  left, would close it.
-
-
-Found while Origamic's dependency rule went into its gates, on 2026-10-16
-(skills #30 and #31, origamic #18).
-
-- **An explicit package that declares `reactCompiler: true` is not checked
-  against a build.** `reactRules: "client"` gives it the memoization ban when
-  it declares the compiler, but the build that compiles it is another
-  package's (the app's), so `check:react-policies` reads no `vite.config.ts`
-  for it and cannot tell a false declaration. Seen on 2026-10-16.
-- **The core's "no UI framework" rule sees only an import that resolves.**
-  Its pattern is `node_modules/react/`, so `import "react"` in a core that
-  cannot resolve React is not one of its findings. In Origamic the library
-  ban (`vendorOnlyIn`) caught it; a project that lists React nowhere in
-  `vendorOnlyIn` would not see it at all. Matching the bare name too, as
-  the library ban does, would close it.
-- **No gate sees a workspace package missing from the lockfile.** pnpm 12
-  writes no importer for a package with no dependency, and its frozen
-  install, which CI runs, then refuses the lockfile; `gate:full` is green
-  and only CI fails. Origamic added `packages/<name>: {}` by hand. Whether a
-  package of the workspace has an entry under `importers` is decidable from
-  `pnpm-lock.yaml`.
-
-Found while a project was set up with the plugin, on 2026-10-12 and 13.
-
-- **`pnpm repo:settings` names no check of a job with a `strategy:`.** This
-  repository's two matrix jobs make twelve checks, and the ruleset the
-  command printed asked for one. A matrix whose values are written out in
-  the file could be read. The twelve names were added by hand.
+- **The React Compiler check of an explicit package does not read a build's
+  `exclude`.** Since 0.20.3 an explicit package that declares
+  `reactCompiler: true` is checked against every package with a
+  `vite.config.ts` that depends on it, and each must run the compiler. A
+  build that runs it with an `exclude` naming the package's folder (Origamic's
+  web app excludes `packages/runtime` that way) still passes.
 
 ## Open decisions
 
@@ -269,11 +254,12 @@ Found while a project was set up with the plugin, on 2026-10-12 and 13.
 
 ## Known limits
 
-- **The visual add-on's `linux-x64` set draws no bold text.** In the pinned
-  Playwright container `system-ui` comes out at one weight, in the shipped
-  set (drawn on GitHub on 2026-10-17) and in skills-demo's, so a change of
-  weight alone is not expected to show there (not measured). Not looked into: which face fontconfig picks
-  there, and whether a project should name a web font.
+- **A project made before 0.20.0 draws no bold text on `linux-x64`.** In the
+  pinned Playwright container `system-ui` comes out at one weight
+  (skills-demo's goldens, and the shipped set of 0.19.0). The starter now
+  serves Inter, and its Linux goldens are bold; an update gives an existing
+  project no font, only the release note that says how to serve one. Not
+  looked into: which face fontconfig picks there.
 - **An eval run that grants a shell fails on this Mac.** Claude Code 2.1.296
   builds a sandbox profile of about 1,840 deny paths (1.7 MB) for every
   command, over the OS limit (E2BIG), so the shell never starts. The run ends
