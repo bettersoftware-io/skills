@@ -39,6 +39,20 @@ on 2026-10-05, on pushes to main and on a pull request
   Not seen: Dependency Review refusing a pull request for an advisory or a
   licence, and what Scorecard's findings look like in the repository's
   code-scanning page.
+- **The changelog's workflows, a release and a tag have not run on GitHub.**
+  Tried locally in skills-demo on 2026-10-24 ([the record](changelog-2026-10-24.md)):
+  the install, the checks, `gate:full`, `due`, the reminder hook in a headless
+  Claude Code session, the entry's checks and the release notes offline. Not
+  seen: `sync-releases.yml` and `changelog-writer.yml` (both are off until a
+  repository variable switches them on), a real release (`--apply` was not
+  run; the plan against a fixture says `create`), a run of the writer (the
+  headless agent with no write token), and a tag made through the API with a
+  `tagger.date` (`changelog tag --apply` was not run).
+- **The changelog reminder did not appear in Codex.** `codex exec` 0.164.0, with
+  a week due, answered from the skill's description and showed no hook line.
+  The hook was not trusted with `/hooks`, which is interactive, so that is the
+  likely reason; whether it fires once trusted is not known. Not seen either:
+  the reminder in an interactive Claude Code session.
 - **Dependency Review fails until the repository's dependency graph is on.**
   Seen: "Dependency review is not supported on this repository". The add-on's
   README lists the setting; `gh api -X PUT repos/<owner>/<repo>/vulnerability-alerts`
@@ -315,6 +329,13 @@ Added on 2026-10-11 ([the record](documenting-architecture-2026-10-11.md)).
   possible difference from the hosts, with no detail; not followed up. The
   cost of a wrong "registered" is a joined command that gets one prompt, not
   an unprompted push: the host's own permission rules are untouched.
+- **`lib/outward.mts` knows git by the last part of a `/` path only.**
+  `isGit` does not take `git.exe`, or a path written with backslashes, for
+  git, so a push started that way is not seen as an outward step.
+- **Two eval-depth mutants survive only under load.** "is refused when evals
+  are nested inside one another too deep" and "… too deep (the count goes
+  down the evals)" survived the full run of the add-on's 961 mutants on
+  2026-10-24. Run alone the same day, both were killed.
 - **The stop hook judges the checkout the session stops in.** A session that
   changed two checkouts is held to one. That `cwd` in the payload follows the
   agent into a worktree is from the documentation.

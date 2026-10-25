@@ -1,6 +1,6 @@
 ---
 name: workflow-changelog
-description: Use when asked to write or update a week's entry in CHANGELOG.md, or when an issue titled "Changelog: write <week>" is to be closed. Do not use for release notes of a published package.
+description: Use when asked to write or update a week's entry in CHANGELOG.md, or when an issue titled "Changelog: write <week>" or "Changelog: extend <week>" is to be closed. Do not use for release notes of a published package.
 ---
 
 # Changelog

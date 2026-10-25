@@ -1,6 +1,6 @@
 {
   "name": "agent-workflow",
-  "summary": "How an agent ships work: a hook that keeps each push and pull request step in a call of its own, a worktree script and an audit of worktrees, a page of what is left, a weekly tag and a changelog.",
+  "summary": "How an agent ships work: a hook that keeps each push and pull request step in a call of its own, a worktree script and an audit of worktrees, a page of what is left, a weekly tag, a changelog that is checked and reminded of at the start of a session, GitHub Releases made from it, and a writer for it that a project can switch on.",
   "recommended": true,
   "packageJson": {
     ".": {
@@ -8,6 +8,7 @@
         "worktree": "node tools/agent-workflow/new-worktree.mts",
         "worktree:audit": "node tools/agent-workflow/audit-worktrees.mts",
         "changelog": "node tools/agent-workflow/changelog.mts",
+        "changelog:releases": "node tools/agent-workflow/sync-releases.mts",
         "agent-workflow:check": "node tools/agent-workflow/check.mts",
         "check:status": "node tools/agent-workflow/check-status.mts"
       }
@@ -51,6 +52,12 @@
           "Bash(git push *--tags*)",
           "Bash(git push *--prune*)",
           "Bash(gh pr merge *--admin*)",
+          "Bash(pnpm changelog tag *--apply*)",
+          "Bash(pnpm changelog:releases *--apply*)",
+          "Bash(pnpm run changelog tag *--apply*)",
+          "Bash(node tools/agent-workflow/changelog.mts tag *--apply*)",
+          "Bash(pnpm run changelog:releases *--apply*)",
+          "Bash(node tools/agent-workflow/sync-releases.mts *--apply*)",
           "Edit(/tools/agent-workflow/**)"
         ]
       },
@@ -76,6 +83,18 @@
               }
             ]
           }
+        ],
+        "SessionStart": [
+          {
+            "matcher": "startup|resume|clear",
+            "hooks": [
+              {
+                "type": "command",
+                "command": "node \"$CLAUDE_PROJECT_DIR/tools/agent-workflow/hooks/changelog-due.mts\"",
+                "timeout": 5
+              }
+            ]
+          }
         ]
       }
     },
@@ -93,9 +112,34 @@
               }
             ]
           }
+        ],
+        "SessionStart": [
+          {
+            "matcher": "startup|resume|clear",
+            "hooks": [
+              {
+                "type": "command",
+                "command": "node tools/agent-workflow/hooks/changelog-due.mts",
+                "statusMessage": "Checking the changelog",
+                "timeout": 5
+              }
+            ]
+          }
         ]
       }
     }
   },
-  "verify": "pnpm agent-workflow:check"
+  "verify": "pnpm agent-workflow:check",
+  "releaseNotes": [
+    {
+      "id": "0.21.0",
+      "notes": [
+        "Sessions now start with the changelog weeks that are due. In Codex, trust the new hook with `/hooks`.",
+        "`pnpm changelog check` now fails a definitions block that differs from what `pnpm changelog defs --write` writes, and a citation in the wrong week. Run `pnpm changelog defs --write` once.",
+        "The new workflows `sync-releases.yml` and `changelog-writer.yml` are skipped until the repository variable `CHANGELOG_RELEASES` or `CHANGELOG_WRITER` is `true`. The README says how to switch each on, and what the writer costs.",
+        "Tags are now dated by their week: `changelog tag` and the weekly tag give a tag the Monday 00:05 UTC after its week.",
+        "The Monday issue is now titled `Changelog: extend <week>` when the week already has a heading, and no issue is opened when the entry already cites every pull request GitHub lists for the week."
+      ]
+    }
+  ]
 }

@@ -1,7 +1,10 @@
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+
 import { describe, expect, it } from "vitest";
 
 import { changelog } from "../files/tools/agent-workflow/changelog.mts";
-import { checkWeek, citationsIn, definitionsIn, sectionOf, weeksIn, weeksToWrite } from "../files/tools/agent-workflow/lib/changelog.mts";
+import { checkWeek, citationsIn, commitCitationsIn, definitionsIn, expectedDefinitions, sectionOf, weeksIn, weeksToWrite, withDefinitions } from "../files/tools/agent-workflow/lib/changelog.mts";
 import type { Run } from "../files/tools/agent-workflow/lib/system.mts";
 import { createFolder } from "./support.mts";
 
@@ -24,55 +27,107 @@ describe("reading the file", () => {
 
   it("tells a citation from the definition that starts with the same text", () => {
     expect(citationsIn("See [#3] and [#3] and [#4].\n\n[#3]: u/pull/3\n[#5]: u/pull/5\n")).toEqual([3, 4]);
-    expect(definitionsIn("See [#3].\n\n[#3]: u/pull/3\n[#5]:   u/pull/5  \n")).toEqual([
-      { number: 3, url: "u/pull/3" },
-      { number: 5, url: "u/pull/5" },
+    expect(definitionsIn("See [#3].\n\n[#3]: u/pull/3\n[#5]:   u/pull/5  \n[`abc1234`]: u/commit/abc1234\n[foo]: u/foo\n")).toEqual([
+      { label: "#3", url: "u/pull/3" },
+      { label: "#5", url: "u/pull/5" },
+      { label: "`abc1234`", url: "u/commit/abc1234" },
     ]);
+  });
+
+  it("reads a commit citation of 7 to 40 hex characters, and not a definition", () => {
+    expect(commitCitationsIn("See [`abc1234`], [`abc1234`] and [`0123456789abcdef0123456789abcdef01234567`].")).toEqual([
+      "abc1234",
+      "0123456789abcdef0123456789abcdef01234567",
+    ]);
+    expect(commitCitationsIn("[`abc123`] [`ABC1234`] [`abc1234x`] [`abc12345678901234567890123456789012345678`]")).toEqual([]);
+    expect(commitCitationsIn("[`abc1234`]: u/commit/abc1234\n")).toEqual([]);
   });
 });
 
 describe("checking a week", () => {
   it("passes when every merged pull request is cited in the week and every citation is defined", () => {
-    expect(checkWeek(createChangelog(), "2026-W40", [12, 15])).toEqual([]);
+    expect(checkWeek(createChangelog(), "2026-W40", [12, 15], REPO)).toEqual([]);
   });
 
   it("names a merged pull request the week does not cite", () => {
-    expect(checkWeek(createChangelog(), "2026-W40", [12, 15, 17, 16])).toEqual(["merged in 2026-W40 and not cited in its section: #16, #17"]);
+    expect(checkWeek(createChangelog(), "2026-W40", [12, 15, 17, 16], REPO)).toEqual(["merged in 2026-W40 and not cited in its section: #16, #17"]);
   });
 
   it("does not count a citation in another week's section", () => {
-    expect(checkWeek(createChangelog(), "2026-W40", [9])).toEqual(["merged in 2026-W40 and not cited in its section: #9"]);
+    expect(checkWeek(createChangelog(), "2026-W40", [9], REPO)).toEqual([
+      "merged in 2026-W40 and not cited in its section: #9",
+      "cited in 2026-W40 and not merged in it: #12, #15. A reference to earlier work is a plain link, not a citation",
+    ]);
   });
 
-  it("names a citation with no link definition, wherever it is in the file", () => {
-    const text = createChangelog().replace(`[#9]: ${REPO}/pull/9\n`, "");
-
-    expect(checkWeek(text, "2026-W40", [12, 15])).toEqual(["cited with no link definition at the bottom of the file: #9"]);
+  it("names a pull request cited in a week it was not merged in, and says how to refer to earlier work", () => {
+    expect(checkWeek(createChangelog(), "2026-W39", [], REPO)).toEqual([
+      "cited in 2026-W39 and not merged in it: #9. A reference to earlier work is a plain link, not a citation",
+    ]);
+    expect(checkWeek(createChangelog(), "2026-W40", [15, 12, 7], REPO)).toEqual([
+      "merged in 2026-W40 and not cited in its section: #7",
+    ]);
   });
 
-  it("names a definition that points at another pull request", () => {
-    const text = createChangelog().replace(`[#12]: ${REPO}/pull/12`, `[#12]: ${REPO}/pull/120`);
+  it("does not judge a commit citation against the merges", () => {
+    const text = withDefinitions(createChangelog().replace("[#15], after", "[#15], [`abc1234`], after"), REPO);
 
-    expect(checkWeek(text, "2026-W40", [12, 15])).toEqual([`the definition of [#12] points at ${REPO}/pull/120, which is not pull request 12`]);
+    expect(checkWeek(text, "2026-W40", [12, 15], REPO)).toEqual([]);
   });
 
-  it("accepts a definition that points at an issue of that number", () => {
-    const text = createChangelog().replace(`[#12]: ${REPO}/pull/12`, `[#12]: ${REPO}/issues/12`);
-
-    expect(checkWeek(text, "2026-W40", [12, 15])).toEqual([]);
-  });
-
-  it("names definitions that are out of order, and one given twice", () => {
+  it("fails a file whose definitions differ from what defs writes", () => {
+    const missing = createChangelog().replace(`[#9]: ${REPO}/pull/9\n`, "");
+    const elsewhere = createChangelog().replace(`[#12]: ${REPO}/pull/12`, `[#12]: ${REPO}/pull/120`);
+    const issue = createChangelog().replace(`[#12]: ${REPO}/pull/12`, `[#12]: ${REPO}/issues/12`);
     const swapped = createChangelog().replace(`[#9]: ${REPO}/pull/9\n[#12]: ${REPO}/pull/12\n`, `[#12]: ${REPO}/pull/12\n[#9]: ${REPO}/pull/9\n`);
     const twice = `${createChangelog()}[#15]: ${REPO}/pull/15\n`;
 
-    expect(checkWeek(swapped, "2026-W40", [12, 15])).toEqual(["the link definitions are not in ascending order: [#9] comes after a higher or equal number"]);
-    expect(checkWeek(twice, "2026-W40", [12, 15])).toEqual(["the link definitions are not in ascending order: [#15] comes after a higher or equal number"]);
+    for (const text of [missing, elsewhere, issue, swapped, twice]) {
+      expect(checkWeek(text, "2026-W40", [12, 15], REPO)).toEqual(["the link definitions are not what `pnpm changelog defs` writes: run `pnpm changelog defs --write`"]);
+    }
   });
 
   it("fails a week with merged pull requests and no heading, and passes one with neither", () => {
-    expect(checkWeek(createChangelog(), "2026-W41", [20])).toEqual(['there is no "## 2026-W41" heading, and 1 pull request(s) were merged that week: #20']);
-    expect(checkWeek(createChangelog(), "2026-W41", [])).toEqual([]);
+    expect(checkWeek(createChangelog(), "2026-W41", [20], REPO)).toEqual(['there is no "## 2026-W41" heading, and 1 pull request(s) were merged that week: #20']);
+    expect(checkWeek(createChangelog(), "2026-W41", [], REPO)).toEqual([]);
+  });
+});
+
+describe("the generated definitions", () => {
+  it("generates PR definitions ascending, then commit definitions by label", () => {
+    const text = "Fix [`bbb2222`] and [`aaa1111`], then [#30] and [#4].\n";
+
+    expect(expectedDefinitions(text, REPO)).toEqual([
+      `[#4]: ${REPO}/pull/4`,
+      `[#30]: ${REPO}/pull/30`,
+      `[\`aaa1111\`]: ${REPO}/commit/aaa1111`,
+      `[\`bbb2222\`]: ${REPO}/commit/bbb2222`,
+    ]);
+  });
+
+  it("keeps an existing full-hash address for a commit label", () => {
+    const full = `${REPO}/commit/abc1234def5678901234567890123456789abcde`;
+    const text = `Fix [\`abc1234\`] and [\`def5678\`].\n\n[\`abc1234\`]: ${full}\n[\`def5678\`]: ${REPO}/commit/zzz\n`;
+
+    expect(expectedDefinitions(text, REPO)).toEqual([`[\`abc1234\`]: ${full}`, `[\`def5678\`]: ${REPO}/commit/def5678`]);
+  });
+
+  it("writes one block at the end, after one blank line, ending in a newline", () => {
+    const scattered = `[#4]: stale\nSee [#4].\n\n[#9]: stale\nMore.\n\n\n`;
+
+    expect(withDefinitions(scattered, REPO)).toBe(`See [#4].\n\nMore.\n\n[#4]: ${REPO}/pull/4\n`);
+    expect(withDefinitions(withDefinitions(scattered, REPO), REPO)).toBe(withDefinitions(scattered, REPO));
+  });
+
+  it("leaves a reference definition that is no citation where it is", () => {
+    const text = `Intro [foo] and [#4].\n\n[foo]: https://example.com\n\n## Next\n\nText.\n`;
+
+    expect(withDefinitions(text, REPO)).toBe(`${text.trimEnd()}\n\n[#4]: ${REPO}/pull/4\n`);
+  });
+
+  it("removes definitions and adds no block when nothing is cited", () => {
+    expect(withDefinitions("Text.\n\n[#4]: u\n[`abc1234`]: u\n[foo]: u\n", REPO)).toBe("Text.\n\n[foo]: u\n");
+    expect(withDefinitions("Text.\n", REPO)).toBe("Text.\n");
   });
 });
 
@@ -147,7 +202,62 @@ describe("the command", () => {
     const none = runChangelog(["check", "2026-W41", "--merged", ""], { gh: "absent" });
 
     expect([passing.status, failing.status, none.status]).toEqual([0, 1, 0]);
-    expect(passing.calls).toEqual([]);
+    expect(passing.calls.filter(([program]) => program === "gh")).toEqual([]);
+  });
+
+  it("fails a file whose definitions differ from what defs writes, and passes once defs --write has run", () => {
+    const stale = createChangelog().replace(`[#12]: ${REPO}/pull/12`, `[#12]: ${REPO}/issues/12`);
+    const root = createFolder({ "CHANGELOG.md": stale });
+    const read = (argv: string[]): { status: number; lines: string[] } => {
+      const lines: string[] = [];
+      const status = changelog({ root, argv, now: new Date("2026-10-06T09:00:00Z"), run: createRun({}).run, report: (line) => lines.push(line) });
+
+      return { status, lines };
+    };
+
+    expect(read(["check", "2026-W40", "--merged", "12,15"]).status).toBe(1);
+
+    const before = read(["defs"]);
+
+    expect(before.status).toBe(1);
+    expect(before.lines.slice(0, 2)).toEqual([`- [#12]: ${REPO}/issues/12`, `+ [#12]: ${REPO}/pull/12`]);
+    expect(readFileSync(join(root, "CHANGELOG.md"), "utf8")).toBe(stale);
+
+    expect(read(["defs", "--write"]).status).toBe(0);
+    expect(readFileSync(join(root, "CHANGELOG.md"), "utf8")).toBe(createChangelog());
+    expect(read(["defs"])).toEqual({ status: 0, lines: ["PASS changelog defs: the link definitions are the generated ones"] });
+    expect(read(["check", "2026-W40", "--merged", "12,15"]).status).toBe(0);
+  });
+
+  it("says which lines differ when the definitions are only out of order", () => {
+    const swapped = createChangelog().replace(`[#9]: ${REPO}/pull/9\n[#12]: ${REPO}/pull/12\n`, `[#12]: ${REPO}/pull/12\n[#9]: ${REPO}/pull/9\n`);
+    const { lines, status } = runChangelog(["defs"], { file: swapped });
+
+    expect(status).toBe(1);
+    expect(lines[0]).toMatch(/^~ the definitions are out of order/);
+  });
+
+  it("skips defs, and check, when origin is not a GitHub address", () => {
+    for (const argv of [["defs"], ["check", "2026-W40", "--merged", "12,15"]]) {
+      const { lines, status } = runChangelog(argv, { origin: "https://gitlab.com/acme/app.git" });
+
+      expect(status).toBe(2);
+      expect(lines.at(-1)).toMatch(/^SKIP changelog: the origin remote is not a GitHub address.*Nothing was judged$/);
+    }
+
+    expect(runChangelog(["defs"], { origin: "absent" }).status).toBe(2);
+  });
+
+  it("runs defs and check with the origin the CI action writes, and never prints its token", () => {
+    const origin = "https://x-access-token:ghs_secret123@github.com/acme/app.git";
+
+    expect(runChangelog(["defs"], { origin })).toMatchObject({ status: 0, lines: ["PASS changelog defs: the link definitions are the generated ones"] });
+    expect(runChangelog(["check", "2026-W40", "--merged", "12,15"], { origin }).status).toBe(0);
+
+    const elsewhere = runChangelog(["defs"], { origin: "https://x-access-token:ghs_secret123@gitlab.com/acme/app.git" });
+
+    expect(elsewhere.status).toBe(2);
+    expect(elsewhere.lines.join("\n")).not.toContain("ghs_secret123");
   });
 
   it.each([
@@ -175,6 +285,8 @@ interface World {
   now?: string;
   merged?: { number: number; title: string; mergedAt: string }[];
   gh?: "absent";
+  /** What `git remote get-url origin` says; `absent` for a repository with no origin. */
+  origin?: string;
   /** The file's text; null for a project with no CHANGELOG.md. */
   file?: string | null;
 }
@@ -183,17 +295,29 @@ function runChangelog(argv: string[], world: World = {}): { status: number; line
   const file = world.file === undefined ? createChangelog() : world.file;
   const root = createFolder(file === null ? {} : { "CHANGELOG.md": file });
   const lines: string[] = [];
+  const { run, calls } = createRun(world);
+  const status = changelog({ root, argv, now: new Date(world.now ?? "2026-10-06T09:00:00Z"), run, report: (line) => lines.push(line) });
+
+  return { status, lines, calls };
+}
+
+function createRun(world: World): { run: Run; calls: string[][] } {
   const calls: string[][] = [];
   const run: Run = (program, args) => {
     calls.push([program, ...args]);
+
+    if (program === "git") {
+      return world.origin === "absent"
+        ? { status: 2, stdout: "", stderr: "error: No such remote 'origin'" }
+        : { status: 0, stdout: `${world.origin ?? "git@github.com:acme/app.git"}\n`, stderr: "" };
+    }
 
     return world.gh === "absent"
       ? { status: 127, stdout: "", stderr: "spawnSync gh ENOENT" }
       : { status: 0, stdout: JSON.stringify(world.merged ?? []), stderr: "" };
   };
-  const status = changelog({ root, argv, now: new Date(world.now ?? "2026-10-06T09:00:00Z"), run, report: (line) => lines.push(line) });
 
-  return { status, lines, calls };
+  return { run, calls };
 }
 
 function createMerged(number: number): { number: number; title: string; mergedAt: string } {

@@ -15,9 +15,11 @@ The rules serve three aims, in this order when they pull apart:
 ```bash
 pnpm worktree <name> [--ready]     # a worktree beside the project, on worktree-<name>, cut from origin's main
 pnpm worktree:audit [part of a name]   # which worktrees are finished, and which hold work; it only reads
+pnpm changelog due                 # the finished weeks to write or extend (reads git, offline)
 pnpm changelog weeks               # the weeks CHANGELOG.md has no entry for
 pnpm changelog prs <week>          # what was merged in a week (reads GitHub)
 pnpm changelog check <week>        # every merged pull request cited, every citation defined
+pnpm changelog defs [--write]      # the link definitions are the generated ones
 pnpm agent-workflow:check          # the hook works and is registered in each host's settings
 ```
 
@@ -343,6 +345,9 @@ follow `.claude/commands/workflow/changelog.md` (`/workflow:changelog` in
 Claude Code, the `workflow-changelog` skill in Codex). What the entry says is
 your judgement; that it cites every merged pull request is checked by
 `pnpm changelog check <week>`. Never create or move a week's tag by hand.
+
+A session may start with a note of the weeks that are due. Mention them to the
+person when it fits, and do not drop the task you were given to write them.
 
 ### The other runbooks
 

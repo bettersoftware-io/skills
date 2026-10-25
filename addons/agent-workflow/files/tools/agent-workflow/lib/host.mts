@@ -4,6 +4,9 @@
 
 export const HOOK_SCRIPT = "tools/agent-workflow/hooks/split-outward-commands.mts";
 
+/** The session-start hook that names the changelog weeks that are due. */
+export const DUE_HOOK_SCRIPT = "tools/agent-workflow/hooks/changelog-due.mts";
+
 /**
  * Where a project kept the setting of a feature this add-on no longer has.
  * Nothing reads either file. The same paths are in the manifest, under
@@ -23,6 +26,18 @@ export const CODEX_HOOKS = ".codex/hooks.json";
 export const HOOK_COMMANDS: Record<string, string> = {
   [CLAUDE_SETTINGS]: `node "$CLAUDE_PROJECT_DIR/${HOOK_SCRIPT}"`,
   [CODEX_HOOKS]: `node ${HOOK_SCRIPT}`,
+};
+
+/** The command line the add-on registers the session-start hook with, in each host's file. The same text is in the manifest. */
+export const DUE_HOOK_COMMANDS: Record<string, string> = {
+  [CLAUDE_SETTINGS]: `node "$CLAUDE_PROJECT_DIR/${DUE_HOOK_SCRIPT}"`,
+  [CODEX_HOOKS]: `node ${DUE_HOOK_SCRIPT}`,
+};
+
+/** The start sources each host runs the session-start hook for: the same three in both, since Codex has `clear` too. */
+export const DUE_HOOK_MATCHERS: Record<string, string> = {
+  [CLAUDE_SETTINGS]: "startup|resume|clear",
+  [CODEX_HOOKS]: "startup|resume|clear",
 };
 
 /**
@@ -45,6 +60,12 @@ export const ASK_RULES = [
   "Bash(git push *--tags*)",
   "Bash(git push *--prune*)",
   "Bash(gh pr merge *--admin*)",
+  "Bash(pnpm changelog tag *--apply*)",
+  "Bash(pnpm changelog:releases *--apply*)",
+  "Bash(pnpm run changelog tag *--apply*)",
+  "Bash(node tools/agent-workflow/changelog.mts tag *--apply*)",
+  "Bash(pnpm run changelog:releases *--apply*)",
+  "Bash(node tools/agent-workflow/sync-releases.mts *--apply*)",
 ];
 
 /**

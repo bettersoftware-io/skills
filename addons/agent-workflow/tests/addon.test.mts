@@ -8,7 +8,7 @@ import { changelog } from "../files/tools/agent-workflow/changelog.mts";
 import { judgeCall } from "../files/tools/agent-workflow/hooks/split-outward-commands.mts";
 import { groupRuns, hostOf } from "../files/tools/agent-workflow/lib/hook-registration.mts";
 import { isOutward } from "../files/tools/agent-workflow/lib/outward.mts";
-import { ASK_RULES, CLAUDE_SETTINGS, CODEX_HOOKS, COMMAND_NEEDS, EDIT_ASK_RULES, HOOK_COMMANDS, HOOK_SCRIPT, RETIRED_ARGUMENT, RETIRED_ASK_RULES, RETIRED_FILES } from "../files/tools/agent-workflow/lib/host.mts";
+import { ASK_RULES, CLAUDE_SETTINGS, CODEX_HOOKS, COMMAND_NEEDS, DUE_HOOK_COMMANDS, DUE_HOOK_MATCHERS, DUE_HOOK_SCRIPT, EDIT_ASK_RULES, HOOK_COMMANDS, HOOK_SCRIPT, RETIRED_ARGUMENT, RETIRED_ASK_RULES, RETIRED_FILES } from "../files/tools/agent-workflow/lib/host.mts";
 import { ONCE_ALLOWED, OLD_SETTING_ON } from "./shapes.mts";
 import { ADDON, createFolder, git, readJson, REPOSITORY, writeFile } from "./support.mts";
 
@@ -37,6 +37,8 @@ interface Manifest {
 const MANIFEST = readJson<Manifest>(ADDON, "addon.json");
 const FILES = readdirSync(join(ADDON, "files"), { recursive: true, encoding: "utf8" });
 const WORKFLOW = readFileSync(join(ADDON, "files/.github/workflows/weekly-tag.yml"), "utf8");
+const RELEASE_WORKFLOW = readFileSync(join(ADDON, "files/.github/workflows/sync-releases.yml"), "utf8");
+const WRITER_WORKFLOW = readFileSync(join(ADDON, "files/.github/workflows/changelog-writer.yml"), "utf8");
 const COMMANDS = Object.keys(COMMAND_NEEDS);
 const SECTION = readFileSync(join(ADDON, "AGENTS.section.md"), "utf8");
 const CLAUDE_HOOK = `node "$CLAUDE_PROJECT_DIR/${HOOK_SCRIPT}"`;
@@ -57,7 +59,7 @@ describe("the add-on's manifest", () => {
   it("adds scripts that each run a tool it ships, and proves itself with one of them", () => {
     const scripts = MANIFEST.packageJson["."]?.scripts ?? {};
 
-    expect(Object.keys(scripts)).toEqual(["worktree", "worktree:audit", "changelog", "agent-workflow:check", "check:status"]);
+    expect(Object.keys(scripts)).toEqual(["worktree", "worktree:audit", "changelog", "changelog:releases", "agent-workflow:check", "check:status"]);
 
     for (const script of Object.values(scripts)) {
       const tool = /^node (tools\/agent-workflow\/[\w-]+\.mts)$/.exec(script)?.[1];
@@ -117,13 +119,30 @@ describe("the add-on's manifest", () => {
       PreToolUse: ["Bash", "Monitor"].map((matcher) => {
         return { matcher, hooks: [{ type: "command", command: `node "$CLAUDE_PROJECT_DIR/${HOOK_SCRIPT}"`, timeout: 5 }] };
       }),
+      SessionStart: [{ matcher: "startup|resume|clear", hooks: [{ type: "command", command: `node "$CLAUDE_PROJECT_DIR/${DUE_HOOK_SCRIPT}"`, timeout: 5 }] }],
     });
     expect(Object.keys(codex ?? {})).toEqual(["hooks"]);
+    expect(codex?.hooks?.SessionStart).toEqual([{ matcher: "startup|resume|clear", hooks: [{ type: "command", command: `node ${DUE_HOOK_SCRIPT}`, statusMessage: "Checking the changelog", timeout: 5 }] }]);
     expect(codex?.hooks?.PreToolUse).toHaveLength(1);
     expect(codex?.hooks?.PreToolUse?.[0]?.matcher).toBe("Bash");
     expect(codex?.hooks?.PreToolUse?.[0]?.hooks[0]?.command).toBe(`node ${HOOK_SCRIPT}`);
     expect(JSON.stringify(MANIFEST.hostSettings)).not.toContain(RETIRED_ARGUMENT);
     expect(existsSync(join(ADDON, "files", HOOK_SCRIPT))).toBe(true);
+    expect(existsSync(join(ADDON, "files", DUE_HOOK_SCRIPT))).toBe(true);
+  });
+
+  it("registers the reminder in both hosts with the matcher and command the check looks for", () => {
+    expect(DUE_HOOK_SCRIPT).toBe("tools/agent-workflow/hooks/changelog-due.mts");
+    expect(DUE_HOOK_COMMANDS).toEqual({ [CLAUDE_SETTINGS]: `node "$CLAUDE_PROJECT_DIR/${DUE_HOOK_SCRIPT}"`, [CODEX_HOOKS]: `node ${DUE_HOOK_SCRIPT}` });
+    expect(DUE_HOOK_MATCHERS).toEqual({ [CLAUDE_SETTINGS]: "startup|resume|clear", [CODEX_HOOKS]: "startup|resume|clear" });
+
+    for (const path of [CLAUDE_SETTINGS, CODEX_HOOKS]) {
+      const groups = MANIFEST.hostSettings[path]?.hooks?.SessionStart ?? [];
+
+      expect(groups).toHaveLength(1);
+      expect(groups[0]?.matcher).toBe(DUE_HOOK_MATCHERS[path]);
+      expect(groups.some((group) => groupRuns(group, DUE_HOOK_COMMANDS[path] ?? "", "startup", hostOf(path)))).toBe(true);
+    }
   });
 });
 
@@ -254,6 +273,349 @@ describe("the weekly-tag workflow", () => {
   });
 });
 
+describe("the release workflow", () => {
+  const pins = (text: string): string[] => [...text.matchAll(/^\s*-?\s*uses: (.+)$/gm)].map((match) => match[1] ?? "");
+
+  it("pins the same actions, by the same commits, as the weekly-tag workflow", () => {
+    expect(pins(RELEASE_WORKFLOW).length).toBeGreaterThan(0);
+    expect(pins(RELEASE_WORKFLOW)).toEqual(pins(WORKFLOW));
+    expect(pins(RELEASE_WORKFLOW).filter((action) => !/^[\w.-]+\/[\w./-]+@[0-9a-f]{40} # v\d+/.test(action))).toEqual([]);
+  });
+
+  it("does nothing until the project sets the variable to true", () => {
+    expect(RELEASE_WORKFLOW).toMatch(/^ {4}if: vars\.CHANGELOG_RELEASES == 'true' && /m);
+  });
+
+  it("writes on a push only to the default branch, whatever it is called, and checks that branch out", () => {
+    expect(RELEASE_WORKFLOW).toMatch(/&& \(github\.event_name != 'push' \|\| github\.ref_name == github\.event\.repository\.default_branch\)$/m);
+    expect(RELEASE_WORKFLOW).not.toMatch(/branches:/);
+    expect(RELEASE_WORKFLOW).toMatch(/^ {10}ref: \$\{\{ github\.event\.repository\.default_branch \}\}$/m);
+  });
+
+  it("can only read by default, and gives the one job exactly contents: write", () => {
+    const [top, job] = RELEASE_WORKFLOW.split(/^jobs:$/m);
+
+    expect(top).toMatch(/^permissions:\n {2}contents: read\n/m);
+    expect([...(job ?? "").matchAll(/^ {6}([\w-]+): (read|write)$/gm)].map((match) => `${match[1]}: ${match[2]}`)).toEqual(["contents: write"]);
+  });
+
+  it("never runs twice at once, and never cancels a run that may be half way through writing", () => {
+    expect(RELEASE_WORKFLOW).toMatch(/^concurrency:\n {2}group: sync-releases\n {2}cancel-in-progress: false\n/m);
+  });
+
+  it("does not leave the token in the checkout, and takes only the files it needs", () => {
+    expect(RELEASE_WORKFLOW).toMatch(/persist-credentials: false/);
+    expect(RELEASE_WORKFLOW).toMatch(/sparse-checkout: \|\n {12}CHANGELOG\.md\n {12}tools\/agent-workflow\n/);
+  });
+
+  it("runs on a change to the changelog or to the script it runs, and nowhere else but the clock and by hand", () => {
+    expect(RELEASE_WORKFLOW).toMatch(/^on:\n {2}push:\n {4}paths:\n {6}- CHANGELOG\.md\n {6}- tools\/agent-workflow\/sync-releases\.mts\n {6}- tools\/agent-workflow\/lib\/releases\.mts\n {6}- tools\/agent-workflow\/lib\/changelog\.mts\n {2}schedule:\n {4}- cron: "30 0 \* \* 1"\n {2}workflow_dispatch:\n/m);
+    expect(RELEASE_WORKFLOW).not.toMatch(/pull_request_target|workflow_run/);
+  });
+
+  it("puts no expression in the release job's command line: the repository and branch come through the environment", () => {
+    const runs = [...RELEASE_WORKFLOW.matchAll(/^\s*run: (.+)$/gm)].map((match) => match[1] ?? "");
+
+    expect(runs).toEqual(['node tools/agent-workflow/sync-releases.mts --repo "$GITHUB_REPOSITORY" --branch "$DEFAULT_BRANCH" --apply']);
+    expect(RELEASE_WORKFLOW).toMatch(/^ {10}DEFAULT_BRANCH: \$\{\{ github\.event\.repository\.default_branch \}\}$/m);
+  });
+
+  it("installs nothing before the release step that holds the token that can write", () => {
+    expect(RELEASE_WORKFLOW).not.toMatch(/pnpm install|npm install|corepack/);
+    expect(RELEASE_WORKFLOW).toMatch(/GH_TOKEN: \$\{\{ github\.token \}\}/);
+  });
+
+  it("runs the script the manifest's changelog:releases runs, and ships it with what it imports", () => {
+    expect(MANIFEST.packageJson["."]?.scripts?.["changelog:releases"]).toBe("node tools/agent-workflow/sync-releases.mts");
+    expect(existsSync(join(ADDON, "files/tools/agent-workflow/lib/releases.mts"))).toBe(true);
+  });
+});
+
+describe("the writer workflow", () => {
+  const pins = (text: string): string[] => [...text.matchAll(/^\s*-?\s*uses: (.+)$/gm)].map((match) => match[1] ?? "");
+  const jobs = WRITER_WORKFLOW.split(/^jobs:$/m)[1] ?? "";
+  const writeJob = jobs.split(/^ {2}publish:$/m)[0] ?? "";
+  const publishJob = jobs.split(/^ {2}publish:$/m)[1] ?? "";
+  const stepsOf = (job: string): string[] => (job.split(/^ {4}steps:\n/m)[1] ?? "").split(/^ {6}- /m).slice(1);
+  const writeSteps = stepsOf(writeJob);
+  const publishSteps = stepsOf(publishJob);
+  const indexOf = (steps: string[], needle: string): number => steps.findIndex((step) => step.includes(needle));
+  const permissionsOf = (job: string): string[] => [...job.matchAll(/^ {6}([\w-]+): (read|write)(?: #.*)?$/gm)].map((match) => `${match[1]}: ${match[2]}`);
+  const allowedTools = (): string[] => (WRITER_WORKFLOW.match(/--allowedTools "([^"]+)"/)?.[1] ?? "").split(",");
+  const runsOf = (text: string): string[] => [...text.matchAll(/^ +run: (.*(?:\n {10,}.*)*)$/gm)].map((match) => match[1] ?? "");
+  // Each of these is the commit of a release that was at least 7 days old when it was chosen.
+  const PINS = [
+    "actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7",
+    "actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0",
+    "anthropics/claude-code-action@f27be6b65a4652f08a2ba3cff79114829b588967 # v1.0.252",
+    "actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2",
+    "actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2",
+  ];
+
+  it("runs nothing until CHANGELOG_WRITER is true", () => {
+    expect(writeJob).toMatch(/^ {4}if: vars\.CHANGELOG_WRITER == 'true'$/m);
+    expect(WRITER_WORKFLOW).toMatch(/^on:\n {2}schedule:\n {4}- cron: "0 1 \* \* 1"\n {2}workflow_dispatch:\n/m);
+    expect(WRITER_WORKFLOW).not.toMatch(/pull_request_target|workflow_run/);
+  });
+
+  it("stops with a message when the secret is missing, as its first step, before anything is checked out or installed", () => {
+    const first = writeSteps[0] ?? "";
+
+    expect(first).toContain("ANTHROPIC_API_KEY is not set: add the secret or unset CHANGELOG_WRITER");
+    expect(first).toMatch(/^ {10}ANTHROPIC_API_KEY: \$\{\{ secrets\.ANTHROPIC_API_KEY \}\}$/m);
+    expect(first).toMatch(/^ {12}exit 1$/m);
+    expect(first).not.toContain("uses:");
+  });
+
+  it("maps the exit of due to a flag: 0 is not due, 1 is due, anything else fails", () => {
+    const due = writeSteps[indexOf(writeSteps, "id: due")] ?? "";
+
+    expect(due).toContain("node tools/agent-workflow/changelog.mts due --ref HEAD");
+    expect(due).toMatch(/if \[ "\$status" -eq 0 \]; then\n {12}echo "due=false" >> "\$GITHUB_OUTPUT"\n {10}elif \[ "\$status" -eq 1 \]; then\n/);
+    expect(due).toMatch(/^ {16}echo "due=true"$/m);
+    expect(due).toMatch(/ {10}else\n {12}cat "\$RUNNER_TEMP\/due\.txt"\n {12}exit 1\n {10}fi/);
+    expect(due).toMatch(/^ {16}echo "weeks=\$weeks"$/m);
+    expect(due).toMatch(/^ {16}echo "sha=\$\(git rev-parse HEAD\)"$/m);
+    expect(due).toMatch(/^ {16}echo "newest=\$\{weeks##\* \}"$/m);
+    expect(due).toMatch(/^ {16}echo "sha=\$\(git rev-parse HEAD\)"\n {14}\} >> "\$GITHUB_OUTPUT"$/m);
+  });
+
+  it("does not write while a changelog pull request is open", () => {
+    const due = writeSteps[indexOf(writeSteps, "id: due")] ?? "";
+
+    expect(due).toContain(`gh pr list --state open --author app/github-actions --json headRefName --jq '[.[] | select(.headRefName | startswith("changelog/"))] | length'`);
+    expect(due).toMatch(/if \[ "\$open" -gt 0 \]; then\n {14}echo "due=false" >> "\$GITHUB_OUTPUT"\n {14}echo "an open changelog pull request is waiting for review" >> "\$GITHUB_STEP_SUMMARY"/);
+    expect(due).toMatch(/^ {10}GH_TOKEN: \$\{\{ github\.token \}\}$/m);
+  });
+
+  it("checks what is due before installing or running Claude Code, and installs and runs only when it is", () => {
+    const names = ["Check the secret", "actions/checkout@", "actions/setup-node@", "id: due", "enable-corepack", "pnpm install --frozen-lockfile", "anthropics/claude-code-action@", "actions/upload-artifact@"];
+
+    expect(names.map((name) => indexOf(writeSteps, name))).toEqual([0, 1, 2, 3, 4, 5, 6, 7]);
+
+    for (const index of [4, 5, 6, 7]) {
+      expect(writeSteps[index]).toMatch(/^ {8}if: steps\.due\.outputs\.due == 'true'$/m);
+    }
+  });
+
+  it("pins every action by commit, at the commits chosen, the same checkout and setup-node as weekly-tag", () => {
+    expect(pins(WRITER_WORKFLOW).filter((action, index, all) => all.indexOf(action) === index).sort()).toEqual([...PINS].sort());
+    expect(pins(WRITER_WORKFLOW).filter((action) => !/^[\w.-]+\/[\w./-]+@[0-9a-f]{40} # v\d+/.test(action))).toEqual([]);
+    expect(pins(WORKFLOW).filter((action) => !pins(WRITER_WORKFLOW).includes(action))).toEqual([]);
+    expect(WRITER_WORKFLOW.match(/persist-credentials: false/g)?.length).toBe(2);
+    expect(WRITER_WORKFLOW.match(/fetch-depth: 0/g)?.length).toBe(2);
+  });
+
+  it("splits the agent from the token that writes: two jobs, each with exactly its permissions", () => {
+    expect(WRITER_WORKFLOW).toMatch(/^permissions:\n {2}contents: read\n/m);
+    expect(WRITER_WORKFLOW).toMatch(/^concurrency:\n {2}group: changelog-writer\n {2}cancel-in-progress: false\n/m);
+    expect(permissionsOf(writeJob)).toEqual(["contents: read", "pull-requests: read", "issues: read"]);
+    expect(permissionsOf(publishJob)).toEqual(["contents: write", "pull-requests: write", "issues: read"]);
+    expect([...jobs.matchAll(/^ {2}([\w-]+):$/gm)].map((match) => match[1])).toEqual(["write", "publish"]);
+    expect(publishJob).not.toContain("anthropics/");
+    expect(publishJob).not.toMatch(/pnpm install|corepack/);
+    expect(writeJob).not.toMatch(/contents: write|pull-requests: write/);
+  });
+
+  it("hands the file over: publish needs write, runs only when write found a week due, and takes its outputs", () => {
+    expect(publishJob).toMatch(/^ {4}needs: write$/m);
+    expect(publishJob).toMatch(/^ {4}if: needs\.write\.result == 'success' && needs\.write\.outputs\.due == 'true'$/m);
+    expect(writeJob).toMatch(/^ {4}outputs:\n {6}due: \$\{\{ steps\.due\.outputs\.due \}\}\n {6}sha: \$\{\{ steps\.due\.outputs\.sha \}\}\n {6}weeks: \$\{\{ steps\.due\.outputs\.weeks \}\}\n {6}newest: \$\{\{ steps\.due\.outputs\.newest \}\}\n/m);
+    expect(writeSteps[indexOf(writeSteps, "actions/upload-artifact@")]).toMatch(/^ {10}path: CHANGELOG\.md$/m);
+    expect(publishSteps.map((step) => /actions\/(checkout|setup-node|download-artifact)@/.exec(step)?.[1])).toEqual(["checkout", "setup-node", "download-artifact", undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined]);
+    expect(writeJob).toMatch(/^ {6}sha: \$\{\{ steps\.due\.outputs\.sha \}\}$/m);
+    expect(publishJob).toMatch(/^ {6}WRITTEN_FROM: \$\{\{ needs\.write\.outputs\.sha \}\}$/m);
+  });
+
+  it("gives the agent only what it needs: its allowed tools are exact, with no git, no write through gh and no bare Write or Edit", () => {
+    expect(allowedTools()).toEqual([
+      "Read(./**)",
+      "Edit(./CHANGELOG.md)",
+      "Write(./CHANGELOG.md)",
+      "Bash(pnpm changelog weeks)",
+      "Bash(pnpm changelog prs:*)",
+      "Bash(pnpm changelog check:*)",
+      "Bash(pnpm changelog defs:*)",
+      "Bash(pnpm changelog due:*)",
+      "Bash(gh pr view:*)",
+    ]);
+    expect(WRITER_WORKFLOW).toMatch(/^ {12}--max-turns 40$/m);
+    expect(WRITER_WORKFLOW).toMatch(/^ {12}--disallowedTools "Read\(\/\/proc\/\*\*\),Read\(\/\/dev\/\*\*\),Read\(\/\/home\/runner\/work\/_temp\/\*\*\)"$/m);
+    expect(WRITER_WORKFLOW).toMatch(/^ {12}--setting-sources user$/m);
+    expect(WRITER_WORKFLOW).toMatch(/^ {6}CLAUDE_CODE_SUBPROCESS_ENV_SCRUB: "1"$/m);
+  });
+
+  it("never merges, and gives the agent a read-only token through the with block", () => {
+    const agent = writeSteps[indexOf(writeSteps, "anthropics/claude-code-action@")] ?? "";
+
+    expect(WRITER_WORKFLOW.replace(/^\s*#.*$/gm, "")).not.toMatch(/gh pr merge/);
+    expect(agent).toMatch(/^ {10}github_token: \$\{\{ github\.token \}\}$/m);
+    expect(agent).toMatch(/^ {10}anthropic_api_key: \$\{\{ secrets\.ANTHROPIC_API_KEY \}\}$/m);
+    expect(agent).toMatch(/^ {12}Write or extend the changelog entries for these weeks: \$\{\{ steps\.due\.outputs\.weeks \}\}\.\n {12}Follow \.claude\/commands\/workflow\/changelog\.md, in its "In CI" section\.$/m);
+  });
+
+  it("checks the week names before it uses them, and copies only CHANGELOG.md, and only a change", () => {
+    const take = publishSteps[indexOf(publishSteps, "Take the file")] ?? "";
+
+    expect(take.match(/\^\[0-9\]\{4\}-W\[0-9\]\{2\}\$/g)?.length).toBe(2);
+    expect(take).toContain('"$week" =~');
+    expect(take).toContain('"$NEWEST" =~');
+    expect(take).toMatch(/if ! git diff --quiet "\$WRITTEN_FROM" HEAD -- CHANGELOG\.md; then\n {12}echo "::error::CHANGELOG\.md changed on the default branch while the writer ran\. Run the workflow again"\n {12}exit 1/);
+    expect(take.indexOf("WRITTEN_FROM\" HEAD")).toBeLessThan(take.indexOf("cp "));
+    expect(take).toMatch(/cp "\$RUNNER_TEMP\/changelog\/CHANGELOG\.md" CHANGELOG\.md/);
+    expect(take).toContain("git diff --quiet -- CHANGELOG.md");
+    expect(take).toMatch(/the writer changed nothing in CHANGELOG\.md"\n {12}exit 1/);
+  });
+
+  it("refuses a file that has a token or a key added to it, and never prints the match", () => {
+    const scan = publishSteps[indexOf(publishSteps, "Look for a token or a key")] ?? "";
+
+    expect(indexOf(publishSteps, "Take the file")).toBeLessThan(indexOf(publishSteps, "Look for a token or a key"));
+    expect(indexOf(publishSteps, "Look for a token or a key")).toBeLessThan(indexOf(publishSteps, "Commit CHANGELOG.md alone"));
+
+    for (const pattern of ["sk-ant-", "ghs_", "ghp_", "gho_", "ghu_", "ghr_", "github_pat_", "-----BEGIN"]) {
+      expect(scan).toContain(`'${pattern}'`);
+    }
+
+    expect(scan).toContain('git diff -U0 -- CHANGELOG.md | grep \'^+\' | grep -q -F -e "$pattern"');
+    expect(scan).toMatch(/Nothing was committed"\n {14}exit 1/);
+    expect(scan).not.toMatch(/echo [^\n]*\$match/);
+  });
+
+  it("refuses a file that has the API key itself added to it, without printing it", () => {
+    const step = publishSteps[indexOf(publishSteps, "Look for the API key itself")] ?? "";
+
+    expect(indexOf(publishSteps, "Look for a token or a key")).toBeLessThan(indexOf(publishSteps, "Look for the API key itself"));
+    expect(indexOf(publishSteps, "Look for the API key itself")).toBeLessThan(indexOf(publishSteps, "Commit CHANGELOG.md alone"));
+    expect(step).toMatch(/^ {10}KEY: \$\{\{ secrets\.ANTHROPIC_API_KEY \}\}$/m);
+    expect(step).toContain('if [ -n "$KEY" ] && git diff -U0 -- CHANGELOG.md | grep \'^+\' | grep -qF -- "$KEY"; then');
+    expect(step).toMatch(/equal to the Anthropic API key\. Nothing was committed"\n {12}exit 1/);
+    expect(step).not.toMatch(/set -x|echo [^\n]*\$KEY|printf [^\n]*\$KEY/);
+    expect(publishJob.match(/secrets\.ANTHROPIC_API_KEY/g)?.length).toBe(1);
+  });
+
+  it("does not start a line of the pull request body with pnpm: publish has no Corepack", () => {
+    expect(publishJob).not.toMatch(/"pnpm /);
+  });
+
+  it("checks each week, then commits CHANGELOG.md alone as the bot", () => {
+    const check = publishSteps[indexOf(publishSteps, "id: check")] ?? "";
+    const commit = publishSteps[indexOf(publishSteps, "Commit CHANGELOG.md alone")] ?? "";
+
+    expect(check).toContain('node tools/agent-workflow/changelog.mts check "$week"');
+    expect(check).toMatch(/^ {10}GH_TOKEN: \$\{\{ github\.token \}\}$/m);
+    expect(check).toContain('echo "failed=${failed# }" >> "$GITHUB_OUTPUT"');
+    expect(commit).toContain("git add -- CHANGELOG.md");
+    expect(commit).toContain('-c user.name="github-actions[bot]" -c user.email="41898282+github-actions[bot]@users.noreply.github.com" commit -m "docs(changelog): ${WEEKS// /, }"');
+  });
+
+  it("pushes one branch by an explicit refspec, with the token on that command alone", () => {
+    const push = publishSteps[indexOf(publishSteps, "Push the branch")] ?? "";
+
+    expect(push).toContain('git -c "http.https://github.com/.extraheader=AUTHORIZATION: basic $auth" push origin "HEAD:refs/heads/changelog/$NEWEST"');
+    expect(push).toContain('echo "::add-mask::$auth"');
+    expect(push).not.toMatch(/--force|-f |--mirror|--all|--tags|push -u/);
+    expect(WRITER_WORKFLOW.match(/git (?:-c (?:"[^"]*"|[^\s"]\S*) )*push/g)?.length).toBe(1);
+    expect(WRITER_WORKFLOW.replace(/^\s*#.*$/gm, "")).not.toMatch(/git config|git remote/);
+  });
+
+  it("opens the pull request with a body of its own: the issues it closes, and a draft when a check failed", () => {
+    const issues = publishSteps[indexOf(publishSteps, "id: issues")] ?? "";
+    const open = publishSteps[indexOf(publishSteps, "Open the pull request")] ?? "";
+
+    expect(issues).toContain('gh issue list --author app/github-actions --state open --search "in:title Changelog:"');
+    expect(issues).toContain("endswith($week)");
+    expect(issues).toMatch(/run: \|\n {10}set -o pipefail\n/);
+    expect(open).toContain('body+=$\'\\n\'"Closes #$number"');
+    expect(open).toContain("draft=(--draft)");
+    expect(open).toContain('gh pr create --title "docs(changelog): ${WEEKS// /, }" --body "$body" --head "changelog/$NEWEST" "${draft[@]}"');
+    expect(open).toMatch(/if \[ -n "\$FAILED" \]; then/);
+  });
+
+  it("names in the summary and in the draft's body what each failing week lacks, and nothing of a week not judged", () => {
+    const scriptOf = (step: string): string => {
+      const lines = (step.split(/^ {8}run: \|\n/m)[1] ?? "").split("\n");
+      const end = lines.findIndex((line) => line !== "" && !line.startsWith(" ".repeat(10)));
+
+      return `${(end === -1 ? lines : lines.slice(0, end)).map((line) => line.slice(10)).join("\n")}\n`;
+    };
+    const folder = createFolder({
+      "check.sh": scriptOf(publishSteps[indexOf(publishSteps, "id: check")] ?? ""),
+      "open.sh": scriptOf(publishSteps[indexOf(publishSteps, "Open the pull request")] ?? ""),
+      // `changelog check` as it prints for a week that fails, one that passes, and one it cannot judge.
+      "bin/node": [
+        "#!/bin/sh",
+        'case "$3" in',
+        '  2026-W40) printf \'  merged in 2026-W40 and not cited in its section: #16\\nFAIL changelog 2026-W40: 1 problem(s). Fix CHANGELOG.md and run this again\\n\'; exit 1 ;;',
+        "  2026-W41) echo 'PASS changelog 2026-W41: 2 merged pull request(s), all cited, every citation defined' ;;",
+        "  *) echo 'SKIP changelog: gh could not list the merged pull requests (token ghs_secret123). Nothing was judged'; exit 2 ;;",
+        "esac",
+        "",
+      ].join("\n"),
+      "bin/gh": '#!/bin/sh\nfor argument in "$@"; do printf \'%s\\0\' "$argument"; done > "$RUNNER_TEMP/gh.txt"\n',
+      "temp/output.txt": "",
+      "temp/summary.txt": "",
+    });
+    const temp = join(folder, "temp");
+    const env = { PATH: `${join(folder, "bin")}:${process.env.PATH ?? ""}`, RUNNER_TEMP: temp, GITHUB_OUTPUT: join(temp, "output.txt"), GITHUB_STEP_SUMMARY: join(temp, "summary.txt"), WEEKS: "2026-W40 2026-W41 2026-W42", NEWEST: "2026-W42" };
+
+    spawnSync("chmod", ["+x", join(folder, "bin/node"), join(folder, "bin/gh")]);
+
+    const checked = spawnSync("bash", ["--noprofile", "--norc", "-eo", "pipefail", join(folder, "check.sh")], { cwd: folder, env, encoding: "utf8" });
+    const failed = /^failed=(.*)$/m.exec(readFileSync(join(temp, "output.txt"), "utf8"))?.[1] ?? "";
+    const summary = readFileSync(join(temp, "summary.txt"), "utf8");
+    const opened = spawnSync("bash", ["--noprofile", "--norc", "-eo", "pipefail", join(folder, "open.sh")], { cwd: folder, env: { ...env, FAILED: failed, ISSUES: "31" }, encoding: "utf8" });
+    const args = readFileSync(join(temp, "gh.txt"), "utf8").split("\0");
+    const body = args[args.indexOf("--body") + 1] ?? "";
+    const details = [
+      "  merged in 2026-W40 and not cited in its section: #16",
+      "FAIL changelog 2026-W40: 1 problem(s). Fix CHANGELOG.md and run this again",
+      "2026-W42 was not judged: changelog check exited 2",
+    ].join("\n");
+
+    expect([checked.status, checked.stderr, opened.status, opened.stderr]).toEqual([0, "", 0, ""]);
+    expect(failed).toBe("2026-W40 2026-W42");
+    expect(summary).toContain(`~~~text\n${details}\n~~~`);
+    expect(body).toContain("The changelog check failed for 2026-W40, 2026-W42.");
+    expect(body).toContain(`~~~text\n${details}\n~~~`);
+    expect(args).toContain("--draft");
+
+    for (const text of [summary, body]) {
+      expect(text).not.toContain("PASS");
+      expect(text).not.toContain("ghs_secret123");
+    }
+  });
+
+  it("puts no expression in a command line: every one goes through env", () => {
+    const blocks = runsOf(WRITER_WORKFLOW);
+
+    expect(blocks.length).toBe(12);
+    expect(blocks.filter((block) => block.includes("${{"))).toEqual([]);
+  });
+});
+
+describe("the release notes", () => {
+  it("has release notes for 0.21.0 that name both variables, /hooks, and the issue that may be extend or skipped", () => {
+    const { releaseNotes } = readJson<{ releaseNotes: { id: string; notes: string[] }[] }>(ADDON, "addon.json");
+    const notes = releaseNotes.find(({ id }) => id === "0.21.0")?.notes ?? [];
+    const text = notes.join("\n");
+
+    expect(notes).toHaveLength(5);
+    expect(text).toContain("/hooks");
+    expect(text).toContain("`Changelog: extend <week>`");
+    expect(text).toContain("no issue is opened");
+    expect(text).toContain("CHANGELOG_RELEASES");
+    expect(text).toContain("CHANGELOG_WRITER");
+  });
+
+  it("go out with the plugin's version", () => {
+    const { releaseNotes } = readJson<{ releaseNotes: { id: string }[] }>(ADDON, "addon.json");
+
+    expect(readJson<{ version: string }>(REPOSITORY, ".codex-plugin/plugin.json").version).toBe("0.21.0");
+    expect(releaseNotes[0]?.id).toBe("0.21.0");
+  });
+});
+
 describe("the mutants of this add-on", () => {
   // `mutation-check.mts` runs each `test` in a shell. Between backticks, or after
   // a dollar sign and a bracket, a shell runs what is written: a filter that
@@ -291,14 +653,27 @@ describe("the commands", () => {
       ...(needs === undefined ? [] : scriptsOf(join(REPOSITORY, "addons", needs, "addon.json"))),
     ]);
     const tools = (/^allowed-tools: (.+)$/m.exec(frontmatter)?.[1] ?? "").split(", ");
-    const programs = tools.filter((tool) => tool.startsWith("Bash")).map((tool) => /^Bash\((.+):\*\)$/.exec(tool)?.[1] ?? `not a grant by first words: ${tool}`);
+    // A grant is a program's first words, with `:*` after for any arguments, or the exact command.
+    const programs = tools.filter((tool) => tool.startsWith("Bash")).map((tool) => /^Bash\((.+?)(?::\*)?\)$/.exec(tool)?.[1] ?? `not a grant by first words: ${tool}`);
     const reads = /^(?:git (?:rev-parse|status|worktree list|rev-list|ls-files)|gh (?:pr (?:list|view)|run list|issue list|repo view)|grep|ls|node tools\/agent-workflow\/requires\.mts)$/;
 
     expect(tools.filter((tool) => !tool.startsWith("Bash") && !["Read", "Write", "Edit"].includes(tool))).toEqual([]);
     expect(programs.length).toBeGreaterThan(0);
-    expect(programs.filter((program) => !reads.test(program) && !(program.startsWith("pnpm ") && scripts.has(program.slice(5))))).toEqual([]);
+    expect(programs.filter((program) => !reads.test(program) && !(program.startsWith("pnpm ") && scripts.has(program.slice(5).split(" ")[0] ?? "")))).toEqual([]);
     expect(programs.filter((program) => isOutward(program.split(" ")))).toEqual([]);
     expect(programs.filter((program) => !body.includes(program))).toEqual([]);
+  });
+
+  it("does not let the changelog command run changelog tag without a prompt", () => {
+    const tools = (/^allowed-tools: (.+)$/m.exec(readCommand("changelog").frontmatter)?.[1] ?? "").split(", ");
+
+    expect(tools.filter((tool) => tool.startsWith("Bash(pnpm changelog"))).toEqual([
+      "Bash(pnpm changelog weeks)",
+      "Bash(pnpm changelog due:*)",
+      "Bash(pnpm changelog prs:*)",
+      "Bash(pnpm changelog check:*)",
+      "Bash(pnpm changelog defs:*)",
+    ]);
   });
 
   it.each(["git push", "gh pr create", "gh pr merge", "gh workflow run", "gh api", "git fetch", "git grep", "git log", "gh run download", "git worktree remove", "git branch"])("no command may run %s unasked", (step) => {
@@ -490,7 +865,7 @@ describe("the changelog it starts a project with", () => {
       root,
       argv: ["check", "2026-W40", "--merged", ""],
       now: new Date("2026-10-06T00:00:00Z"),
-      run: () => ({ status: 127, stdout: "", stderr: "" }),
+      run: () => ({ status: 0, stdout: "git@github.com:acme/app.git\n", stderr: "" }),
       report: (line) => lines.push(line),
     });
 
@@ -516,7 +891,9 @@ describe("the add-on in a project that has the kit", () => {
     expect(codex.description).toBe(kitCodex.description);
     expect(codex.hooks?.Stop).toEqual(kitCodex.hooks?.Stop);
     expect(codex.hooks?.PreToolUse).toEqual(MANIFEST.hostSettings[CODEX_HOOKS]?.hooks?.PreToolUse);
-    expect(result.settingsChanges).toHaveLength(ASK_RULES.length + EDIT_ASK_RULES.length + 3);
+    expect(claude.hooks?.SessionStart).toEqual(MANIFEST.hostSettings[CLAUDE_SETTINGS]?.hooks?.SessionStart);
+    expect(codex.hooks?.SessionStart).toEqual(MANIFEST.hostSettings[CODEX_HOOKS]?.hooks?.SessionStart);
+    expect(result.settingsChanges).toHaveLength(ASK_RULES.length + EDIT_ASK_RULES.length + 5);
     expect(result.unmerged).toEqual([]);
     expect(result.notes).toEqual([]);
   });
@@ -593,7 +970,7 @@ describe("the add-on in a project that has the kit", () => {
     expect(MANIFEST.verify).toBe("pnpm agent-workflow:check");
     expect(verify.stdout).toContain("PASS hook: refuses an outward step joined to others, asks about a push that is not written plainly, and says nothing about a plain push alone, whatever it is started with");
     expect(verify.stdout).not.toMatch(/NOTE (?:setting|Claude Code|Codex)/);
-    expect(verify.stdout).toContain("PASS Claude Code: all 12 ask rules are in");
+    expect(verify.stdout).toContain("PASS Claude Code: all 18 ask rules are in");
     expect(verify.stdout).toContain("PASS Codex: .codex/hooks.json runs the hook before each shell command");
     expect(verify.stdout).not.toContain("FAIL");
     expect(verify.status).toBe(0);

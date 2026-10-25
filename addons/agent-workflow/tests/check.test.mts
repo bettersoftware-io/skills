@@ -4,10 +4,12 @@ import { check, type CheckOptions, createHookRunner } from "../files/tools/agent
 import { ASK_RULES, EDIT_ASK_RULES, RETIRED_ARGUMENT, RETIRED_ASK_RULES, RETIRED_FILES, WIDE_ALLOW } from "../files/tools/agent-workflow/lib/host.mts";
 import { installedIn, requires } from "../files/tools/agent-workflow/requires.mts";
 import { OLD_SETTING_ON } from "./shapes.mts";
-import { createFolder } from "./support.mts";
+import { createFolder, writeFile } from "./support.mts";
 
 const CLAUDE_HOOK = 'node "$CLAUDE_PROJECT_DIR/tools/agent-workflow/hooks/split-outward-commands.mts"';
 const CODEX_HOOK = "node tools/agent-workflow/hooks/split-outward-commands.mts";
+const CLAUDE_DUE = 'node "$CLAUDE_PROJECT_DIR/tools/agent-workflow/hooks/changelog-due.mts"';
+const CODEX_DUE = "node tools/agent-workflow/hooks/changelog-due.mts";
 const COMMANDS = {
   ".claude/commands/workflow/status.md": "status\n",
   ".claude/commands/workflow/docs.md": "docs\n",
@@ -31,9 +33,11 @@ describe("the add-on's check", () => {
     expect(lines).toEqual([
       "PASS hook: refuses an outward step joined to others, asks about a push that is not written plainly, and says nothing about a plain push alone, whatever it is started with",
       "PASS Claude Code: .claude/settings.json runs the hook before each shell command",
+      "PASS Claude Code: .claude/settings.json runs the changelog reminder at the start of a session",
       EDIT_PASS,
-      "PASS Claude Code: all 12 ask rules are in, so a forced or destructive push and an --admin merge ask whatever else allows them",
+      "PASS Claude Code: all 18 ask rules are in, so a forced or destructive push, an --admin merge and the --apply of changelog tag and changelog:releases ask whatever else allows them",
       "PASS Codex: .codex/hooks.json runs the hook before each shell command",
+      "PASS Codex: .codex/hooks.json runs the changelog reminder at the start of a session",
       "PASS command /workflow:status",
       "PASS command /workflow:docs",
       "PASS command /workflow:worktrees",
@@ -41,7 +45,40 @@ describe("the add-on's check", () => {
       'NOTE command /workflow:coverage-backfill: needs the "coverage" add-on, which this project does not have. It stops and says so when run',
       'NOTE command /workflow:visual-tolerance-audit: needs the "visual" add-on, which this project does not have. It stops and says so when run',
       'NOTE command /workflow:perf-audit: needs the "performance" add-on, which this project does not have. It stops and says so when run',
+      "SKIP changelog releases: there is no CHANGELOG.md, so there is no release to render",
     ]);
+  });
+
+  it("passes when every week of CHANGELOG.md renders as release notes", () => {
+    const { status, lines } = runCheck(withChangelog(createProject(), CHANGELOG));
+
+    expect(status).toBe(0);
+    expect(lines.at(-1)).toBe("PASS changelog releases: 1 week(s) of CHANGELOG.md render as release notes");
+  });
+
+  it("fails, naming the week and the commit, when a week cites a commit with no definition", () => {
+    const { status, lines } = runCheck(withChangelog(createProject(), CHANGELOG.replace("[`abc1234`]: https://github.com/o/r/commit/abc1234\n", "")));
+
+    expect(status).toBe(1);
+    expect(lines.filter((line) => line.startsWith("FAIL"))).toEqual([
+      "FAIL changelog releases: 2026-W41: commit [`abc1234`] has no definition. Add the definition, or run `pnpm changelog defs --write`",
+    ]);
+    expect(lines.join("\n")).not.toContain("PASS changelog releases");
+  });
+
+  it("skips, and does not fail, a CHANGELOG.md with no week yet", () => {
+    const { status, lines } = runCheck(withChangelog(createProject(), "# Changelog\n\nNothing yet.\n"));
+
+    expect(status).toBe(0);
+    expect(lines.at(-1)).toBe("SKIP changelog releases: CHANGELOG.md has no week yet, so there is no release to render");
+  });
+
+  it("does not turn a project with no host settings file into a pass because its changelog renders", () => {
+    const root = withChangelog(createProject({ ".codex/hooks.json": undefined, ".claude/settings.json": undefined }), CHANGELOG);
+    const { status, lines } = runCheck(root);
+
+    expect(status).toBe(2);
+    expect(lines.at(-1)).toContain("SKIP agent-workflow: neither");
   });
 
   it.each(RETIRED_FILES)("says %s is no longer read, when a project still has one, whatever it holds", (path) => {
@@ -77,6 +114,27 @@ describe("the add-on's check", () => {
     );
     expect(lines).not.toContain(EDIT_PASS);
     expect(EDIT_ASK_RULES).toEqual(["Edit(/tools/agent-workflow/**)"]);
+  });
+
+  it.each([
+    ["Claude Code", ".claude/settings.json", CLAUDE_HOOK, CLAUDE_DUE, "startup|resume|clear"],
+    ["Codex", ".codex/hooks.json", CODEX_HOOK, CODEX_DUE, "startup|resume|clear"],
+  ])("fails the check when the reminder is not registered in %s", (host, path, hook, due, matcher) => {
+    const registered = (SessionStart: unknown[]): unknown => ({ permissions: { ask: [...ASK_RULES, ...EDIT_ASK_RULES] }, hooks: { PreToolUse: [createGroup(hook, "Bash", 5), createGroup(hook, "Monitor", 5)], SessionStart } });
+    const missing = new RegExp(`^FAIL ${host}: ${path.replace(".", "\\.")} does not run tools/agent-workflow/hooks/changelog-due\\.mts at the start of a session .* Run the installer again`);
+
+    for (const groups of [[], [createGroup(CODEX_HOOK, matcher)], [createGroup(due, "resume")], [createGroup(due, "compact|fork")], [createGroup(`${due} || true`, matcher)]]) {
+      const { status, lines } = runCheck(createProject({ [path]: registered(groups) }));
+
+      expect(status).toBe(1);
+      expect(lines.some((line) => missing.test(line))).toBe(true);
+      expect(lines).not.toContain(`PASS ${host}: ${path} runs the changelog reminder at the start of a session`);
+    }
+
+    const { status, lines } = runCheck(createProject({ [path]: registered([createGroup(due, matcher)]) }));
+
+    expect(status).toBe(0);
+    expect(lines).toContain(`PASS ${host}: ${path} runs the changelog reminder at the start of a session`);
   });
 
   it("notes a hook registered twice in one file, which then runs twice", () => {
@@ -302,7 +360,7 @@ describe("the add-on's check", () => {
 
     expect(status).toBe(0);
     expect(lines).toContain(
-      "NOTE Claude Code: 2 of 12 ask rules are not in permissions.ask. No allow rule lets a push or a merge run by pattern, so those forms ask anyway",
+      "NOTE Claude Code: 2 of 18 ask rules (forced or destructive pushes, --admin merges, the --apply of changelog tag and changelog:releases) are not in permissions.ask. No allow rule lets a push or a merge run by pattern, so those forms ask anyway",
     );
   });
 
@@ -313,7 +371,7 @@ describe("the add-on's check", () => {
     expect(lines).toContain(
       "NOTE Claude Code: Bash(git push *:*) is still in permissions.ask. Claude Code reads it as a prefix that matches no command, and warns about it at each start. The hook asks about such a push now. Delete the rule",
     );
-    expect(lines).toContain("PASS Claude Code: all 12 ask rules are in, so a forced or destructive push and an --admin merge ask whatever else allows them");
+    expect(lines).toContain("PASS Claude Code: all 18 ask rules are in, so a forced or destructive push, an --admin merge and the --apply of changelog tag and changelog:releases ask whatever else allows them");
     expect(runCheck(createProject()).lines.join("\n")).not.toContain("still in permissions.ask");
   });
 
@@ -332,7 +390,7 @@ describe("the add-on's check", () => {
 
     expect(status).toBe(1);
     expect(lines.join("\n")).toMatch(
-      /FAIL Claude Code: Bash\(git push origin worktree-\*\) allows by pattern, and a forced or destructive form is not set to ask\. Missing from permissions\.ask: Bash\(git push \*--mirror\*\)/,
+      /FAIL Claude Code: Bash\(git push origin worktree-\*\) allows by pattern, and a forced or destructive push, an --admin merge or the --apply of changelog tag or changelog:releases is not set to ask\. Missing from permissions\.ask: Bash\(git push \*--mirror\*\)/,
     );
   });
 
@@ -407,20 +465,28 @@ interface ProjectShape {
   [path: `.${string}` | `tools/${string}`]: unknown;
 }
 
+const CHANGELOG = "# Changelog\n\n## 2026-W41 — 5 Oct – 11 Oct\n\n- A fix ([`abc1234`]).\n\n[`abc1234`]: https://github.com/o/r/commit/abc1234\n";
+
+function withChangelog(root: string, text: string): string {
+  writeFile(root, "CHANGELOG.md", text);
+
+  return root;
+}
+
 function createProject(shape: ProjectShape = {}): string {
   const files: Record<string, unknown> = {
     ".claude/settings.json": {
       permissions: { allow: shape.allow ?? [], ask: shape.ask ?? [...ASK_RULES, ...EDIT_ASK_RULES] },
-      hooks: { PreToolUse: [createGroup(CLAUDE_HOOK, "Bash", 5), createGroup(CLAUDE_HOOK, "Monitor", 5)] },
+      hooks: { PreToolUse: [createGroup(CLAUDE_HOOK, "Bash", 5), createGroup(CLAUDE_HOOK, "Monitor", 5)], SessionStart: [createGroup(CLAUDE_DUE, "startup|resume|clear", 5)] },
     },
-    ".codex/hooks.json": { hooks: { PreToolUse: [createGroup(CODEX_HOOK, "Bash")] } },
+    ".codex/hooks.json": { hooks: { PreToolUse: [createGroup(CODEX_HOOK, "Bash")], SessionStart: [createGroup(CODEX_DUE, "startup|resume|clear")] } },
     "tools/installed.json": Object.fromEntries((shape.installed ?? ["kit", "agent-workflow"]).map((unit) => [unit, { files: {} }])),
     ...COMMANDS,
   };
 
   for (const [path, content] of Object.entries(shape)) {
     if (path.startsWith(".") || path.startsWith("tools/")) {
-      files[path] = content;
+      files[path] = withReminder(path, content);
     }
   }
 
@@ -431,6 +497,27 @@ function createProject(shape: ProjectShape = {}): string {
         .map(([path, content]) => [path, typeof content === "string" ? content : JSON.stringify(content)]),
     ),
   );
+}
+
+/**
+ * A settings file a test writes gets the changelog reminder too, so that it is
+ * the PreToolUse hook the test is about. A file that has a `SessionStart` key
+ * (even an empty list) is left as the test wrote it.
+ */
+function withReminder(path: string, content: unknown): unknown {
+  const reminder = path === ".claude/settings.json" ? [createGroup(CLAUDE_DUE, "startup|resume|clear", 5)] : path === ".codex/hooks.json" ? [createGroup(CODEX_DUE, "startup|resume|clear")] : undefined;
+
+  if (reminder === undefined || typeof content !== "object" || content === null || Array.isArray(content)) {
+    return content;
+  }
+
+  const hooks = (content as { hooks?: unknown }).hooks;
+
+  if (hooks !== undefined && (typeof hooks !== "object" || hooks === null || Array.isArray(hooks))) {
+    return content;
+  }
+
+  return "SessionStart" in (hooks ?? {}) ? content : { ...content, hooks: { ...hooks, SessionStart: reminder } };
 }
 
 type HookReply = ReturnType<CheckOptions["runHook"]>;

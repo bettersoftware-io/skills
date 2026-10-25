@@ -1,19 +1,29 @@
 // Reads CHANGELOG.md and judges one week's entry against the pull requests
 // that were merged in that week.
 //
-// What a week's entry says is a matter of judgement. These three things are
-// not, so they are checked:
+// What a week's entry says is a matter of judgement. These things are not, so
+// they are checked:
 //
 //   1. every pull request merged in the week is cited in the week's section;
-//   2. every citation in the file has a link definition, to that number;
-//   3. the definitions are in ascending order.
+//   2. every pull request the section cites was merged in the week;
+//   3. the link definitions of citations are the ones `changelog defs` writes.
 
 import { lastFinishedWeek, parseWeek, startOf, type Week, weekAfter, weekOf } from "./week.mts";
 
 const HEADING = /^## (\d{4}-W\d{2})\b.*$/gm;
 /** `[#12]`, but not the `[#12]:` that starts a definition. */
 const CITATION = /\[#(\d+)\](?!:)/g;
-const DEFINITION = /^\[#(\d+)\]:[ \t]*(\S+)[ \t]*$/gm;
+/** ``[`abc1234`]``, but not the definition that starts with the same text. */
+const COMMIT_CITATION = /\[`([0-9a-f]{7,40})`\](?!:)/g;
+/** A definition of citation form: `[#12]: url` or ``[`abc1234`]: url``. */
+const DEFINITION = /^\[(#\d+|`[0-9a-f]{7,40}`)\]:[ \t]*(\S+)[ \t]*$/gm;
+/** Any line that defines a link, read as `DEFINITION` reads one: every citation definition is one, and so is `[the doc]: url`. */
+export const LINK_DEFINITION = /^\[[^\]]+\]:[ \t]*\S+[ \t]*$/;
+/** The start of any line that defines a citation, whatever follows. */
+const DEFINITION_LINE = /^(?:\[#\d+\]:|\[`[0-9a-f]{7,40}`\]:)/;
+
+/** A reason `changelog` could not judge anything. */
+export class ChangelogError extends Error {}
 
 export interface MergedPullRequest {
   number: number;
@@ -45,13 +55,47 @@ export function citationsIn(text: string): number[] {
   return [...new Set([...text.matchAll(CITATION)].map((match) => Number(match[1])))];
 }
 
-/** Every link definition, in file order. */
-export function definitionsIn(text: string): { number: number; url: string }[] {
-  return [...text.matchAll(DEFINITION)].map((match) => ({ number: Number(match[1]), url: match[2] as string }));
+/** The commits cited, as the labels written between the backticks, in the order first cited. */
+export function commitCitationsIn(text: string): string[] {
+  return [...new Set([...text.matchAll(COMMIT_CITATION)].map((match) => match[1] as string))];
+}
+
+/** Every definition of citation form, in file order. The label is `#12` or ``\`abc1234\` ``. */
+export function definitionsIn(text: string): { label: string; url: string }[] {
+  return [...text.matchAll(DEFINITION)].map((match) => ({ label: match[1] as string, url: match[2] as string }));
+}
+
+/**
+ * The definition lines the text's citations need, as `[#N]: <repo>/pull/N`
+ * for each pull request, ascending, then one for each commit, by label. A
+ * commit keeps the address it already has when that address is its own.
+ */
+export function expectedDefinitions(text: string, repo: string): string[] {
+  const existing = definitionsIn(text);
+  const pulls = [...citationsIn(text)].sort((a, b) => a - b).map((number) => `[#${number}]: ${repo}/pull/${number}`);
+  const commits = [...commitCitationsIn(text)].sort().map((sha) => {
+    const kept = existing.find((definition) => definition.label === `\`${sha}\``)?.url;
+    const url = kept?.startsWith(`${repo}/commit/${sha}`) ? kept : `${repo}/commit/${sha}`;
+
+    return `[\`${sha}\`]: ${url}`;
+  });
+
+  return [...pulls, ...commits];
+}
+
+/**
+ * The text with its citation definitions taken from wherever they are and
+ * written as one block at the end. Other reference definitions stay put.
+ */
+export function withDefinitions(text: string, repo: string): string {
+  const body = text.split("\n").filter((line) => !DEFINITION_LINE.test(line)).join("\n");
+  const definitions = expectedDefinitions(text, repo);
+
+  return definitions.length === 0 ? body : `${body.trimEnd()}\n\n${definitions.join("\n")}\n`;
 }
 
 /** What is wrong with the week's entry, one line each. Empty when nothing is. */
-export function checkWeek(text: string, week: string, merged: number[]): string[] {
+export function checkWeek(text: string, week: string, merged: number[], repo: string): string[] {
   const problems: string[] = [];
   const section = sectionOf(text, week);
 
@@ -62,29 +106,19 @@ export function checkWeek(text: string, week: string, merged: number[]): string[
   } else {
     const cited = citationsIn(section);
     const missing = merged.filter((number) => !cited.includes(number));
+    const notMerged = cited.filter((number) => !merged.includes(number));
 
     if (missing.length > 0) {
       problems.push(`merged in ${week} and not cited in its section: ${list(missing)}`);
     }
-  }
 
-  const definitions = definitionsIn(text);
-  const undefinedCitations = citationsIn(text).filter((number) => !definitions.some((definition) => definition.number === number));
-
-  if (undefinedCitations.length > 0) {
-    problems.push(`cited with no link definition at the bottom of the file: ${list(undefinedCitations)}`);
-  }
-
-  for (const { number, url } of definitions) {
-    if (!new RegExp(`/(?:pull|issues)/${number}$`).test(url)) {
-      problems.push(`the definition of [#${number}] points at ${url}, which is not pull request ${number}`);
+    if (notMerged.length > 0) {
+      problems.push(`cited in ${week} and not merged in it: ${list(notMerged)}. A reference to earlier work is a plain link, not a citation`);
     }
   }
 
-  const outOfOrder = definitions.find((definition, index) => index > 0 && definition.number <= (definitions[index - 1]?.number ?? 0));
-
-  if (outOfOrder !== undefined) {
-    problems.push(`the link definitions are not in ascending order: [#${outOfOrder.number}] comes after a higher or equal number`);
+  if (withDefinitions(text, repo) !== text) {
+    problems.push("the link definitions are not what `pnpm changelog defs` writes: run `pnpm changelog defs --write`");
   }
 
   return problems;

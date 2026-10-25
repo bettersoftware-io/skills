@@ -1,0 +1,329 @@
+name: Changelog writer
+
+# Writes the changelog entry for each finished week that has none, with Claude
+# Code, and opens one pull request for them. A person reviews and merges it:
+# this workflow never merges.
+#
+# It costs money. Each run that finds a week due makes Claude Code calls billed
+# to your Anthropic account, up to 40 turns. A run that finds nothing due
+# installs nothing and calls nothing.
+#
+# Off until a project switches it on: set the repository variable
+# CHANGELOG_WRITER to `true` (Settings, Secrets and variables, Actions,
+# Variables) and add the secret ANTHROPIC_API_KEY. Without the variable the job
+# is skipped. With it and without the secret the run fails, and says so.
+# Opening the pull request with the job's token needs Settings, Actions,
+# General, "Allow GitHub Actions to create and approve pull requests".
+#
+# Two jobs, so that the agent never holds a token that can write:
+#
+#   write    runs Claude Code with read-only permissions. It may edit
+#            CHANGELOG.md and nothing else, and it has no git. It hands the
+#            file over as an artifact.
+#   publish  runs no agent and installs nothing. It takes CHANGELOG.md from the
+#            artifact, checks it, then commits, pushes the branch and opens the
+#            pull request. It is the only job that can write.
+#
+# Issue titles and pull request titles are written by anyone who can open one.
+# They reach the agent as text, and must not be able to reach a write token.
+#
+# Runs on Monday just after weekly-tag.yml has tagged the finished week, and by
+# hand. The weeks are the ones `pnpm changelog due` lists.
+on:
+  schedule:
+    - cron: "0 1 * * 1"
+  workflow_dispatch:
+
+# Two runs at once would write the same week twice. The second waits. It then
+# finds the open changelog pull request, and stops.
+concurrency:
+  group: changelog-writer
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+env:
+  # pnpm comes from Corepack; without this its first run can stop to ask.
+  COREPACK_ENABLE_DOWNLOAD_PROMPT: "0"
+
+jobs:
+  write:
+    name: write the changelog entries that are due
+    if: vars.CHANGELOG_WRITER == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read # lists and views the pull requests merged in a week
+      issues: read # read only: the agent is given no tool that reads issues
+    outputs:
+      due: ${{ steps.due.outputs.due }}
+      sha: ${{ steps.due.outputs.sha }}
+      weeks: ${{ steps.due.outputs.weeks }}
+      newest: ${{ steps.due.outputs.newest }}
+    env:
+      # Claude Code scrubs the Anthropic, cloud and GitHub Actions secrets from
+      # the environment of what it runs. action.yml reads this variable, and
+      # docs/security.md of the pinned release describes it.
+      CLAUDE_CODE_SUBPROCESS_ENV_SCRUB: "1"
+    steps:
+      # First, so that a missing secret costs no checkout, install or call.
+      - name: Check the secret
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          if [ -z "$ANTHROPIC_API_KEY" ]; then
+            echo "::error::ANTHROPIC_API_KEY is not set: add the secret or unset CHANGELOG_WRITER"
+            exit 1
+          fi
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          # A run by hand may start from any branch. The entries are the default
+          # branch's. A scheduled run has no value here and takes the default branch.
+          ref: ${{ github.event.repository.default_branch }}
+          # `due` reads the history for the merges of each week.
+          fetch-depth: 0
+          # The checkout keeps no token. The action writes its own into
+          # .git/config (git remote set-url): see the comment on it below.
+          persist-credentials: false
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 26
+
+      # Plain Node, nothing installed: a week that is not due costs no install
+      # and no call. A changelog pull request that is still open also means
+      # nothing is due yet: its weeks are waiting for review.
+      - name: What is due
+        id: due
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          status=0
+          node tools/agent-workflow/changelog.mts due --ref HEAD > "$RUNNER_TEMP/due.txt" || status=$?
+          if [ "$status" -eq 0 ]; then
+            echo "due=false" >> "$GITHUB_OUTPUT"
+          elif [ "$status" -eq 1 ]; then
+            cat "$RUNNER_TEMP/due.txt" >> "$GITHUB_STEP_SUMMARY"
+            open=$(gh pr list --state open --author app/github-actions --json headRefName --jq '[.[] | select(.headRefName | startswith("changelog/"))] | length')
+            if [ "$open" -gt 0 ]; then
+              echo "due=false" >> "$GITHUB_OUTPUT"
+              echo "an open changelog pull request is waiting for review" >> "$GITHUB_STEP_SUMMARY"
+            else
+              weeks=$(cut -d ' ' -f 1 "$RUNNER_TEMP/due.txt" | paste -sd ' ' -)
+              {
+                echo "due=true"
+                echo "weeks=$weeks"
+                echo "newest=${weeks##* }"
+                echo "sha=$(git rev-parse HEAD)"
+              } >> "$GITHUB_OUTPUT"
+            fi
+          else
+            cat "$RUNNER_TEMP/due.txt"
+            exit 1
+          fi
+
+      # Node 25 and later ship without Corepack. This installs it from a
+      # lockfile, so its version is pinned like every other.
+      - name: Enable Corepack (provisions the pnpm pinned by the packageManager field)
+        if: steps.due.outputs.due == 'true'
+        run: node tools/arch/ci/enable-corepack.mts
+
+      - name: Install dependencies
+        if: steps.due.outputs.due == 'true'
+        run: pnpm install --frozen-lockfile
+
+      # `github_token` is read-only here: this job's token holds no write
+      # permission. Without the input, the action trades a GitHub OIDC token at
+      # Anthropic's endpoint for an installation token of the Claude GitHub App,
+      # which needs id-token: write and that app. Claude Code may edit
+      # CHANGELOG.md. It has no git, no `gh` that writes and no other file to
+      # change. The next job takes that one file and checks it.
+      #
+      # The action writes this token into .git/config and the environment of
+      # the job. It is read-only, and it expires when this job ends, before the
+      # next job pushes. The API key is the secret that matters here: Claude
+      # Code may read files under the checkout and no path under /proc or /dev.
+      # It may not read the runner's temp folder either. `//home/runner/work/_temp`
+      # is the ubuntu-latest layout: the rule is an absolute path, so it cannot
+      # name $RUNNER_TEMP. These rules are not a sandbox.
+      # `--setting-sources user` keeps a committed .claude/settings.json from
+      # widening its tools (parse-sdk-options.ts of the pinned release reads it).
+      # The next job refuses a file that holds a token.
+      - uses: anthropics/claude-code-action@f27be6b65a4652f08a2ba3cff79114829b588967 # v1.0.252
+        if: steps.due.outputs.due == 'true'
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          github_token: ${{ github.token }}
+          prompt: |
+            Write or extend the changelog entries for these weeks: ${{ steps.due.outputs.weeks }}.
+            Follow .claude/commands/workflow/changelog.md, in its "In CI" section.
+          claude_args: |
+            --max-turns 40
+            --setting-sources user
+            --disallowedTools "Read(//proc/**),Read(//dev/**),Read(//home/runner/work/_temp/**)"
+            --allowedTools "Read(./**),Edit(./CHANGELOG.md),Write(./CHANGELOG.md),Bash(pnpm changelog weeks),Bash(pnpm changelog prs:*),Bash(pnpm changelog check:*),Bash(pnpm changelog defs:*),Bash(pnpm changelog due:*),Bash(gh pr view:*)"
+
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: steps.due.outputs.due == 'true'
+        with:
+          name: changelog
+          path: CHANGELOG.md
+          if-no-files-found: error
+          retention-days: 1
+
+  publish:
+    name: commit, push and open the pull request
+    needs: write
+    if: needs.write.result == 'success' && needs.write.outputs.due == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # pushes the changelog/<week> branch
+      pull-requests: write # opens the pull request
+      issues: read # finds the issue that asks for the week
+    env:
+      WEEKS: ${{ needs.write.outputs.weeks }}
+      WRITTEN_FROM: ${{ needs.write.outputs.sha }}
+      NEWEST: ${{ needs.write.outputs.newest }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          fetch-depth: 0
+          # The token is given to the push alone, below.
+          persist-credentials: false
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 26
+
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: changelog
+          path: ${{ runner.temp }}/changelog
+
+      # The weeks name a branch and a title: they are what `due` prints, and
+      # nothing else gets through. Of the artifact, only CHANGELOG.md is used.
+      - name: Take the file, if it is a week's name and a change
+        run: |
+          if ! [[ "$WRITTEN_FROM" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "::error::'$WRITTEN_FROM' is not a commit"
+            exit 1
+          fi
+          if ! git diff --quiet "$WRITTEN_FROM" HEAD -- CHANGELOG.md; then
+            echo "::error::CHANGELOG.md changed on the default branch while the writer ran. Run the workflow again"
+            exit 1
+          fi
+          for week in $WEEKS; do
+            if ! [[ "$week" =~ ^[0-9]{4}-W[0-9]{2}$ ]]; then
+              echo "::error::'$week' is not a week name"
+              exit 1
+            fi
+          done
+          if ! [[ "$NEWEST" =~ ^[0-9]{4}-W[0-9]{2}$ ]]; then
+            echo "::error::'$NEWEST' is not a week name"
+            exit 1
+          fi
+          cp "$RUNNER_TEMP/changelog/CHANGELOG.md" CHANGELOG.md
+          if git diff --quiet -- CHANGELOG.md; then
+            echo "::error::the writer changed nothing in CHANGELOG.md"
+            exit 1
+          fi
+
+      # What the agent wrote is published, so what the agent could read must not
+      # be in it. The message names the pattern and never prints the match.
+      - name: Look for a token or a key in what was added
+        run: |
+          for pattern in 'sk-ant-' 'ghs_' 'ghp_' 'gho_' 'ghu_' 'ghr_' 'github_pat_' '-----BEGIN'; do
+            if git diff -U0 -- CHANGELOG.md | grep '^+' | grep -q -F -e "$pattern"; then
+              echo "::error::CHANGELOG.md has added text with '$pattern' in it, which starts a token or a key. Nothing was committed"
+              exit 1
+            fi
+          done
+
+      # The exact value of the key, which the prefix list may not know the shape
+      # of. It is in this step's environment and nowhere else in the job. It is
+      # never printed, and the message names no value.
+      - name: Look for the API key itself in what was added
+        env:
+          KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          if [ -n "$KEY" ] && git diff -U0 -- CHANGELOG.md | grep '^+' | grep -qF -- "$KEY"; then
+            echo "::error::CHANGELOG.md has added text equal to the Anthropic API key. Nothing was committed"
+            exit 1
+          fi
+
+      # A week that fails the check is still published, as a draft: a person
+      # finishes it. What each failing week lacks goes to the job summary and
+      # the pull request's body: only the FAIL line and the lines above it,
+      # which are fixed text and pull request numbers. A SKIP line may hold
+      # what gh printed, so a week not judged is named and nothing more.
+      - name: Check each week
+        id: check
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          failed=""
+          : > "$RUNNER_TEMP/check.txt"
+          for week in $WEEKS; do
+            status=0
+            node tools/agent-workflow/changelog.mts check "$week" > "$RUNNER_TEMP/week.txt" || status=$?
+            cat "$RUNNER_TEMP/week.txt"
+            if [ "$status" -ne 0 ]; then
+              failed="$failed $week"
+              if [ "$status" -eq 1 ]; then
+                grep -E '^(FAIL |  )' "$RUNNER_TEMP/week.txt" >> "$RUNNER_TEMP/check.txt" || true
+              else
+                echo "$week was not judged: changelog check exited $status" >> "$RUNNER_TEMP/check.txt"
+              fi
+            fi
+          done
+          echo "failed=${failed# }" >> "$GITHUB_OUTPUT"
+          if [ -s "$RUNNER_TEMP/check.txt" ]; then
+            { echo "~~~text"; cat "$RUNNER_TEMP/check.txt"; echo "~~~"; } >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Commit CHANGELOG.md alone
+        run: |
+          git add -- CHANGELOG.md
+          git -c user.name="github-actions[bot]" -c user.email="41898282+github-actions[bot]@users.noreply.github.com" commit -m "docs(changelog): ${WEEKS// /, }"
+
+      # The token goes to this one command, as actions/checkout would give it,
+      # and is never written to .git/config. The refspec names the one branch.
+      - name: Push the branch
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          auth=$(printf 'x-access-token:%s' "$GH_TOKEN" | base64 -w0)
+          echo "::add-mask::$auth"
+          git -c "http.https://github.com/.extraheader=AUTHORIZATION: basic $auth" push origin "HEAD:refs/heads/changelog/$NEWEST"
+
+      - name: Find the issues that ask for these weeks
+        id: issues
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -o pipefail
+          numbers=$(gh issue list --author app/github-actions --state open --search "in:title Changelog:" --limit 100 --json number,title \
+            | jq -r --arg weeks "$WEEKS" '($weeks | split(" ")) as $due | .[] | select(.title as $title | any($due[]; . as $week | $title | endswith($week))) | .number' \
+            | paste -sd ' ' -)
+          echo "numbers=$numbers" >> "$GITHUB_OUTPUT"
+
+      - name: Open the pull request
+        env:
+          GH_TOKEN: ${{ github.token }}
+          FAILED: ${{ steps.check.outputs.failed }}
+          ISSUES: ${{ steps.issues.outputs.numbers }}
+        run: |
+          body="Adds the changelog entries for ${WEEKS// /, }."$'\n'
+          for number in $ISSUES; do
+            body+=$'\n'"Closes #$number"
+          done
+          draft=()
+          if [ -n "$FAILED" ]; then
+            draft=(--draft)
+            body+=$'\n'"The changelog check failed for ${FAILED// /, }. Finish the entry before it is merged."
+            body+=$'\n\n'"~~~text"$'\n'"$(cat "$RUNNER_TEMP/check.txt")"$'\n'"~~~"
+          fi
+          gh pr create --title "docs(changelog): ${WEEKS// /, }" --body "$body" --head "changelog/$NEWEST" "${draft[@]}"

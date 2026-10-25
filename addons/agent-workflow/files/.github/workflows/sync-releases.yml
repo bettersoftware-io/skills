@@ -1,0 +1,68 @@
+name: Sync releases
+
+# GitHub Releases mirror CHANGELOG.md: one release per tagged ISO week, titled
+# like its heading, the notes made from that week's section by
+# tools/agent-workflow/sync-releases.mts. CHANGELOG.md is the only source: a
+# release edited by hand is overwritten on the next change to its section.
+#
+# Off until a project switches it on: set the repository variable
+# CHANGELOG_RELEASES to `true` (Settings, Secrets and variables, Actions,
+# Variables). Without it the job is skipped, and no release is written.
+#
+# Runs when CHANGELOG.md (or the script) changes on the default branch, which
+# is when a week's entry lands; and on Monday just after weekly-tag.yml, so a
+# week whose entry was written before its tag existed gets its release once
+# the tag appears. Idempotent: an unchanged section writes nothing.
+on:
+  push:
+    paths:
+      - CHANGELOG.md
+      - tools/agent-workflow/sync-releases.mts
+      - tools/agent-workflow/lib/releases.mts
+      - tools/agent-workflow/lib/changelog.mts
+  schedule:
+    - cron: "30 0 * * 1"
+  workflow_dispatch:
+
+concurrency:
+  group: sync-releases
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  sync:
+    name: sync releases from CHANGELOG.md
+    # A push to another branch writes nothing. `on.push.branches` takes no expression, so the job asks.
+    if: vars.CHANGELOG_RELEASES == 'true' && (github.event_name != 'push' || github.ref_name == github.event.repository.default_branch)
+    runs-on: ubuntu-latest
+    permissions:
+      # Creates and edits releases through the API.
+      contents: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          # A run by hand may start from any branch. The releases are the default
+          # branch's. A scheduled run has no value here and takes the default branch.
+          ref: ${{ github.event.repository.default_branch }}
+          # The script needs these paths and no dependency (plain `node`).
+          sparse-checkout: |
+            CHANGELOG.md
+            tools/agent-workflow
+          sparse-checkout-cone-mode: false
+          # Releases are written through the API, not `git push`: keep the
+          # token out of .git/config.
+          persist-credentials: false
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 26
+
+      # Plain Node, no dependency installed: no package's code runs where the
+      # token that can write is.
+      - name: Create or update one release per tagged week
+        env:
+          GH_TOKEN: ${{ github.token }}
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+        run: node tools/agent-workflow/sync-releases.mts --repo "$GITHUB_REPOSITORY" --branch "$DEFAULT_BRANCH" --apply

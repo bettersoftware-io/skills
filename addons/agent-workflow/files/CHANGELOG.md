@@ -13,8 +13,10 @@ It is not a list of commits. The format follows
 
 Every merged pull request is cited by its number in square brackets, with a
 `#` before the number. Each citation has a link definition at the bottom of
-this file, in ascending order.
-`pnpm changelog check <week>` proves both. The newest week comes first.
+this file, in ascending order, and `pnpm changelog defs --write` writes them.
+`pnpm changelog check <week>` proves both. The newest week comes first. A
+session starts with a note of the finished weeks that are due, and
+`pnpm changelog due` lists them.
 
 Each finished week is also a git tag of the same name, on the last commit
 that reached the main branch before Monday 00:00 UTC. So
