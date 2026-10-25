@@ -867,7 +867,14 @@ agents are still at work. The agent's report starts a new turn, and that
 turn's stop is judged as usual.
 
 - A `shell` or a `monitor` task does not hold the gate back: a dev server left
-  running would otherwise switch it off for good.
+  running would otherwise switch it off for good. The one exception is a
+  shell a subagent started and ended its turn to wait on. While it waits,
+  Claude Code lists the shell and not the subagent, so the hook looks for the
+  shell's id in the session's subagent transcripts
+  (`<session>/subagents/agent-<id>.jsonl`, beside `transcript_path`). If a
+  subagent that has not finished started it, the gate waits for that
+  subagent too. That layout is Claude Code's own and not documented: when it
+  cannot be read, the gate runs.
 - An entry in a shape the reference does not document (no status, a type or
   a status it does not list) does not either: what cannot be read runs the
   gate.
@@ -878,8 +885,16 @@ turn's stop is judged as usual.
   quoted in `hooks/hooks.test.mts`, and against the timeline of the session
   that hit it (the gate's block came 69 seconds after a background agent was
   launched into the same checkout, and 38 seconds before it reported done).
-  Each of its 20 mutants (`scripts/mutants/stop-waits-for-agents.json`) is
-  killed. It has not been run in a live session with a background agent.
+  Each of its mutants (`scripts/mutants/stop-waits-for-agents.json`) is
+  killed.
+- Live, on 2026-10-25 (Claude Code 2.1.310, a project made by
+  `create-project.mts`): a background subagent wrote a file that fails the
+  typecheck, waited 90 seconds on a background shell, then deleted it. The
+  controller's first stop listed the subagent and the gate waited. Its second
+  stop listed only the subagent's shell, and the gate ran on the broken file
+  and blocked. That second case is what the transcript lookup is for. It was
+  tested against the payload logged in that run and a copy of that
+  subagent's transcript, not yet in a second live run.
 
 It was `gate:fast` until a run with the smallest model stopped there with
 `gate:full` red and reported green

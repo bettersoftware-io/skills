@@ -61,6 +61,18 @@
 // status or a type not listed, no object) does not count either: what cannot
 // be read never skips the gate.
 //
+// A subagent can end its own turn to wait on a shell it started (a test run,
+// a wait on the checks). While it waits the host lists the shell, not the
+// subagent, and the shell's entry does not say whose it is. A live session
+// showed it: the controller stopped with only a running shell in the list, and
+// the gate failed on the subagent's half-done edit. So a running shell or
+// monitor counts when the transcript of one of the session's subagents
+// (`<session>/subagents/agent-<id>.jsonl`, beside `transcript_path`) records
+// it as a task that subagent started, and the subagent's `.meta.json` does not
+// say it has finished. That layout is the host's and not documented: a
+// transcript that is not there or cannot be read names no subagent, and the
+// gate runs as before.
+//
 // Apart from that second stop, the agent finishes without a gate having
 // passed in three cases only: no folder from `cwd` upward has a gate script,
 // the tree is the one a green run is on record for, or an agent is still at
@@ -82,7 +94,7 @@
 
 import { spawn, spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
-import { existsSync, lstatSync, mkdirSync, readFileSync, readlinkSync, realpathSync, writeFileSync } from "node:fs";
+import { existsSync, lstatSync, mkdirSync, readdirSync, readFileSync, readlinkSync, realpathSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 
 import { isMainModule, isPlainPath } from "../gates/lib/files.mts";
@@ -112,6 +124,10 @@ export const RUN_LIMITS: RunLimits = { runMs: 9 * 60 * 1000, stopMs: 20 * 1000, 
 
 /** The kinds of background task that are agents, and so may be editing the tree. A `shell` or a `monitor` is not one. */
 const AGENT_TASKS = ["subagent", "teammate", "workflow"];
+/** The kinds of background task a subagent can end its turn to wait on, and be listed by instead of itself. */
+const WAITED_ON_TASKS = ["shell", "monitor"];
+/** A subagent's transcript, beside the session's: `<session>/subagents/agent-<id>.jsonl`. */
+const SUBAGENT_TRANSCRIPT = /^agent-([\w-]+)\.jsonl$/;
 /**
  * The statuses of a task that has not ended. The Agent SDK's
  * `SDKTaskUpdatedMessage` lists the five a task goes through; the other three
@@ -126,6 +142,8 @@ export interface StopPayload {
   stop_hook_active?: boolean;
   /** Read as unknown: an entry is believed only in the shape the hooks reference documents. */
   background_tasks?: unknown;
+  /** The session's transcript; its subagents' are kept beside it. */
+  transcript_path?: unknown;
 }
 
 /** What the hook writes back: a block with its reason, or a message to the user and nothing else. */
@@ -137,6 +155,7 @@ export interface StopReply {
 
 /** An entry of `background_tasks` that is an agent still at work. */
 interface AgentAtWork {
+  id?: string;
   type: string;
   description: string;
   agentType?: string;
@@ -155,7 +174,7 @@ export interface GateRun {
  * tree, and its report starts the turn whose stop is judged.
  */
 export async function replyToStop(payload: StopPayload, run: (root: string, script: string) => GateRun | Promise<GateRun> = runGate): Promise<StopReply | undefined> {
-  const agents = agentsAtWork(payload.background_tasks);
+  const agents = agentsAtWork(payload.background_tasks, payload.transcript_path);
 
   if (agents.length > 0) {
     return { systemMessage: deferral(agents) };
@@ -166,25 +185,109 @@ export async function replyToStop(payload: StopPayload, run: (root: string, scri
   return reason ? { decision: "block", reason } : undefined;
 }
 
-/** The agents in a payload's `background_tasks` that have not ended. An entry in any other shape is not one: it never skips the gate. */
-function agentsAtWork(tasks: unknown): AgentAtWork[] {
+/**
+ * The agents in a payload's `background_tasks` that have not ended, and the
+ * subagents that ended their turn to wait on a shell or a monitor still
+ * running. An entry in any other shape is not one: it never skips the gate.
+ */
+function agentsAtWork(tasks: unknown, transcriptPath: unknown): AgentAtWork[] {
   if (!Array.isArray(tasks)) {
     return [];
   }
 
-  return tasks.flatMap((task: unknown): AgentAtWork[] => {
+  const inFlight = tasks.flatMap((task: unknown): AgentAtWork[] => {
     if (typeof task !== "object" || task === null) {
       return [];
     }
 
-    const { type, status, description, agent_type: agentType } = task as Record<string, unknown>;
+    const { id, type, status, description, agent_type: agentType } = task as Record<string, unknown>;
 
-    if (typeof type !== "string" || !AGENT_TASKS.includes(type) || typeof status !== "string" || !IN_FLIGHT.includes(status)) {
+    if (typeof type !== "string" || typeof status !== "string" || !IN_FLIGHT.includes(status)) {
       return [];
     }
 
-    return [{ type, description: typeof description === "string" ? description : "", agentType: typeof agentType === "string" && agentType !== "" ? agentType : undefined }];
+    return [
+      {
+        id: typeof id === "string" && id !== "" ? id : undefined,
+        type,
+        description: typeof description === "string" ? description : "",
+        agentType: typeof agentType === "string" && agentType !== "" ? agentType : undefined,
+      },
+    ];
   });
+  const agents = inFlight.filter((task) => AGENT_TASKS.includes(task.type));
+  const waitedOn = inFlight.filter((task) => WAITED_ON_TASKS.includes(task.type) && task.id !== undefined);
+  const listed = new Set(agents.map((agent) => agent.id));
+
+  return [...agents, ...subagentsWaitingOn(waitedOn, transcriptPath).filter((agent) => !listed.has(agent.id))];
+}
+
+/**
+ * The subagents of the session that started one of these tasks and have not
+ * finished. While a subagent waits on a shell of its own, the host lists the
+ * shell and not the subagent, and the shell's entry does not say whose it is:
+ * the subagent's transcript, which records the id of each task it started in
+ * the background, does. A transcript or a record that cannot be read names no
+ * subagent, and the gate runs.
+ */
+function subagentsWaitingOn(tasks: AgentAtWork[], transcriptPath: unknown): AgentAtWork[] {
+  if (tasks.length === 0 || typeof transcriptPath !== "string" || !transcriptPath.endsWith(".jsonl")) {
+    return [];
+  }
+
+  const folder = join(transcriptPath.slice(0, -".jsonl".length), "subagents");
+  let names: string[];
+
+  try {
+    names = readdirSync(folder);
+  } catch {
+    return [];
+  }
+
+  return names.flatMap((name): AgentAtWork[] => {
+    const id = SUBAGENT_TRANSCRIPT.exec(name)?.[1];
+    const transcript = id === undefined ? undefined : readOrUndefined(join(folder, name));
+    // The transcript is JSON lines as `JSON.stringify` writes them, so the id is quoted on both sides.
+    const task = transcript === undefined ? undefined : tasks.find((waited) => transcript.includes(`"backgroundTaskId":${JSON.stringify(waited.id)}`));
+
+    if (id === undefined || task === undefined) {
+      return [];
+    }
+
+    const meta = readMeta(join(folder, `agent-${id}.meta.json`));
+
+    if (meta.finished === true) {
+      return [];
+    }
+
+    return [
+      {
+        id,
+        type: "subagent",
+        description: typeof meta.description === "string" && meta.description !== "" ? meta.description : task.description,
+        agentType: typeof meta.agentType === "string" && meta.agentType !== "" ? meta.agentType : undefined,
+      },
+    ];
+  });
+}
+
+function readOrUndefined(path: string): string | undefined {
+  try {
+    return readFileSync(path, "utf8");
+  } catch {
+    return undefined;
+  }
+}
+
+/** What a subagent's `.meta.json` says of it, or nothing when it cannot be read. */
+function readMeta(path: string): Record<string, unknown> {
+  try {
+    const meta: unknown = JSON.parse(readFileSync(path, "utf8"));
+
+    return typeof meta === "object" && meta !== null ? (meta as Record<string, unknown>) : {};
+  } catch {
+    return {};
+  }
 }
 
 function deferral(agents: AgentAtWork[]): string {
