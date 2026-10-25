@@ -16,7 +16,8 @@
 // let through. So is `gh pr create --body "$(cat <<'EOF' … EOF)"`: the inner
 // command only feeds the outer one.
 //
-// A command this cannot read (a quote that never closes) is not refused: the
+// A command this cannot read (a quote that never closes, or a form shells
+// read differently, such as a `case` inside `$(…)`) is not refused: the
 // host's own permission rules still judge it, and when it names an outward
 // step Claude Code is given the question too. The refusal orders the work;
 // it is not what keeps a push from happening. A command this will not read
@@ -112,11 +113,12 @@ export function judgeCall(payload: CommandPayload): Answer | undefined {
   }
 
   if (verdict === undefined) {
-    // Not read, and not for its size: a quote or a heredoc left open. What it does is not known, so a person is asked when it names an outward step.
+    // Not read, and not for its size: a quote or a heredoc left open, or a form shells read differently. What it does is not known, so a person is asked when it names an outward step.
     return command !== undefined && mentionsOutward(command) && readsAQuestion(payload)
       ? {
           decision: "ask",
-          reason: "This command could not be read (a quote or a heredoc is left open), and it names an outward step (push, gh), so a person is asked whatever rule allows it.",
+          reason:
+            "This command could not be read (a quote or a heredoc is left open, or it is written in a form shells read differently), and it names an outward step (push, gh), so a person is asked whatever rule allows it.",
         }
       : undefined;
   }
