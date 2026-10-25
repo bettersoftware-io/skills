@@ -20,9 +20,8 @@ interface ScenarioFrameProps {
 
 /**
  * Seeds the scenario once its children are mounted, then says it is ready once
- * the seeded state has rendered. The
- * spec waits for that signal and for nothing else: no sleep, no "wait for the
- * network".
+ * the seeded state has rendered. The spec waits for that signal and for
+ * nothing else: no sleep, no "wait for the network".
  *
  * With a `root`, the children sit in the element a picture is taken of: a
  * fixed width and a content height, `content-box` so the padding adds to the
@@ -40,6 +39,7 @@ export function ScenarioFrame({
   children,
 }: ScenarioFrameProps): ReactElement {
   const seeding = useRef(false);
+  const told = useRef(false);
   const [seeded, setSeeded] = useState(false);
 
   useEffect(() => {
@@ -54,8 +54,11 @@ export function ScenarioFrame({
 
   // A second effect, run after the commit that follows the deliveries: ready
   // means the seeded state is on the page, not that it was handed to React.
+  // Said once: a caller that passes a new `onReady` on a later render does
+  // not hear it again.
   useEffect(() => {
-    if (seeded) {
+    if (seeded && !told.current) {
+      told.current = true;
       onReady();
     }
   }, [seeded, onReady]);

@@ -284,42 +284,42 @@
     "file": "addons/visual/files/packages/client-react/tests/visual/host/render.tsx",
     "find": "await loadEveryFace(document.fonts);",
     "replace": "void loadEveryFace(document.fonts);",
-    "test": "pnpm vitest run addons/visual/tests/addon.test.mts"
+    "test": "pnpm vitest run addons/visual/tests/addon.test.mts -t \"loads every font face before the first render\""
   },
   {
     "name": "host: a scenario with a mount skips the check that the seeding returns a render",
     "file": "addons/visual/files/packages/client-react/tests/visual/host/render.tsx",
     "find": "if (picture.mount !== undefined && seeded.render === undefined) {",
     "replace": "if (picture.mount === undefined && seeded.render === undefined) {",
-    "test": "pnpm vitest run addons/visual/tests/addon.test.mts"
+    "test": "pnpm vitest run addons/visual/tests/addon.test.mts -t \"fails a scenario with a mount when the seeding returns no render\""
   },
   {
     "name": "host: the ready attribute is set without awaiting the scenario",
     "file": "addons/visual/files/packages/client-react/tests/visual/host/main.tsx",
     "find": "await shown.ready;",
     "replace": "",
-    "test": "pnpm vitest run addons/visual/tests/addon.test.mts"
+    "test": "pnpm vitest run addons/visual/tests/addon.test.mts -t \"surfaces a failed scenario as an uncaught error\""
   },
   {
     "name": "host: a failed scenario is caught, so the page never errors",
     "file": "addons/visual/files/packages/client-react/tests/visual/host/main.tsx",
     "find": "const shown: Shown = await showScenario(name ?? \"\", container);",
     "replace": "const shown: Shown = await showScenario(name ?? \"\", container).catch(() => ({ ready: Promise.resolve() }));",
-    "test": "pnpm vitest run addons/visual/tests/addon.test.mts"
+    "test": "pnpm vitest run addons/visual/tests/addon.test.mts -t \"surfaces a failed scenario as an uncaught error\""
   },
   {
     "name": "host: the root is border-box, so its padding eats the fixed width",
     "file": "addons/visual/files/packages/client-react/tests/visual/host/ScenarioFrame.tsx",
     "find": "boxSizing: \"content-box\"",
     "replace": "boxSizing: \"border-box\"",
-    "test": "pnpm vitest run addons/visual/tests/addon.test.mts"
+    "test": "pnpm vitest run addons/visual/tests/addon.test.mts -t \"renders what the seeding returns, or App\""
   },
   {
     "name": "host: main.tsx loads the stylesheet as well",
     "file": "addons/visual/files/packages/client-react/tests/visual/host/main.tsx",
     "find": "import { READY_ATTRIBUTE } from \"./address.ts\";",
     "replace": "import \"#/index.css\";\nimport { READY_ATTRIBUTE } from \"./address.ts\";",
-    "test": "pnpm vitest run addons/visual/tests/addon.test.mts"
+    "test": "pnpm vitest run addons/visual/tests/addon.test.mts -t \"loads every font face before the first render\""
   },
   {
     "name": "fonts: a face that rejects is swallowed",
@@ -347,91 +347,98 @@
     "file": "addons/visual/files/packages/client-react/tests/visual/host/ScenarioFrame.tsx",
     "find": "    setSeeded(true);",
     "replace": "    setSeeded(true);\n    onReady();",
-    "test": "pnpm vitest run addons/visual/tests/addon.test.mts"
+    "test": "pnpm vitest run addons/visual/tests/addon.test.mts -t \"says ready from a second effect\""
   },
   {
     "name": "host: the second effect fires without the seeded flag",
     "file": "addons/visual/files/packages/client-react/tests/visual/host/ScenarioFrame.tsx",
-    "find": "    if (seeded) {\n      onReady();",
-    "replace": "    {\n      onReady();",
-    "test": "pnpm vitest run addons/visual/tests/addon.test.mts"
+    "find": "    if (seeded && !told.current) {",
+    "replace": "    if (!told.current) {",
+    "test": "pnpm vitest run addons/visual/tests/addon.test.mts -t \"says ready from a second effect\""
+  },
+  {
+    "name": "host: ready is said again when the caller passes a new onReady",
+    "file": "addons/visual/files/packages/client-react/tests/visual/host/ScenarioFrame.tsx",
+    "find": "      told.current = true;\n",
+    "replace": "",
+    "test": "pnpm vitest run addons/visual/tests/addon.test.mts -t \"says ready once\""
   },
   {
     "name": "host: fonts load after the first render",
     "file": "addons/visual/files/packages/client-react/tests/visual/host/render.tsx",
     "find": "    await loadEveryFace(document.fonts);\n\n    const root = createRoot(container);",
     "replace": "    const root = createRoot(container);\n    root.render(<App />);\n    await loadEveryFace(document.fonts);",
-    "test": "pnpm vitest run addons/visual/tests/addon.test.mts"
+    "test": "pnpm vitest run addons/visual/tests/addon.test.mts -t \"loads every font face before the first render\""
   },
   {
     "name": "host: a missing scenario name is not passed on, so the names are not listed",
     "file": "addons/visual/files/packages/client-react/tests/visual/host/main.tsx",
     "find": "showScenario(name ?? \"\", container)",
     "replace": "showScenario(name as string, container)",
-    "test": "pnpm vitest run addons/visual/tests/addon.test.mts"
+    "test": "pnpm vitest run addons/visual/tests/addon.test.mts -t \"names the scenarios when the address has none\""
   },
   {
     "name": "spec: a page is captured as the root",
     "file": "addons/visual/files/packages/client-react/tests/visual/visual.pw.ts",
     "find": "picture.capture === \"root\"",
     "replace": "picture.capture !== \"viewport\"",
-    "test": "pnpm vitest run addons/visual/tests/addon.test.mts"
+    "test": "pnpm vitest run addons/visual/tests/addon.test.mts -t \"sets the viewport before it opens the page\""
   },
   {
     "name": "spec: the viewport capture takes the whole page",
     "file": "addons/visual/files/packages/client-react/tests/visual/visual.pw.ts",
     "find": "fullPage: false,",
     "replace": "fullPage: true,",
-    "test": "pnpm vitest run addons/visual/tests/addon.test.mts"
+    "test": "pnpm vitest run addons/visual/tests/addon.test.mts -t \"sets the viewport before it opens the page\""
   },
   {
     "name": "spec: the viewport is set after the page loads",
     "file": "addons/visual/files/packages/client-react/tests/visual/visual.pw.ts",
     "find": "    await page.setViewportSize(picture.viewport);\n    await page.goto(`/?scenario=${encodeURIComponent(name)}`);",
     "replace": "    await page.goto(`/?scenario=${encodeURIComponent(name)}`);\n    await page.setViewportSize(picture.viewport);",
-    "test": "pnpm vitest run addons/visual/tests/addon.test.mts"
+    "test": "pnpm vitest run addons/visual/tests/addon.test.mts -t \"sets the viewport before it opens the page\""
   },
   {
     "name": "spec: the viewport is never set",
     "file": "addons/visual/files/packages/client-react/tests/visual/visual.pw.ts",
     "find": "    await page.setViewportSize(picture.viewport);\n",
     "replace": "",
-    "test": "pnpm vitest run addons/visual/tests/addon.test.mts"
+    "test": "pnpm vitest run addons/visual/tests/addon.test.mts -t \"sets the viewport before it opens the page\""
   },
   {
     "name": "spec: the scenario's tolerance is left out of the comparison",
     "file": "addons/visual/files/packages/client-react/tests/visual/visual.pw.ts",
     "find": "        ...screenshotTolerance(picture.tolerance),\n",
     "replace": "",
-    "test": "pnpm vitest run addons/visual/tests/addon.test.mts"
+    "test": "pnpm vitest run addons/visual/tests/addon.test.mts -t \"sets the viewport before it opens the page\""
   },
   {
     "name": "spec: the level is not annotated",
     "file": "addons/visual/files/packages/client-react/tests/visual/visual.pw.ts",
     "find": "type: \"level\"",
     "replace": "type: \"levels\"",
-    "test": "pnpm vitest run addons/visual/tests/addon.test.mts"
+    "test": "pnpm vitest run addons/visual/tests/addon.test.mts -t \"sets the viewport before it opens the page\""
   },
   {
     "name": "config: Chromium starts with partial raster",
     "file": "addons/visual/files/packages/client-react/tests/visual/playwright.config.ts",
     "find": "\"--disable-partial-raster\"",
     "replace": "\"--disable-gpu\"",
-    "test": "pnpm vitest run addons/visual/tests/addon.test.mts"
+    "test": "pnpm vitest run addons/visual/tests/addon.test.mts -t \"launches Chromium without partial raster\""
   },
   {
     "name": "config: CI runs more than one worker",
     "file": "addons/visual/files/packages/client-react/tests/visual/playwright.config.ts",
     "find": "process.env.CI === undefined ? undefined : 1",
     "replace": "undefined",
-    "test": "pnpm vitest run addons/visual/tests/addon.test.mts"
+    "test": "pnpm vitest run addons/visual/tests/addon.test.mts -t \"launches Chromium without partial raster\""
   },
   {
     "name": "config: the browser starts at a size of its own, not the framing's",
     "file": "addons/visual/files/packages/client-react/tests/visual/playwright.config.ts",
     "find": "viewport: FRAMING.viewport,",
     "replace": "viewport: { width: 800, height: 600 },",
-    "test": "pnpm vitest run addons/visual/tests/addon.test.mts"
+    "test": "pnpm vitest run addons/visual/tests/addon.test.mts -t \"launches Chromium without partial raster\""
   },
   {
     "name": "summary: a test with no annotation is not a page",
@@ -480,7 +487,7 @@
     "file": "addons/visual/addon.json",
     "find": "\"to\": \"packages/client-react/tests/visual/scenarios.ts\"",
     "replace": "\"to\": \"packages/client-react/tests/visual/seeding.ts\"",
-    "test": "pnpm vitest run addons/visual/tests/addon.test.mts"
+    "test": "pnpm vitest run addons/visual/tests/addon.test.mts -t \"sends a project that edited the spec to the scenarios\""
   },
   {
     "name": "picture: a scenario's cap keeps the old global's ratio",
@@ -494,14 +501,14 @@
     "file": "addons/visual/files/packages/client-react/tests/visual/visual.pw.ts",
     "find": "    maxDiffPixelRatio: tolerance.maxDiffPixelRatio,\n",
     "replace": "",
-    "test": "pnpm vitest run addons/visual/tests/addon.test.mts"
+    "test": "pnpm vitest run addons/visual/tests/addon.test.mts -t \"sets the viewport before it opens the page\""
   },
   {
     "name": "spec: the root capture passes the tolerance unsifted",
     "file": "addons/visual/files/packages/client-react/tests/visual/visual.pw.ts",
     "find": "        screenshotTolerance(picture.tolerance),\n      );",
     "replace": "        picture.tolerance,\n      );",
-    "test": "pnpm vitest run addons/visual/tests/addon.test.mts"
+    "test": "pnpm vitest run addons/visual/tests/addon.test.mts -t \"sets the viewport before it opens the page\""
   },
   {
     "name": "summary: the orphan check is counted as a page",
@@ -551,6 +558,27 @@
     "find": "  \"price-list\": (): ReactElement => {",
     "replace": "  \"price-lists\": (): ReactElement => {",
     "test": "pnpm vitest run addons/visual/tests/addon.test.mts -t \"mount only what the registry has\""
+  },
+  {
+    "name": "examples: an entry is mounted without the app's surround",
+    "file": "addons/visual/files/packages/client-react/tests/visual/registry.tsx",
+    "find": "return <Surround>{entry(scenario)}</Surround>;",
+    "replace": "return entry(scenario);",
+    "test": "pnpm vitest run addons/visual/tests/addon.test.mts -t \"in the app.s surround\""
+  },
+  {
+    "name": "examples: an unknown mount does not name the registry's entries",
+    "file": "addons/visual/files/packages/client-react/tests/visual/registry.tsx",
+    "find": ". Its entries: ${Object.keys(registry).join(\", \")}",
+    "replace": "",
+    "test": "pnpm vitest run addons/visual/tests/addon.test.mts -t \"in the app.s surround\""
+  },
+  {
+    "name": "examples: a scenario the test cannot read is skipped in silence",
+    "file": "addons/visual/tests/addon.test.mts",
+    "find": "  if (keys.length === 0 || read.length !== keys.length) {",
+    "replace": "  if (false) {",
+    "test": "pnpm vitest run addons/visual/tests/addon.test.mts -t \"are each read by this file\""
   },
   {
     "name": "examples: the seeding renders a page's mount too",
