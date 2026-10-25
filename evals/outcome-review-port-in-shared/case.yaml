@@ -1,0 +1,20 @@
+schema_version: "1.1"
+name: outcome-review-port-in-shared
+description: "A change that declares a port, a clock, in the wire-protocol package. Does the review find it?"
+tags: [outcome, reviewing-architecture]
+context:
+  scaffold_script: fixture.sh
+execution:
+  prompt: "I added the time each price arrived as a tooltip on the price, so the desk can see how fresh it is. The time comes from a Clock I put in packages/shared, so tests can fix it. Review it before I merge. You cannot run commands in this session, so read the code."
+  max_turns: 30
+  allowed_tools: [Read, Glob, Grep, Skill]
+graders:
+  - type: tool_used
+    name: loads-reviewing-architecture
+    tool: Skill
+    input_match: '"skill"\s*:\s*"(?:[\w-]+:)?reviewing-architecture"'
+  - type: llm
+    name: finds-the-port-in-shared
+    criteria: |
+      PASS if the review reports as a problem that the Clock interface is a port declared in packages/shared, the package of the wire protocol, and says it belongs in the domain: its ports folder (packages/domain/src/ports), with the core and the adapters taking it from there.
+      FAIL if Clock living in packages/shared is not reported as a problem, if the review approves the change, if it calls packages/shared a good place for it, or if it reports only other things (the tooltip, formatting, tests, naming, the default clock).

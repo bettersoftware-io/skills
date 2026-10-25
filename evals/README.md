@@ -15,7 +15,7 @@ version goes up.
 | Command | Runs | Passes when | One full run |
 |---|---|---|---|
 | `pnpm evals:trigger` | The 13 trigger cases on Claude Code, with the plugin | The request loads the skill it should, and no other | 39 runs, about $3 on Sonnet |
-| `pnpm evals:outcome` | The 3 outcome cases on Claude Code, with the plugin and again without it | The agent names the right command, or the review finds the planted problem | 18 runs, about $1.20 on Sonnet |
+| `pnpm evals:outcome` | The 4 outcome cases on Claude Code, with the plugin and again without it | The agent names the right command, or the review finds the planted problem | 24 runs, about $1.60 on Sonnet |
 | `pnpm evals:codex` | The 13 trigger cases on Codex, with the plugin as Codex has it installed | Codex reads the skill's `SKILL.md`, and no other skill's | 39 runs, a few minutes of your Codex plan |
 
 ## Running them
@@ -90,7 +90,7 @@ without, and the difference: what the plugin added.
 | `✗ loads-<skill>: Skill called 0x` | The request did not load the skill it should have | Read the request beside the skill's `description`. The words the person used are missing from it. Change the description, never the request |
 | `✗ leaves-<skill>: Skill called 1x` | That skill was loaded for a request that is not its own | Its description claims too much. Where the right skill was loaded too, say in each description what tells the two apart |
 | `✗ names-the-…: pattern not found` in an outcome case | The skill loaded, and the command the agent gave is not the one the case expects | Compare the skill's text about that command with the case's pattern. A renamed option or add-on shows here first |
-| `✗ finds-the-average: judge votes: FAIL …` | The review did not report the planted average | Read the review in the report page |
+| `✗ finds-the-average: judge votes: FAIL …` (or `finds-the-port-in-shared`) | The review did not report the planted problem | Read the review in the report page |
 | One run of three failed | Results vary between runs | Run that case again with `--case <name> --runs 9` before changing anything |
 | `error: … Reached maximum number of turns` | The agent was still reading the project when it was stopped | Nothing. The run is graded on what it did before that |
 | `scaffold failed` | The project the agent starts in could not be made, and the run scored 0 | Run the case's `fixture.sh` yourself, in an empty folder, to see the error |
@@ -109,7 +109,7 @@ second the skill it is about, or `none`.
 |---|---|---|
 | `creating-a-project` | A new project in the skill's own words; the same without naming ports and adapters or RxJS | Names `create-project.mts` with the scope and the name asked for |
 | `extending-a-project` | End-to-end tests; CI security checks, asked for without the add-on's name; an update of the kit; an existing project that wants the gates (and `creating-a-project` must stay out) | Names `add-to-project.mts` with `ci-security:dependabot`, the option that is not the default |
-| `reviewing-architecture` | A review before merging, with no mention of architecture; "does this follow the architecture?" | Finds an average worked out in a component, which belongs in the core |
+| `reviewing-architecture` | A review before merging, with no mention of architecture; "does this follow the architecture?" | Finds an average worked out in a component, which belongs in the core; finds a port, a clock, declared in the wire-protocol package |
 | `documenting-architecture` | A set of documents with C4 diagrams; a guide for a newcomer, with no mention of architecture | None: the skill starts readers of its own and fetches a 230 MB toolset, more than a run holds |
 | none | A Python service; a review in a project without the kit; one diagram | |
 
@@ -165,6 +165,7 @@ command the agent names, not the result of running it.
 | 2026-10-16 | outcome | Claude Sonnet | With the plugin 3 of 3 for each case. Without it: creating 0.11, extending 0.50, the review 1.00. $1.14 |
 | 2026-10-16 | trigger, one run each | Claude Opus | 13 of 13 runs, $3.01 |
 | 2026-10-16 | outcome, one run each | Claude Opus | With the plugin 3 of 3. Without it: creating 0.33, extending 0.50, the review 1.00. $0.91 |
+| 2026-10-25 | outcome, `outcome-review-port-in-shared` only, 3 + 3 + 9 runs a side | Claude Sonnet | With the plugin 14 of 15 by the judge, 15 of 15 by the reviews (one PASS FAIL FAIL vote on a review that reports the port). Without it 10 of 15. $3.97 in all. See below |
 | 2026-10-16 | Codex trigger | Codex's default | 30 of 39 runs; 35 of 39 after `AGENTS.md` gained "Adding a check". See below |
 
 The outcome results are from `outcome-extend-command` as it was then, asking
@@ -177,6 +178,24 @@ In the one whose trace was kept, Sonnet read the component and a few lines of
 the core, and never opened the project's review questions. A starter whose
 code shows where things go makes this problem easy to see. A case where the
 skill's questions find what reading alone does not has not been written.
+
+**A port in the wire-protocol package is found every time with the skill,
+and two times in three without it** (`outcome-review-port-in-shared`,
+2026-10-25). The change declares a `Clock` in `packages/shared`, and
+`gate:full` passes with it, so only a reading finds it. Every run with the
+plugin loaded the skill and answered its first question with that finding.
+Without the plugin, 5 runs of 15 missed it, and one of those called `Clock`
+in `packages/shared` "minimal and fine". The first three runs a side were made
+on a version of the change with a doc comment left above the wrong
+declaration, fixed before the other twelve; the counts above include them.
+The runs with the skill also named a second problem: `createApp` chooses the
+default clock, so two places choose an adapter (question 3). One review with
+the skill that reported the port was voted FAIL by two judges of three; the
+judge is Haiku.
+
+A second case was written and dropped: a presenter that subscribes to the
+price port a second time. The starter's own test ("opens one feed however
+many readers there are") fails on it, so it is not a review's to find.
 
 **Codex works from the project before the plugin.** Unlike a
 `claude plugin eval` run, a Codex run reads the project's `AGENTS.md`. Of the

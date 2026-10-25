@@ -219,6 +219,11 @@ Added on 2026-10-11 ([the record](documenting-architecture-2026-10-11.md)).
 
 ## Not tried
 
+The order agreed on 2026-10-25 for the tests below that have a plan: the kit
+in an existing project (condo-ledger, with the owner answering), then a
+feature with sign-in and routing. The Opus evals and the further tests of
+`documenting-architecture` come after.
+
 - **The commands `/workflow:status`, `/workflow:docs`,
   `/workflow:worktrees` and `/workflow:perf-audit`, in a session.** They are
   text, and tests hold their form: a description, the tools they may use,
@@ -254,8 +259,13 @@ Added on 2026-10-11 ([the record](documenting-architecture-2026-10-11.md)).
 - **An eval that runs what the agent decides.** The outcome cases grade the
   command the agent names, not the project after it runs: no eval run here
   can have a shell (see Known limits).
-- **A review case the skill makes a difference to.** The planted average is
-  found in every run without the plugin as well. *The test:* plant a problem
+- **A review case the skill makes a large difference to.** The planted average is
+  found in every run without the plugin as well. Since 2026-10-25
+  `outcome-review-port-in-shared` shows a smaller one: a port declared in the
+  wire-protocol package is found in 15 runs of 15 with the skill and 10 of 15
+  without ([the evals](../evals/README.md#results)). The skill makes it
+  reliable; Sonnet finds it two times in three on its own. *The test of a
+  larger one:* plant a problem
   that a good general review passes over and the skill's questions name, for
   example a presenter that reads `new Date()` where the core should reach the
   clock through a port, or a fixture factory named with a bare noun. Add it as
