@@ -64,6 +64,16 @@ node <plugin root>/scripts/add-to-project.mts <project> <unit>
 
 - If it stops and lists files that differ, it has changed nothing. Show the
   list. Pass `--force` only when the user says to: it overwrites their edits.
+- If it stops on "The section for <add-on> in AGENTS.md … was changed in this
+  project", the text between that add-on's markers in `AGENTS.md` has the
+  project's edits, and the add-on's text changed. It has changed nothing. Show
+  the refusal unchanged. With the user's yes, run it again with `--force`: the
+  section becomes the add-on's, and the project's text is kept in the
+  `tools/templates/<add-on>.replaced.AGENTS.section.md.txt` it names. Then,
+  with the user, move what is the project's own from that copy into
+  `AGENTS.md` outside the markers (an update replaces what is inside them),
+  and delete the copy. Until it is deleted, every update names it under
+  "Still to do by hand".
 - If it says the add-on needs a newer kit, it has changed nothing. Run the
   script with `kit` first, then again with the add-on.
 - If it prints "Still to do by hand", those steps are the user's to decide

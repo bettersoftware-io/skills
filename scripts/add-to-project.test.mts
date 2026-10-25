@@ -633,6 +633,7 @@ describe("what an add-on update leaves to the project", () => {
     const result = addToProject({ project, unit: "demo", repository });
 
     expect(Object.keys(readJson(project, "tools/installed.json").demo.files).filter((path) => path.startsWith("tools/templates/"))).toEqual([
+      "tools/templates/demo.AGENTS.section.md.txt",
       "tools/templates/demo.packages__web__tests__scenarios.ts.txt",
     ]);
     expect(result.yours).toEqual([]);
@@ -812,7 +813,7 @@ describe("adding an add-on", () => {
 
     const result = addToProject({ project, unit: "demo", repository });
 
-    expect(result.files.written.sort()).toEqual(["packages/web/tests/demo.ts", "tools/demo/check.mts"]);
+    expect(result.files.written.sort()).toEqual(["packages/web/tests/demo.ts", "tools/demo/check.mts", SECTION_COPY]);
     expect(read(project, "packages/web/tests/demo.ts")).toBe('import { thing } from "@acme/web";\n');
     expect(result.verify).toBe("pnpm --filter @acme/web demo");
   });
@@ -1338,7 +1339,7 @@ describe("adding an add-on", () => {
     const result = addToProject({ project, unit: "demo", repository });
 
     expect(result.files.refused).toEqual([".agents/skills/demo/SKILL.md"]);
-    expect(result.files.written.sort()).toEqual(["packages/web/tests/demo.ts", "tools/demo/check.mts"]);
+    expect(result.files.written.sort()).toEqual(["packages/web/tests/demo.ts", "tools/demo/check.mts", SECTION_COPY]);
     expect(Object.keys(readJson(project, "tools/installed.json").demo.files)).not.toContain(".agents/skills/demo/SKILL.md");
     expect(result.notes.join("\n")).toMatch(/\.agents\/skills\/demo\/SKILL\.md could not be written.*run this script again/s);
 
@@ -1383,7 +1384,7 @@ describe("adding an add-on", () => {
     write(project, "packages/api/package.json", '{ "name": "@other/api" }\n');
 
     expect(() => addToProject({ project, unit: "demo", repository })).toThrow(/pass --scope/);
-    expect(addToProject({ project, unit: "demo", repository, scope: "@acme" }).files.written).toHaveLength(2);
+    expect(addToProject({ project, unit: "demo", repository, scope: "@acme" }).files.written).toHaveLength(3);
   });
 });
 
@@ -1441,6 +1442,7 @@ describe("an add-on with a choice", () => {
     expect(result.notes).toEqual([]);
     expect(Object.keys(readJson(project, "tools/installed.json").demo.files).filter((path) => path.startsWith("tools/templates/"))).toEqual([
       "tools/templates/demo..github__bot-b.json5.txt",
+      SECTION_COPY,
     ]);
   });
 
@@ -2238,11 +2240,212 @@ const KIT_FILES = [
   "tools/arch/templates/architecture.config.mts.txt",
 ];
 
+/** Where the project keeps the demo add-on's section of AGENTS.md as it was installed. */
+const SECTION_COPY = "tools/templates/demo.AGENTS.section.md.txt";
+
 const CLAUDE_SETTINGS = '{ "hooks": "node tools/arch/hooks/after-edit.mts" }\n';
 
 /** Gives the stand-in repository a starter with an AGENTS.md, as the real one has. */
 function withStarterInstructions(repository: string, text: string): void {
   write(repository, "starter/AGENTS.md", text);
+}
+
+describe("an add-on's section of AGENTS.md", () => {
+  const MINE = "## Demo\n\nThis project's own wording.";
+  const SAVED = "tools/templates/demo.replaced.AGENTS.section.md.txt";
+  const SECOND = "## Demo\n\nThe second wording.\n";
+
+  it("refuses to replace a section the project edited when the add-on's section changed too, and changes nothing", () => {
+    const { repository, project } = createWorldWithKit();
+    addToProject({ project, unit: "demo", repository });
+    editSection(project, "demo", MINE);
+    const before = read(project, "AGENTS.md");
+    write(repository, "addons/demo/AGENTS.section.md", SECOND);
+    write(repository, "addons/demo/files/tools/demo/check.mts", "// the add-on's check, version 2\n");
+
+    expect(() => addToProject({ project, unit: "demo", repository })).toThrow(
+      new InstallError(
+        [
+          "The section for demo in AGENTS.md, between <!-- add-on: demo --> and <!-- /add-on: demo -->, was changed in this project, and this update would replace it:",
+          "      What changed in the add-on's section since it was installed:",
+          "      - The first wording.",
+          "      + The second wording.",
+          `      Run this again with --force. It replaces the section with the add-on's, and keeps yours as ${SAVED}.`,
+          "      Then move what is this project's own from the copy into AGENTS.md outside the section's markers, where no update replaces it, and delete the copy.",
+          "Nothing was changed. Move your edits out of what is listed above, or pass --force to replace them.",
+        ].join("\n"),
+      ),
+    );
+
+    expect(read(project, "AGENTS.md")).toBe(before);
+    expect(read(project, "tools/demo/check.mts")).toBe("// the add-on's check\n");
+    expect(read(project, SECTION_COPY)).toBe("## Demo\n\nThe first wording.\n");
+  });
+
+  it("lists an edited section and an edited file in one refusal", () => {
+    const { repository, project } = createWorldWithKit();
+    addToProject({ project, unit: "demo", repository });
+    editSection(project, "demo", MINE);
+    write(project, "tools/demo/check.mts", "// edited in the project\n");
+    write(repository, "addons/demo/AGENTS.section.md", SECOND);
+    write(repository, "addons/demo/files/tools/demo/check.mts", "// the add-on's check, version 2\n");
+
+    expect(() => addToProject({ project, unit: "demo", repository })).toThrow(
+      /^1 file\(s\) in the project differ from what was installed and would be overwritten:\n {2}tools\/demo\/check\.mts\nThe section for demo in AGENTS\.md/,
+    );
+  });
+
+  it("when forced, replaces it, keeps the project's text beside the templates, and says to move it", () => {
+    const { repository, project } = createWorldWithKit();
+    addToProject({ project, unit: "demo", repository });
+    editSection(project, "demo", MINE);
+    write(repository, "addons/demo/AGENTS.section.md", SECOND);
+
+    const result = addToProject({ project, unit: "demo", repository, force: true });
+
+    expect(result.agents).toBe("replaced");
+    expect(read(project, "AGENTS.md")).toBe(`# Working here\n\nThe project's own text.\n\n<!-- add-on: demo -->\n${SECOND}<!-- /add-on: demo -->\n`);
+    expect(read(project, SAVED)).toBe(`${MINE}\n`);
+    expect(read(project, SECTION_COPY)).toBe(SECOND);
+    expect(result.notes).toEqual([
+      `AGENTS.md: the section for demo was replaced, and it had changes of this project's. Your version is kept as ${SAVED}. Move what is this project's own into AGENTS.md outside the section's markers, where no update replaces it, then delete the copy`,
+    ]);
+    expect(describeResult(result, project)).toContain(
+      `  replaced AGENTS.md: the section for demo, which had changes of this project's (--force). They are kept: see "Still to do by hand"`,
+    );
+    // The copy is the project's to delete: no record holds it.
+    expect(Object.keys(readJson(project, "tools/installed.json").demo.files)).not.toContain(SAVED);
+
+    const second = addToProject({ project, unit: "demo", repository });
+
+    expect(second.agents).toBe("unchanged");
+    expect(second.notes).toEqual([
+      `AGENTS.md: the section for demo was replaced by an earlier update. Your version is kept as ${SAVED}. Move what is this project's own into AGENTS.md outside the section's markers, where no update replaces it, then delete the copy`,
+    ]);
+  });
+
+  it("when forced again before the copy was moved, keeps the newer text below the earlier", () => {
+    const { repository, project } = createWorldWithKit();
+    addToProject({ project, unit: "demo", repository });
+    editSection(project, "demo", MINE);
+    write(repository, "addons/demo/AGENTS.section.md", SECOND);
+    addToProject({ project, unit: "demo", repository, force: true });
+    editSection(project, "demo", "## Demo\n\nWritten here again.");
+    write(repository, "addons/demo/AGENTS.section.md", "## Demo\n\nThe third wording.\n");
+
+    addToProject({ project, unit: "demo", repository, force: true });
+
+    expect(read(project, SAVED)).toBe(`${MINE}\n\n## Demo\n\nWritten here again.\n`);
+  });
+
+  it("never keeps the project's text through a link", () => {
+    const { repository, project } = createWorldWithKit();
+    addToProject({ project, unit: "demo", repository });
+    editSection(project, "demo", MINE);
+    write(repository, "addons/demo/AGENTS.section.md", SECOND);
+    write(repository, "addons/demo/files/tools/demo/check.mts", "// the add-on's check, version 2\n");
+    write(project, "../elsewhere.txt", "someone else's file\n");
+    symlinkSync(join(project, "..", "elsewhere.txt"), join(project, SAVED));
+
+    expect(() => addToProject({ project, unit: "demo", repository, force: true })).toThrow(/outside the project/);
+
+    expect(read(project, "../elsewhere.txt")).toBe("someone else's file\n");
+    expect(read(project, "tools/demo/check.mts")).toBe("// the add-on's check\n");
+  });
+
+  it("keeps a section the project edited when the add-on's did not change, and says nothing of it", () => {
+    const { repository, project } = createWorldWithKit();
+    addToProject({ project, unit: "demo", repository });
+    editSection(project, "demo", MINE);
+    const before = read(project, "AGENTS.md");
+
+    const result = addToProject({ project, unit: "demo", repository });
+
+    expect(result.agents).toBe("kept");
+    expect(read(project, "AGENTS.md")).toBe(before);
+    expect(describeResult(result, project)).not.toContain("AGENTS.md");
+
+    // Still the project's: a later change of the add-on's section is refused.
+    write(repository, "addons/demo/AGENTS.section.md", SECOND);
+
+    expect(() => addToProject({ project, unit: "demo", repository })).toThrow(/The section for demo in AGENTS\.md/);
+  });
+
+  it("adds a section the project deleted back at the end, as it does a file of the add-on", () => {
+    const { repository, project } = createWorldWithKit();
+    addToProject({ project, unit: "demo", repository });
+    write(project, "AGENTS.md", "# Working here\n\nThe project's own text.\n");
+
+    expect(addToProject({ project, unit: "demo", repository }).agents).toBe("added");
+    expect(read(project, "AGENTS.md")).toBe(
+      "# Working here\n\nThe project's own text.\n\n<!-- add-on: demo -->\n## Demo\n\nThe first wording.\n<!-- /add-on: demo -->\n",
+    );
+  });
+
+  describe("in a project whose record is from before the section was kept", () => {
+    /** Takes the copy out, as a project an older installer set up never had it. */
+    function forgetCopy(project: string): void {
+      const record = readJson(project, "tools/installed.json");
+
+      delete record.demo.files[SECTION_COPY];
+      write(project, "tools/installed.json", JSON.stringify(record));
+      rmSync(join(project, SECTION_COPY));
+    }
+
+    it("replaces a section that is a version the add-on shipped, read in the starter's scope", () => {
+      const { repository, project } = createWorldWithKit();
+      write(repository, "addons/demo/AGENTS.section.md", "## Demo\n\nRun pnpm --filter @app/web demo.\n");
+      addToProject({ project, unit: "demo", repository });
+      forgetCopy(project);
+      write(repository, "scripts/lib/agents-sections-shipped.json", JSON.stringify({ demo: [sha256("## Demo\n\nRun pnpm --filter @app/web demo.")] }));
+      write(repository, "addons/demo/AGENTS.section.md", SECOND);
+
+      const result = addToProject({ project, unit: "demo", repository });
+
+      expect(result.agents).toBe("updated");
+      expect(read(project, "AGENTS.md")).toContain(SECOND);
+      expect(read(project, SECTION_COPY)).toBe(SECOND);
+    });
+
+    it("refuses to replace one that is no version it shipped, and shows it against the add-on's", () => {
+      const { repository, project } = createWorldWithKit();
+      addToProject({ project, unit: "demo", repository });
+      forgetCopy(project);
+      editSection(project, "demo", MINE);
+      write(repository, "scripts/lib/agents-sections-shipped.json", JSON.stringify({ demo: [sha256("## Demo\n\nThe first wording.")] }));
+
+      // The add-on's section did not change, but nothing says what was installed.
+      expect(() => addToProject({ project, unit: "demo", repository })).toThrow(
+        [
+          "The section for demo in AGENTS.md, between <!-- add-on: demo --> and <!-- /add-on: demo -->, was changed in this project, and this update would replace it:",
+          `      No copy of it as it was installed is kept (${SECTION_COPY} is newer than this project's record), and it is no version of the section that demo has shipped. The add-on's section now is \`-\`, yours is \`+\`:`,
+          "      - The first wording.",
+          "      + This project's own wording.",
+        ].join("\n"),
+      );
+      expect(read(project, "AGENTS.md")).toContain(MINE);
+    });
+
+    it("keeps a section that is the add-on's now, and from then on keeps the copy", () => {
+      const { repository, project } = createWorldWithKit();
+      addToProject({ project, unit: "demo", repository });
+      forgetCopy(project);
+
+      const result = addToProject({ project, unit: "demo", repository });
+
+      expect(result.agents).toBe("unchanged");
+      expect(result.files.written).toEqual([SECTION_COPY]);
+    });
+  });
+});
+
+/** Puts `text` between the markers of the unit's section in the project's AGENTS.md, as a person editing it would. */
+function editSection(project: string, unit: string, text: string): void {
+  const agents = read(project, "AGENTS.md");
+  const start = `<!-- add-on: ${unit} -->`;
+  const end = `<!-- /add-on: ${unit} -->`;
+
+  write(project, "AGENTS.md", `${agents.slice(0, agents.indexOf(start) + start.length)}\n${text}\n${agents.slice(agents.indexOf(end))}`);
 }
 
 /** Gives the demo add-on two starting files: one named exactly, one by its folder. */

@@ -190,6 +190,9 @@ export function sortDependencies(text: string): string {
  * Installs `files` as the unit `unit` (the kit, or an add-on's name), replacing
  * whatever that unit installed before. `choice` is the option of the add-on's
  * choice the project has from now on, recorded beside the files.
+ * `alsoRefused` describes what else the caller would overwrite that the
+ * project edited, besides files (a section of AGENTS.md): the install is
+ * refused for it as for an edited file, and the refusal lists both.
  */
 export function installFiles(
   project: string,
@@ -198,6 +201,7 @@ export function installFiles(
   force = false,
   choice?: string,
   handovers: Record<string, Handover> = {},
+  alsoRefused: string[] = [],
 ): InstallOutcome {
   const record = readRecord(project);
   const before = record[unit]?.files ?? {};
@@ -245,12 +249,13 @@ export function installFiles(
     }
   }
 
-  if (conflicts.length > 0) {
+  if (conflicts.length > 0 || alsoRefused.length > 0) {
     throw new InstallError(
       [
-        `${conflicts.length} file(s) in the project differ from what was installed and would be overwritten:`,
+        ...(conflicts.length === 0 ? [] : [`${conflicts.length} file(s) in the project differ from what was installed and would be overwritten:`]),
         ...conflicts.flatMap((path) => [`  ${path}`, ...describeHandover(unit, path, handovers[path])]),
-        "Nothing was changed. Move your edits out of these files, or pass --force to replace them.",
+        ...alsoRefused,
+        `Nothing was changed. Move your edits out of ${alsoRefused.length === 0 ? "these files" : "what is listed above"}, or pass --force to replace them.`,
       ].join("\n"),
     );
   }

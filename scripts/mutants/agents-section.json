@@ -1,0 +1,198 @@
+[
+  {
+    "name": "section: one that is the add-on's now is left as it is",
+    "file": "scripts/lib/agents-section.mts",
+    "find": "  if (current === shipped) {\n    return \"same\";\n  }\n",
+    "replace": "",
+    "test": "pnpm vitest run scripts/add-to-project.test.mts -t \"appends its section to AGENTS.md once\""
+  },
+  {
+    "name": "section: with no copy, one that is no version shipped is not replaced",
+    "file": "scripts/lib/agents-section.mts",
+    "find": "    return shippedBefore ? \"untouched\" : \"edited\";",
+    "replace": "    return \"untouched\";",
+    "test": "pnpm vitest run scripts/add-to-project.test.mts -t \"refuses to replace one that is no version it shipped\""
+  },
+  {
+    "name": "section: with no copy, a version shipped is replaced",
+    "file": "scripts/lib/agents-section.mts",
+    "find": "    return shippedBefore ? \"untouched\" : \"edited\";",
+    "replace": "    return \"edited\";",
+    "test": "pnpm vitest run scripts/add-to-project.test.mts -t \"replaces a section that is a version the add-on shipped\""
+  },
+  {
+    "name": "section: one the project never changed is replaced",
+    "file": "scripts/lib/agents-section.mts",
+    "find": "  if (current === installed) {\n    return \"untouched\";\n  }\n",
+    "replace": "",
+    "test": "pnpm vitest run scripts/add-to-project.test.mts -t \"appends its section to AGENTS.md once\""
+  },
+  {
+    "name": "section: an edited one is kept when the add-on's did not change",
+    "file": "scripts/lib/agents-section.mts",
+    "find": "  return installed === shipped ? \"kept\" : \"edited\";",
+    "replace": "  return \"edited\";",
+    "test": "pnpm vitest run scripts/add-to-project.test.mts -t \"keeps a section the project edited when the add-on's did not change\""
+  },
+  {
+    "name": "section: an edited one is not kept when the add-on's changed",
+    "file": "scripts/lib/agents-section.mts",
+    "find": "  return installed === shipped ? \"kept\" : \"edited\";",
+    "replace": "  return \"kept\";",
+    "test": "pnpm vitest run scripts/add-to-project.test.mts -t \"refuses to replace a section the project edited when\""
+  },
+  {
+    "name": "section: the end marker counts only after the start",
+    "file": "scripts/lib/agents-section.mts",
+    "find": "  const to = from === -1 ? -1 : agents.indexOf(end, from);",
+    "replace": "  const to = from === -1 ? -1 : agents.indexOf(end);",
+    "test": "pnpm vitest run scripts/lib/agents-section.test.mts -t \"is not there without both markers\""
+  },
+  {
+    "name": "section: no start marker, no section",
+    "file": "scripts/lib/agents-section.mts",
+    "find": "  const to = from === -1 ? -1 : agents.indexOf(end, from);",
+    "replace": "  const to = agents.indexOf(end, from);",
+    "test": "pnpm vitest run scripts/lib/agents-section.test.mts -t \"is not there without both markers\""
+  },
+  {
+    "name": "section: a version shipped is recognised in the starter's scope",
+    "file": "scripts/add-to-project.mts",
+    "find": "known.includes(sectionHash(current.replaceAll(`${projectScope}/`, `${STARTER_SCOPE}/`)))",
+    "replace": "known.includes(sectionHash(current))",
+    "test": "pnpm vitest run scripts/add-to-project.test.mts -t \"read in the starter's scope\""
+  },
+  {
+    "name": "section: the versions shipped are read",
+    "file": "scripts/add-to-project.mts",
+    "find": "  return Object.hasOwn(shipped, unit) ? (shipped[unit] as string[]) : [];",
+    "replace": "  return [];",
+    "test": "pnpm vitest run scripts/add-to-project.test.mts -t \"replaces a section that is a version the add-on shipped\""
+  },
+  {
+    "name": "section: a copy of what was installed is kept",
+    "file": "scripts/add-to-project.mts",
+    "find": "  files.set(sectionTemplateOf(unit), Buffer.from(`${shipped}\\n`));\n",
+    "replace": "",
+    "test": "pnpm vitest run scripts/add-to-project.test.mts -t \"keeps a section the project edited when the add-on's did not change\""
+  },
+  {
+    "name": "section: an edited one is refused",
+    "file": "scripts/add-to-project.mts",
+    "find": "    refusal: state === \"edited\" && !force ? ",
+    "replace": "    refusal: false ? ",
+    "test": "pnpm vitest run scripts/add-to-project.test.mts -t \"refuses to replace a section the project edited when\""
+  },
+  {
+    "name": "section: --force is not refused",
+    "file": "scripts/add-to-project.mts",
+    "find": "    refusal: state === \"edited\" && !force ? ",
+    "replace": "    refusal: state === \"edited\" ? ",
+    "test": "pnpm vitest run scripts/add-to-project.test.mts -t \"when forced, replaces it\""
+  },
+  {
+    "name": "section: the install refuses for a section alone",
+    "file": "scripts/lib/install.mts",
+    "find": "  if (conflicts.length > 0 || alsoRefused.length > 0) {",
+    "replace": "  if (conflicts.length > 0) {",
+    "test": "pnpm vitest run scripts/add-to-project.test.mts -t \"refuses to replace a section the project edited when\""
+  },
+  {
+    "name": "section: no count of files when no file is refused",
+    "file": "scripts/lib/install.mts",
+    "find": "        ...(conflicts.length === 0 ? [] : [",
+    "replace": "        ...(false ? [] : [",
+    "test": "pnpm vitest run scripts/add-to-project.test.mts -t \"refuses to replace a section the project edited when\""
+  },
+  {
+    "name": "section: the last line of a refusal names what is listed",
+    "file": "scripts/lib/install.mts",
+    "find": "${alsoRefused.length === 0 ? \"these files\" : \"what is listed above\"}",
+    "replace": "these files",
+    "test": "pnpm vitest run scripts/add-to-project.test.mts -t \"refuses to replace a section the project edited when\""
+  },
+  {
+    "name": "section: the copy kept under --force is checked before anything is written",
+    "file": "scripts/add-to-project.mts",
+    "find": "  assertInside(destination, savedCopyOf(unit, SECTION_SOURCE));\n",
+    "replace": "",
+    "test": "pnpm vitest run scripts/add-to-project.test.mts -t \"never keeps the project's text through a link\""
+  },
+  {
+    "name": "section: a kept one is not written",
+    "file": "scripts/add-to-project.mts",
+    "find": "  if (state === \"kept\") {\n    return \"kept\";\n  }\n",
+    "replace": "",
+    "test": "pnpm vitest run scripts/add-to-project.test.mts -t \"keeps a section the project edited when the add-on's did not change\""
+  },
+  {
+    "name": "section: one that is not there is added at the end",
+    "file": "scripts/add-to-project.mts",
+    "find": "  if (state === \"absent\") {",
+    "replace": "  if (false) {",
+    "test": "pnpm vitest run scripts/add-to-project.test.mts -t \"adds a section the project deleted back\""
+  },
+  {
+    "name": "section: under --force the project's text is kept",
+    "file": "scripts/add-to-project.mts",
+    "find": "    writeProjectFile(project, copy, `${earlier === undefined ? \"\" : `${earlier}\\n`}${current}\\n`);\n",
+    "replace": "",
+    "test": "pnpm vitest run scripts/add-to-project.test.mts -t \"when forced, replaces it\""
+  },
+  {
+    "name": "section: a copy nobody moved yet is kept above the new one",
+    "file": "scripts/add-to-project.mts",
+    "find": "    writeProjectFile(project, copy, `${earlier === undefined ? \"\" : `${earlier}\\n`}${current}\\n`);\n",
+    "replace": "    writeProjectFile(project, copy, `${current}\\n`);\n",
+    "test": "pnpm vitest run scripts/add-to-project.test.mts -t \"when forced again before the copy was moved\""
+  },
+  {
+    "name": "section: a forced replacement is reported as one",
+    "file": "scripts/add-to-project.mts",
+    "find": "  return state === \"edited\" ? \"replaced\" : \"updated\";",
+    "replace": "  return \"updated\";",
+    "test": "pnpm vitest run scripts/add-to-project.test.mts -t \"when forced, replaces it\""
+  },
+  {
+    "name": "section: the summary says it was replaced",
+    "file": "scripts/add-to-project.mts",
+    "find": "  if (result.agents === \"replaced\") {",
+    "replace": "  if (false) {",
+    "test": "pnpm vitest run scripts/add-to-project.test.mts -t \"when forced, replaces it\""
+  },
+  {
+    "name": "section: while the copy is there, the update says to move it",
+    "file": "scripts/add-to-project.mts",
+    "find": "    ...sectionKept,\n",
+    "replace": "",
+    "test": "pnpm vitest run scripts/add-to-project.test.mts -t \"when forced, replaces it\""
+  },
+  {
+    "name": "section: the note tells this update's replacement from an earlier one",
+    "file": "scripts/add-to-project.mts",
+    "find": "${agents === \"replaced\" ? \"was replaced, and it had changes of this project's\" : \"was replaced by an earlier update\"}",
+    "replace": "was replaced, and it had changes of this project's",
+    "test": "pnpm vitest run scripts/add-to-project.test.mts -t \"when forced, replaces it\""
+  },
+  {
+    "name": "section: the refusal shows the add-on's change from old to new",
+    "file": "scripts/add-to-project.mts",
+    "find": ": differenceOf(installed, shipped);",
+    "replace": ": differenceOf(shipped, installed);",
+    "test": "pnpm vitest run scripts/add-to-project.test.mts -t \"refuses to replace a section the project edited when\""
+  },
+  {
+    "name": "section: with no copy, the refusal shows the add-on's against the project's",
+    "file": "scripts/add-to-project.mts",
+    "find": "installed === undefined ? differenceOf(shipped, current) :",
+    "replace": "installed === undefined ? differenceOf(current, shipped) :",
+    "test": "pnpm vitest run scripts/add-to-project.test.mts -t \"refuses to replace one that is no version it shipped\""
+  },
+  {
+    "name": "section: with no copy, the refusal says why it cannot be told",
+    "file": "scripts/add-to-project.mts",
+    "find": "    installed === undefined\n      ? `      No copy",
+    "replace": "    false\n      ? `      No copy",
+    "test": "pnpm vitest run scripts/add-to-project.test.mts -t \"refuses to replace one that is no version it shipped\""
+  }
+]
