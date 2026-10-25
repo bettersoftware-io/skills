@@ -28,8 +28,15 @@ const GIT_OPTIONS_WITH_VALUE = ["-C", "-c", "--git-dir", "--work-tree", "--names
  * hold such an alias.
  */
 const ALIAS_SETTING = /^(?:alias|include|includeif)\./i;
-/** A value set in front of `git` that hands it settings, or the files they are read from, so an alias the reader cannot see. */
-const CONFIG_IN_FRONT = /^(?:GIT_CONFIG\w*|HOME|XDG_CONFIG_HOME)=/;
+/**
+ * A value that hands git settings, the files they are read from, or the place
+ * it finds its commands: so an alias, or a `git-<name>` program, the reader
+ * cannot see. Set anywhere in a script (in front of git, as a step of its own,
+ * or with `export`), it makes every `git` of that script one this cannot judge.
+ */
+const GIT_SETTINGS = /^(?:GIT_CONFIG\w*|GIT_DIR|GIT_EXEC_PATH|HOME|XDG_CONFIG_HOME)=/;
+/** `git config` arguments that only read. */
+const CONFIG_READS = ["--get", "--get-all", "--get-regexp", "--get-urlmatch", "--list", "-l", "get", "list"];
 /** How many words behind a wrapper that name a program this reads are tried as the command, before the stage is not read at all. */
 const WRAPPED_CANDIDATES = 32;
 
@@ -109,12 +116,14 @@ export function judgeCommand(command: string): Verdict | undefined {
   }
 }
 
-function judgeScript(script: Script, depth = 0): Reading {
+function judgeScript(script: Script, depth = 0, settingsMoved = false): Reading {
   // `bash -c "bash -c '…'"`: each level is read by a reader of its own, so the reader's bound does not count them.
   if (depth > DEEPEST_NESTING) {
     throw new LimitError(`the command nests commands more than ${DEEPEST_NESTING} deep`);
   }
 
+  // A setting made in an outer script holds in what it runs; one made inside `$(…)` does not hold outside it.
+  const moved = settingsMoved || script.steps.some((step) => step.some((stage) => stage.some((word) => GIT_SETTINGS.test(word))));
   const outward: string[] = [];
   let chained = false;
   let redirected = false;
@@ -122,7 +131,8 @@ function judgeScript(script: Script, depth = 0): Reading {
   let steps = 0;
 
   for (const step of script.steps) {
-    const stages = step.filter((stage) => commandWords(stage).length > 0);
+    // `env '-Sgit push …'` is all options to the eye: its command is in the text of `-S`.
+    const stages = step.filter((stage) => commandWords(stage).length > 0 || splitStringScript(stage) !== undefined);
 
     if (stages.length > 0) {
       steps += 1;
@@ -133,21 +143,21 @@ function judgeScript(script: Script, depth = 0): Reading {
     for (const stage of stages) {
       const words = commandWords(stage);
 
-      if (isOutward(words) || isConfiguredGit(stage, words)) {
+      if (isOutward(words) || (moved && isGit(words))) {
         outward.push(words.slice(0, 3).join(" "));
         // What stands behind a pipe from another command is no lone step: a filter comes after, never before.
         chained ||= behind;
         pushed ||= isGit(words);
-        redirected ||= isRedirectedPush(stage, words);
+        redirected ||= moved || isRedirectedPush(stage, words);
       }
 
       behind = true;
 
-      // `bash -c "…"` and `eval "…"` run what their argument says.
-      const inline = inlineScript(words);
+      // `bash -c "…"`, `eval "…"` and `env -S "…"` run what their argument says.
+      const inline = inlineScript(words) ?? splitStringScript(stage);
 
       if (inline !== undefined) {
-        const inner = judgeScript(inline, depth + 1);
+        const inner = judgeScript(inline, depth + 1, moved);
 
         outward.push(...inner.outward);
         chained ||= inner.chained;
@@ -161,7 +171,7 @@ function judgeScript(script: Script, depth = 0): Reading {
   let within = false;
 
   for (const nested of script.nested) {
-    const inner = judgeScript(nested, depth + 1);
+    const inner = judgeScript(nested, depth + 1, moved);
 
     outward.push(...inner.outward);
     // An outward step inside `$(…)` of another command runs beside that command.
@@ -283,11 +293,6 @@ function isJudged(word: string): boolean {
   return program === "git" || program === "gh" || program === "eval" || SHELLS.includes(program);
 }
 
-/** Whether git runs with a value set in front of it that may give it an alias (`GIT_CONFIG_KEY_0=alias.p`, `HOME=/tmp/x`). */
-function isConfiguredGit(stage: Stage, words: string[]): boolean {
-  return isGit(words) && stage.slice(0, stage.length - words.length).some((word) => CONFIG_IN_FRONT.test(word));
-}
-
 function isGit(words: string[]): boolean {
   return programName(words[0] ?? "") === "git";
 }
@@ -297,7 +302,7 @@ export function isOutward(words: string[]): boolean {
     const options = words.slice(1);
     const own = skipGitOptions(options);
 
-    return GIT_OUTWARD.includes(own[0] ?? "") || setsAlias(options.slice(0, options.length - own.length));
+    return GIT_OUTWARD.includes(own[0] ?? "") || setsAlias(options.slice(0, options.length - own.length)) || writesAlias(own);
   }
 
   const program = programName(words[0] ?? "");
@@ -336,6 +341,7 @@ function isRedirectedPush(stage: Stage, outward: string[]): boolean {
   const before = outward.slice(1, outward.length - own.length);
 
   return (
+    own[0] !== "push" ||
     led.some((word) => word === "xargs" || word.includes("=")) ||
     !isPlainFolderOnly(before) ||
     own.slice(1).some((word) => (word.startsWith("-") ? !PLAIN_PUSH_OPTIONS.includes(word) : !PLAIN_WORD.test(word)))
@@ -381,6 +387,17 @@ function setsAlias(options: string[]): boolean {
   });
 }
 
+/**
+ * Whether `git config` writes an alias, or a file that may hold one:
+ * `git config alias.p push`, `git config set …`, `--add include.path …`. The
+ * next step's `git p` is then all the reader sees of a push.
+ */
+function writesAlias(own: string[]): boolean {
+  const args = own.slice(1);
+
+  return own[0] === "config" && !args.some((word) => CONFIG_READS.includes(word)) && args.some((word) => ALIAS_SETTING.test(word));
+}
+
 /** `gh -R owner/name pr merge` → `pr merge`. */
 function skipGhOptions(words: string[]): string[] {
   let start = 0;
@@ -409,6 +426,31 @@ function isWritingApiCall(words: string[]): boolean {
   return words.some((word) => GH_API_FIELDS.includes(word) || /^(?:--field|--raw-field|--input)=/.test(word));
 }
 
+/**
+ * What `env -S <text>` will run, when it can be read: env splits the text
+ * into words, so it is a command line as `bash -c` takes one. `-S` and
+ * `--split-string` take the next word, or the rest of their own.
+ */
+function splitStringScript(stage: Stage): Script | undefined {
+  const env = stage.findIndex((word) => programName(word) === "env");
+
+  for (let index = env + 1; env !== -1 && index < stage.length; index += 1) {
+    const word = stage[index] ?? "";
+    const own = /^(?:-S|--split-string=)(.+)$/.exec(word)?.[1];
+    const text = word === "-S" || word === "--split-string" ? stage[index + 1] : own;
+
+    if (text !== undefined) {
+      return readScript([text, ...stage.slice(index + (own === undefined ? 2 : 1))].join(" "));
+    }
+
+    if (!word.startsWith("-") && !/^[A-Za-z_][A-Za-z0-9_]*=/.test(word)) {
+      return undefined;
+    }
+  }
+
+  return undefined;
+}
+
 /** What `bash -c <text>` or `eval <text>` will run, when it can be read. */
 function inlineScript(words: string[]): Script | undefined {
   const program = programName(words[0] ?? "");
@@ -422,10 +464,11 @@ function inlineScript(words: string[]): Script | undefined {
     text = flag === -1 ? undefined : words[flag + 1];
   }
 
-  if (text === undefined) {
-    return undefined;
-  }
+  return text === undefined ? undefined : readScript(text);
+}
 
+/** The script a text holds, or undefined when it cannot be read. */
+function readScript(text: string): Script | undefined {
   try {
     return parseShell(text);
   } catch (error) {

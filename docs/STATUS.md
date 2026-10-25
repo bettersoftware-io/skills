@@ -381,9 +381,12 @@ feature with sign-in and routing. The Opus evals and the further tests of
   cost of a wrong "registered" is a joined command that gets one prompt, not
   an unprompted push: the host's own permission rules are untouched.
 - **The push hook does not see what git's settings say.** It reads only the
-  command, by design. An alias or a push target set by an earlier command
-  (`git config alias.p push`, then `git p && …`; `git config
-  remote.origin.push a:main`, then a plain `git push`) is not seen. Ask rules
+  command, by design. Within one command it follows them (an alias written
+  by `git config`, `HOME` or `GIT_CONFIG_*` set by an earlier step), but an
+  alias or a push target set by an earlier tool call (`git config alias.p
+  push`, then `git p && …`; `git config remote.origin.push a:main`, then a
+  plain `git push`), or a `git-<name>` program already on the PATH, is not
+  seen. Ask rules
   for those `git config` writes were weighed on 2026-10-25 and left out: a
   rule cannot tell `git config remote.origin.url` (a read) from a write, so
   every such read would prompt. In the default permission mode the setting

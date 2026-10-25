@@ -158,9 +158,12 @@ or `gh`. Git and gh are known by a path written with either slash, and with
 A command that may give git an alias is taken for an outward step, since the
 alias's name is the only word the hook sees of what it runs:
 `git -c alias.p=push p`, `--config-env alias.…`, a setting that includes a
-file (`-c include.path=…`, `includeIf.…`), and a value set in front of `git`
-that hands it settings (`GIT_CONFIG_*`, `HOME`, `XDG_CONFIG_HOME`). It is
-refused in a chain and asked about alone.
+file (`-c include.path=…`, `includeIf.…`), a `git config` that writes one
+(`git config alias.p push && git p`), and any `git` in a script that sets
+what git reads its settings or its commands from (`GIT_CONFIG_*`, `GIT_DIR`,
+`GIT_EXEC_PATH`, `HOME`, `XDG_CONFIG_HOME`), in front of it, as a step of its
+own or with `export`. It is refused in a chain and asked about alone; so is
+a plain push in such a script. `env -S '…'` is read as `bash -c '…'` is.
 
 It is let through when the outward step is alone: with a pipe into a filter
 (`git push 2>&1 | tail -2`), with redirections, with a `$(cat <<'EOF' … EOF)`
