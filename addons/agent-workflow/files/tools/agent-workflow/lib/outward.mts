@@ -203,7 +203,10 @@ export function mentionsGit(text: string): boolean {
 function mentions(text: string, word: RegExp): boolean {
   // Also with each line continuation taken out, as the shell reads it: `pu`, a continuation and `sh` are `push`.
   // Any run of backslashes before a new line goes too: backticks make two of them one, and then a continuation.
-  return word.test(text) || word.test(text.replace(/\\+\n/g, ""));
+  // And with every quote and backslash taken out, as the shell takes them out of a word: `pu"s"h`, `g\it`.
+  const joined = text.replace(/\\+\n/g, "");
+
+  return word.test(text) || word.test(joined) || word.test(joined.replace(/['"\\]/g, ""));
 }
 
 /**

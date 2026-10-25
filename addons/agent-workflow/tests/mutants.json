@@ -7144,8 +7144,8 @@
   {
     "name": "an unread command that names an outward step across a line continuation is asked about",
     "file": "addons/agent-workflow/files/tools/agent-workflow/lib/outward.mts",
-    "find": "  return word.test(text) || word.test(text.replace(/\\\\+\\n/g, \"\"));",
-    "replace": "  return word.test(text) || word.test(text.replaceAll(\"\\\\\\n\", \"\"));",
+    "find": "const joined = text.replace(/\\\\+\\n/g, \"\");",
+    "replace": "const joined = text;",
     "test": "pnpm vitest run addons/agent-workflow/tests/outward.test.mts --testNamePattern=\"is not read where it (splits|comes of backticks, in a word)\""
   },
   {
@@ -7343,5 +7343,12 @@
     "find": "(error instanceof WrappedLimitError || ",
     "replace": "(",
     "test": "pnpm vitest run addons/agent-workflow/tests/never-allows.test.mts -t \"however the text spells them\""
+  },
+  {
+    "name": "quotes in an unread command hide the word",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/outward.mts",
+    "find": " || word.test(joined.replace(/['\"\\\\]/g, \"\"));",
+    "replace": ";",
+    "test": "pnpm vitest run addons/agent-workflow/tests/never-allows.test.mts -t \"quotes or a backslash inside the word\""
   }
 ]
