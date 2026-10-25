@@ -233,6 +233,25 @@ templates and prints the difference, so what it reads can reach a screen.
 `scripts/project-paths.test.mts` reads these scripts' own source and fails
 when one opens a project path any other way.
 
+## Files git ignores
+
+A file the installer puts in a folder the project's `.gitignore` ignores is
+on disk, so every check run there passes, and it never reaches a commit: the
+branch lacks it, and CI fails on it. After each run `add-to-project.mts` asks
+git, in one `git check-ignore` call for all of the unit's files, which of
+them are ignored and untracked, and names them under "Not tracked", one line
+per rule, with the file and line of the rule (from the project's folder).
+It is a warning: the exit code is the same, since the install is whole and
+the rule is the project's to change. A file git tracks is never named, and a
+project that is not in a git repository, or a machine without git, is told
+nothing.
+
+No file the kit or an add-on installs is meant to be ignored:
+`scripts/create-project.test.mts` creates a project with every add-on and
+finds none that the starter's `.gitignore` ignores. `create-project.mts`
+itself does not ask, because its folder becomes a repository only after it
+has run.
+
 ## A choice
 
 ```bash

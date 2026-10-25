@@ -35,6 +35,11 @@
 // Exit 3: the unit went in, but entries it needs in a host's settings file
 // did not, because that file is not JSON or holds a value of another kind
 // there. The summary lists them under "Not merged".
+//
+// A file of the unit that the project's git ignores is in the project and
+// will never be in a commit. The summary names it under "Not tracked", with
+// the rule that ignores it, and the exit stays 0: the install is whole on
+// disk, and the rule is the project's to change. See `lib/git-ignored.mts`.
 
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { createRequire } from "node:module";
@@ -45,6 +50,7 @@ import { isMainModule } from "../kit/gates/lib/files.mts";
 import { LINT_DEPENDENCIES } from "../kit/lint-dependencies.mts";
 import { findSection, judgeSection, readSection, sectionHash, sectionMarkers, type SectionState, sectionTemplateOf } from "./lib/agents-section.mts";
 import { type Declaration, declarePackages, renderDeclaration } from "./lib/architecture.mts";
+import { findIgnored, type IgnoredFiles } from "./lib/git-ignored.mts";
 import { type Json, mergeSettings, parseSettings, refuseRetired, type RetiredCommands, SettingsError } from "./lib/host-settings.mts";
 import {
   assertInside,
@@ -273,6 +279,8 @@ export interface AddResult {
   choiceRemoved?: string[];
   /** The notes of the releases this project has not seen, oldest first. Empty at first install: a new project is owed no change. */
   releaseNotes: { id: string; notes: string[] }[];
+  /** Files of the unit in the project that git ignores and does not track, by the rule that ignores them: on disk, and never in a commit. */
+  untracked: IgnoredFiles[];
 }
 
 interface PackagePatch {
@@ -423,6 +431,7 @@ export function addToProject({ project, unit, force = false, scope, repository =
         gatesBefore !== undefined && name in gatesBefore ? [] : [{ name, options, ...(failsOn[name] === undefined ? {} : { failsOn: failsOn[name] }) }],
       ),
       ...(gatesBefore === undefined && Object.keys(gatesNow).length > 0 ? { gatesUnknownBefore: true } : {}),
+      untracked: findIgnored(destination, [...outcome.written, ...outcome.unchanged, ...setup.created]),
       releaseNotes: [],
       ...setup,
     };
@@ -840,10 +849,12 @@ function addAddon(destination: string, project: string, asked: string, force: bo
     ),
   ];
   const settingsChanges: string[] = [];
+  const settingsWritten: string[] = [];
 
   for (const { path, content, added } of settingsPlan.writes) {
     if (writeUnlessProtected(destination, path, content)) {
       settingsChanges.push(...added.map((entry) => `${path}: ${entry}`));
+      settingsWritten.push(path);
     } else {
       notes.push(
         `${path} could not be written: the host this ran under keeps that folder read-only. Outside it, run this script again; until then these are missing there: ${added.join("; ")}`,
@@ -873,6 +884,7 @@ function addAddon(destination: string, project: string, asked: string, force: bo
     choiceSays: chosen === undefined ? undefined : manifest.choice?.options[chosen],
     choiceRemoved,
     releaseNotes,
+    untracked: findIgnored(destination, [...outcome.written, ...outcome.unchanged, ...created, ...settingsWritten]),
   };
 }
 
@@ -964,6 +976,7 @@ function addStarter(destination: string, project: string, force: boolean, scope:
     yours: [],
     newGates: [],
     releaseNotes: [],
+    untracked: findIgnored(destination, writes),
   };
 }
 
@@ -1772,6 +1785,8 @@ export function describe(result: AddResult, project: string): string {
     lines.push("", `Not merged: ${result.unmerged.length} place(s) in a host's settings file. The add-on is not whole until they are (exit 3):`, ...result.unmerged.map((entry) => `  - ${entry}`));
   }
 
+  lines.push(...describeUntracked(result));
+
   if (result.releaseNotes.length > 0) {
     lines.push("", "Release notes:", ...result.releaseNotes.flatMap(({ id, notes }) => [`  ${id}`, ...notes.map((note) => `    - ${note}`)]));
   }
@@ -1795,6 +1810,28 @@ export function describe(result: AddResult, project: string): string {
   lines.push("  pnpm gate:full");
 
   return lines.join("\n");
+}
+
+/** How many files of one rule are named before the rest are counted. */
+const NAMED_PER_RULE = 5;
+
+/** The section that names the unit's files git ignores, by rule. Empty when there are none. */
+export function describeUntracked({ unit, untracked }: Pick<AddResult, "unit" | "untracked">): string[] {
+  if (untracked.length === 0) {
+    return [];
+  }
+
+  const count = untracked.reduce((sum, { paths }) => sum + paths.length, 0);
+
+  return [
+    "",
+    `Not tracked: ${count} file(s) of ${unit} are ignored by git, so no commit has them, and CI and every clone go without them:`,
+    ...untracked.map(
+      ({ source, line, pattern, paths }) =>
+        `  - \`${pattern}\` (${source}:${line}) ignores ${paths.slice(0, NAMED_PER_RULE).join(", ")}${paths.length > NAMED_PER_RULE ? `, and ${paths.length - NAMED_PER_RULE} more` : ""}`,
+    ),
+    "  Change each rule so it leaves these files out, then commit them. A `!` line cannot bring back a file whose folder is ignored: ignore what the folder holds instead (`.claude/*`, then `!.claude/commands/`).",
+  ];
 }
 
 /** The section that says what the update left to the project. Empty when it left nothing. */

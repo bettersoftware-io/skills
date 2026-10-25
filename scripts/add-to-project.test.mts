@@ -1,3 +1,4 @@
+import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { chmodSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -714,6 +715,15 @@ describe("adding the starter to a project that was not created from it", () => {
     // The kit's, not the starter's.
     expect(read(project, ".claude/settings.json")).toBe(CLAUDE_SETTINGS);
     expect(read(project, "tools/arch/gates/run.mts")).toBe("// gates, version 1\n");
+  });
+
+  it("names a file it wrote that the project ignores, so no commit has it", () => {
+    const { repository, project } = createBareWorld();
+    makeRepository(project, "packages/web/\n");
+
+    const { untracked } = addToProject({ project, unit: "starter", repository, scope: "@acme" });
+
+    expect(untracked).toEqual([{ source: ".gitignore", line: 1, pattern: "packages/web/", paths: ["packages/web/package.json", "packages/web/src/main.ts"] }]);
   });
 
   it("puts the starter's architecture config in place of the kit's example when the project never changed it and took every package", () => {
@@ -2351,6 +2361,90 @@ describe("comparing a project's own files with their templates", () => {
 });
 
 /** Every file of a project with its content, to show that a command wrote nothing. */
+describe("a file of the unit that the project ignores, so no commit has it", () => {
+  const COMMANDS = ["a", "b", "c", "d", "e", "f", "g"].map((name) => `.claude/commands/workflow/${name}.md`);
+
+  it("is named after the kit goes in, with the rule that ignores it, a written file and one the setup created", () => {
+    const { repository, project } = createWorld();
+    makeRepository(project, ".claude/\ntools/arch/hooks/\n");
+
+    const result = addToProject({ project, unit: "kit", repository });
+
+    expect(result.untracked).toEqual([
+      { source: ".gitignore", line: 2, pattern: "tools/arch/hooks/", paths: ["tools/arch/hooks/after-edit.mts", "tools/arch/hooks/claude.settings.json", "tools/arch/hooks/codex.hooks.json"] },
+      { source: ".gitignore", line: 1, pattern: ".claude/", paths: [".claude/settings.json"] },
+    ]);
+    expect(describeResult(result, project)).toContain(
+      [
+        "Not tracked: 4 file(s) of kit are ignored by git, so no commit has them, and CI and every clone go without them:",
+        "  - `tools/arch/hooks/` (.gitignore:2) ignores tools/arch/hooks/after-edit.mts, tools/arch/hooks/claude.settings.json, tools/arch/hooks/codex.hooks.json",
+        "  - `.claude/` (.gitignore:1) ignores .claude/settings.json",
+      ].join("\n"),
+    );
+  });
+
+  it("is named once per rule for an add-on's files, five of them by name and the rest counted, and again by each update while git still ignores them", () => {
+    const { repository, project } = createWorldWithKit();
+    for (const path of COMMANDS) {
+      write(repository, `addons/demo/files/${path}`, "# a command\n");
+    }
+    makeRepository(project, "# the host's own\n.claude/\n");
+    // The kit's hook settings were committed before the rule: no rule applies to a tracked file.
+    git(project, "add", "--force", ".claude/settings.json");
+
+    const first = addToProject({ project, unit: "demo", repository });
+    const again = addToProject({ project, unit: "demo", repository });
+
+    expect(first.untracked).toEqual([{ source: ".gitignore", line: 2, pattern: ".claude/", paths: COMMANDS }]);
+    expect(again.files.written).toEqual([]);
+    expect(again.untracked).toEqual(first.untracked);
+    expect(describeResult(first, project)).toContain(
+      "  - `.claude/` (.gitignore:2) ignores .claude/commands/workflow/a.md, .claude/commands/workflow/b.md, .claude/commands/workflow/c.md, .claude/commands/workflow/d.md, .claude/commands/workflow/e.md, and 2 more\n" +
+        "  Change each rule so it leaves these files out, then commit them.",
+    );
+  });
+
+  it("is named when it is a starting file, or a host's settings file the add-on merged into", () => {
+    const { repository, project } = createWorldWithKit();
+    withStartingFiles(repository);
+    withHostSettings(repository);
+    makeRepository(project, ".claude/settings.json\npackages/web/tests/\n");
+
+    const { untracked } = addToProject({ project, unit: "demo", repository });
+
+    expect(untracked).toEqual([
+      { source: ".gitignore", line: 2, pattern: "packages/web/tests/", paths: ["packages/web/tests/demo.ts", "packages/web/tests/goldens/a.png", "packages/web/tests/scenarios.ts"] },
+      { source: ".gitignore", line: 1, pattern: ".claude/settings.json", paths: [".claude/settings.json"] },
+    ]);
+  });
+
+  it("leaves the summary as it was, with no such file or no repository", () => {
+    const { repository, project } = createWorld();
+    const outside = addToProject({ project, unit: "kit", repository });
+
+    makeRepository(project, "*.log\n");
+    const inside = addToProject({ project, unit: "kit", repository });
+
+    expect(outside.untracked).toEqual([]);
+    expect(inside.untracked).toEqual([]);
+    expect(describeResult(inside, project)).not.toContain("Not tracked");
+  });
+});
+
+/** Makes the project a git repository, with this `.gitignore`. */
+function makeRepository(project: string, ignore: string): void {
+  git(project, "init", "--quiet");
+  // The person's own ignore file is not this test's: it would add rules of its own.
+  git(project, "config", "core.excludesFile", "/dev/null");
+  write(project, ".gitignore", ignore);
+}
+
+function git(folder: string, ...args: string[]): void {
+  const run = spawnSync("git", ["-C", folder, ...args], { encoding: "utf8" });
+
+  expect(run.status, run.stderr).toBe(0);
+}
+
 function snapshot(project: string, folder = ""): Record<string, string> {
   return Object.fromEntries(
     readdirSync(join(project, folder), { withFileTypes: true }).flatMap((entry) => {
