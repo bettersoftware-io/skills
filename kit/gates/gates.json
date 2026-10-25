@@ -9,6 +9,7 @@
   "package-scripts": ["packagesWithoutTests"],
   "node-floor": [],
   "package-manager": [],
+  "lockfile": [],
   "app-harness": ["compose", "appHarness"],
   "test-ids": ["testIds"],
   "types-only": ["typesOnly"],

@@ -137,10 +137,63 @@ describe("a job", () => {
     expect(readWorkflow(FILE, text)).toEqual({ contexts: ["checks"], leftOut: [] });
   });
 
-  it("is left out when a matrix gives it one check per combination", () => {
-    const text = workflow(onPullRequest, "  test:\n    name: test\n    strategy:\n      matrix:\n        node: [24, 26]\n    runs-on: ubuntu-latest");
+  it("with a matrix, is one check per combination, the values in brackets after a name that shows none of them, as GitHub writes them", () => {
+    const text = workflow(onPullRequest, "  test:\n    strategy:\n      fail-fast: false\n      matrix:\n        node: [24, 26]\n        os:\n          - ubuntu-latest\n          - 'macos-latest'\n    runs-on: ${{ matrix.os }}");
 
-    expect(readWorkflow(FILE, text).leftOut).toEqual([{ file: FILE, job: "test", reason: "it has a `strategy:`, so GitHub names one check per combination" }]);
+    expect(readWorkflow(FILE, text)).toEqual({
+      contexts: ["test (24, ubuntu-latest)", "test (24, macos-latest)", "test (26, ubuntu-latest)", "test (26, macos-latest)"],
+      leftOut: [],
+    });
+  });
+
+  it("with a matrix, takes each value into a name that shows it, and adds nothing after it", () => {
+    const text = workflow(onPullRequest, '  gate:\n    name: a project passes its gate (${{ matrix.scope }})\n    strategy:\n      matrix:\n        scope: ["@acme", "@zeta, the second"]\n    runs-on: ubuntu-latest');
+
+    expect(readWorkflow(FILE, text).contexts).toEqual(["a project passes its gate (@acme)", "a project passes its gate (@zeta, the second)"]);
+  });
+
+  it("with a `strategy:` and no matrix, is the one check of its name", () => {
+    const text = workflow(onPullRequest, "  test:\n    name: test\n    strategy:\n      fail-fast: false\n    runs-on: ubuntu-latest");
+
+    expect(readWorkflow(FILE, text)).toEqual({ contexts: ["test"], leftOut: [] });
+  });
+
+  it.each([
+    ["an `include:`", "        node: [24]\n        include:\n          - node: 26", "its matrix has an `include:`, so its combinations are not read"],
+    ["an `exclude:`", "        node: [24, 26]\n        exclude:\n          - node: 26", "its matrix has an `exclude:`, so its combinations are not read"],
+    ["values from an expression", "        node: ${{ fromJSON(needs.plan.outputs.nodes) }}", "its matrix's `node` is not a list of values written out, so its combinations are not in the file"],
+    ["a value that is an object", "        target:\n          - { os: ubuntu-latest }", "its matrix's `target` is not a list of values written out, so its combinations are not in the file"],
+    ["a number with a fraction, which GitHub may write otherwise", "        python: [3.10]", "its matrix's `python` is not a list of values written out, so its combinations are not in the file"],
+  ])("with a matrix, is left out when it has %s", (_, matrix, reason) => {
+    const text = workflow(onPullRequest, `  test:\n    name: test\n    strategy:\n      matrix:\n${matrix}\n    runs-on: ubuntu-latest`);
+
+    expect(readWorkflow(FILE, text)).toEqual({ contexts: [], leftOut: [{ file: FILE, job: "test", reason }] });
+  });
+
+  it("with a matrix that is one expression, is left out", () => {
+    const text = workflow(onPullRequest, "  test:\n    name: test\n    strategy:\n      matrix: ${{ fromJSON(needs.plan.outputs.matrix) }}\n    runs-on: ubuntu-latest");
+
+    expect(readWorkflow(FILE, text).leftOut).toEqual([{ file: FILE, job: "test", reason: "its matrix is not written out as a block, so its combinations are not in the file" }]);
+  });
+
+  it("with a matrix, is left out when its name holds an expression other than a value of the matrix", () => {
+    const text = workflow(onPullRequest, "  test:\n    name: test ${{ matrix.node }} on ${{ github.base_ref }}\n    strategy:\n      matrix:\n        node: [24]\n    runs-on: ubuntu-latest");
+
+    expect(readWorkflow(FILE, text).leftOut).toEqual([
+      { file: FILE, job: "test ${{ matrix.node }} on ${{ github.base_ref }}", reason: "its `name:` holds an expression other than a value of its matrix, so the check's name is not in the file" },
+    ]);
+  });
+
+  it("names every check of this repository's own CI that its ruleset asks for, the twelve of its two matrix jobs among them", () => {
+    expect(readWorkflow(FILE, readFileSync(join(REPOSITORY, ".github/workflows/ci.yml"), "utf8"))).toEqual({
+      contexts: [
+        "typecheck · tests",
+        ...["none", "coverage", "visual", "performance", "format-lint", "ci-security", "repo-hygiene", "strict-lint", "agent-workflow", "e2e"].map((addon) => `a created project passes its gate (${addon})`),
+        "a project created with every add-on passes its gate (@ci-organisation-with-a-long-name)",
+        "a project created with every add-on passes its gate (@zeta)",
+      ],
+      leftOut: [],
+    });
   });
 
   it("is left out when it calls another workflow, and kept when only a step uses an action", () => {

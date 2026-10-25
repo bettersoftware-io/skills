@@ -1,0 +1,100 @@
+[
+  {
+    "name": "framework-free: the bare name of a framework",
+    "file": "kit/gates/lib/depcruise.mts",
+    "find": "to: { path: `(^|node_modules/)(${config.frameworks.map(escape).join(\"|\")})(/|$)` },",
+    "replace": "to: { path: `node_modules/(${config.frameworks.map(escape).join(\"|\")})/` },",
+    "test": "pnpm vitest run --no-fsModuleCache kit/gates/gates.test.mts -t \"names a core that imports a UI framework\""
+  },
+  {
+    "name": "explicit compiler: judged at all",
+    "file": "kit/check-react-policies.mts",
+    "find": "      } else if (declaresCompiler) {",
+    "replace": "      } else if (false) {",
+    "test": "pnpm vitest run --no-fsModuleCache kit/check-react-policies.test.mts -t \"declares the compiler, when no package with a build\""
+  },
+  {
+    "name": "explicit compiler: every build must run it",
+    "file": "kit/check-react-policies.mts",
+    "find": "  if (withoutCompiler.length > 0) {",
+    "replace": "  if (withoutCompiler.length === builds.length) {",
+    "test": "pnpm vitest run --no-fsModuleCache kit/check-react-policies.test.mts -t \"each build that includes it and runs none\""
+  },
+  {
+    "name": "explicit compiler: a build that runs it is not named",
+    "file": "kit/check-react-policies.mts",
+    "find": "  const withoutCompiler = builds.filter((build) => !compiles(build));",
+    "replace": "  const withoutCompiler = builds;",
+    "test": "pnpm vitest run --no-fsModuleCache kit/check-react-policies.test.mts -t \"each build that includes it and runs none\""
+  },
+  {
+    "name": "builds of a package: through other packages",
+    "file": "kit/check-react-policies.mts",
+    "find": "(dependsOn.get(from) ?? []).some((next) => next === path || (!seen.has(next) && reaches(next, seen.add(next))));",
+    "replace": "(dependsOn.get(from) ?? []).some((next) => next === path);",
+    "test": "pnpm vitest run --no-fsModuleCache kit/check-react-policies.builds.test.mts -t \"directly or through others\""
+  },
+  {
+    "name": "builds of a package: devDependencies count",
+    "file": "kit/check-react-policies.mts",
+    "find": "name in dependencies || name in devDependencies",
+    "replace": "name in dependencies",
+    "test": "pnpm vitest run --no-fsModuleCache kit/check-react-policies.builds.test.mts -t \"directly or through others\""
+  },
+  {
+    "name": "builds of a package: only one with a Vite config",
+    "file": "kit/check-react-policies.mts",
+    "find": "candidate !== path && runsCompiler(root, candidate) !== undefined && reaches(",
+    "replace": "candidate !== path && reaches(",
+    "test": "pnpm vitest run --no-fsModuleCache kit/check-react-policies.builds.test.mts -t \"directly or through others\""
+  },
+  {
+    "name": "builds of a package: a cycle ends",
+    "file": "kit/check-react-policies.mts",
+    "find": "(!seen.has(next) && reaches(next, seen.add(next)))",
+    "replace": "reaches(next, seen.add(next))",
+    "test": "pnpm vitest run --no-fsModuleCache kit/check-react-policies.builds.test.mts -t \"through a cycle\""
+  },
+  {
+    "name": "lockfile: every importers section",
+    "file": "kit/gates/lib/lockfile.mts",
+    "find": "      inside = /^importers:\\s*$/.test(line);",
+    "replace": "      inside = importers === undefined && /^importers:\\s*$/.test(line);",
+    "test": "pnpm vitest run --no-fsModuleCache kit/gates/gates.test.mts -t \"are read from every importers: section\""
+  },
+  {
+    "name": "lockfile: a section ends at the next key",
+    "file": "kit/gates/lib/lockfile.mts",
+    "find": "    if (/^\\S/.test(line)) {\n      inside",
+    "replace": "    if (/^\\S/.test(line) && !line.startsWith(\"packages:\")) {\n      inside",
+    "test": "pnpm vitest run --no-fsModuleCache kit/gates/gates.test.mts -t \"are read from every importers: section\""
+  },
+  {
+    "name": "lockfile: a key in quotes",
+    "file": "kit/gates/lib/lockfile.mts",
+    "find": "key.startsWith(\"'\") ? key.slice(1, -1).replaceAll(\"''\", \"'\") : key",
+    "replace": "key",
+    "test": "pnpm vitest run --no-fsModuleCache kit/gates/gates.test.mts -t \"are read from every importers: section\""
+  },
+  {
+    "name": "lockfile: a package with no entry is named",
+    "file": "kit/gates/lib/lockfile.mts",
+    "find": "    .filter(({ path }) => !importers.has(path))",
+    "replace": "    .filter(() => false)",
+    "test": "pnpm vitest run --no-fsModuleCache kit/gates/gates.test.mts -t \"leave out a package with no entry\""
+  },
+  {
+    "name": "lockfile: a lockfile with no section is a finding",
+    "file": "kit/gates/lib/lockfile.mts",
+    "find": "  if (importers === undefined) {",
+    "replace": "  if (false) {",
+    "test": "pnpm vitest run --no-fsModuleCache kit/gates/gates.test.mts -t \"are a finding of their own\""
+  },
+  {
+    "name": "lockfile: the gate runs in the full run",
+    "file": "kit/gates/run.mts",
+    "find": "      ...checkLockfile(project),\n",
+    "replace": "",
+    "test": "pnpm vitest run --no-fsModuleCache kit/gates/gates.test.mts -t \"names a package the lockfile has no entry for\""
+  }
+]
