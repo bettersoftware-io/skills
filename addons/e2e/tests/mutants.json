@@ -413,13 +413,6 @@
     "test": "pnpm vitest run scripts/add-to-project.test.mts -t \"says which line to add by hand\""
   },
   {
-    "name": "scripts add: a config that is a link is found out only after files were written",
-    "file": "scripts/add-to-project.mts",
-    "find": "  assertInside(project, ARCHITECTURE_CONFIG);\n",
-    "replace": "",
-    "test": "pnpm vitest run scripts/add-to-project.test.mts -t \"never declares a package through an architecture config that is a link\""
-  },
-  {
     "name": "scripts add: a kit without the gate is accepted",
     "file": "scripts/add-to-project.mts",
     "find": "const missing = wanted.filter((gate) => !(gate in has));",

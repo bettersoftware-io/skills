@@ -21,7 +21,10 @@ const LAYERS: ArchitectureConfig = {
     "packages/catalog-bare": { role: "explicit" },
     "packages/e2e": { role: "e2e" },
   },
-  javascriptAllowed: { "stylelint.config.mjs": "stylelint's config loader cannot read .mts" },
+  javascriptAllowed: {
+    "stylelint.config.mjs": "stylelint's config loader cannot read .mts",
+    "tools/legacy/": "the legacy loader reads only JavaScript from its folder",
+  },
 };
 
 const PLUGIN_X = { name: "eslint-plugin-x", version: "^1.0.0", neededFor: "The rules for X" };
@@ -140,6 +143,15 @@ describe("where a rule applies", () => {
   it("scope: a JavaScript file the project lists as allowed is not reported", async () => {
     expect(await findingsOf("export default {};\n", "stylelint.config.mjs", "no-restricted-syntax", /JavaScript files are banned/)).toEqual([]);
     expect(await findingsOf("export default {};\n", "other.config.mjs", "no-restricted-syntax", /JavaScript files are banned/)).not.toEqual([]);
+  });
+
+  it("scope: a folder the project lists as allowed covers every JavaScript file under it, and no folder whose name only begins the same", async () => {
+    const banned = /JavaScript files are banned/;
+
+    expect(await findingsOf("export default {};\n", "tools/legacy/loader.js", "no-restricted-syntax", banned)).toEqual([]);
+    expect(await findingsOf("export default {};\n", "tools/legacy/plugins/extra.cjs", "no-restricted-syntax", banned)).toEqual([]);
+    expect(await findingsOf("export default {};\n", "tools/legacy-x/loader.js", "no-restricted-syntax", banned)).not.toEqual([]);
+    expect(await findingsOf("export default {};\n", "tools/loader.js", "no-restricted-syntax", banned)).not.toEqual([]);
   });
 
   it("scope: a project that declares JavaScript as its language has no JavaScript ban", async () => {
