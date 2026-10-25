@@ -62,10 +62,10 @@ function rankFiles(files: FileCoverage[], underTheBar: PackageResult["underTheBa
     );
 }
 
-/** The files no visual scenario renders: some line or statement never ran, ranked like the gaps. */
+/** The files no visual scenario renders in full: some line never ran. Ranked like the gaps. */
 export function rankVisualGaps({ files }: VisualReach): Gap[] {
   return rankFiles(
-    files.filter((file) => uncovered(file.lines) > 0 || uncovered(file.statements) > 0),
+    files.filter((file) => uncovered(file.lines) > 0),
     [],
   );
 }
@@ -135,7 +135,28 @@ function formatVisualReach(visualReach: VisualReach, limit: number): string[] {
   const heading = `Not rendered by any visual scenario (pnpm visual:coverage, written ${formatDate(visualReach.writtenAt)}):`;
   const gaps = rankVisualGaps(visualReach);
 
+  if (visualReach.files.length === 0) {
+    return [heading, "  nothing was measured: the summary names no file. That is not a clean result."];
+  }
+
   return gaps.length > 0 ? [heading, ...formatTable(gaps, limit)] : [heading, "  every file has its lines rendered."];
+}
+
+/** The `--json` output: the gaps and the unmeasured packages, and what the visual scenarios render when a summary is there. */
+export function formatGapsJson(results: PackageResult[], limit: number, visualReach?: VisualReach | UnreadableVisualReach): string {
+  return JSON.stringify(
+    {
+      gaps: rankGaps(results).slice(0, limit),
+      unmeasured: findUnmeasured(results),
+      ...(visualReach === undefined
+        ? {}
+        : "unreadable" in visualReach
+          ? { visualReach }
+          : { visualReach: { writtenAt: visualReach.writtenAt, gaps: rankVisualGaps(visualReach).slice(0, limit) } }),
+    },
+    null,
+    2,
+  );
 }
 
 interface CommandLine {
@@ -196,23 +217,7 @@ if (isMainModule(import.meta.url)) {
     const unmeasured = findUnmeasured(results);
     const visualReach = readVisualReach(root);
 
-    console.log(
-      json
-        ? JSON.stringify(
-            {
-              gaps: rankGaps(results).slice(0, limit),
-              unmeasured,
-              ...(visualReach === undefined
-                ? {}
-                : "unreadable" in visualReach
-                  ? { visualReach }
-                  : { visualReach: { writtenAt: visualReach.writtenAt, gaps: rankVisualGaps(visualReach).slice(0, limit) } }),
-            },
-            null,
-            2,
-          )
-        : `\n${formatGaps(results, limit, visualReach)}`,
-    );
+    console.log(json ? formatGapsJson(results, limit, visualReach) : `\n${formatGaps(results, limit, visualReach)}`);
     process.exit(unmeasured.length > 0 || results.every((result) => result.measured.length === 0) ? 2 : 0);
   } catch (error) {
     console.error(error instanceof CoverageError ? `coverage:gaps could not run: ${error.message}` : error);

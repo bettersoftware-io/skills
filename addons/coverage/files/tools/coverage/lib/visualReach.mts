@@ -2,7 +2,7 @@
 // gaps only reads it. It never starts a browser.
 
 import { existsSync, readFileSync, statSync } from "node:fs";
-import { join, relative, sep } from "node:path";
+import { isAbsolute, join, relative, sep } from "node:path";
 
 import type { Metric } from "./config.mts";
 import type { Count, FileCoverage } from "./measure.mts";
@@ -56,8 +56,10 @@ function readSummary(root: string, path: string): VisualReach {
 /** The summary holds absolute paths; a path outside the project is kept as written. */
 function toProjectPath(root: string, absolute: string): string {
   const inProject = relative(root, absolute);
+  // `..cache/x` is inside; `..`, `../x` and another drive are not.
+  const outside = inProject === ".." || inProject.startsWith(`..${sep}`) || isAbsolute(inProject);
 
-  return inProject.startsWith("..") ? absolute : inProject.split(sep).join("/");
+  return outside ? absolute : inProject.split(sep).join("/");
 }
 
 function readCount(count: SummaryEntry[Metric]): Count {
