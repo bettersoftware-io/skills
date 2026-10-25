@@ -120,7 +120,8 @@ The price list is a worked example of every one of these. Copy its shape:
 
 No JavaScript source files. Scripts and tool configs are `.mts`, which Node runs
 directly. A file a tool can only load as JavaScript is listed in
-`architecture.config.mts` under `javascriptAllowed`, with the reason.
+`architecture.config.mts` under `javascriptAllowed`, with the reason; a key
+ending in `/` lists a folder, for a tool that loads every file in it.
 
 ## Node
 

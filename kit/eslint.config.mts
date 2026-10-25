@@ -514,8 +514,9 @@ export function architectureLint(config: ArchitectureConfig | undefined = readDe
  * file, so each JavaScript file is reported once, at line 1.
  *
  * The exemptions are the project's `javascriptAllowed` list, the one the
- * `typescript-only` gate reads: files whose loader cannot read TypeScript. A
- * project that declares `language: "javascript"` has no ban.
+ * `typescript-only` gate reads: files whose loader cannot read TypeScript,
+ * and folders (a key ending in `/`), which become `folder/**`. A project that
+ * declares `language: "javascript"` has no ban.
  */
 function javascriptBan(config: ArchitectureConfig | undefined): TSESLint.FlatConfig.ConfigArray {
   if (config?.language === "javascript") {
@@ -525,7 +526,7 @@ function javascriptBan(config: ArchitectureConfig | undefined): TSESLint.FlatCon
   return [
     {
       files: JAVASCRIPT,
-      ignores: Object.keys(config?.javascriptAllowed ?? {}).map(stripSlashes),
+      ignores: Object.keys(config?.javascriptAllowed ?? {}).map((path) => (path.endsWith("/") ? `${stripSlashes(path)}/**` : stripSlashes(path))),
       rules: {
         "no-restricted-syntax": [
           "error",

@@ -84,7 +84,10 @@ export interface ArchitectureConfig {
   contractExempt?: Record<string, string>;
   /** "typescript" (the default) fails on any JavaScript source file. */
   language?: "typescript" | "javascript";
-  /** JavaScript file → the reason its loader cannot read TypeScript. */
+  /**
+   * JavaScript file → the reason its loader cannot read TypeScript. A key
+   * ending in `/` is a folder, and covers every file under it.
+   */
   javascriptAllowed?: Record<string, string>;
   /** The files that tell an agent how to work here. Every path they name must exist. */
   instructionFiles?: string[];
@@ -275,6 +278,7 @@ export async function loadConfig(root: string, configFile?: string): Promise<Pro
       packagesWithoutTests: withPlainPaths(declared.packagesWithoutTests ?? {}),
       reactWithoutPolicies: withPlainPaths(declared.reactWithoutPolicies ?? {}),
       vendorOnlyIn: readVendorEntries(found, declared.vendorOnlyIn ?? {}),
+      javascriptAllowed: readJavascriptAllowed(found, declared.javascriptAllowed ?? {}),
     },
     workspace: discoverWorkspace(absoluteRoot),
   };
@@ -344,6 +348,47 @@ export function readVendorEntries(found: string, declared: Record<string, string
   }
 
   return Object.fromEntries(entries.map(({ vendor, paths }) => [vendor, paths]));
+}
+
+/**
+ * `javascriptAllowed` with plain paths: no leading `./` or `/`, and a folder
+ * ending in one `/`. Refused:
+ *
+ * - A pattern (`tools/legacy/**`, `*.cjs`). The gate compares paths, and
+ *   ESLint would read the same key as a glob, so the two would disagree on
+ *   what it allows. A folder is written with a trailing `/`; the message names
+ *   the one the pattern starts in.
+ * - A key that names no path (`./`): every file in the project.
+ */
+export function readJavascriptAllowed(found: string, declared: Record<string, string>): Record<string, string> {
+  return Object.fromEntries(
+    Object.entries(declared).map(([path, reason]) => {
+      const wildcard = path.search(/[*?[\]{}!]/);
+
+      if (wildcard !== -1) {
+        const folder = path.slice(0, path.lastIndexOf("/", wildcard) + 1).replace(/^\.?\/+/, "");
+
+        throw new ConfigError(
+          `${found}: javascriptAllowed names "${path}", a pattern. A key is a file's path, or a folder's path ending in "/", which covers every file under it: ${folder === "" ? "list each file, or the folder that holds them" : `write "${folder}"`}.`,
+        );
+      }
+
+      const plain = path.replace(/^\.?\/+/, "").replace(/\/+$/, "/");
+
+      if (plain === "" || plain === "/") {
+        throw new ConfigError(
+          `${found}: javascriptAllowed names "${path}", which is the whole project. Name the file, or the folder that holds the JavaScript, ending in "/".`,
+        );
+      }
+
+      return [plain, reason];
+    }),
+  );
+}
+
+/** Whether `javascriptAllowed` covers `file`: it names the file, or a folder (a key ending in `/`) the file is under. */
+export function javascriptAllowedCovers(allowed: Record<string, string>, file: string): boolean {
+  return Object.keys(allowed).some((path) => (path.endsWith("/") ? file.startsWith(path) : file === path));
 }
 
 /** Every workspace package on disk, from `pnpm-workspace.yaml`. */
