@@ -37,8 +37,8 @@
   {
     "name": "before-stop: the type is matched in part",
     "file": "kit/hooks/before-stop.mts",
-    "find": "!AGENT_TASKS.includes(type)",
-    "replace": "!AGENT_TASKS.some((kind) => { return type.startsWith(kind); })",
+    "find": "inFlight.filter((task) => AGENT_TASKS.includes(task.type))",
+    "replace": "inFlight.filter((task) => AGENT_TASKS.some((kind) => task.type.startsWith(kind)))",
     "test": "pnpm vitest run kit/hooks/hooks.test.mts -t \"a type that is not an agent's\""
   },
   {
@@ -79,15 +79,15 @@
   {
     "name": "before-stop: an entry with no type is an agent",
     "file": "kit/hooks/before-stop.mts",
-    "find": "typeof type !== \"string\" || !AGENT_TASKS.includes(type)",
-    "replace": "(typeof type === \"string\" && !AGENT_TASKS.includes(type))",
+    "find": "    if (typeof type !== \"string\" || typeof status !== \"string\" || !IN_FLIGHT.includes(status)) {\n      return [];\n    }\n\n    return [\n      {\n        id: typeof id === \"string\" && id !== \"\" ? id : undefined,\n        type,",
+    "replace": "    if (typeof status !== \"string\" || !IN_FLIGHT.includes(status)) {\n      return [];\n    }\n\n    return [\n      {\n        id: typeof id === \"string\" && id !== \"\" ? id : undefined,\n        type: typeof type === \"string\" ? type : \"subagent\",",
     "test": "pnpm vitest run kit/hooks/hooks.test.mts -t \"only entry has no type\""
   },
   {
     "name": "before-stop: a list that is not one is read as one",
     "file": "kit/hooks/before-stop.mts",
-    "find": "  if (!Array.isArray(tasks)) {\n    return [];\n  }\n\n  return tasks.flatMap(",
-    "replace": "  return (Array.isArray(tasks) ? tasks : [tasks]).flatMap(",
+    "find": "  if (!Array.isArray(tasks)) {\n    return [];\n  }\n\n  const inFlight = tasks.flatMap(",
+    "replace": "  const inFlight = (Array.isArray(tasks) ? tasks : [tasks]).flatMap(",
     "test": "pnpm vitest run kit/hooks/hooks.test.mts -t \"when the list of tasks is not a list\""
   },
   {
@@ -138,5 +138,89 @@
     "find": "const reply = answer ? `${JSON.stringify(answer)}\\n` : \"\";",
     "replace": "const reply = answer ? `${JSON.stringify({ decision: \"block\", reason: answer.reason ?? answer.systemMessage })}\\n` : \"\";",
     "test": "pnpm vitest run kit/hooks/hooks.test.mts -t \"answers with a message and no decision when run as a command\""
+  },
+  {
+    "name": "before-stop: a subagent's shell is never looked up",
+    "file": "kit/hooks/before-stop.mts",
+    "find": "const waitedOn = inFlight.filter((task) => WAITED_ON_TASKS.includes(task.type) && task.id !== undefined);",
+    "replace": "const waitedOn: AgentAtWork[] = [];",
+    "test": "pnpm vitest run kit/hooks/hooks.test.mts -t \"waits on a shell of its own\""
+  },
+  {
+    "name": "before-stop: a shell is not one a subagent waits on",
+    "file": "kit/hooks/before-stop.mts",
+    "find": "const WAITED_ON_TASKS = [\"shell\", \"monitor\"];",
+    "replace": "const WAITED_ON_TASKS = [\"monitor\"];",
+    "test": "pnpm vitest run kit/hooks/hooks.test.mts -t \"waits on a shell of its own\""
+  },
+  {
+    "name": "before-stop: every running shell holds the gate back",
+    "file": "kit/hooks/before-stop.mts",
+    "find": "const task = transcript === undefined ? undefined : tasks.find((waited) => transcript.includes(`\"backgroundTaskId\":${JSON.stringify(waited.id)}`));",
+    "replace": "const task = transcript === undefined ? undefined : tasks[0];",
+    "test": "pnpm vitest run kit/hooks/hooks.test.mts -t \"waits on a shell of its own\""
+  },
+  {
+    "name": "before-stop: an id that only begins the shell's matches",
+    "file": "kit/hooks/before-stop.mts",
+    "find": "transcript.includes(`\"backgroundTaskId\":${JSON.stringify(waited.id)}`)",
+    "replace": "transcript.includes(`\"backgroundTaskId\":\"${waited.id}`)",
+    "test": "pnpm vitest run kit/hooks/hooks.test.mts -t \"waits on a shell of its own\""
+  },
+  {
+    "name": "before-stop: a finished subagent still holds the gate back",
+    "file": "kit/hooks/before-stop.mts",
+    "find": "    if (meta.finished === true) {\n      return [];\n    }\n",
+    "replace": "",
+    "test": "pnpm vitest run kit/hooks/hooks.test.mts -t \"waits on a shell of its own\""
+  },
+  {
+    "name": "before-stop: an ended shell still holds the gate back",
+    "file": "kit/hooks/before-stop.mts",
+    "find": "if (typeof type !== \"string\" || typeof status !== \"string\" || !IN_FLIGHT.includes(status)) {",
+    "replace": "if (typeof type !== \"string\" || typeof status !== \"string\" || (!IN_FLIGHT.includes(status) && !WAITED_ON_TASKS.includes(type))) {",
+    "test": "pnpm vitest run kit/hooks/hooks.test.mts -t \"waits on a shell of its own\""
+  },
+  {
+    "name": "before-stop: a path that is no transcript is still looked beside",
+    "file": "kit/hooks/before-stop.mts",
+    "find": "if (tasks.length === 0 || typeof transcriptPath !== \"string\" || !transcriptPath.endsWith(\".jsonl\")) {",
+    "replace": "if (tasks.length === 0 || typeof transcriptPath !== \"string\") {",
+    "test": "pnpm vitest run kit/hooks/hooks.test.mts -t \"waits on a shell of its own\""
+  },
+  {
+    "name": "before-stop: the subagents are looked for in the session's own folder",
+    "file": "kit/hooks/before-stop.mts",
+    "find": "const folder = join(transcriptPath.slice(0, -\".jsonl\".length), \"subagents\");",
+    "replace": "const folder = transcriptPath.slice(0, -\".jsonl\".length);",
+    "test": "pnpm vitest run kit/hooks/hooks.test.mts -t \"waits on a shell of its own\""
+  },
+  {
+    "name": "before-stop: a subagent listed and found through its shell is named twice",
+    "file": "kit/hooks/before-stop.mts",
+    "find": "...subagentsWaitingOn(waitedOn, transcriptPath).filter((agent) => !listed.has(agent.id))",
+    "replace": "...subagentsWaitingOn(waitedOn, transcriptPath)",
+    "test": "pnpm vitest run kit/hooks/hooks.test.mts -t \"waits on a shell of its own\""
+  },
+  {
+    "name": "before-stop: the subagent is not named by its record",
+    "file": "kit/hooks/before-stop.mts",
+    "find": "description: typeof meta.description === \"string\" && meta.description !== \"\" ? meta.description : task.description,",
+    "replace": "description: task.description,",
+    "test": "pnpm vitest run kit/hooks/hooks.test.mts -t \"waits on a shell of its own\""
+  },
+  {
+    "name": "before-stop: a record that is not JSON stops the hook",
+    "file": "kit/hooks/before-stop.mts",
+    "find": "    const meta: unknown = JSON.parse(readFileSync(path, \"utf8\"));\n\n    return typeof meta === \"object\" && meta !== null ? (meta as Record<string, unknown>) : {};\n  } catch {\n    return {};\n  }",
+    "replace": "    const meta: unknown = JSON.parse(readFileSync(path, \"utf8\"));\n\n    return typeof meta === \"object\" && meta !== null ? (meta as Record<string, unknown>) : {};\n  } finally {\n  }",
+    "test": "pnpm vitest run kit/hooks/hooks.test.mts -t \"waits on a shell of its own\""
+  },
+  {
+    "name": "before-stop: a session with no subagents folder stops the hook",
+    "file": "kit/hooks/before-stop.mts",
+    "find": "    names = readdirSync(folder);\n  } catch {\n    return [];\n  }",
+    "replace": "    names = readdirSync(folder);\n  } finally {\n  }",
+    "test": "pnpm vitest run kit/hooks/hooks.test.mts -t \"waits on a shell of its own\""
   }
 ]

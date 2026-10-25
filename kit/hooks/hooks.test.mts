@@ -861,6 +861,133 @@ describe("a stop while an agent is still at work", () => {
   });
 });
 
+// A subagent that waits on a shell of its own ends its turn, and while it
+// waits the host lists the shell and not the subagent. Seen in a live session
+// (Claude Code 2.1.310, 2026-10-25): the controller stopped with only
+// `{"id":"b3zljfh2e","type":"shell","status":"running"}` in the list, the gate
+// ran on the subagent's half-done edit and blocked. The subagent's transcript,
+// beside the session's, is what says whose the shell is.
+describe("a stop while a subagent waits on a shell of its own", () => {
+  const red = () => ({ status: 1, output: "FAIL half-edited (1)" });
+  const shell = { id: "b3zljfh2e", type: "shell", status: "running", description: "Wait until 90 seconds have passed", command: "sleep 90" };
+
+  it("lets the turn end without running the gate, and names the subagent", async () => {
+    const gate = createCountedGate(red);
+    const transcript = createSession({ a7d95027dbff24ace: { startedShell: "b3zljfh2e", meta: { agentType: "general-purpose", description: "Create, hold, delete proof-broken.ts", finished: false } } });
+    const reply = await replyToStop({ ...createStopPayload(createProject({ "gate:full": "false" }), [shell]), transcript_path: transcript }, gate.run);
+
+    expect(gate.runs()).toBe(0);
+    expect(reply).toEqual({ systemMessage: expect.stringContaining('general-purpose "Create, hold, delete proof-broken.ts"') });
+  });
+
+  it("runs the gate when the shell is the session's own: a dev server the controller started must not switch the gate off", async () => {
+    const gate = createCountedGate(red);
+    const transcript = createSession({ a7d95027dbff24ace: { startedShell: "c9other00" } });
+
+    await replyToStop({ ...createStopPayload(createProject({ "gate:full": "false" }), [shell]), transcript_path: transcript }, gate.run);
+
+    expect(gate.runs()).toBe(1);
+  });
+
+  it("runs the gate when the id only begins the subagent's shell id", async () => {
+    const gate = createCountedGate(red);
+    const transcript = createSession({ a7d95027dbff24ace: { startedShell: "b3zljfh2e9" } });
+
+    await replyToStop({ ...createStopPayload(createProject({ "gate:full": "false" }), [shell]), transcript_path: transcript }, gate.run);
+
+    expect(gate.runs()).toBe(1);
+  });
+
+  it("runs the gate when the subagent has finished and left its shell running", async () => {
+    const gate = createCountedGate(red);
+    const transcript = createSession({ a7d95027dbff24ace: { startedShell: "b3zljfh2e", meta: { finished: true } } });
+
+    await replyToStop({ ...createStopPayload(createProject({ "gate:full": "false" }), [shell]), transcript_path: transcript }, gate.run);
+
+    expect(gate.runs()).toBe(1);
+  });
+
+  it("runs the gate when the subagent's shell has ended", async () => {
+    const gate = createCountedGate(red);
+    const transcript = createSession({ a7d95027dbff24ace: { startedShell: "b3zljfh2e" } });
+
+    await replyToStop({ ...createStopPayload(createProject({ "gate:full": "false" }), [{ ...shell, status: "completed" }]), transcript_path: transcript }, gate.run);
+
+    expect(gate.runs()).toBe(1);
+  });
+
+  it("still lets the turn end, naming the subagent by its type, when its record of itself cannot be read", async () => {
+    const gate = createCountedGate(red);
+    const transcript = createSession({ a7d95027dbff24ace: { startedShell: "b3zljfh2e", meta: "not json" } });
+    const reply = await replyToStop({ ...createStopPayload(createProject({ "gate:full": "false" }), [shell]), transcript_path: transcript }, gate.run);
+
+    expect(gate.runs()).toBe(0);
+    expect(reply?.systemMessage).toContain('subagent "Wait until 90 seconds have passed"');
+  });
+
+  it("names a subagent once, when the host lists it and its shell both", async () => {
+    const transcript = createSession({ a7d95027dbff24ace: { startedShell: "b3zljfh2e" } });
+    const reply = await replyToStop(
+      { ...createStopPayload(createProject({ "gate:full": "false" }), [createTask({ id: "a7d95027dbff24ace", description: "Create, hold, delete proof-broken.ts" }), shell]), transcript_path: transcript },
+      red,
+    );
+
+    expect(reply?.systemMessage).toContain("an agent of this session is still at work");
+  });
+
+  it("runs the gate when the transcript path does not end in .jsonl, though a session's folder is beside it", async () => {
+    const gate = createCountedGate(red);
+    const transcript = createSession({ a7d95027dbff24ace: { startedShell: "b3zljfh2e" } }).replace(/\.jsonl$/, "-jsonl");
+
+    await replyToStop({ ...createStopPayload(createProject({ "gate:full": "false" }), [shell]), transcript_path: transcript }, gate.run);
+
+    expect(gate.runs()).toBe(1);
+  });
+
+  it.each<[string, unknown]>([
+    ["is left out", undefined],
+    ["is not text", 42],
+    ["is not a transcript", "/nowhere/session.txt"],
+    ["names a session with no subagents", join(mkdtempSync(join(tmpdir(), "arch-session-")), "s.jsonl")],
+  ])("runs the gate when the transcript path %s", async (_case, transcriptPath) => {
+    const gate = createCountedGate(red);
+
+    await replyToStop({ ...createStopPayload(createProject({ "gate:full": "false" }), [shell]), transcript_path: transcriptPath }, gate.run);
+
+    expect(gate.runs()).toBe(1);
+  });
+});
+
+/**
+ * A session's transcript with its subagents' beside it, laid out as Claude
+ * Code keeps them: `<session>.jsonl`, and `<session>/subagents/agent-<id>.jsonl`
+ * with its `.meta.json`. Each subagent's transcript records the shell it
+ * started in the background, as the tool result does. Returns the session's path.
+ */
+function createSession(subagents: Record<string, { startedShell: string; meta?: Record<string, unknown> | string }>): string {
+  const folder = mkdtempSync(join(tmpdir(), "arch-session-"));
+  const transcript = join(folder, "ea560a1c.jsonl");
+  const subagentsFolder = join(folder, "ea560a1c", "subagents");
+
+  writeFileSync(transcript, `${JSON.stringify({ type: "user", message: { content: "Start one background subagent" } })}\n`);
+  mkdirSync(subagentsFolder, { recursive: true });
+
+  for (const [id, { startedShell, meta }] of Object.entries(subagents)) {
+    const lines = [
+      { agentId: id, type: "assistant", message: { content: [{ type: "tool_use", name: "Bash", input: { run_in_background: true } }] } },
+      { agentId: id, type: "user", toolUseResult: { stdout: "", stderr: "", interrupted: false, backgroundTaskId: startedShell } },
+    ];
+
+    writeFileSync(join(subagentsFolder, `agent-${id}.jsonl`), `${lines.map((line) => JSON.stringify(line)).join("\n")}\n`);
+
+    if (meta !== undefined) {
+      writeFileSync(join(subagentsFolder, `agent-${id}.meta.json`), typeof meta === "string" ? meta : JSON.stringify(meta));
+    }
+  }
+
+  return transcript;
+}
+
 /** A `Stop` payload as Claude Code sends it, from the example in its hooks reference. */
 function createStopPayload(cwd: string, backgroundTasks: unknown[]): StopPayload & Record<string, unknown> {
   return {

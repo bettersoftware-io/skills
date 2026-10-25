@@ -411,10 +411,14 @@ feature with sign-in and routing. The Opus evals and the further tests of
   in one checkout at once, and the hook then says "red", not "run again".
 - **The stop hook's nine-minute limit is tested with short limits only**, on
   the same code path.
-- **The stop hook's wait for an agent still at work is tested against the
-  documented `Stop` payload only.** It reads `background_tasks`, which the
-  hooks reference documents, and has not been run in a live session with a
-  background subagent. A session that ends for good while an agent is still
+- **The stop hook's wait for a subagent that waits on its own shell rests on
+  an undocumented layout.** A live run showed that Claude Code lists only the
+  shell while such a subagent waits. The hook finds the subagent through its
+  transcript beside the session's and its `.meta.json` `finished` field.
+  Neither is documented, and when `finished` turns true has not been seen
+  live. If it turns true at the end of each turn rather than at the end of
+  the task, the hook runs the gate as before. A second live run with the
+  logging hook would say. A session that ends for good while an agent is still
   at work ends with no gate on its last tree; CI is what catches that. Codex
   sends no such list, so under Codex a controller can still be blocked by a
   subagent's half-done edit.
