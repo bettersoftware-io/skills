@@ -651,6 +651,41 @@
     "test": "pnpm vitest run addons/visual/tests/check-styles.test.mts -t \"fonts.css.inline\""
   },
   {
+    "name": "check-styles: a re-export is not read",
+    "file": "addons/visual/files/tools/visual/check-styles.mts",
+    "find": "\\b(?:import|export)\\s*",
+    "replace": "\\bimport\\s*",
+    "test": "pnpm vitest run addons/visual/tests/check-styles.test.mts -t \"fails: export\""
+  },
+  {
+    "name": "check-styles: import.meta.glob is not read",
+    "file": "addons/visual/files/tools/visual/check-styles.mts",
+    "find": "    ...[...code.matchAll(GLOB)]",
+    "replace": "    ...[...code.matchAll(/$^/g)]",
+    "test": "pnpm vitest run addons/visual/tests/check-styles.test.mts -t \"fails: import.meta.glob\""
+  },
+  {
+    "name": "check-styles: a glob's list of patterns is not read",
+    "file": "addons/visual/files/tools/visual/check-styles.mts",
+    "find": "(\\[[^\\]]*\\]|",
+    "replace": "(",
+    "test": "pnpm vitest run addons/visual/tests/check-styles.test.mts -t \"fails: import.meta.glob\""
+  },
+  {
+    "name": "check-styles: a glob pattern that leaves files out is read as one that loads them",
+    "file": "addons/visual/files/tools/visual/check-styles.mts",
+    "find": ".filter(({ specifier }) => !specifier.startsWith(\"!\"))",
+    "replace": "",
+    "test": "pnpm vitest run addons/visual/tests/check-styles.test.mts -t \"passes: import.meta.glob\""
+  },
+  {
+    "name": "check-styles: a // inside a string is read as a comment",
+    "file": "addons/visual/files/tools/visual/check-styles.mts",
+    "find": "/(\"(?:[^\"\\\\\\n]|\\\\.)*\"|'(?:[^'\\\\\\n]|\\\\.)*'|`(?:[^`\\\\]|\\\\.)*`)|",
+    "replace": "/(\\b\\B)|",
+    "test": "pnpm vitest run addons/visual/tests/check-styles.test.mts -t \"https\""
+  },
+  {
     "name": "reach: ranks the fewest uncovered statements first",
     "file": "addons/visual/files/tools/visual/lib/reach.mts",
     "find": "b.uncoveredStatements - a.uncoveredStatements ||",

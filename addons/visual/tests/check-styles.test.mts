@@ -46,6 +46,11 @@ describe("a stylesheet or font imported by the entry", () => {
     'import fonts from "./fonts.css?url";',
     'const fonts = import("./fonts.css");',
     "import './single.css';",
+    'export * from "./fonts.css";',
+    'export { default as fonts } from "./fonts.css?url";',
+    'import.meta.glob("./styles/*.css", { eager: true });',
+    'import.meta.glob(["./a.ts", "./styles/*.css"], { eager: true });',
+    'const home = "https://example.com"; import "./fonts.css";',
   ])("fails: %s", (line) => {
     expect(verdictOf(`${line}\n`).exitCode).toBe(1);
   });
@@ -66,12 +71,17 @@ describe("imports that are fine", () => {
     'import x from "./logo.svg";',
     'import { a } from "./css-utils.ts";',
     'import "./index.css?inline";',
+    'export { startApp } from "./app/startApp.tsx";',
+    'import.meta.glob("./pages/*.tsx");',
+    'import.meta.glob(["./pages/*.tsx", "!./pages/*.css"]);',
   ])("passes: %s", (line) => {
     expect(verdictOf(`${line}\n`).exitCode).toBe(0);
   });
 
   it("does not read a comment as an import", () => {
     expect(verdictOf('// import "./fonts.css";\n').exitCode).toBe(0);
+    expect(verdictOf('/* import "./fonts.css"; */\n').exitCode).toBe(0);
+    expect(verdictOf('const home = "https://example.com"; // import "./fonts.css";\n').exitCode).toBe(0);
   });
 });
 
