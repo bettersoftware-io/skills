@@ -51,11 +51,12 @@ on 2026-10-05, on pushes to main and on a pull request
   UTC: the W43 tag and its issue), a release made by a merged entry whose tag
   already exists, and a run of the writer (the headless agent with no write
   token; `CHANGELOG_WRITER` is unset).
-- **The changelog reminder did not appear in Codex.** `codex exec` 0.164.0, with
-  a week due, answered from the skill's description and showed no hook line.
-  The hook was not trusted with `/hooks`, which is interactive, so that is the
-  likely reason; whether it fires once trusted is not known. Not seen either:
-  the reminder in an interactive Claude Code session.
+- **The changelog reminder has not been watched in an interactive session.**
+  In Codex 0.164.0 it fires once its hooks are trusted with `/hooks`: on
+  2026-10-25 `codex exec`, with W42 made due, quoted the reminder word for
+  word, and the push hook refused a chained `git push --dry-run`
+  ([the record](changelog-2026-10-24.md#codex-2026-10-25)). Both runs were
+  headless; an interactive session of either host has not been watched.
 - **Dependency Review fails until the repository's dependency graph is on.**
   Seen: "Dependency review is not supported on this repository". The add-on's
   README lists the setting; `gh api -X PUT repos/<owner>/<repo>/vulnerability-alerts`
