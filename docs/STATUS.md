@@ -103,22 +103,19 @@ on 2026-10-05, on pushes to main and on a pull request
 
 Added on 2026-10-11 ([the record](documenting-architecture-2026-10-11.md)).
 
-- **The skill has never been run from its first step.** It was written from
-  two runs made without it. Steps 5 to 7 were then run once, on a third set
-  written without it, by the session that wrote that set: 47 findings in
-  about 650 checked claims. Whether an agent that has the skill does the
-  fact-check of step 6 unprompted, and what is left wrong in the set
-  afterwards, is not known. The test to make is the one the review skill had:
-  the same request, several fresh sessions, with and without.
+- **It has been run from its first step once: two runs a side, on one
+  codebase** ([the record](documenting-architecture-2026-10-25.md),
+  2026-10-25). Both runs with the skill fact-checked their set unprompted,
+  and a second check of the finished sets found 2.8 findings per 100 claims
+  with it and 5.9 without, at about $16 a run against $3. The judge was the
+  skill's own fact-check brief, which the sets with the skill had been
+  through once already. Not tried: a judge by another method or a person, a
+  larger codebase or one the plugin did not make, another model.
 - **Three sentences were tried and left out.** A line on quotations in the
   fact-check brief, a line on re-reading a figure from a repository's own
   documents, and a line on re-counting step numbers. Agents with the skill as
   it was did each small task right, two of two. The tasks were small: the
   record says what was not tried.
-- **What an agent says it would do is the only evidence for two sentences.**
-  The index's list of where a repository's documents are wrong, and looking
-  for a repository's own checks on documents before writing, were each tried
-  on a handful of single-shot agents that ran nothing.
 - **The widths `check-diagrams.mts` names come from one Mermaid on one
   machine.** Mermaid 11.4 and 12.1 disagreed on which way three of four
   diagrams were narrower. What the page that shows the set draws is not known
