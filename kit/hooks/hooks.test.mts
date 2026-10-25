@@ -6,7 +6,7 @@ import { fileURLToPath } from "node:url";
 import { beforeEach, describe, expect, it, onTestFinished, vi } from "vitest";
 
 import { editedFilesOf, judgeEdit } from "./after-edit.mts";
-import { findProject, type GateRun, judgeStop, runGate, type RunLimits } from "./before-stop.mts";
+import { findProject, type GateRun, judgeStop, replyToStop, runGate, type RunLimits, type StopPayload } from "./before-stop.mts";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const broken = join(here, "..", "gates", "fixtures", "broken");
@@ -647,7 +647,8 @@ describe("which tree is judged", () => {
 });
 
 // Apart from the documented second stop, the agent may finish without a gate
-// having passed only when there is no gate, or the tree is on record as green.
+// having passed only when there is no gate, the tree is on record as green,
+// or an agent of the session is still at work (the describe below this one).
 describe("a stop the hook cannot judge", () => {
   const green = () => ({ status: 0, output: "all gates passed." });
 
@@ -724,6 +725,161 @@ describe("a stop the hook cannot judge", () => {
     expect(JSON.parse(run.stdout)).toEqual({ decision: "block", reason: expect.stringContaining("still judged") });
   });
 });
+
+// A controller that sends a subagent off in the background and ends its turn
+// while it waits stops with that agent still editing the same tree (issue #72).
+// The payloads below are the shapes the hooks reference documents for `Stop`
+// (https://code.claude.com/docs/en/hooks#stop-input), taken from its example.
+describe("a stop while an agent is still at work", () => {
+  const red = () => ({ status: 1, output: "FAIL half-edited (1)" });
+  const green = () => ({ status: 0, output: "all gates passed." });
+
+  it.each(["subagent", "teammate", "workflow"])("lets the turn end without running the gate while a %s is running, and says so", async (type) => {
+    const gate = createCountedGate(red);
+    const reply = await replyToStop(createStopPayload(createProject({ "gate:full": "false" }), [createTask({ type, description: "Implement Task 2: archive prototype" })]), gate.run);
+
+    expect(gate.runs()).toBe(0);
+    expect(reply).toEqual({ systemMessage: expect.stringContaining("Implement Task 2: archive prototype") });
+    expect(reply?.systemMessage).toContain("next stop");
+  });
+
+  it("lets the turn end while an agent is still waiting to start", async () => {
+    const gate = createCountedGate(red);
+
+    expect(await replyToStop(createStopPayload(createProject({ "gate:full": "false" }), [createTask({ status: "pending" })]), gate.run)).toEqual({ systemMessage: expect.any(String) });
+    expect(gate.runs()).toBe(0);
+  });
+
+  it("names every agent still at work, and none that has ended", async () => {
+    const reply = await replyToStop(
+      createStopPayload(createProject({ "gate:full": "false" }), [
+        createTask({ description: "Implement Task 3", agent_type: "general-purpose" }),
+        createTask({ description: "Review Task 2", status: "completed" }),
+        createTask({ id: "task-009", type: "teammate", description: "Write the docs" }),
+      ]),
+      red,
+    );
+
+    expect(reply?.systemMessage).toContain("Implement Task 3");
+    expect(reply?.systemMessage).toContain("Write the docs");
+    expect(reply?.systemMessage).not.toContain("Review Task 2");
+  });
+
+  it("cuts a long description, which the host sends up to a thousand characters long", async () => {
+    const reply = await replyToStop(createStopPayload(createProject({ "gate:full": "false" }), [createTask({ description: `${"a".repeat(120)}${"b".repeat(880)}` })]), red);
+
+    expect(reply?.systemMessage).toContain(`${"a".repeat(120)}…`);
+    expect(reply?.systemMessage).not.toContain("ab");
+  });
+
+  it("runs the gate as before while only a shell task is running: the documented example", async () => {
+    const gate = createCountedGate(red);
+    const reply = await replyToStop(
+      createStopPayload(createProject({ "gate:full": "false" }), [{ id: "task-001", type: "shell", status: "running", description: "tail logs", command: "tail -f /var/log/syslog" }]),
+      gate.run,
+    );
+
+    expect(gate.runs()).toBe(1);
+    expect(reply).toEqual({ decision: "block", reason: expect.stringContaining("`gate:full` is red") });
+  });
+
+  it("runs the gate as before while only a monitor is running: a dev server must not switch the gate off", async () => {
+    const gate = createCountedGate(red);
+
+    await replyToStop(createStopPayload(createProject({ "gate:full": "false" }), [{ id: "task-002", type: "monitor", status: "running", description: "watch the build", server: "ci", tool: "watch" }]), gate.run);
+
+    expect(gate.runs()).toBe(1);
+  });
+
+  it.each(["completed", "failed", "killed"])("runs the gate when the agent's task is %s", async (status) => {
+    const gate = createCountedGate(red);
+
+    expect(await replyToStop(createStopPayload(createProject({ "gate:full": "false" }), [createTask({ status })]), gate.run)).toEqual({ decision: "block", reason: expect.any(String) });
+    expect(gate.runs()).toBe(1);
+  });
+
+  it.each<[string, unknown]>([
+    ["no status", { id: "a1", type: "subagent", description: "x" }],
+    ["a status that is not one of the documented ones", { id: "a1", type: "subagent", status: "paused", description: "x" }],
+    ["a status that is not text", { id: "a1", type: "subagent", status: true, description: "x" }],
+    ["a type that is not an agent's", { id: "a1", type: "subagents", status: "running", description: "x" }],
+    ["no type", { id: "a1", status: "running", description: "x" }],
+    ["an entry that is no object", "subagent running"],
+    ["an entry that is null", null],
+  ])("runs the gate when the only entry has %s: an entry it cannot read is not a reason to skip it", async (_shape, entry) => {
+    const gate = createCountedGate(red);
+
+    expect(await replyToStop(createStopPayload(createProject({ "gate:full": "false" }), [entry]), gate.run)).toEqual({ decision: "block", reason: expect.any(String) });
+    expect(gate.runs()).toBe(1);
+  });
+
+  it.each<[string, unknown]>([
+    ["is left out, as Codex and an older Claude Code send it", undefined],
+    ["is empty", []],
+    ["is not a list", { id: "a1", type: "subagent", status: "running" }],
+    ["is text", "subagent"],
+  ])("runs the gate as before when the list of tasks %s", async (_case, tasks) => {
+    const gate = createCountedGate(red);
+    const payload = { ...createStopPayload(createProject({ "gate:full": "false" }), []), background_tasks: tasks };
+
+    expect(await replyToStop(payload, gate.run)).toEqual({ decision: "block", reason: expect.any(String) });
+    expect(gate.runs()).toBe(1);
+  });
+
+  it("judges the tree at the next stop, once the agent has finished, and keeps no record of a tree it did not judge", async () => {
+    const project = createGitProject({ "gate:full": "true" });
+    const gate = createCountedGate(green);
+
+    await replyToStop(createStopPayload(project, []), gate.run);
+    const record = readFileSync(join(project, LAST_GREEN_RECORD), "utf8");
+
+    writeFileSync(join(project, "src.ts"), "export const half = 1;\n");
+    await replyToStop(createStopPayload(project, [createTask({})]), gate.run);
+
+    expect(gate.runs()).toBe(1);
+    expect(readFileSync(join(project, LAST_GREEN_RECORD), "utf8")).toBe(record);
+
+    await replyToStop(createStopPayload(project, []), gate.run);
+
+    expect(gate.runs()).toBe(2);
+  });
+
+  it("still blocks a red tree at the stop after the agent has finished", async () => {
+    const project = createProject({ "gate:full": "false" });
+
+    expect(await replyToStop(createStopPayload(project, [createTask({})]), red)).toEqual({ systemMessage: expect.any(String) });
+    expect(await replyToStop(createStopPayload(project, [createTask({ status: "completed" })]), red)).toEqual({ decision: "block", reason: expect.stringContaining("is red") });
+  });
+
+  it("answers with a message and no decision when run as a command, and runs no gate", () => {
+    const project = createProject({ "gate:full": "node -e \"require('node:fs').writeFileSync('gate-ran', ''); process.exit(1)\"" });
+    const run = runHook(createStopPayload(project, [createTask({ description: "Implement Task 2" })]), {});
+
+    expect(run.status).toBe(0);
+    expect(JSON.parse(run.stdout)).toEqual({ systemMessage: expect.stringContaining("Implement Task 2") });
+    expect(existsSync(join(project, "gate-ran"))).toBe(false);
+  });
+});
+
+/** A `Stop` payload as Claude Code sends it, from the example in its hooks reference. */
+function createStopPayload(cwd: string, backgroundTasks: unknown[]): StopPayload & Record<string, unknown> {
+  return {
+    session_id: "abc123",
+    transcript_path: "~/.claude/projects/.../00893aaf-19fa-41d2-8238-13269b9b3ca0.jsonl",
+    cwd,
+    permission_mode: "default",
+    hook_event_name: "Stop",
+    stop_hook_active: false,
+    last_assistant_message: "Task 2 is with the implementer; I will review it when it reports back.",
+    background_tasks: backgroundTasks,
+    session_crons: [],
+  };
+}
+
+/** A background subagent's entry in `background_tasks`, with the fields the reference lists for one. */
+function createTask(fields: Record<string, unknown>): Record<string, unknown> {
+  return { id: "task-007", type: "subagent", status: "running", description: "Implement Task 2", agent_type: "general-purpose", ...fields };
+}
 
 /** Runs the hook as a host does: the payload on its standard input. */
 function runHook(payload: Record<string, unknown>, env: Record<string, string>): { status: number | null; stdout: string } {
