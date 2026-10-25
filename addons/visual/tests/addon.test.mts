@@ -30,11 +30,23 @@ function scenarioFields(): string[] {
   return [...body.matchAll(/^ {2}(\w+)\??:/gm)].map((match) => match[1] as string);
 }
 
-/** Each shipped scenario's name, level and mount, read from the text of `scenarios.ts`. A scenario with no `level` is a page. */
-function shippedScenarios(): { name: string; level: string; mount: string | undefined; stale: boolean }[] {
-  const body = /export const scenarios: Record<string, Scenario> = \{([\s\S]*?)\n\};/.exec(readShipped("scenarios.ts"))?.[1] ?? "";
+interface ShippedScenario {
+  name: string;
+  level: string;
+  mount: string | undefined;
+  stale: boolean;
+}
 
-  return [...body.matchAll(/^ {2}"?([\w-]+)"?: \{\n([\s\S]*?)^ {2}\},?$/gm)].map((match) => {
+/** Each shipped scenario's name, level and mount, read from the text of `scenarios.ts`. A scenario with no `level` is a page. */
+function shippedScenarios(): ShippedScenario[] {
+  return readScenarios(readShipped("scenarios.ts"));
+}
+
+/** The scenarios of a `scenarios.ts` text. Throws when one of its keys is not read, so a check over them never skips one in silence. */
+function readScenarios(text: string): ShippedScenario[] {
+  const body = /export const scenarios: Record<string, Scenario> = \{([\s\S]*?)\n\};/.exec(text)?.[1] ?? "";
+  const keys = [...body.matchAll(/^ {2}"?([\w-]+)"?:/gm)].map((match) => match[1] as string);
+  const read = [...body.matchAll(/^ {2}"?([\w-]+)"?: \{\n([\s\S]*?)^ {2}\},?$/gm)].map((match) => {
     const fields = match[2] as string;
 
     return {
@@ -44,6 +56,14 @@ function shippedScenarios(): { name: string; level: string; mount: string | unde
       stale: /^ {4}stalePrices: \[/m.test(fields),
     };
   });
+
+  if (keys.length === 0 || read.length !== keys.length) {
+    const missed = keys.filter((key) => !read.some(({ name }) => name === key));
+
+    throw new Error(`read ${read.length} of the ${keys.length} scenarios in scenarios.ts; not read: ${missed.join(", ") || "(no scenario found)"}`);
+  }
+
+  return read;
 }
 
 /** The keys of the shipped registry, read from the text of `registry.tsx`. */
@@ -66,6 +86,22 @@ describe("the shipped examples", () => {
   it("take the seeding's stale wait in a section: prices delivered, then the clock moved past them", () => {
     expect(shippedScenarios().filter((scenario) => scenario.stale).map(({ name, level }) => ({ name, level }))).toEqual([{ name: "price-list-stale", level: "section" }]);
     expect(readShipped("seeding.ts")).toContain("clock.tick(STALE_AFTER_MS);");
+  });
+
+  it("are each read by this file, or it fails naming the one it could not read", () => {
+    expect(shippedScenarios().length).toBeGreaterThan(0);
+    expect(() => readScenarios('export const scenarios: Record<string, Scenario> = {\n  "a-page": {\n    prices: [],\n  },\n  "on-one-line": { prices: [] },\n};')).toThrow(
+      "read 1 of the 2 scenarios in scenarios.ts; not read: on-one-line",
+    );
+    expect(() => readScenarios("")).toThrow("not read: (no scenario found)");
+  });
+
+  it("mount every entry of the registry in the app's surround, and name the entries when the key is unknown", () => {
+    const registry = readShipped("registry.tsx");
+
+    expect(registry).toContain("return <Surround>{entry(scenario)}</Surround>;");
+    expect(registry.match(/\bentry\(/g)).toHaveLength(1);
+    expect(registry).toContain('`No entry "${key}" in registry.tsx. Its entries: ${Object.keys(registry).join(", ")}`');
   });
 
   it("mount only what the registry has", () => {
@@ -205,8 +241,15 @@ describe("who owns what in the visual tier", () => {
 
     expect(frame.slice(start, start + 40)).toContain("setSeeded(true);");
     expect(frame.slice(start, start + 40)).not.toContain("onReady()");
-    expect(frame).toMatch(/useEffect\(\(\) => \{\s*if \(seeded\) \{\s*onReady\(\);\s*\}\s*\}, \[seeded, onReady\]\);/);
+    expect(frame).toMatch(/useEffect\(\(\) => \{\s*if \(seeded && !told\.current\) \{/);
     expect(frame.match(/onReady\(\)/g)).toHaveLength(1);
+  });
+
+  it("says ready once, even when its caller passes a new onReady on a later render", () => {
+    const frame = readShipped("host/ScenarioFrame.tsx");
+
+    expect(frame).toContain("const told = useRef(false);");
+    expect(frame).toMatch(/if \(seeded && !told\.current\) \{\s*told\.current = true;\s*onReady\(\);\s*\}\s*\}, \[seeded, onReady\]\);/);
   });
 
   it("names the scenarios when the address has none", () => {

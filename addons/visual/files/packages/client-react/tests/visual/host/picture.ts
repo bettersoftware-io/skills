@@ -51,8 +51,23 @@ export interface ResolvedPicture {
 /** A scenario that contradicts itself or holds a value its field cannot. The message names both. */
 export class PictureError extends Error {}
 
-const LEVELS: readonly string[] = ["component", "section", "page"];
+const LEVELS: readonly Level[] = ["component", "section", "page"];
 const CAPTURES: readonly string[] = ["root", "viewport"];
+
+function isLevel(value: unknown): value is Level {
+  return LEVELS.some((level) => {
+    return level === value;
+  });
+}
+
+/** A value as the message quotes it. One JSON cannot hold, a circular one, is quoted as it prints. */
+function show(value: unknown): string {
+  try {
+    return JSON.stringify(value) ?? String(value);
+  } catch {
+    return String(value);
+  }
+}
 
 function fail(name: string, field: string, problem: string): never {
   throw new PictureError(`Scenario "${name}": \`${field}\` ${problem}`);
@@ -75,7 +90,7 @@ function readSize(
     return fail(
       name,
       field,
-      `must be a whole number of pixels above 0, got ${JSON.stringify(value)}.`,
+      `must be a whole number of pixels above 0, got ${show(value)}.`,
     );
   }
 
@@ -95,7 +110,7 @@ function readNumber(
     return fail(
       name,
       field,
-      `must be a number of 0 or more, got ${JSON.stringify(value)}.`,
+      `must be a number of 0 or more, got ${show(value)}.`,
     );
   }
 
@@ -124,7 +139,7 @@ function resolveTolerance(
       return fail(
         name,
         "strict",
-        `must be \`true\` when present, got ${JSON.stringify(scenario.strict)}. Remove it to use the global tolerance.`,
+        `must be \`true\` when present, got ${show(scenario.strict)}. Remove it to use the global tolerance.`,
       );
     }
 
@@ -182,17 +197,17 @@ export function resolvePicture(
 ): ResolvedPicture {
   if (!isRecord(scenario)) {
     throw new PictureError(
-      `Scenario "${name}": must be an object, got ${JSON.stringify(scenario) ?? String(scenario)}.`,
+      `Scenario "${name}": must be an object, got ${show(scenario)}.`,
     );
   }
 
   const level = scenario.level ?? "page";
 
-  if (typeof level !== "string" || !LEVELS.includes(level)) {
+  if (!isLevel(level)) {
     return fail(
       name,
       "level",
-      `must be "component", "section" or "page", got ${JSON.stringify(scenario.level)}.`,
+      `must be "component", "section" or "page", got ${show(scenario.level)}.`,
     );
   }
 
@@ -202,7 +217,7 @@ export function resolvePicture(
     return fail(
       name,
       "capture",
-      `must be "root" or "viewport", got ${JSON.stringify(scenario.capture)}.`,
+      `must be "root" or "viewport", got ${show(scenario.capture)}.`,
     );
   }
 
@@ -213,7 +228,7 @@ export function resolvePicture(
     return fail(
       name,
       "mount",
-      `must be the registry key of what is rendered, a non-empty string, got ${JSON.stringify(scenario.mount)}.`,
+      `must be the registry key of what is rendered, a non-empty string, got ${show(scenario.mount)}.`,
     );
   }
 
@@ -233,7 +248,7 @@ export function resolvePicture(
 
   if (capture === "root") {
     return {
-      level: level as Level,
+      level,
       capture,
       mount,
       viewport: { ...framing.viewport },
@@ -243,7 +258,7 @@ export function resolvePicture(
   }
 
   return {
-    level: level as Level,
+    level,
     capture: "viewport",
     mount,
     viewport: {

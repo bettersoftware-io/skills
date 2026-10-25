@@ -1,5 +1,5 @@
 import { spawnSync } from "node:child_process";
-import { cpSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { cpSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 
@@ -168,5 +168,101 @@ describe("pnpm visual:jitter with a scenarios.ts Node cannot load", () => {
 
     expect(status).toBe(2);
     expect(output).toContain("No measurement: Node could not load the project's visual files");
+  });
+});
+
+describe("pnpm visual:jitter with a scenario that contradicts itself", () => {
+  const scratch: string[] = [];
+  const SCENARIOS = "export const scenarios = { good: { prices: [] }, bad: { prices: [], maxDiffPixels: 2 } };\n";
+
+  afterEach(() => {
+    for (const directory of scratch.splice(0)) {
+      rmSync(directory, { recursive: true, force: true });
+    }
+  });
+
+  /** A copy of the add-on's files laid out as a project, with SCENARIOS and two identical captures of each image named. Returns jitter's exit and output. */
+  function runWith(images: string[], argv: (project: string) => string[]): { status: number | null; output: string } {
+    const project = mkdtempSync(join(tmpdir(), "visual-jitter-project-"));
+
+    scratch.push(project);
+    cpSync(resolve(import.meta.dirname, "../files"), project, { recursive: true, filter: (source) => !source.includes("goldens") });
+    writeFileSync(join(project, "packages/client-react/tests/visual/scenarios.ts"), SCENARIOS);
+
+    for (const folder of ["a", "b"]) {
+      mkdirSync(join(project, folder), { recursive: true });
+
+      for (const image of images) {
+        writeFileSync(join(project, folder, image), createPng(4, 4, () => BLACK));
+      }
+    }
+
+    const result = spawnSync(process.execPath, [join(project, "tools/visual/jitter.mts"), ...argv(project)], { encoding: "utf8" });
+
+    return { status: result.status, output: `${result.stdout}${result.stderr}` };
+  }
+
+  const folders = (project: string): string[] => [join(project, "a"), join(project, "b")];
+
+  it("exits 2 naming it, when its images are compared", () => {
+    const { status, output } = runWith(["good.png", "bad.png"], folders);
+
+    expect(status).toBe(2);
+    expect(output).toContain('No measurement: Scenario "bad": `maxDiffPixels` is 2');
+  });
+
+  it("does not stop a comparison of the other scenarios' images", () => {
+    const { status, output } = runWith(["good.png"], folders);
+
+    expect(status).toBe(0);
+    expect(output).not.toContain('Scenario "bad"');
+  });
+
+  it("exits 2 naming it, when it is chosen to capture, before any capture", () => {
+    const { status, output } = runWith([], () => ["--scenario", "bad"]);
+
+    expect(status).toBe(2);
+    expect(output).toContain('No measurement: Scenario "bad"');
+    expect(output).not.toContain("Run pnpm install first");
+  });
+
+  it("does not stop a capture of the other scenarios", () => {
+    // The copy has no Playwright, so the capture stops there: past the scenarios.
+    const { status, output } = runWith([], () => ["--scenario", "good"]);
+
+    expect(status).toBe(2);
+    expect(output).not.toContain('Scenario "bad"');
+    expect(output).toContain("Run pnpm install first");
+  });
+
+  it("exits 2 naming it, when every scenario is to be captured", () => {
+    const { status, output } = runWith([], () => []);
+
+    expect(status).toBe(2);
+    expect(output).toContain('No measurement: Scenario "bad"');
+  });
+});
+
+describe("the stand-in for the app's types (tests/support/appTypes.d.ts)", () => {
+  const STARTER = resolve(import.meta.dirname, "../../../starter/packages");
+
+  /** The fields of `interface <name>` in a text, as "field: type", with `Movement` written out as the starter defines it. */
+  function fieldsOf(text: string, name: string, movement: string): string[] {
+    const body = new RegExp(`interface ${name}(?: extends \\w+)? \\{([^}]*)\\}`).exec(text)?.[1] ?? "";
+
+    return [...body.matchAll(/^\s*(\w+\??): ([^;]+);$/gm)].map(([, field, type]) => `${field}: ${type === "Movement" ? movement : type}`);
+  }
+
+  it("declares Price and PriceRow with the starter's fields", () => {
+    const stub = readFileSync(resolve(import.meta.dirname, "support/appTypes.d.ts"), "utf8");
+    const price = readFileSync(join(STARTER, "domain/src/entities/price.ts"), "utf8");
+    const presenter = readFileSync(join(STARTER, "client-core/src/presenters/pricesPresenter.ts"), "utf8");
+    const movement = /export type Movement = ([^;]+);/.exec(price)?.[1] ?? "";
+
+    expect(movement).not.toBe("");
+    expect(fieldsOf(stub, "Price", movement)).toEqual(fieldsOf(price, "Price", movement));
+    expect(fieldsOf(stub, "PriceRow", movement)).toEqual(fieldsOf(presenter, "PriceRow", movement));
+    expect(fieldsOf(stub, "Price", movement)).toEqual(["symbol: string", "mid: number"]);
+    expect(fieldsOf(stub, "PriceRow", movement)).toContain('movement: "up" | "down" | "flat"');
   });
 });

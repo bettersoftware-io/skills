@@ -24,8 +24,14 @@ const ENTRY = "packages/client-react/src/main.tsx";
 /** The only stylesheet the host loads. */
 const ALLOWED = new Set(["./index.css", "#/index.css"]);
 
-/** `import "x"`, `import y from "x"`, `import { y } from "x"`, `import("x")`. */
-const IMPORT = /\bimport\s*(?:[^'"();]*?\bfrom\s*)?\(?\s*(["'`])([^"'`\n]*)\1/g;
+/** `import "x"`, `import y from "x"`, `import { y } from "x"`, `import("x")`, and `export * from "x"` or `export { y } from "x"`. */
+const IMPORT = /\b(?:import|export)\s*(?:[^'"();]*?\bfrom\s*)?\(?\s*(["'`])([^"'`\n]*)\1/g;
+
+/** `import.meta.glob("x")` and `import.meta.glob(["x", "y"])`: Vite's imports by pattern. */
+const GLOB = /\bimport\.meta\.glob\s*(?:<[^>]*>)?\(\s*(\[[^\]]*\]|(["'`])[^"'`\n]*\2)/g;
+
+/** A quoted string, in a glob's argument. */
+const STRING = /(["'`])([^"'`\n]*)\1/g;
 
 /** A stylesheet or a font: by extension (after any `?inline` or `?url`), or from `@fontsource`. */
 const STYLE_OR_FONT = /\.(css|scss|woff2?)$|@fontsource/;
@@ -51,16 +57,23 @@ export function checkStyles(root: string): StylesVerdict {
   }
 
   const findings: string[] = [];
+  const code = withoutComments(text);
+  const imports = [
+    ...[...code.matchAll(IMPORT)].map((match) => ({ specifier: match[2] ?? "", index: match.index })),
+    // A pattern that starts with `!` leaves files out, so it loads nothing.
+    ...[...code.matchAll(GLOB)].flatMap((match) =>
+      [...(match[1] ?? "").matchAll(STRING)].map((string) => ({ specifier: string[2] ?? "", index: match.index })).filter(({ specifier }) => !specifier.startsWith("!")),
+    ),
+  ].sort((a, b) => a.index - b.index);
 
-  for (const match of withoutComments(text).matchAll(IMPORT)) {
-    const specifier = match[2] ?? "";
+  for (const { specifier, index } of imports) {
     const target = specifier.split("?")[0] ?? specifier;
 
     if (ALLOWED.has(target) || !STYLE_OR_FONT.test(target)) {
       continue;
     }
 
-    const line = text.slice(0, match.index).split("\n").length;
+    const line = text.slice(0, index).split("\n").length;
 
     findings.push(
       `${ENTRY}:${line}: imports "${specifier}". The visual host loads index.css and nothing else the entry imports, so every picture would be drawn without it (a font falls back to another face). Move it into index.css, which the app and the host both load.`,
@@ -74,9 +87,11 @@ export function checkStyles(root: string): StylesVerdict {
   return { exitCode: 0, lines: [`PASS ${GATE}: main.tsx loads no stylesheet or font besides index.css.`] };
 }
 
-/** The text with `//` and block comments blanked, so lines still count the same. */
+/** The text with `//` and block comments blanked, so lines still count the same. A string is kept whole, so a `//` in a URL is not a comment. */
 function withoutComments(text: string): string {
-  return text.replace(/\/\*[\s\S]*?\*\/|\/\/[^\n]*/g, (comment) => comment.replace(/[^\n]/g, " "));
+  return text.replace(/("(?:[^"\\\n]|\\.)*"|'(?:[^'\\\n]|\\.)*'|`(?:[^`\\]|\\.)*`)|\/\*[\s\S]*?\*\/|\/\/[^\n]*/g, (found, string?: string) =>
+    string === undefined ? found.replace(/[^\n]/g, " ") : found,
+  );
 }
 
 /** True when Node was asked to run this file. Real paths, so a symlinked copy still runs. */

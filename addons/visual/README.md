@@ -52,7 +52,8 @@ the row that no page happens to show are never pictured.
 
 No gate counts pictures per level; the word is "reasonable". The job summary
 prints the count on every run (`Pictures: 6 components, 3 sections, 1 page`
-for the starter), so the shape is visible.
+for the starter), so the shape is visible. A scenario that failed before its
+picture was read, one that contradicts itself, is counted as `unresolved`.
 
 ### Where a new picture belongs
 
@@ -472,12 +473,12 @@ workflow gave byte-identical artifacts, and `Visual goldens` failed with no
 Linux set and passed with it.
 
 `pnpm vitest run addons/visual` from this repository's root runs the add-on's
-210 tests in 14 files, without a browser: the picture fields, the per-scenario
+253 tests in 15 files, without a browser: the picture fields, the per-scenario
 tolerance, the budget, the font loading, the level counts, the styles check,
-the reach ranking, the Vitest versions, the jitter measurement and who owns
-what. `tests/mutants.json` holds 122 mutants, each one shown failing a test.
-The installer's side has its own: `examples` (8 mutants in
-`scripts/mutants/examples.json`), `releaseNotes` (6 in
+the reach ranking and the coverage script's exits, the Vitest versions, the
+jitter measurement and who owns what. `tests/mutants.json` holds 157 mutants,
+each one shown failing a test. The installer's side has its own: `examples`
+(9 mutants in `scripts/mutants/examples.json`), `releaseNotes` (9 in
 `scripts/mutants/release-notes.json`) and `movedToProject` (11 in
 `scripts/mutants/moved-to-project.json`), all killed.
 

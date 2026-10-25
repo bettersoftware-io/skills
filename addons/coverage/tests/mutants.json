@@ -1255,7 +1255,7 @@
   {
     "name": "gaps: the visual section lists a file whose lines all ran",
     "file": "addons/coverage/files/tools/coverage/gaps.mts",
-    "find": "files.filter((file) => uncovered(file.lines) > 0 || uncovered(file.statements) > 0)",
+    "find": "files.filter((file) => uncovered(file.lines) > 0)",
     "replace": "files",
     "test": "pnpm vitest run addons/coverage/tests/visualReach.test.mts -t \"lists only the files\""
   },
@@ -1269,7 +1269,7 @@
   {
     "name": "visual reach: a path is kept absolute instead of from the project root",
     "file": "addons/coverage/files/tools/coverage/lib/visualReach.mts",
-    "find": "return inProject.startsWith(\"..\") ? absolute : inProject.split(sep).join(\"/\");",
+    "find": "return outside ? absolute : inProject.split(sep).join(\"/\");",
     "replace": "return absolute;",
     "test": "pnpm vitest run addons/coverage/tests/visualReach.test.mts -t \"gives files from the project root\""
   },
@@ -1286,5 +1286,68 @@
     "find": "(\"unreadable\" in visualReach ? [visualReach.unreadable] :",
     "replace": "(\"unreadable\" in visualReach ? [] :",
     "test": "pnpm vitest run addons/coverage/tests/visualReach.test.mts -t \"keeps the units' report\""
+  },
+  {
+    "name": "gaps: an empty visual summary is called fully rendered",
+    "file": "addons/coverage/files/tools/coverage/gaps.mts",
+    "find": "  if (visualReach.files.length === 0) {",
+    "replace": "  if (false) {",
+    "test": "pnpm vitest run addons/coverage/tests/visualReach.test.mts -t \"says nothing was measured\""
+  },
+  {
+    "name": "gaps: a visual summary with files is called empty",
+    "file": "addons/coverage/files/tools/coverage/gaps.mts",
+    "find": "  if (visualReach.files.length === 0) {",
+    "replace": "  if (true) {",
+    "test": "pnpm vitest run addons/coverage/tests/visualReach.test.mts -t \"every file has its lines rendered when the summary names files\""
+  },
+  {
+    "name": "gaps: the visual list ignores the limit",
+    "file": "addons/coverage/files/tools/coverage/gaps.mts",
+    "find": "[heading, ...formatTable(gaps, limit)]",
+    "replace": "[heading, ...formatTable(gaps, gaps.length)]",
+    "test": "pnpm vitest run addons/coverage/tests/visualReach.test.mts -t \"stops the visual list at the limit\""
+  },
+  {
+    "name": "gaps: --json leaves out what the visual scenarios render",
+    "file": "addons/coverage/files/tools/coverage/gaps.mts",
+    "find": "          : { visualReach: { writtenAt: visualReach.writtenAt, gaps: rankVisualGaps(visualReach).slice(0, limit) } }),",
+    "replace": "          : {}),",
+    "test": "pnpm vitest run addons/coverage/tests/visualReach.test.mts -t \"gives the visual gaps up to the limit\""
+  },
+  {
+    "name": "gaps: --json gives every visual gap past the limit",
+    "file": "addons/coverage/files/tools/coverage/gaps.mts",
+    "find": "gaps: rankVisualGaps(visualReach).slice(0, limit) } }),",
+    "replace": "gaps: rankVisualGaps(visualReach) } }),",
+    "test": "pnpm vitest run addons/coverage/tests/visualReach.test.mts -t \"gives the visual gaps up to the limit\""
+  },
+  {
+    "name": "gaps: --json drops the note of an unreadable summary",
+    "file": "addons/coverage/files/tools/coverage/gaps.mts",
+    "find": "          ? { visualReach }\n",
+    "replace": "          ? {}\n",
+    "test": "pnpm vitest run addons/coverage/tests/visualReach.test.mts -t \"passes on the note\""
+  },
+  {
+    "name": "gaps: --json has a visualReach with no summary",
+    "file": "addons/coverage/files/tools/coverage/gaps.mts",
+    "find": "      ...(visualReach === undefined\n        ? {}\n",
+    "replace": "      ...(visualReach === undefined\n        ? { visualReach: null }\n",
+    "test": "pnpm vitest run addons/coverage/tests/visualReach.test.mts -t \"has no visualReach when there is no summary\""
+  },
+  {
+    "name": "visual reach: a folder named ..something is read as outside the project",
+    "file": "addons/coverage/files/tools/coverage/lib/visualReach.mts",
+    "find": "inProject.startsWith(`..${sep}`)",
+    "replace": "inProject.startsWith(\"..\")",
+    "test": "pnpm vitest run addons/coverage/tests/visualReach.test.mts -t \"two dots\""
+  },
+  {
+    "name": "visual reach: a path outside the project is made relative",
+    "file": "addons/coverage/files/tools/coverage/lib/visualReach.mts",
+    "find": "inProject === \"..\" || inProject.startsWith(`..${sep}`) || isAbsolute(inProject)",
+    "replace": "isAbsolute(inProject)",
+    "test": "pnpm vitest run addons/coverage/tests/visualReach.test.mts -t \"two dots\""
   }
 ]

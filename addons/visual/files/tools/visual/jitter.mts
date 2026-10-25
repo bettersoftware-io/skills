@@ -12,8 +12,13 @@
 // it, and as little above it as you can bear. Each image is judged by the
 // tolerance its own scenario resolves to, so a scenario with a `maxDiffPixels`,
 // `pixelThreshold` or `strict` of its own is held to that. Run this before
-// changing any of them, and measure the scenario you are changing. A tolerance set by feel is wrong in one of two ways: too tight
-// and the tier fails on its own, too loose and it stops seeing real changes.
+// changing any of them, and measure the scenario you are changing. A tolerance
+// set by feel is wrong in one of two ways: too tight and the tier fails on its
+// own, too loose and it stops seeing real changes.
+//
+// Only the scenarios measured are read for their tolerance, so one that
+// contradicts itself stops the run (exit 2, naming it) only when its pictures
+// are captured or compared.
 //
 // Exit 0: measured, and the tolerance sits above the noise. 1: it does not.
 // 2: nothing could be measured.
@@ -25,16 +30,17 @@ import { fileURLToPath } from "node:url";
 
 import { type Framing, PictureError, type Tolerance } from "../../packages/client-react/tests/visual/host/picture.ts";
 import { grepFor, type JitterRequest, parseArguments, UsageError } from "./lib/arguments.mts";
-import { createToleranceOf, judgeNoise, measureNoise, scenarioNameOf } from "./lib/measure.mts";
+import { createToleranceOf, judgeNoise, listPngs, measureNoise, scenarioNameOf } from "./lib/measure.mts";
 
 const PROJECT = dirname(dirname(dirname(fileURLToPath(import.meta.url))));
 const CLIENT = join(PROJECT, "packages", "client-react");
 const CAPTURES = join(CLIENT, "tests", "visual", "reports", "jitter");
 
 /**
- * Takes the screenshot of every scenario (or of the `chosen` ones) `runs` times, each time with a server of
- * its own, into a folder of its own. The committed goldens are not touched.
- * Returns the folders, or undefined if a run failed.
+ * Takes the screenshot of every scenario (or of the `chosen` ones) `runs`
+ * times, each time with a server of its own, into a folder of its own. The
+ * committed goldens are not touched. Returns the folders, or undefined if a
+ * run failed.
  */
 function captureRuns(runs: number, chosen: string[]): string[] | undefined {
   const playwright = join(CLIENT, "node_modules", ".bin", "playwright");
@@ -142,10 +148,17 @@ async function runJitter(argv: string[]): Promise<number> {
     return 2;
   }
 
+  // The scenarios whose pictures are measured: the only ones resolved.
+  const measured =
+    request.mode === "compare"
+      ? request.directories.flatMap((directory) => [...listPngs(directory).keys()].map(scenarioNameOf))
+      : request.scenarios.length > 0
+        ? request.scenarios
+        : Object.keys(scenarios);
   let toleranceOf: ReturnType<typeof createToleranceOf>;
 
   try {
-    toleranceOf = createToleranceOf(scenarios, FRAMING, TOLERANCE);
+    toleranceOf = createToleranceOf(scenarios, FRAMING, TOLERANCE, measured);
   } catch (error) {
     if (!(error instanceof PictureError)) {
       throw error;

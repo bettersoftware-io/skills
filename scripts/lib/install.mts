@@ -499,12 +499,16 @@ export function installedReleases(project: string, unit: string): string[] | und
   return readRecord(project)[unit]?.releasesSeen;
 }
 
-/** Records the releases whose notes the project has now seen. Called after an install, which made the unit's entry. */
+/**
+ * Records the releases whose notes the project has now seen. Called after an install, which made the unit's entry.
+ * A unit that has had no release writes no list where there was none: no list is owed every release, and there is none.
+ */
 export function recordReleases(project: string, unit: string, ids: string[]): void {
   const record = readRecord(project);
   const entry = record[unit];
+  const nothingToSay = ids.length === 0 && entry?.releasesSeen === undefined;
 
-  if (entry !== undefined && JSON.stringify(entry.releasesSeen) !== JSON.stringify(ids)) {
+  if (entry !== undefined && !nothingToSay && JSON.stringify(entry.releasesSeen) !== JSON.stringify(ids)) {
     record[unit] = { ...entry, releasesSeen: ids };
     writeRecord(project, record);
   }

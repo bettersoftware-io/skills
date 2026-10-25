@@ -62,14 +62,20 @@ export function scenarioNameOf(image: string): string {
 /**
  * The tolerance each image is judged by: the one its scenario resolves to, as
  * the Playwright spec resolves it. An image no scenario owns (an orphan, or a
- * folder of another layout) is judged by the global one. Throws `PictureError`
- * for a scenario that contradicts itself, naming it.
+ * folder of another layout) is judged by the global one. Only the scenarios
+ * `measured` names are resolved, every one when it is not given. Throws
+ * `PictureError` for one of them that contradicts itself, naming it.
  */
-export function createToleranceOf(scenarios: Record<string, unknown>, framing: Framing, global: Tolerance): (image: string) => Tolerance {
+export function createToleranceOf(
+  scenarios: Record<string, unknown>,
+  framing: Framing,
+  global: Tolerance,
+  measured: readonly string[] = Object.keys(scenarios),
+): (image: string) => Tolerance {
   const resolved = new Map<string, Tolerance>();
 
-  for (const [name, scenario] of Object.entries(scenarios)) {
-    resolved.set(name, resolvePicture(name, scenario, framing, global).tolerance);
+  for (const name of measured.filter((name) => Object.hasOwn(scenarios, name))) {
+    resolved.set(name, resolvePicture(name, scenarios[name], framing, global).tolerance);
   }
 
   return (image) => resolved.get(scenarioNameOf(image)) ?? global;

@@ -2,7 +2,8 @@ import { rmSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
-import { checkDead, formatResult } from "../../strict-lint/files/tools/strict-lint/check-dead.mts";
+import { checkDead } from "../../strict-lint/files/tools/strict-lint/check-dead.mts";
+import { installedTools } from "../../strict-lint/files/tools/strict-lint/lib/run.mts";
 import { copyInto, createPackageJson, createProject, createTsconfig, REAL_TOOL_TIMEOUT, writeFiles } from "../../strict-lint/tests/support.mts";
 
 // An update replaces the add-on's files and leaves the project's own as they
@@ -10,7 +11,8 @@ import { copyInto, createPackageJson, createProject, createTsconfig, REAL_TOOL_T
 // with strict-lint's config. Nothing the add-on ships may need an edit of a
 // project's file to count as used. This runs that: the add-on's files over
 // the starting files of release 0.18.1, whose scenarios.ts does not know
-// `Picture` and which has no registry.tsx.
+// `Picture` and which has no registry.tsx. And a fresh install, with every
+// starting file as the add-on ships it.
 
 const VISUAL = "packages/client-react/tests/visual";
 const ADDON_FILES = join(import.meta.dirname, "..", "files");
@@ -34,8 +36,8 @@ const CONFIG_STUBS = {
   [`${VISUAL}/reach/vite.config.ts`]: 'export default { root: new URL("../../..", import.meta.url).pathname, test: { include: ["tests/visual/reach/reach.browser.tsx"] } };\n',
 };
 
-/** The project after an update: the add-on's files, its own files as 0.18.1 left them. */
-function createUpdatedProject(): string {
+/** A project with the add-on's files, before any starting file is replaced. */
+function createProjectWithAddon(): string {
   const project = createProject({
     "package.json": createPackageJson({ name: "fixture", scripts: { "lint:dead": "node tools/strict-lint/check-dead.mts" }, devDependencies: { knip: "^6.17.1" } }),
     "pnpm-workspace.yaml": "packages:\n  - packages/*\n",
@@ -49,19 +51,46 @@ function createUpdatedProject(): string {
   });
 
   copyInto(project, ADDON_FILES, new Set(["goldens"]));
-  rmSync(join(project, VISUAL, "registry.tsx"));
-  writeFiles(project, { ...OLD_PROJECT_FILES, ...CONFIG_STUBS });
+  writeFiles(project, CONFIG_STUBS);
 
   return project;
 }
 
-describe("lint:dead after an update, with the project's files untouched", { timeout: REAL_TOOL_TIMEOUT }, () => {
-  it("reports no file and no export of the add-on's", () => {
-    // Only files and exports. The packages the add-on's files name (React,
-    // Playwright) are not installed in this fixture.
-    const sections = formatResult(checkDead(createUpdatedProject())).split(/\n(?=[A-Z][^\n]* \(\d+\)\n)/);
-    const found = sections.filter((section) => /^Unused (files|exports|exported types|types)/.test(section));
+/** The project after an update: the add-on's files, its own files as 0.18.1 left them. */
+function createUpdatedProject(): string {
+  const project = createProjectWithAddon();
 
-    expect(found).toEqual([]);
+  rmSync(join(project, VISUAL, "registry.tsx"));
+  writeFiles(project, OLD_PROJECT_FILES);
+
+  return project;
+}
+
+/** The parts of knip's JSON report read here: one entry per file with an issue, each kind a list of names. An unused file lists itself under `files`. */
+interface KnipReport {
+  issues: ({ file: string } & Partial<Record<"files" | "exports" | "types", { name: string }[]>>)[];
+}
+
+/**
+ * The unused files and exports knip finds, from its JSON report: the same run
+ * as the gate's, with `--reporter json`. Only files and exports: the packages
+ * the add-on's files name (React, Playwright) are not installed in this
+ * fixture, so its dependency findings mean nothing.
+ */
+function findUnused(project: string): string[] {
+  const run = installedTools(project);
+  const { report } = checkDead(project, (name, args) => run(name, [...args, "--reporter", "json"]));
+  const { issues } = JSON.parse(report === "" ? '{"issues":[]}' : report) as KnipReport;
+
+  return issues.flatMap((issue) => (["files", "exports", "types"] as const).flatMap((kind) => (issue[kind] ?? []).map(({ name }) => `${kind}: ${name} in ${issue.file}`)));
+}
+
+describe("lint:dead with the project's files untouched", { timeout: REAL_TOOL_TIMEOUT }, () => {
+  it("reports no file and no export of the add-on's after an update", () => {
+    expect(findUnused(createUpdatedProject())).toEqual([]);
+  });
+
+  it("reports no file and no export of the add-on's after a fresh install", () => {
+    expect(findUnused(createProjectWithAddon())).toEqual([]);
   });
 });
