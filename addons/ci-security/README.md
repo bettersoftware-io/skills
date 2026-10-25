@@ -215,9 +215,13 @@ in the tool. A job is named when every pull request runs it:
 |---|---|
 | Its workflow has no `pull_request` under `on:`, or has anything under it (`paths`, `paths-ignore`, `branches`, `branches-ignore`, `types`) | Some pull requests do not start it. A required check that never reports holds the pull request for good |
 | It has an `if:` of its own. A step's `if:` does not count | A pull request can skip it |
-| It has a `strategy:`, calls another workflow with `uses:`, or has an expression in its `name:` | Its check has no one name that the file gives |
+| It calls another workflow with `uses:`, or has an expression in its `name:` other than a value of its matrix | Its checks have no names that the file gives |
+| Its matrix has an `include:` or an `exclude:`, is computed in an expression, or has a value that is not written out as one word or string | Its combinations are not read |
 
-The check's name is the job's `name:`, or its id. So the Scorecard job, the
+The check's name is the job's `name:`, or its id. A job with a matrix has one
+check per combination: its name with each `${{ matrix.<key> }}` replaced, or,
+when the name shows no value, the name with the values in brackets
+(`test (24, ubuntu-latest)`), as GitHub names them. So the Scorecard job, the
 coverage add-on's job that publishes the report and the weekly tag are not
 asked for, and the coverage gate is. The jobs left out are named on the
 line, and each with its reason above the command.
@@ -454,7 +458,7 @@ It was run against GitHub, reading only:
 | The folder | Result |
 |---|---|
 | A project made from the starter, with six workflows and every setting on | exit 0, nine `PASS`. The five checks read from its workflows are the five its ruleset requires; three jobs were left out |
-| This repository, where only the workflow permissions are as asked | exit 1: one `PASS`, eight `FAIL`, each single setting with its place and its command, and the ruleset command with this repository's one check. Its two matrix jobs were left out, with the reason |
+| This repository, where only the workflow permissions are as asked | exit 1: one `PASS`, eight `FAIL`, each single setting with its place and its command, and the ruleset command with this repository's one check. Its two matrix jobs were left out, with the reason (before 0.20.3, which reads their twelve checks) |
 | A folder whose `origin` names someone else's public repository | exit 1: five `SKIP` with GitHub's reason (two 404, two 403, one field left out), one `PASS`, three `FAIL` for the ruleset, and the line that says the branch has a classic protection rule |
 | A folder with no `origin` | exit 2, one `SKIP` line |
 | The first folder again: with no login, with a token GitHub refuses, through a proxy that takes no connection, with no `gh` on the `PATH` | exit 2 each time, one `SKIP` line that names the reason |

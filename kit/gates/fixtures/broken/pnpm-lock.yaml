@@ -1,0 +1,23 @@
+lockfileVersion: '9.0'
+
+importers:
+
+  .: {}
+
+  packages/browser-tests: {}
+
+  packages/checks: {}
+
+  packages/client-core: {}
+
+  packages/client-react: {}
+
+  packages/contract-types: {}
+
+  packages/domain: {}
+
+  packages/react-bindings: {}
+
+  packages/widgets: {}
+
+packages: {}

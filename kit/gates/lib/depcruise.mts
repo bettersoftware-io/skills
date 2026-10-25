@@ -139,7 +139,8 @@ export function buildRules(config: ResolvedConfig, workspace: WorkspacePackage[]
       severity: "error",
       comment: "The core is framework-free: no UI framework import. That is what lets a second client, or a different framework, reuse it unchanged.",
       from: { path: `^${escape(core.path)}/src` },
-      to: { path: `node_modules/(${config.frameworks.map(escape).join("|")})/` },
+      // As for vendorOnlyIn: resolved, the path runs through node_modules; unresolved, it is the bare name.
+      to: { path: `(^|node_modules/)(${config.frameworks.map(escape).join("|")})(/|$)` },
     });
 
     if (config.adapters.length > 0) {
