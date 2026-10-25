@@ -12,6 +12,7 @@ export default {
   adapters: ["packages/domain/src/simulators", "packages/client-core/src/adapters"],
   javascriptAllowed: {
     "stylelint.config.mjs": "stylelint's config loader cannot read .mts",
+    "tools/legacy/": "the legacy loader reads only JavaScript from its folder",
   },
   packagesWithoutTests: {
     "packages/rogue": "it holds one constant and no behaviour",

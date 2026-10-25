@@ -96,7 +96,9 @@ const config: ArchitectureConfig = {
   contractExempt: {},
 
   // "typescript" (the default) fails on any JavaScript source file. List here
-  // the files a tool can only load as JavaScript, each with the reason.
+  // the files a tool can only load as JavaScript, each with the reason. A key
+  // ending in "/" is a folder, and covers every file under it:
+  //   "tools/legacy/": "the legacy loader reads every .js file in its folder"
   language: "typescript",
   javascriptAllowed: {},
 
