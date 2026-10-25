@@ -1027,5 +1027,61 @@
     "find": "filter((image) => !Object.hasOwn(scenarios, scenarioNameOf(image)))",
     "replace": "filter((image) => !(scenarioNameOf(image) in scenarios))",
     "test": "pnpm vitest run addons/visual/tests/jitter.test.mts -t \"counts an image named after a property\""
+  },
+  {
+    "name": "jitter: every scenario is resolved, whichever are compared",
+    "file": "addons/visual/files/tools/visual/jitter.mts",
+    "find": "toleranceOf = createToleranceOf(scenarios, FRAMING, TOLERANCE, measured);",
+    "replace": "toleranceOf = createToleranceOf(scenarios, FRAMING, TOLERANCE);",
+    "test": "pnpm vitest run addons/visual/tests/jitter.test.mts -t \"does not stop a comparison\""
+  },
+  {
+    "name": "jitter: every scenario is resolved, whichever are chosen to capture",
+    "file": "addons/visual/files/tools/visual/jitter.mts",
+    "find": "      : request.scenarios.length > 0\n        ? request.scenarios\n",
+    "replace": "      : request.scenarios.length > 0\n        ? Object.keys(scenarios)\n",
+    "test": "pnpm vitest run addons/visual/tests/jitter.test.mts -t \"does not stop a capture\""
+  },
+  {
+    "name": "jitter: no scenario is resolved for a comparison",
+    "file": "addons/visual/files/tools/visual/jitter.mts",
+    "find": "      ? request.directories.flatMap((directory) => [...listPngs(directory).keys()].map(scenarioNameOf))\n",
+    "replace": "      ? []\n",
+    "test": "pnpm vitest run addons/visual/tests/jitter.test.mts -t \"when its images are compared\""
+  },
+  {
+    "name": "jitter: a chosen scenario is not resolved before the capture",
+    "file": "addons/visual/files/tools/visual/jitter.mts",
+    "find": "      : request.scenarios.length > 0\n        ? request.scenarios\n",
+    "replace": "      : request.scenarios.length > 0\n        ? []\n",
+    "test": "pnpm vitest run addons/visual/tests/jitter.test.mts -t \"when it is chosen to capture\""
+  },
+  {
+    "name": "jitter: no scenario is resolved when all are captured",
+    "file": "addons/visual/files/tools/visual/jitter.mts",
+    "find": "        : Object.keys(scenarios);\n  let toleranceOf",
+    "replace": "        : [];\n  let toleranceOf",
+    "test": "pnpm vitest run addons/visual/tests/jitter.test.mts -t \"when every scenario is to be captured\""
+  },
+  {
+    "name": "jitter: a scenario that contradicts itself is not told apart from a crash",
+    "file": "addons/visual/files/tools/visual/jitter.mts",
+    "find": "    if (!(error instanceof PictureError)) {\n      throw error;\n    }\n\n    console.error(`No measurement: ${error.message}`);",
+    "replace": "    throw error;\n\n    console.error(`No measurement: ${error.message}`);",
+    "test": "pnpm vitest run addons/visual/tests/jitter.test.mts -t \"when its images are compared\""
+  },
+  {
+    "name": "measure: a name no scenario has is resolved",
+    "file": "addons/visual/files/tools/visual/lib/measure.mts",
+    "find": "measured.filter((name) => Object.hasOwn(scenarios, name))",
+    "replace": "measured",
+    "test": "pnpm vitest run addons/visual/tests/jitter.test.mts -t \"judges an image no scenario owns\""
+  },
+  {
+    "name": "jitter: the stand-in's PriceRow drifts from the starter's",
+    "file": "addons/visual/tests/support/appTypes.d.ts",
+    "find": "    stale: boolean;",
+    "replace": "    stale: boolean;\n    note: string;",
+    "test": "pnpm vitest run addons/visual/tests/jitter.test.mts -t \"stand-in\""
   }
 ]
