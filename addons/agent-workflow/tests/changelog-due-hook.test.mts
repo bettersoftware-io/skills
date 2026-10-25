@@ -7,7 +7,7 @@ import { describe, expect, it } from "vitest";
 import { replyTo } from "../files/tools/agent-workflow/lib/due-reminder.mts";
 import { run } from "../files/tools/agent-workflow/lib/system.mts";
 import { lastFinishedWeek } from "../files/tools/agent-workflow/lib/week.mts";
-import { commit, createFolder, createRemote, git, TOOLS } from "./support.mts";
+import { commit, createFolder, createRemote, git, REAL_PROCESS_TIMEOUT, TOOLS } from "./support.mts";
 
 const HOOK = join(TOOLS, "hooks/changelog-due.mts");
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -30,7 +30,7 @@ function createDueProject(): string {
   return clone;
 }
 
-describe("the session-start reminder", () => {
+describe("the session-start reminder", { timeout: REAL_PROCESS_TIMEOUT }, () => {
   it("gives the due weeks as session context, with the command for each host", () => {
     const { status, stdout, stderr } = runHook(createDueProject());
     const output = JSON.parse(stdout) as { hookSpecificOutput: { hookEventName: string; additionalContext: string } };

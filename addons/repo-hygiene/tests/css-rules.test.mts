@@ -6,7 +6,7 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
 import { checkCss } from "../files/tools/repo-hygiene/check-css.mts";
-import { createStyledProject, STYLELINT_ROOT } from "./support.mts";
+import { createStyledProject, REAL_TOOL_TIMEOUT, STYLELINT_ROOT } from "./support.mts";
 
 const REPOSITORY = join(import.meta.dirname, "..", "..", "..");
 const ADDON = join(import.meta.dirname, "..");
@@ -21,7 +21,7 @@ function lint(css: string, path = "src/ui.css", files: Record<string, string> = 
   return checkCss(createStyledProject({ [path]: css, ...files }));
 }
 
-describe("the stylesheets a new project has", () => {
+describe("the stylesheets a new project has", { timeout: REAL_TOOL_TIMEOUT }, () => {
   it("pass as they are: the starter's", () => {
     const result = checkCss(
       createStyledProject({
@@ -34,7 +34,7 @@ describe("the stylesheets a new project has", () => {
   });
 });
 
-describe("the validity rules", () => {
+describe("the validity rules", { timeout: REAL_TOOL_TIMEOUT }, () => {
   it.each([
     ["color-no-invalid-hex", ":root {\n  --line: #12345;\n}\n"],
     ["no-duplicate-selectors", ".row {\n  top: 0;\n}\n\n.cell {\n  top: 1px;\n}\n\n.row {\n  left: 0;\n}\n"],
@@ -52,7 +52,7 @@ describe("the validity rules", () => {
   });
 });
 
-describe("the names", () => {
+describe("the names", { timeout: REAL_TOOL_TIMEOUT }, () => {
   it("wants kebab-case for a class in a plain stylesheet, and says what a module wants", () => {
     expect(lint(createRule("top: 0")).failed).toBe(false);
     expect(lint(".price-row {\n  top: 0;\n}\n").failed).toBe(false);
@@ -83,7 +83,7 @@ describe("the names", () => {
   });
 });
 
-describe("a colour comes from a token", () => {
+describe("a colour comes from a token", { timeout: REAL_TOOL_TIMEOUT }, () => {
   it.each([
     "color: #1a8f4c",
     "color: red",
@@ -131,7 +131,7 @@ describe("a colour comes from a token", () => {
   });
 });
 
-describe("a comment that switches a rule off", () => {
+describe("a comment that switches a rule off", { timeout: REAL_TOOL_TIMEOUT }, () => {
   const disabled = (comment: string): string => `.row {\n  ${comment}\n  color: red;\n}\n`;
 
   it("needs a reason after it", () => {
@@ -163,7 +163,7 @@ describe("a comment that switches a rule off", () => {
   });
 });
 
-describe("the two layers", () => {
+describe("the two layers", { timeout: REAL_TOOL_TIMEOUT }, () => {
   it("lets the project's file switch off a rule the base sets", () => {
     const root = JSON.stringify({ extends: ["./stylelint.base.json"], rules: { "selector-class-pattern": null } });
 

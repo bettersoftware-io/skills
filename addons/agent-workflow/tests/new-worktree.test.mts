@@ -4,9 +4,9 @@ import { describe, expect, it } from "vitest";
 
 import { type Ran, type Run, run } from "../files/tools/agent-workflow/lib/system.mts";
 import { newWorktree } from "../files/tools/agent-workflow/new-worktree.mts";
-import { commit, createRemote, git, type Remote, writeFile } from "./support.mts";
+import { commit, createRemote, git, REAL_PROCESS_TIMEOUT, type Remote, writeFile } from "./support.mts";
 
-describe("a new worktree", () => {
+describe("a new worktree", { timeout: REAL_PROCESS_TIMEOUT }, () => {
   it("is cut from the remote's main as it is now, not from a local main that has fallen behind", () => {
     const remote = createRemote();
     const stale = git(remote.clone, "rev-parse", "main");

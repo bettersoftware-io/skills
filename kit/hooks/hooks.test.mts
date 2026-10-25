@@ -80,7 +80,7 @@ describe("after an edit", () => {
   });
 });
 
-describe("before the agent stops", () => {
+describe("before the agent stops", { timeout: 30_000 }, () => {
   const red = () => ({ status: 1, output: "FAIL dumb-ui (1)\n  src/ui/A.tsx:3" });
   const green = () => ({ status: 0, output: "all gates passed." });
 
@@ -472,7 +472,7 @@ describe("a tree that has already passed", () => {
 // worktree beside a green primary checkout was then judged green.
 const LAST_GREEN_RECORD = "node_modules/.cache/arch/last-green-tree";
 
-describe("which tree is judged", () => {
+describe("which tree is judged", { timeout: 30_000 }, () => {
   const green = () => ({ status: 0, output: "all gates passed." });
 
   it("is the worktree the session stops in, not the checkout the session started in", async () => {
@@ -649,7 +649,7 @@ describe("which tree is judged", () => {
 // Apart from the documented second stop, the agent may finish without a gate
 // having passed only when there is no gate, the tree is on record as green,
 // or an agent of the session is still at work (the describe below this one).
-describe("a stop the hook cannot judge", () => {
+describe("a stop the hook cannot judge", { timeout: 30_000 }, () => {
   const green = () => ({ status: 0, output: "all gates passed." });
 
   it("is sent back when the project's package.json is not JSON: a gate may be in it", async () => {

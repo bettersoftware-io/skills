@@ -441,6 +441,20 @@
     "test": "pnpm vitest run scripts/add-to-project.test.mts -t \"leaves a declaration the project already wrote\""
   },
   {
+    "name": "scripts add: a config that is a link is read through, and found out only after files were written",
+    "file": "scripts/add-to-project.mts",
+    "find": "  assertInside(project, ARCHITECTURE_CONFIG);\n\n  const { text, added, byHand } = declarePackages(readProjectTextIfThere(project, ARCHITECTURE_CONFIG) ?? \"\", packages);",
+    "replace": "  const { text, added, byHand } = declarePackages(existsSync(join(project, ARCHITECTURE_CONFIG)) ? readFileSync(join(project, ARCHITECTURE_CONFIG), \"utf8\") : \"\", packages);",
+    "test": "pnpm vitest run scripts/add-to-project.test.mts -t \"never declares a package through an architecture config\""
+  },
+  {
+    "name": "scripts add: the refusal of a config that is a link does not say which file it is",
+    "file": "scripts/lib/install.mts",
+    "find": "  const outside = new InstallError(`\"${path}\" is outside the project, or reaches it through a link — nothing was changed`);",
+    "replace": "  const outside = new InstallError(`a file is outside the project, or reaches it through a link — nothing was changed`);",
+    "test": "pnpm vitest run scripts/add-to-project.test.mts -t \"never declares a package through an architecture config\""
+  },
+  {
     "name": "addon: the browser run joins the full gate",
     "file": "addons/e2e/addon.json",
     "find": "\"full\": []",

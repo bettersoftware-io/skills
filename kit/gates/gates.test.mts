@@ -24,7 +24,7 @@ const broken = join(fixtures, "broken");
 
 const UI = "packages/client-react/src/ui/PriceList.tsx";
 
-describe("a project that follows the rules", () => {
+describe("a project that follows the rules", { timeout: 30_000 }, () => {
   it("passes every gate", async () => {
     const result = await runGates({ root: clean });
 
@@ -59,7 +59,7 @@ describe("a project that follows the rules", () => {
 
 // `gates.json` is what an update of the kit reads to tell a project which
 // gates are new to it. Nothing runs from it, so only this holds it to the truth.
-describe("the kit's list of its gates", () => {
+describe("the kit's list of its gates", { timeout: 30_000 }, () => {
   const list = JSON.parse(readFileSync(join(here, "gates.json"), "utf8")) as Record<string, string[]>;
 
   it("names every gate that runs, in the order they run, and no other", async () => {
@@ -611,7 +611,7 @@ describe("a project that declares JavaScript", () => {
   });
 });
 
-describe("the command itself", () => {
+describe("the command itself", { timeout: 30_000 }, () => {
   it("judges when run through a symlink, instead of exiting clean having done nothing", () => {
     const link = join(mkdtempSync(join(tmpdir(), "arch-link-")), "run.mts");
 

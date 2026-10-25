@@ -1,6 +1,6 @@
 import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
-import { chmodSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync, symlinkSync, writeFileSync } from "node:fs";
+import { chmodSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, readlinkSync, rmSync, statSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { describe, expect, it, onTestFinished } from "vitest";
@@ -1315,10 +1315,15 @@ describe("adding an add-on", () => {
     rmSync(join(project, "architecture.config.mts"));
     write(outside, "architecture.config.mts", PROJECT_LAYERS);
     symlinkSync(join(outside, "architecture.config.mts"), join(project, "architecture.config.mts"));
+    const before = snapshot(project);
 
-    expect(() => addToProject({ project, unit: "demo", repository })).toThrow(InstallError);
+    expect(() => addToProject({ project, unit: "demo", repository })).toThrow(
+      new InstallError('"architecture.config.mts" is outside the project, or reaches it through a link — nothing was changed'),
+    );
+    // Nothing of the add-on was written, its own package included, and the link is still the same link.
+    expect(snapshot(project)).toEqual(before);
+    expect(readlinkSync(join(project, "architecture.config.mts"))).toBe(join(outside, "architecture.config.mts"));
     expect(read(outside, "architecture.config.mts")).toBe(PROJECT_LAYERS);
-    expect(existsSync(join(project, "tools/demo/check.mts"))).toBe(false);
   });
 
   it("refuses a project whose kit lacks a gate it relies on, changes nothing, and says how to get it", () => {

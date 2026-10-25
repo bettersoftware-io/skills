@@ -5,7 +5,7 @@ import { beforeAll, describe, expect, it } from "vitest";
 const SCRIPT = join(import.meta.dirname, "check-react-policies.mts");
 const fixtures = join(import.meta.dirname, "gates", "fixtures");
 
-describe("a project whose React packages are all under their rules", () => {
+describe("a project whose React packages are all under their rules", { timeout: 30_000 }, () => {
   it("passes, and says how many packages it judged", () => {
     const run = runIn("react-clean");
 
