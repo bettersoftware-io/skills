@@ -39,15 +39,18 @@ on 2026-10-05, on pushes to main and on a pull request
   Not seen: Dependency Review refusing a pull request for an advisory or a
   licence, and what Scorecard's findings look like in the repository's
   code-scanning page.
-- **The changelog's workflows, a release and a tag have not run on GitHub.**
-  Tried locally in skills-demo on 2026-10-24 ([the record](changelog-2026-10-24.md)):
-  the install, the checks, `gate:full`, `due`, the reminder hook in a headless
-  Claude Code session, the entry's checks and the release notes offline. Not
-  seen: `sync-releases.yml` and `changelog-writer.yml` (both are off until a
-  repository variable switches them on), a real release (`--apply` was not
-  run; the plan against a fixture says `create`), a run of the writer (the
-  headless agent with no write token), and a tag made through the API with a
-  `tagger.date` (`changelog tag --apply` was not run).
+- **The weekly tag workflow and the changelog writer have not run on
+  GitHub.** In skills-demo on 2026-10-25
+  ([the record](changelog-2026-10-24.md#on-github-2026-10-25)) the release
+  workflow was skipped while `CHANGELOG_RELEASES` was unset, and on a pull
+  request; once set, it waited for a tag; `changelog tag 2026-W42 --apply`
+  made a tag dated 2026-10-19T00:05:00Z; a run by hand then published the
+  release
+  [2026-W42](https://github.com/bettersoftware-io/skills-demo/releases/tag/2026-W42).
+  Not seen: `weekly-tag.yml`'s first scheduled run (Monday 2026-10-26, 00:05
+  UTC: the W43 tag and its issue), a release made by a merged entry whose tag
+  already exists, and a run of the writer (the headless agent with no write
+  token; `CHANGELOG_WRITER` is unset).
 - **The changelog reminder did not appear in Codex.** `codex exec` 0.164.0, with
   a week due, answered from the skill's description and showed no hook line.
   The hook was not trusted with `/hooks`, which is interactive, so that is the
@@ -232,6 +235,14 @@ Added on 2026-10-11 ([the record](documenting-architecture-2026-10-11.md)).
 - **A feature that touches more of the app:** sign-in, routing. The hardest
   test so far (users and categories with create, edit and delete, over REST)
   added a second transport and forms, but no navigation and no session.
+  *The test:* a project made by `create-project.mts`, and one fresh session
+  with the plugin, asked in a person's words for sign-in with a login page
+  and a part of the app only a signed-in user reaches, and left to finish.
+  Then read: where the session and the routes ended up (core or UI), whether
+  the gates and the review named what went in the wrong place, and what the
+  tests and the e2e specs cover. A record in `docs/`, and the fixes it points
+  to in the starter, the kit or the skills. About half a day and the cost of
+  one long session.
 - **`extending-a-project` in a Codex session that can write.** The other two
   are checked there ([the record](codex-test-2026-10-04.md)). Read-only runs
   load it in 12 runs of 12 since 0.16.0, 7 of 12 before
@@ -244,13 +255,32 @@ Added on 2026-10-11 ([the record](documenting-architecture-2026-10-11.md)).
   command the agent names, not the project after it runs: no eval run here
   can have a shell (see Known limits).
 - **A review case the skill makes a difference to.** The planted average is
-  found in every run without the plugin as well.
+  found in every run without the plugin as well. *The test:* plant a problem
+  that a good general review passes over and the skill's questions name, for
+  example a presenter that reads `new Date()` where the core should reach the
+  clock through a port, or a fixture factory named with a bare noun. Add it as
+  an outcome case beside `outcome-review-planted-average` and run it with and
+  without the plugin (`pnpm evals:outcome --case <name>`, a few dollars on
+  Sonnet). A case where both sides pass is a finding about the skill as well.
 - **The evals on Claude Opus, three runs a case.** Once a case, Opus passed
   every trigger case and, with the plugin, every outcome case.
 - **The kit in a real existing project.** The script sets up the files and says
   what is left. Declaring each package's role, and deciding what to do with the
   findings on code that was never held to these rules, is judgement nobody has
-  watched an agent do.
+  watched an agent do. *The test:* condo-ledger as it was before the plugin,
+  at `b7a88de` (2026-06-20): about 16,000 lines of TypeScript, an app and
+  three packages, on pnpm 9. A copy at that commit, with no remote, and one
+  fresh session with the plugin, asked to add the architecture gates to the
+  project, with the owner there to answer it. Then read how it declared each
+  package's role,
+  what it did with the findings on the old code (fixed, listed as an
+  exception, or a rule loosened), and whether the result is one to keep. The
+  owner's own adoption, on 2026-10-11, is the reference: it moved the project
+  onto the starter's layout and archived the old web app
+  ([condo-ledger's merge log](https://github.com/bettersoftware-io/condo-ledger/blob/main/docs/superpowers/notes/2026-10-11-m0-merge-log.md)).
+  `extending-a-project` says the roles are decided with the user, not for
+  them, so the owner answers the session's questions as it goes: that is
+  part of what is watched.
 
 ## Known limits
 

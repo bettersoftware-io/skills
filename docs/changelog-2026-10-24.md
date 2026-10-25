@@ -239,3 +239,33 @@ The skills-demo branch was left on `try-agent-workflow-0.20.0`, clean, ahead of
 - **The reminder in an interactive Claude Code session.** Only `claude -p`.
 - **`pnpm changelog prs` and the release plan against GitHub** ran with the
   `gh` of this Mac and no variable, not in a workflow.
+
+## On GitHub, 2026-10-25
+
+skills-demo took the plugin's 0.21.1 (skills-demo #18): the kit, every
+add-on, and `agent-workflow` for the first time. Then:
+
+- **The release workflow while switched off.** On #18, on its merge to main,
+  and on #19 it showed "sync releases from CHANGELOG.md" as skipped:
+  `CHANGELOG_RELEASES` was unset, and on #19 the job's guard keeps a push to
+  another branch out.
+- **The W42 entry** (skills-demo #19), written with `/workflow:changelog`:
+  `pnpm changelog check 2026-W42` passed for #12, #14 and #15, and `due` went
+  quiet.
+- **Switched on, with no tag yet.** `gh variable set CHANGELOG_RELEASES --body
+  true`, then the merge of #19 ran the workflow:
+  `sync-releases: 0 to write, 0 unchanged, waiting for a tag: 2026-W42`.
+- **A tag through the API.** `pnpm changelog tag 2026-W42` planned
+  `a8d7733` (the merge of #15, 2026-10-18T15:08:59Z); with `--apply` GitHub
+  holds an annotated tag on it, by `github-actions[bot]`, dated
+  `2026-10-19T00:05:00Z`.
+- **The first release.** `gh workflow run sync-releases.yml` printed
+  `create 2026-W42 (latest)`, `sync-releases: 1 to write, 0 unchanged`,
+  `created 2026-W42`. The release
+  [2026-W42 — 12 Oct – 18 Oct](https://github.com/bettersoftware-io/skills-demo/releases/tag/2026-W42)
+  is Latest; `[#12]` reads as GitHub's `#12`, and its footer links to the
+  entry's heading in `CHANGELOG.md`.
+
+Still not seen: `weekly-tag.yml`'s first scheduled run (Monday 2026-10-26,
+00:05 UTC), a release made by merging an entry whose tag already exists, the
+writer, and the reminder in Codex.
