@@ -180,8 +180,20 @@ function judgeScript(script: Script, depth = 0): Reading {
  * command that may be local and letting a chain through unread.
  */
 export function mentionsOutward(text: string): boolean {
-  const word = /(?:^|[^A-Za-z0-9_-])(?:push|gh)(?:$|[^A-Za-z0-9_-])/;
+  return mentions(text, /(?:^|[^A-Za-z0-9_-])(?:push|gh)(?:$|[^A-Za-z0-9_-])/);
+}
 
+/**
+ * Whether the text names git at all. Asked only about a command too long or
+ * too deeply nested to read: git may run an outward step under a name the
+ * text does not show (an alias from settings given in front of it), and a
+ * command of that size is rare enough to refuse.
+ */
+export function mentionsGit(text: string): boolean {
+  return mentions(text, /(?:^|[^A-Za-z0-9_-])git(?:\.exe)?(?:$|[^A-Za-z0-9_-])/i);
+}
+
+function mentions(text: string, word: RegExp): boolean {
   // Also with each line continuation taken out, as the shell reads it: `pu`, a continuation and `sh` are `push`.
   // Any run of backslashes before a new line goes too: backticks make two of them one, and then a continuation.
   return word.test(text) || word.test(text.replace(/\\+\n/g, ""));

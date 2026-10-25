@@ -1465,7 +1465,7 @@
   {
     "name": "is left to the host when it is nested too deep and names none",
     "file": "addons/agent-workflow/files/tools/agent-workflow/hooks/split-outward-commands.mts",
-    "find": "    return command !== undefined && mentionsOutward(command)\n",
+    "find": "    return command !== undefined && (mentionsOutward(command) || mentionsGit(command))\n",
     "replace": "    return command !== undefined\n",
     "test": "pnpm vitest run addons/agent-workflow/tests/never-allows.test.mts --testNamePattern=\"is left to the host when it is nested too deep and names none\""
   },
@@ -1848,13 +1848,6 @@
     "find": "  let reply = \"\";\n\n  try {\n    reply = replyTo(readFileSync(0, \"utf8\"));",
     "replace": "  let reply = \"\";\n\n  try {\n    if (process.argv.length > 2) {\n      process.exit(2);\n    }\n\n    reply = replyTo(readFileSync(0, \"utf8\"));",
     "test": "pnpm vitest run addons/agent-workflow/tests/addon.test.mts --testNamePattern=\"answers as it should when started by the old registration\""
-  },
-  {
-    "name": "is left to the host when it is nested too deep and names none",
-    "file": "addons/agent-workflow/files/tools/agent-workflow/hooks/split-outward-commands.mts",
-    "find": "    return command !== undefined && mentionsOutward(command)\n",
-    "replace": "    return command !== undefined\n",
-    "test": "pnpm vitest run addons/agent-workflow/tests/never-allows.test.mts --testNamePattern=\"is left to the host when it is nested too deep and names none\""
   },
   {
     "name": "answers nothing, and exits 0, for a payload that is not JSON",
@@ -7329,5 +7322,19 @@
     "find": "(?:alias|include|includeif)\\./i",
     "replace": "(?:alias|include)\\./i",
     "test": "pnpm vitest run addons/agent-workflow/tests/outward.test.mts -t \"and asks: -c includeIf\""
+  },
+  {
+    "name": "an unread command that names git and no outward step is let through",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/hooks/split-outward-commands.mts",
+    "find": "(mentionsOutward(command) || mentionsGit(command))",
+    "replace": "mentionsOutward(command)",
+    "test": "pnpm vitest run addons/agent-workflow/tests/never-allows.test.mts -t \"is refused when it names git and no outward step\""
+  },
+  {
+    "name": "git is not found in an unread command",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/outward.mts",
+    "find": "return mentions(text, /(?:^|[^A-Za-z0-9_-])git(?:\\.exe)?(?:$|[^A-Za-z0-9_-])/i);",
+    "replace": "return false;",
+    "test": "pnpm vitest run addons/agent-workflow/tests/never-allows.test.mts -t \"is refused when it names git and no outward step\""
   }
 ]

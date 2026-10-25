@@ -1004,8 +1004,8 @@ Each `((` is tried as arithmetic to its own close before it is taken for a
 subshell, so a long run of brackets cost one look ahead per bracket. What
 those tries read, over the whole command, is bounded by the longest command
 (a million characters). Past that the command is not read, and is refused
-when it names an outward step: a hundred thousand brackets are answered in
-well under a second.
+when it names an outward step or git: a hundred thousand brackets are
+answered in well under a second.
 
 ## Not verified
 
