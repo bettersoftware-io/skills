@@ -1,0 +1,72 @@
+[
+  {
+    "name": "javascriptAllowed: a folder key covers nothing in the gate",
+    "file": "kit/gates/lib/language.mts",
+    "find": "!javascriptAllowedCovers(config.javascriptAllowed, file)",
+    "replace": "!config.javascriptAllowed[file]",
+    "test": "pnpm vitest run kit/gates/gates.test.mts -t \"leaves alone every JavaScript file under a folder listed with a trailing slash\""
+  },
+  {
+    "name": "javascriptAllowed: a folder key covers a folder whose name only begins the same",
+    "file": "kit/gates/lib/config.mts",
+    "find": "file.startsWith(path) : file === path",
+    "replace": "file.startsWith(path.slice(0, -1)) : file === path",
+    "test": "pnpm vitest run kit/gates/gates.test.mts -t \"leaves alone every JavaScript file under a folder listed with a trailing slash\""
+  },
+  {
+    "name": "javascriptAllowed: a file key covers anything that starts with it",
+    "file": "kit/gates/lib/config.mts",
+    "find": "file.startsWith(path) : file === path",
+    "replace": "file.startsWith(path) : file.startsWith(path)",
+    "test": "pnpm vitest run kit/gates/gates.test.mts -t \"reads a key without a trailing slash as one file\""
+  },
+  {
+    "name": "javascriptAllowed: a pattern key is read as a path",
+    "file": "kit/gates/lib/config.mts",
+    "find": "if (wildcard !== -1) {",
+    "replace": "if (wildcard === -2) {",
+    "test": "pnpm vitest run kit/gates/gates.test.mts -t \"is a configuration error when a key is a pattern\""
+  },
+  {
+    "name": "javascriptAllowed: the pattern message names the folder after the last slash, not before the first wildcard",
+    "file": "kit/gates/lib/config.mts",
+    "find": "path.lastIndexOf(\"/\", wildcard) + 1",
+    "replace": "path.lastIndexOf(\"/\") + 1",
+    "test": "pnpm vitest run kit/gates/gates.test.mts -t \"names the folder before the first wildcard\""
+  },
+  {
+    "name": "javascriptAllowed: a key's leading ./ is kept",
+    "file": "kit/gates/lib/config.mts",
+    "find": "const plain = path.replace(/^\\.?\\/+/, \"\")",
+    "replace": "const plain = path",
+    "test": "pnpm vitest run kit/gates/gates.test.mts -t \"reads a file and a folder whatever slashes they are written with\""
+  },
+  {
+    "name": "javascriptAllowed: a folder's trailing slashes are not collapsed",
+    "file": "kit/gates/lib/config.mts",
+    "find": ".replace(/\\/+$/, \"/\");",
+    "replace": ";",
+    "test": "pnpm vitest run kit/gates/gates.test.mts -t \"reads a file and a folder whatever slashes they are written with\""
+  },
+  {
+    "name": "javascriptAllowed: a key for the whole project is allowed",
+    "file": "kit/gates/lib/config.mts",
+    "find": "if (plain === \"\" || plain === \"/\") {",
+    "replace": "if (plain === \"never\") {",
+    "test": "pnpm vitest run kit/gates/gates.test.mts -t \"is a configuration error when a key names no path\""
+  },
+  {
+    "name": "javascriptAllowed: a folder key in ESLint stays a bare folder",
+    "file": "kit/eslint.config.mts",
+    "find": "`${stripSlashes(path)}/**`",
+    "replace": "stripSlashes(path)",
+    "test": "pnpm vitest run kit/eslint.config.test.mts -t \"a folder the project lists as allowed covers every JavaScript file under it\""
+  },
+  {
+    "name": "javascriptAllowed: a folder key in ESLint covers a folder whose name only begins the same",
+    "file": "kit/eslint.config.mts",
+    "find": "`${stripSlashes(path)}/**`",
+    "replace": "`${stripSlashes(path)}*/**`",
+    "test": "pnpm vitest run kit/eslint.config.test.mts -t \"a folder the project lists as allowed covers every JavaScript file under it\""
+  }
+]
