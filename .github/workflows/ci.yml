@@ -141,6 +141,66 @@ jobs:
         working-directory: ${{ env.PROJECT }}
         run: pnpm e2e
 
+  bare-project:
+    # A project that was not created from the starter takes it with the
+    # installer: the kit, then the starter. The project here has nothing but
+    # a package.json, so every file of the starter's goes in through the unit,
+    # and none through the creation script. Its gate is the proof that the two
+    # units together give a project what creating one does.
+    name: a project with only a package.json passes its gate after the kit and the starter
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 26
+
+      - name: Enable Corepack (provisions the pnpm pinned by the packageManager field)
+        run: node kit/ci/enable-corepack.mts
+
+      - name: Choose where the project goes
+        run: echo "PROJECT=$RUNNER_TEMP/project" >> "$GITHUB_ENV"
+
+      - name: A project with only a package.json, in a repository
+        run: |
+          mkdir -p "$PROJECT"
+          printf '{\n  "name": "bare",\n  "private": true\n}\n' > "$PROJECT/package.json"
+          git -C "$PROJECT" init --quiet
+
+      # The long scope, as above: it wraps lines and sorts where `@app` does not.
+      - name: Add the kit
+        run: node scripts/add-to-project.mts "$PROJECT" kit --scope @ci-organisation-with-a-long-name
+
+      - name: Add the starter
+        run: node scripts/add-to-project.mts "$PROJECT" starter --scope @ci-organisation-with-a-long-name
+
+      # No lockfile: the starter's is pnpm's to write, and this project had none.
+      - name: Install it
+        working-directory: ${{ env.PROJECT }}
+        run: pnpm install --no-frozen-lockfile
+
+      - name: Its gate
+        working-directory: ${{ env.PROJECT }}
+        run: pnpm gate:full
+
+      # A second run of the starter writes nothing: every file it ships has
+      # been met. What the project has is committed first, so git says what
+      # the run changed; the build's output is in the starter's .gitignore.
+      - name: The starter again changes nothing
+        run: |
+          git -C "$PROJECT" add -A
+          git -C "$PROJECT" -c user.name=ci -c user.email=ci@example.invalid commit --quiet -m "the kit and the starter"
+          node scripts/add-to-project.mts "$PROJECT" starter
+          changed="$(git -C "$PROJECT" status --porcelain)"
+          if [ -n "$changed" ]; then
+            echo "A second run of the starter changed the project:"
+            echo "$changed"
+            exit 1
+          fi
+
   project-with-every-add-on:
     # The matrix above adds each add-on alone. A person takes several, and two
     # add-ons can be right alone and wrong together (a knip finding once

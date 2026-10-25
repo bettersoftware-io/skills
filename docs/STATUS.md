@@ -316,6 +316,16 @@ feature with sign-in and routing. The Opus evals and the further tests of
   that command ([the evals](../evals/README.md#running-them)); a run started
   some other way, `claude plugin eval .` by hand, still fails.
 
+- **The `starter` unit merges only the root `package.json`.** Every other
+  file a project has is kept and named with its `diff`, so lines of
+  `.gitignore` and patterns of `pnpm-workspace.yaml` are merged by hand
+  (condo-ledger anchored `/reports/` when it merged its `.gitignore`: a line
+  merge is not safe). Into a project's own `architecture.config.mts` it
+  declares only the packages it wrote; the starter's `adapters` and
+  `vendorOnlyIn` are printed for the project to take. It has no option for
+  the settings files alone, and a project created from the starter has no
+  `starter` entry in `tools/installed.json` until it runs the unit once
+  (which writes nothing there). It has not yet gone into a real project.
 - **No command that `pnpm repo:settings` prints has been run.** The
   `ci-security` add-on's command reads a repository's settings and prints,
   for each one that is off, the `gh api` command that switches it on. It
