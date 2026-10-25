@@ -197,6 +197,44 @@ describe("a command the hook does not read", () => {
     expect(() => parseShell(deep(20_000, "ls"))).not.toThrow(RangeError);
   });
 
+  it.each([
+    ["${…}", (levels: number) => `${"${x:-".repeat(levels)}${"}".repeat(levels)}`],
+    ["$((…))", (levels: number) => `${"$((1+".repeat(levels)}1${"))".repeat(levels)}`],
+    ["$[…]", (levels: number) => `${"$[1+".repeat(levels)}1${"]".repeat(levels)}`],
+  ])("stops reading %s at the same bound", (_name, nest) => {
+    expect(() => parseShell(`echo ${nest(DEEPEST_NESTING)}`)).not.toThrow();
+    expect(() => parseShell(`echo ${nest(20_000)}`)).toThrow(LimitError);
+  });
+
+  // Each `$((` is tried as arithmetic first. Tried again for each level around it, twenty-two levels took six seconds here.
+  it("reads subshells inside $((…)) inside one another, each closed by one bracket, trying each as arithmetic once", () => {
+    const nest = (levels: number): string => (levels === 0 ? "git push origin worktree-a" : `$((${nest(levels - 1)}) )`);
+    const started = performance.now();
+
+    expect(judgeCommand(`echo ${nest(22)}`)).toMatchObject({ outward: ["git push origin"], chained: true });
+    expect((performance.now() - started) / 1000).toBeLessThan(Math.min(...TIMEOUTS) / 2);
+  });
+
+  // Each `((` is tried as arithmetic from where it stands, to its closing bracket: a long run of them took that long once per bracket.
+  it("gives up on a hundred thousand brackets that are each tried as arithmetic, refusing when it names an outward step, inside the time a host gives it", () => {
+    const command = `${"(".repeat(100_000)} git push origin main ${") ".repeat(100_000)}`;
+    const started = performance.now();
+
+    expect(judgeCall(createCall(command))?.reason).toContain("too long or too deeply nested");
+    expect(judgeCall(createCall(command.replace("git push origin main", "ls")))).toBeUndefined();
+    expect((performance.now() - started) / 1000).toBeLessThan(Math.min(...TIMEOUTS) / 2);
+  });
+
+  it("looks ahead as far as the longest command, and no further, over every bracket tried", () => {
+    const brackets = (count: number): string => `${"(".repeat(count)} ls ${") ".repeat(count)}`;
+
+    expect(() => parseShell(brackets(500))).not.toThrow();
+    expect(() => parseShell(brackets(3_000))).toThrow(LimitError);
+    // What `((…))` holds is read by a reader of its own: the bound is still on the whole command.
+    expect(() => parseShell(`(( ${brackets(400)} ))`)).not.toThrow();
+    expect(() => parseShell(Array.from({ length: 10 }, () => `(( ${brackets(400)} ))`).join("; "))).toThrow(LimitError);
+  });
+
   it("counts how deep, not how many: a hundred substitutions side by side are read", () => {
     const beside = `echo ${"$(ls) ".repeat(100)}&& git push origin main`;
 

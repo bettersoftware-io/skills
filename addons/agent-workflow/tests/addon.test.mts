@@ -515,7 +515,7 @@ describe("the writer workflow", () => {
     expect(push).toContain('git -c "http.https://github.com/.extraheader=AUTHORIZATION: basic $auth" push origin "HEAD:refs/heads/changelog/$NEWEST"');
     expect(push).toContain('echo "::add-mask::$auth"');
     expect(push).not.toMatch(/--force|-f |--mirror|--all|--tags|push -u/);
-    expect(WRITER_WORKFLOW.match(/git (-c \S+ |-c "[^"]+" )*push/g)?.length).toBe(1);
+    expect(WRITER_WORKFLOW.match(/git (?:-c (?:"[^"]*"|[^\s"]\S*) )*push/g)?.length).toBe(1);
     expect(WRITER_WORKFLOW.replace(/^\s*#.*$/gm, "")).not.toMatch(/git config|git remote/);
   });
 
