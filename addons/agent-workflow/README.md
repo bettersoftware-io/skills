@@ -145,7 +145,16 @@ A step is read behind a program that only runs it: `time`, `command`,
 `exec`, `nohup`, `env`, `timeout`, `nice`, `stdbuf`, `builtin`, `noglob` and
 `xargs`, each with its own options (`nice -n 5`, `timeout -s KILL 30s`). Claude Code
 looks past the same words when it matches a permission rule to a command, so
-`nice git push` runs under an `allow` rule for `git push`.
+`nice git push` runs under an `allow` rule for `git push`. Not every option of
+those programs is known here (`stdbuf -o L`, `xargs -I {}`, `env -C dir`,
+`exec -a name`), so behind one of them the first later `git`, `gh`, shell or
+`eval` is taken for the command: a wrong guess refuses a chain, and lets none
+through. Git and gh are known by a path written with either slash, and with
+`.exe`.
+
+A command that sets an alias, `git -c alias.p=push p` or `git --config-env
+alias.p=X p`, is taken for an outward step: the alias's name is the only word
+the hook sees of what it runs. It is refused in a chain and asked about alone.
 
 It is let through when the outward step is alone: with a pipe into a filter
 (`git push 2>&1 | tail -2`), with redirections, with a `$(cat <<'EOF' … EOF)`

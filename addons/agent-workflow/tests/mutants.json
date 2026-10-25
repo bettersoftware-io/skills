@@ -51,8 +51,8 @@
   {
     "name": "not git stash push",
     "file": "addons/agent-workflow/files/tools/agent-workflow/lib/outward.mts",
-    "find": "return GIT_OUTWARD.includes(skipGitOptions(words.slice(1))[0] ?? \"\");",
-    "replace": "return words.some((word) => GIT_OUTWARD.includes(word));",
+    "find": "return GIT_OUTWARD.includes(own[0] ?? \"\") || setsAlias(",
+    "replace": "return words.some((word) => GIT_OUTWARD.includes(word)) || setsAlias(",
     "test": "pnpm vitest run addons/agent-workflow/tests/outward.test.mts --testNamePattern=\"not git stash push\""
   },
   {
@@ -79,8 +79,8 @@
   {
     "name": "looks past a variable set for the command (path)",
     "file": "addons/agent-workflow/files/tools/agent-workflow/lib/outward.mts",
-    "find": "(words[0] ?? \"\").split(\"/\").pop() === \"git\"",
-    "replace": "(words[0] ?? \"\").split(\"\\0\").pop() === \"git\"",
+    "find": "(word.split(/[\\\\/]/).pop() ?? \"\")",
+    "replace": "(word.split(\"\\0\").pop() ?? \"\")",
     "test": "pnpm vitest run addons/agent-workflow/tests/outward.test.mts --testNamePattern=\"looks past a variable set for the command\""
   },
   {
@@ -3525,8 +3525,8 @@
   {
     "name": "a path to gh is looked past as one to git is",
     "file": "addons/agent-workflow/files/tools/agent-workflow/lib/outward.mts",
-    "find": "const program = (words[0] ?? \"\").split(\"/\").pop();",
-    "replace": "const program = (words[0] ?? \"\").split(\"\\0\").pop();",
+    "find": "(word.split(/[\\\\/]/).pop() ?? \"\")",
+    "replace": "(word.split(\"\\0\").pop() ?? \"\")",
     "test": "pnpm vitest run addons/agent-workflow/tests/outward.test.mts --testNamePattern=\"looks past a variable set for the command\""
   },
   {
@@ -6682,7 +6682,7 @@
   {
     "name": "the plugin is older than the newest notes",
     "file": ".codex-plugin/plugin.json",
-    "find": "\"version\": \"0.21.3\"",
+    "find": "\"version\": \"0.21.4\"",
     "replace": "\"version\": \"0.20.9\"",
     "test": "pnpm vitest run addons/agent-workflow/tests/addon.test.mts --testNamePattern=\"go out with the plugin's version\""
   },
@@ -7210,5 +7210,75 @@
     "find": ".map((join) => join - from);",
     "replace": ".map((join) => join);",
     "test": "pnpm vitest run addons/agent-workflow/tests/outward.test.mts --testNamePattern=\"is not read where it ends a comment inside\""
+  },
+  {
+    "name": "a Windows path is not taken for git",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/outward.mts",
+    "find": "word.split(/[\\\\/]/)",
+    "replace": "word.split(\"/\")",
+    "test": "pnpm vitest run addons/agent-workflow/tests/outward.test.mts -t \"is found: git with a Windows path\""
+  },
+  {
+    "name": "git.exe is not taken for git",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/outward.mts",
+    "find": ".replace(/\\.exe$/i, \"\")",
+    "replace": "",
+    "test": "pnpm vitest run addons/agent-workflow/tests/outward.test.mts -t \"is found: git.exe\""
+  },
+  {
+    "name": "GIT.EXE in capitals is not taken for git",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/outward.mts",
+    "find": ", \"\").toLowerCase();",
+    "replace": ", \"\");",
+    "test": "pnpm vitest run addons/agent-workflow/tests/outward.test.mts -t \"is found: GIT.EXE, in capitals\""
+  },
+  {
+    "name": "a wrapper's unknown option hides the command",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/outward.mts",
+    "find": "if (led && !isJudged(stage[start] ?? \"\")) {",
+    "replace": "if (false) {",
+    "test": "pnpm vitest run addons/agent-workflow/tests/outward.test.mts -t \"is found: behind stdbuf with an option that takes a word\""
+  },
+  {
+    "name": "a shell behind a wrapper is not looked for",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/outward.mts",
+    "find": "program === \"eval\" || SHELLS.includes(program)",
+    "replace": "program === \"eval\"",
+    "test": "pnpm vitest run addons/agent-workflow/tests/outward.test.mts -t \"is found: behind stdbuf, inside bash -c\""
+  },
+  {
+    "name": "an alias set on the command line is not seen",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/outward.mts",
+    "find": "return ALIAS_SETTING.test(value ?? \"\");",
+    "replace": "return false;",
+    "test": "pnpm vitest run addons/agent-workflow/tests/outward.test.mts -t \"takes a command that sets an alias for an outward step, and asks about it: -c alias\""
+  },
+  {
+    "name": "an alias in capitals is not seen",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/outward.mts",
+    "find": "const ALIAS_SETTING = /^alias\\./i;",
+    "replace": "const ALIAS_SETTING = /^alias\\./;",
+    "test": "pnpm vitest run addons/agent-workflow/tests/outward.test.mts -t \"in capitals\""
+  },
+  {
+    "name": "--config-env= joined is not read",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/outward.mts",
+    "find": "/^--config-env=(.*)$/.exec(option)?.[1]",
+    "replace": "undefined",
+    "test": "pnpm vitest run addons/agent-workflow/tests/outward.test.mts -t \"and asks about it: --config-env= alias\""
+  },
+  {
+    "name": "--attr-source takes no value",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/outward.mts",
+    "find": "\"--config-env\", \"--attr-source\"]",
+    "replace": "\"--config-env\"]",
+    "test": "pnpm vitest run addons/agent-workflow/tests/outward.test.mts -t \"is found: git --attr-source\""
+  },
+  {
+    "name": "--config-env takes no value",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/outward.mts",
+    "find": "\"--exec-path\", \"--config-env\",",
+    "replace": "\"--exec-path\",",
+    "test": "pnpm vitest run addons/agent-workflow/tests/outward.test.mts -t \"is found: git --config-env\""
   }
 ]

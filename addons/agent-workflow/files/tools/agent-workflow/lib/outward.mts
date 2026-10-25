@@ -21,7 +21,9 @@ const WRITE_METHODS = ["POST", "PATCH", "PUT", "DELETE"];
 /** `gh api` sends these as a request body, which makes the call a write unless a method says otherwise. */
 const GH_API_FIELDS = ["-f", "-F", "--field", "--raw-field", "--input"];
 /** `git` options that take their value as the next word. */
-const GIT_OPTIONS_WITH_VALUE = ["-C", "-c", "--git-dir", "--work-tree", "--namespace", "--exec-path"];
+const GIT_OPTIONS_WITH_VALUE = ["-C", "-c", "--git-dir", "--work-tree", "--namespace", "--exec-path", "--config-env", "--attr-source"];
+/** A setting `git -c` or `--config-env` gives that makes a word of its own a command: `alias.p=push` runs `git p` as a push. */
+const ALIAS_SETTING = /^alias\./i;
 /**
  * Words before a command that are not the command: what a shell allows there,
  * and programs that run the command that follows them. Claude Code looks past
@@ -181,6 +183,12 @@ export function mentionsOutward(text: string): boolean {
  * The command's own words: no `VAR=value` in front, no `then`, `time`, `env`
  * or `xargs`, and none of what such a word takes before the command (`nice
  * -n 5`, `timeout 30s`, `command --`).
+ *
+ * Such a program's options are not all known here (`stdbuf -o L`, `xargs -I
+ * {}`, `env -C dir`, `exec -a name`), so when one stands in front and the
+ * word found is not a program this judges, the first later word that is one
+ * is taken for the command. A wrong guess refuses a chain; it lets none
+ * through.
  */
 export function commandWords(stage: Stage): string[] {
   let start = 0;
@@ -199,19 +207,40 @@ export function commandWords(stage: Stage): string[] {
     }
   }
 
+  if (led && !isJudged(stage[start] ?? "")) {
+    const later = stage.findIndex((word, index) => index > start && isJudged(word));
+
+    start = later === -1 ? start : later;
+  }
+
   return stage.slice(start);
 }
 
+/** The program a word names: the last part of a path written with either slash, without `.exe`, in lower case. */
+function programName(word: string): string {
+  return (word.split(/[\\/]/).pop() ?? "").replace(/\.exe$/i, "").toLowerCase();
+}
+
+/** A program whose words this reads: git, gh, and what runs a command from its argument. */
+function isJudged(word: string): boolean {
+  const program = programName(word);
+
+  return program === "git" || program === "gh" || program === "eval" || SHELLS.includes(program);
+}
+
 function isGit(words: string[]): boolean {
-  return (words[0] ?? "").split("/").pop() === "git";
+  return programName(words[0] ?? "") === "git";
 }
 
 export function isOutward(words: string[]): boolean {
   if (isGit(words)) {
-    return GIT_OUTWARD.includes(skipGitOptions(words.slice(1))[0] ?? "");
+    const options = words.slice(1);
+    const own = skipGitOptions(options);
+
+    return GIT_OUTWARD.includes(own[0] ?? "") || setsAlias(options.slice(0, options.length - own.length));
   }
 
-  const program = (words[0] ?? "").split("/").pop();
+  const program = programName(words[0] ?? "");
 
   if (program === "gh") {
     const rest = skipGhOptions(words.slice(1));
@@ -279,6 +308,19 @@ function skipGitOptions(words: string[]): string[] {
   return words.slice(start);
 }
 
+/**
+ * Whether git's own options set an alias. The alias's name is the only word
+ * the reader sees of the command it stands for, so a command that sets one is
+ * taken for an outward step: refused in a chain, asked about alone.
+ */
+function setsAlias(options: string[]): boolean {
+  return options.some((option, index) => {
+    const value = option === "-c" || option === "--config-env" ? options[index + 1] : /^--config-env=(.*)$/.exec(option)?.[1];
+
+    return ALIAS_SETTING.test(value ?? "");
+  });
+}
+
 /** `gh -R owner/name pr merge` → `pr merge`. */
 function skipGhOptions(words: string[]): string[] {
   let start = 0;
@@ -309,7 +351,7 @@ function isWritingApiCall(words: string[]): boolean {
 
 /** What `bash -c <text>` or `eval <text>` will run, when it can be read. */
 function inlineScript(words: string[]): Script | undefined {
-  const program = (words[0] ?? "").split("/").pop() ?? "";
+  const program = programName(words[0] ?? "");
   let text: string | undefined;
 
   if (program === "eval") {
