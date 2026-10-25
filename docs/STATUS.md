@@ -3,7 +3,7 @@
 What is not done yet. Finished work is removed from this page, not archived;
 the test records in this folder and the git log say what was done.
 
-**Last updated: 2026-10-24**
+**Last updated: 2026-10-25**
 
 ## Waiting on something outside this repository
 
@@ -18,16 +18,9 @@ the test records in this folder and the git log say what was done.
 - **The starter's server uses `rx-ws-effects`.** It is a plain imperative
   handler today. The package
   ([bettersoftware-io/rx-ws-effects](https://github.com/bettersoftware-io/rx-ws-effects))
-  is not on npm yet, and pnpm refuses a version younger than 24 hours, so this
-  starts a day after it is published.
-- **condo-ledger has not taken the visual add-on's 0.19.0.** That version
-  carries the two changes condo-ledger made to its copy: Chromium starts with
-  `--disable-partial-raster`, and a scenario's own `width` and `height` size
-  the viewport, in place of an edited `visual.pw.ts`. The update refuses the
-  two edited files until `--force` (seen with 0.18.1 on 2026-10-17,
-  condo-ledger #13), and its release notes say what to move and that every
-  golden is redrawn once. Bringing back its three wizard goldens, as
-  components, is condo-ledger's work after that.
+  is on npm since 2026-10-25, 13:05 UTC, as `@better-software/rx-ws-effects`
+  0.1.0 (tag `v0.1.0`). pnpm refuses a version younger than 24 hours, so this
+  can start from 2026-10-26, 13:05 UTC.
 
 ## Seen on GitHub only in part
 
@@ -84,12 +77,11 @@ on 2026-10-05, on pushes to main and on a pull request
   and pnpm installed every lockfile it wrote. "minor and patch" moved
   Playwright's package without its image, and `playwright-pin` failed it;
   0.19.1 gives Playwright a group of its own, read from the image too. The
-  next wave, on 2026-10-26, is the first under that rule. In this repository
-  the app ran no job inside "before 6am on monday" and opened nothing; the
-  schedule is now the whole of Monday.
-- **Renovate has never run in skills-demo.** No issue and no pull request
-  from it there, so its app is not given that repository. A person adds it,
-  in the account's settings for the Renovate app.
+  next wave, on 2026-10-26, is the first under that rule, in all four
+  repositories: skills-demo was given the app on 2026-10-25 and has its
+  Dependency Dashboard (skills-demo #16). In this repository the app ran no
+  job inside "before 6am on monday" and opened nothing; the schedule is now
+  the whole of Monday.
 - **No run where the coverage gate fails has been seen.** The report is meant
   to publish then too.
 - **The motion audit had nothing to judge.** The starter has no animation, so
