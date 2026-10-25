@@ -18,16 +18,9 @@ the test records in this folder and the git log say what was done.
 - **The starter's server uses `rx-ws-effects`.** It is a plain imperative
   handler today. The package
   ([bettersoftware-io/rx-ws-effects](https://github.com/bettersoftware-io/rx-ws-effects))
-  is not on npm yet, and pnpm refuses a version younger than 24 hours, so this
-  starts a day after it is published.
-- **condo-ledger has not taken the visual add-on's 0.19.0.** That version
-  carries the two changes condo-ledger made to its copy: Chromium starts with
-  `--disable-partial-raster`, and a scenario's own `width` and `height` size
-  the viewport, in place of an edited `visual.pw.ts`. The update refuses the
-  two edited files until `--force` (seen with 0.18.1 on 2026-10-17,
-  condo-ledger #13), and its release notes say what to move and that every
-  golden is redrawn once. Bringing back its three wizard goldens, as
-  components, is condo-ledger's work after that.
+  is on npm since 2026-10-25, 13:05 UTC, as `@better-software/rx-ws-effects`
+  0.1.0 (tag `v0.1.0`). pnpm refuses a version younger than 24 hours, so this
+  can start from 2026-10-26, 13:05 UTC.
 
 ## Seen on GitHub only in part
 
