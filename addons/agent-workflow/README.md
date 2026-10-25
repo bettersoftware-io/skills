@@ -147,14 +147,20 @@ A step is read behind a program that only runs it: `time`, `command`,
 looks past the same words when it matches a permission rule to a command, so
 `nice git push` runs under an `allow` rule for `git push`. Not every option of
 those programs is known here (`stdbuf -o L`, `xargs -I {}`, `env -C dir`,
-`exec -a name`), so behind one of them the first later `git`, `gh`, shell or
-`eval` is taken for the command: a wrong guess refuses a chain, and lets none
-through. Git and gh are known by a path written with either slash, and with
+`exec -a name`), and a value may itself be `git` (`env -C git git push`). So
+behind one of them each later `git`, `gh`, shell or `eval` is tried in turn,
+and the first that is an outward step or runs a command from its argument is
+taken for the command: a wrong guess refuses a chain, and lets none through.
+Past 32 such words the command is not read, and is refused if it names `push`
+or `gh`. Git and gh are known by a path written with either slash, and with
 `.exe`.
 
-A command that sets an alias, `git -c alias.p=push p` or `git --config-env
-alias.p=X p`, is taken for an outward step: the alias's name is the only word
-the hook sees of what it runs. It is refused in a chain and asked about alone.
+A command that may give git an alias is taken for an outward step, since the
+alias's name is the only word the hook sees of what it runs:
+`git -c alias.p=push p`, `--config-env alias.…`, a setting that includes a
+file (`-c include.path=…`, `includeIf.…`), and a value set in front of `git`
+that hands it settings (`GIT_CONFIG_*`, `HOME`, `XDG_CONFIG_HOME`). It is
+refused in a chain and asked about alone.
 
 It is let through when the outward step is alone: with a pipe into a filter
 (`git push 2>&1 | tail -2`), with redirections, with a `$(cat <<'EOF' … EOF)`

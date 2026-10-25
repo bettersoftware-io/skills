@@ -7235,8 +7235,8 @@
   {
     "name": "a wrapper's unknown option hides the command",
     "file": "addons/agent-workflow/files/tools/agent-workflow/lib/outward.mts",
-    "find": "if (led && !isJudged(stage[start] ?? \"\")) {",
-    "replace": "if (false) {",
+    "find": "return led ? stage.slice(wrappedStart(stage, start)) : stage.slice(start);",
+    "replace": "return stage.slice(start);",
     "test": "pnpm vitest run addons/agent-workflow/tests/outward.test.mts -t \"is found: behind stdbuf with an option that takes a word\""
   },
   {
@@ -7256,8 +7256,8 @@
   {
     "name": "an alias in capitals is not seen",
     "file": "addons/agent-workflow/files/tools/agent-workflow/lib/outward.mts",
-    "find": "const ALIAS_SETTING = /^alias\\./i;",
-    "replace": "const ALIAS_SETTING = /^alias\\./;",
+    "find": "const ALIAS_SETTING = /^(?:alias|include|includeif)\\./i;",
+    "replace": "const ALIAS_SETTING = /^(?:alias|include|includeif)\\./;",
     "test": "pnpm vitest run addons/agent-workflow/tests/outward.test.mts -t \"in capitals\""
   },
   {
@@ -7280,5 +7280,54 @@
     "find": "\"--exec-path\", \"--config-env\",",
     "replace": "\"--exec-path\",",
     "test": "pnpm vitest run addons/agent-workflow/tests/outward.test.mts -t \"is found: git --config-env\""
+  },
+  {
+    "name": "a wrapper's value that names git is taken for the command",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/outward.mts",
+    "find": "if (isOutward(words) || inlineScript(words) !== undefined) {",
+    "replace": "if (first === undefined) {",
+    "test": "pnpm vitest run addons/agent-workflow/tests/outward.test.mts -t \"a program this reads: env -C git\""
+  },
+  {
+    "name": "a shell behind a wrapper's value is not tried",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/outward.mts",
+    "find": "isOutward(words) || inlineScript(words) !== undefined",
+    "replace": "isOutward(words)",
+    "test": "pnpm vitest run addons/agent-workflow/tests/outward.test.mts -t \"env -C git, then bash -c\""
+  },
+  {
+    "name": "no bound on the words tried behind a wrapper",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/outward.mts",
+    "find": "if (tried > WRAPPED_CANDIDATES) {",
+    "replace": "if (false) {",
+    "test": "pnpm vitest run addons/agent-workflow/tests/outward.test.mts -t \"will not read a wrapper followed by more than 32\""
+  },
+  {
+    "name": "a setting in front of git is not looked at",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/outward.mts",
+    "find": "if (isOutward(words) || isConfiguredGit(stage, words)) {",
+    "replace": "if (isOutward(words)) {",
+    "test": "pnpm vitest run addons/agent-workflow/tests/outward.test.mts -t \"and asks: GIT_CONFIG_KEY_0\""
+  },
+  {
+    "name": "HOME in front of git is not looked at",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/outward.mts",
+    "find": "const CONFIG_IN_FRONT = /^(?:GIT_CONFIG\\w*|HOME|XDG_CONFIG_HOME)=/;",
+    "replace": "const CONFIG_IN_FRONT = /^(?:GIT_CONFIG\\w*|XDG_CONFIG_HOME)=/;",
+    "test": "pnpm vitest run addons/agent-workflow/tests/outward.test.mts -t \"and asks: HOME\""
+  },
+  {
+    "name": "include.path is not taken for an alias",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/outward.mts",
+    "find": "/^(?:alias|include|includeif)\\./i",
+    "replace": "/^(?:alias|includeif)\\./i",
+    "test": "pnpm vitest run addons/agent-workflow/tests/outward.test.mts -t \"and asks: -c include.path\""
+  },
+  {
+    "name": "includeIf is not taken for an alias",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/outward.mts",
+    "find": "(?:alias|include|includeif)\\./i",
+    "replace": "(?:alias|include)\\./i",
+    "test": "pnpm vitest run addons/agent-workflow/tests/outward.test.mts -t \"and asks: -c includeIf\""
   }
 ]
