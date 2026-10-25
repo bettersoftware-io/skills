@@ -86,6 +86,12 @@
         "A new project's starter now draws in Inter, from woff2 files in `packages/client-react/src/fonts/` declared with `@font-face` in `index.css`. Your project keeps its own fonts, and nothing in your goldens changes. In the pinned container on linux-x64, `system-ui` draws no bold: to have bold there, serve a face of your own the same way, in `index.css`, which the visual host loads.",
         "The example goldens are redrawn in Inter, and `price-list-stale` is a new example section whose row goes stale on the host's clock (`stalePrices`). Neither is added to your project; the templates of `scenarios.ts` and `tolerance.ts` (its comments only) changed, and \"Yours to change\" shows how."
       ]
+    },
+    {
+      "id": "0.21.2",
+      "notes": [
+        "`pnpm visual:check:styles` now also fails when `main.tsx` re-exports a stylesheet (`export * from \"./fonts.css\"`) or loads one by `import.meta.glob`: move it into `index.css`, as for an import."
+      ]
     }
   ],
   "firstRun": "pnpm -r update --no-save vitest @vitest/browser-playwright @vitest/coverage-v8",

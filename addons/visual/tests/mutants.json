@@ -996,8 +996,8 @@
   {
     "name": "picture: a level outside the three is let through",
     "file": "addons/visual/files/packages/client-react/tests/visual/host/picture.ts",
-    "find": "return LEVELS.some((level) => level === value);",
-    "replace": "return typeof value === \"string\";",
+    "find": "  return LEVELS.some((level) => {\n    return level === value;\n  });",
+    "replace": "  return typeof value === \"string\";",
     "test": "pnpm vitest run addons/visual/tests/picture.test.mts -t \"fails the scenario, naming it and the field\""
   },
   {

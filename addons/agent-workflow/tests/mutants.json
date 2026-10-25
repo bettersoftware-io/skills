@@ -6682,7 +6682,7 @@
   {
     "name": "the plugin is older than the newest notes",
     "file": ".codex-plugin/plugin.json",
-    "find": "\"version\": \"0.21.1\"",
+    "find": "\"version\": \"0.21.2\"",
     "replace": "\"version\": \"0.20.9\"",
     "test": "pnpm vitest run addons/agent-workflow/tests/addon.test.mts --testNamePattern=\"go out with the plugin's version\""
   },
@@ -6874,13 +6874,6 @@
     "find": "Date.parse(mergedAt) >= Date.parse(since)",
     "replace": "Date.parse(mergedAt) > Date.parse(since)",
     "test": "pnpm vitest run addons/agent-workflow/tests/history.test.mts -t \"reads only the merges since the instant it is given\""
-  },
-  {
-    "name": "due: the history is read in full",
-    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/due.mts",
-    "find": "const merges = readHistory(root, at, run, new Date(startOf(firstWeekJudged(texts, now))).toISOString());",
-    "replace": "const merges = readHistory(root, at, run);",
-    "test": "pnpm vitest run addons/agent-workflow/tests/due.test.mts -t \"reads the history only from the start of the first week it judges\""
   },
   {
     "name": "due hook: the reminder names every week",

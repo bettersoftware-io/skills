@@ -55,7 +55,9 @@ const LEVELS: readonly Level[] = ["component", "section", "page"];
 const CAPTURES: readonly string[] = ["root", "viewport"];
 
 function isLevel(value: unknown): value is Level {
-  return LEVELS.some((level) => level === value);
+  return LEVELS.some((level) => {
+    return level === value;
+  });
 }
 
 /** A value as the message quotes it. One JSON cannot hold, a circular one, is quoted as it prints. */
