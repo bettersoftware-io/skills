@@ -125,17 +125,52 @@ describe("resolvePicture", () => {
     ];
 
     it.each(cases)("%s", (_label, scenario, field) => {
-      expect(() => resolvePicture("price-row", scenario, FRAMING, GLOBAL)).toThrow(PictureError);
-      expect(() => resolvePicture("price-row", scenario, FRAMING, GLOBAL)).toThrow(/price-row/);
-      expect(() => resolvePicture("price-row", scenario, FRAMING, GLOBAL)).toThrow(new RegExp(field));
+      const error = thrownBy(() => resolvePicture("price-row", scenario, FRAMING, GLOBAL));
+
+      expect(error).toBeInstanceOf(PictureError);
+      expect(error.message).toMatch(/price-row/);
+      expect(error.message).toMatch(new RegExp(field));
     });
 
     it.each([null, "scenario", 4, [{}]])("a scenario that is not an object: %j", (scenario) => {
-      expect(() => resolvePicture("price-row", scenario, FRAMING, GLOBAL)).toThrow(PictureError);
-      expect(() => resolvePicture("price-row", scenario, FRAMING, GLOBAL)).toThrow(/price-row/);
+      const error = thrownBy(() => resolvePicture("price-row", scenario, FRAMING, GLOBAL));
+
+      expect(error).toBeInstanceOf(PictureError);
+      expect(error.message).toMatch(/price-row/);
+    });
+
+    it("a scenario that is a circular array, still with a PictureError", () => {
+      const scenario: unknown[] = [];
+      scenario.push(scenario);
+
+      const error = thrownBy(() => resolvePicture("price-row", scenario, FRAMING, GLOBAL));
+
+      expect(error).toBeInstanceOf(PictureError);
+      expect(error.message).toMatch(/price-row/);
+    });
+
+    it("a field that holds a circular value, still with a PictureError naming the field", () => {
+      const level: Record<string, unknown> = {};
+      level.self = level;
+
+      const error = thrownBy(() => resolvePicture("price-row", { level }, FRAMING, GLOBAL));
+
+      expect(error).toBeInstanceOf(PictureError);
+      expect(error.message).toMatch(/price-row.*`level`/);
     });
   });
 });
+
+/** The error the call throws: captured once, so each expectation reads the same one. */
+function thrownBy(call: () => unknown): Error {
+  try {
+    call();
+  } catch (error) {
+    return error as Error;
+  }
+
+  throw new Error("expected the call to throw");
+}
 
 describe("describeClippedRoot", () => {
   const ROOT = { width: 480, padding: 8 };
