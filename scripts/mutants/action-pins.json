@@ -1,0 +1,93 @@
+[
+  {
+    "name": "action pins: only a workflow at the top of .github/workflows",
+    "file": "scripts/lib/action-pins.mts",
+    "find": "return /^\\.github\\/workflows\\/[^/]+\\.ya?ml$/.test(path);",
+    "replace": "return /^\\.github\\/workflows\\/.+\\.ya?ml$/.test(path);",
+    "test": "pnpm vitest run --no-fsModuleCache scripts/lib/action-pins.test.mts -t \"are the workflows, and nothing else\""
+  },
+  {
+    "name": "action pins: the ref is taken out",
+    "file": "scripts/lib/action-pins.mts",
+    "find": "return use === undefined ? line : `${use.prefix}${use.quote}${use.action}@${use.quote}`;",
+    "replace": "return use === undefined ? line : `${use.prefix}${use.quote}${use.action}@${use.ref}${use.quote}`;",
+    "test": "pnpm vitest run --no-fsModuleCache scripts/lib/action-pins.test.mts -t \"reads the same whatever commit\""
+  },
+  {
+    "name": "action pins: versions compare by number",
+    "file": "scripts/lib/action-pins.mts",
+    "find": "return match?.[1]?.split(\".\").map(Number);",
+    "replace": "return match?.[1]?.split(\".\").map((part) => Number(part.slice(0, 1)));",
+    "test": "pnpm vitest run --no-fsModuleCache scripts/lib/action-pins.test.mts -t \"compares versions by number\""
+  },
+  {
+    "name": "action pins: a missing part is 0",
+    "file": "scripts/lib/action-pins.mts",
+    "find": "const difference = (a[index] ?? 0) - (b[index] ?? 0);",
+    "replace": "const difference = (a[index] ?? -1) - (b[index] ?? -1);",
+    "test": "pnpm vitest run --no-fsModuleCache scripts/lib/action-pins.test.mts -t \"reads v7 as v7.0.0\""
+  },
+  {
+    "name": "action pins: the project's newest use of an action",
+    "file": "scripts/lib/action-pins.mts",
+    "find": "if (seen === undefined || compareVersions(version, seen.version) > 0) {",
+    "replace": "if (seen === undefined || compareVersions(version, seen.version) < 0) {",
+    "test": "pnpm vitest run --no-fsModuleCache scripts/lib/action-pins.test.mts -t \"takes the newest the project has\""
+  },
+  {
+    "name": "action pins: the shipped one when it is not older",
+    "file": "scripts/lib/action-pins.mts",
+    "find": "compareVersions(theirs.version, version) <= 0) {",
+    "replace": "compareVersions(theirs.version, version) < 0) {",
+    "test": "pnpm vitest run --no-fsModuleCache scripts/lib/action-pins.test.mts -t \"reads v7 as v7.0.0\""
+  },
+  {
+    "name": "action pins: the shipped one when its version cannot be read",
+    "file": "scripts/lib/action-pins.mts",
+    "find": "if (use === undefined || version === undefined || theirs === undefined",
+    "replace": "if (use === undefined || theirs === undefined",
+    "test": "pnpm vitest run --no-fsModuleCache scripts/lib/action-pins.test.mts -t \"keeps the shipped one when either version cannot be read\""
+  },
+  {
+    "name": "install: only a workflow is repinned",
+    "file": "scripts/lib/install.mts",
+    "find": "  if (!isWorkflow(path)) {\n    return undefined;\n  }\n\n  const text = shipped",
+    "replace": "  const text = shipped",
+    "test": "pnpm vitest run --no-fsModuleCache scripts/add-to-project.test.mts -t \"in any other file is an edit\""
+  },
+  {
+    "name": "install: any other change keeps the refusal",
+    "file": "scripts/lib/install.mts",
+    "find": "if (mine !== withoutActionRefs(text) && hash(Buffer.from(mine)) !== installedWithoutRefs) {",
+    "replace": "if (mine !== withoutActionRefs(text) || hash(Buffer.from(mine)) !== installedWithoutRefs) {",
+    "test": "pnpm vitest run --no-fsModuleCache scripts/add-to-project.test.mts -t \"takes the add-on's new copy, at the newer version\""
+  },
+  {
+    "name": "install: the record keeps workflows without their refs",
+    "file": "scripts/lib/install.mts",
+    "find": "      : { withoutActionRefs: Object.fromEntries(",
+    "replace": "      : { withoutActionRefsUnread: Object.fromEntries(",
+    "test": "pnpm vitest run --no-fsModuleCache scripts/add-to-project.test.mts -t \"takes the add-on's new copy, at the newer version\""
+  },
+  {
+    "name": "install: an untouched workflow takes the shipped copy",
+    "file": "scripts/lib/install.mts",
+    "find": "const repinned = current === before[path] ? undefined : repin(",
+    "replace": "const repinned = false ? undefined : repin(",
+    "test": "pnpm vitest run --no-fsModuleCache scripts/add-to-project.test.mts -t \"an action the add-on moved back included\""
+  },
+  {
+    "name": "install: the repinned copy is what is written",
+    "file": "scripts/lib/install.mts",
+    "find": "      toWrite.set(path, repinned);\n",
+    "replace": "",
+    "test": "pnpm vitest run --no-fsModuleCache scripts/add-to-project.test.mts -t \"takes the add-on's new copy, at the newer version\""
+  },
+  {
+    "name": "install: the record holds what was written",
+    "file": "scripts/lib/install.mts",
+    "find": "  const recorded = [...toWrite].filter(",
+    "replace": "  const recorded = [...files].filter(",
+    "test": "pnpm vitest run --no-fsModuleCache scripts/add-to-project.test.mts -t \"counts as untouched from then on\""
+  }
+]
