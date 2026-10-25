@@ -914,21 +914,35 @@
     "file": "addons/visual/files/packages/client-react/tests/visual/host/picture.ts",
     "find": " * @public Only the project's",
     "replace": " * Only the project's",
-    "test": "pnpm vitest run addons/visual/tests/dead.test.mts"
+    "test": "pnpm vitest run addons/visual/tests/dead.test.mts -t \"after an update\""
   },
   {
     "name": "lint:dead after an update: the host does not import Seeded, so Seeded is used only by the project's seeding",
     "file": "addons/visual/files/packages/client-react/tests/visual/host/render.tsx",
     "find": "import type { HostClock, Seeded } from",
     "replace": "import type { HostClock } from",
-    "test": "pnpm vitest run addons/visual/tests/dead.test.mts"
+    "test": "pnpm vitest run addons/visual/tests/dead.test.mts -t \"after an update\""
   },
   {
     "name": "lint:dead after an update: the host does not import HostClock, so HostClock is used only by the project's seeding",
     "file": "addons/visual/files/packages/client-react/tests/visual/host/render.tsx",
     "find": "import type { HostClock, Seeded } from",
     "replace": "import type { Seeded } from",
-    "test": "pnpm vitest run addons/visual/tests/dead.test.mts"
+    "test": "pnpm vitest run addons/visual/tests/dead.test.mts -t \"after an update\""
+  },
+  {
+    "name": "lint:dead: a host file nothing imports is reported",
+    "file": "addons/visual/files/packages/client-react/tests/visual/host/render.tsx",
+    "find": "import { ScenarioFrame } from \"./ScenarioFrame.tsx\";\n",
+    "replace": "",
+    "test": "pnpm vitest run addons/visual/tests/dead.test.mts -t \"after an update\""
+  },
+  {
+    "name": "lint:dead after a fresh install: an export of the registry nothing imports is reported",
+    "file": "addons/visual/files/packages/client-react/tests/visual/registry.tsx",
+    "find": "\nfunction Surround(",
+    "replace": "\nexport function Surround(",
+    "test": "pnpm vitest run addons/visual/tests/dead.test.mts -t \"after a fresh install\""
   },
   {
     "name": "firstRun: a new project is asked once to put Vitest's packages on one version",
