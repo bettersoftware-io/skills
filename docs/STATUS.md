@@ -3,7 +3,7 @@
 What is not done yet. Finished work is removed from this page, not archived;
 the test records in this folder and the git log say what was done.
 
-**Last updated: 2026-10-24**
+**Last updated: 2026-10-25**
 
 ## Waiting on something outside this repository
 
@@ -84,12 +84,11 @@ on 2026-10-05, on pushes to main and on a pull request
   and pnpm installed every lockfile it wrote. "minor and patch" moved
   Playwright's package without its image, and `playwright-pin` failed it;
   0.19.1 gives Playwright a group of its own, read from the image too. The
-  next wave, on 2026-10-26, is the first under that rule. In this repository
-  the app ran no job inside "before 6am on monday" and opened nothing; the
-  schedule is now the whole of Monday.
-- **Renovate has never run in skills-demo.** No issue and no pull request
-  from it there, so its app is not given that repository. A person adds it,
-  in the account's settings for the Renovate app.
+  next wave, on 2026-10-26, is the first under that rule, in all four
+  repositories: skills-demo was given the app on 2026-10-25 and has its
+  Dependency Dashboard (skills-demo #16). In this repository the app ran no
+  job inside "before 6am on monday" and opened nothing; the schedule is now
+  the whole of Monday.
 - **No run where the coverage gate fails has been seen.** The report is meant
   to publish then too.
 - **The motion audit had nothing to judge.** The starter has no animation, so
