@@ -30,8 +30,8 @@
   {
     "name": "moved: only an edited file is kept",
     "file": "scripts/lib/install.mts",
-    "find": "    } else if (current === before[path]) {\n      outcome.written.push(path);\n    } else if (force) {",
-    "replace": "    } else if (false) {\n      outcome.written.push(path);\n    } else if (force) {",
+    "find": "    } else if (current === before[path]) {\n      outcome.written.push(path);\n    } else if (repinned !== undefined) {",
+    "replace": "    } else if (false) {\n      outcome.written.push(path);\n    } else if (repinned !== undefined) {",
     "test": "pnpm vitest run scripts/add-to-project.test.mts -t \"keeps no copy of a file the project never changed\""
   },
   {

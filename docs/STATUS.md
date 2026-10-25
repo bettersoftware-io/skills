@@ -82,6 +82,17 @@ on 2026-10-05, on pushes to main and on a pull request
   Dependency Dashboard (skills-demo #16). In this repository the app ran no
   job inside "before 6am on monday" and opened nothing; the schedule is now
   the whole of Monday.
+- **An update has not yet kept a bot's action versions in a real project.**
+  Since 0.20.2 a workflow whose only changes are moved action commits
+  (`uses: …@<commit> # <version>`) takes the add-on's new copy, at the newer
+  version of each action, where it used to be refused. condo-ledger's
+  `ci-security` update refused `ci-security.yml` and `scorecard.yml` on
+  2026-10-24, after Renovate's actions pull request (#17); its next update
+  should take both. A project installed before 0.20.2 has no record of its
+  workflows without their refs, so until one update has run, a workflow
+  whose template changed as well is still refused. The Playwright image of a
+  workflow is not compared this way: Renovate moves it with the package, and
+  an update puts back the add-on's.
 - **No run where the coverage gate fails has been seen.** The report is meant
   to publish then too.
 - **The motion audit had nothing to judge.** The starter has no animation, so
@@ -169,17 +180,6 @@ Added on 2026-10-11 ([the record](documenting-architecture-2026-10-11.md)).
   starts. Look at the first runs after the switch.
 
 ## Next, with no plan yet
-
-- **An update bot's pull request edits files the installer owns.** Both bots
-  move the action commits in `.github/workflows/`, which the add-ons wrote
-  and `tools/installed.json` records. A merged bump makes each file one the
-  next update of its add-on refuses, unless the add-on's new copy is the same
-  byte for byte. Seen on 2026-10-24: condo-ledger merged Renovate's actions
-  pull request (#17), and its next `ci-security` update refused
-  `ci-security.yml` and `scorecard.yml`; `--force` would have put the older
-  commits back. Leaving the add-ons' workflows to the add-on updates, as
-  `tools/` is left, would close it, at the cost of a project's actions moving
-  only when its add-ons are updated.
 
 
 Found while Origamic's dependency rule went into its gates, on 2026-10-16
