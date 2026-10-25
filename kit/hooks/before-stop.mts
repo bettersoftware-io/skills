@@ -43,18 +43,42 @@
 // an input the hash leaves out (an environment variable, a tool installed
 // outside the project) can change the verdict without changing the record.
 //
-// `stop_hook_active` means the agent is already continuing because of this
-// hook; it is let through then, so a gate the agent cannot fix ends in a
-// report to the user and never in a loop.
+// The payload says two more things the hook reads. `stop_hook_active` means
+// the agent is already continuing because of this hook; it is let through
+// then, so a gate the agent cannot fix ends in a report to the user and never
+// in a loop.
+//
+// `background_tasks` (Claude Code only) lists the session's tasks still in
+// flight. A controller that sends a subagent off in the background, into the
+// same tree, and ends its turn while it waits, stops with that tree half
+// edited: the gate failed on it and blocked the controller mid-task (issue
+// #72). So while an entry is an agent (`subagent`, `teammate`, `workflow`)
+// whose status is `pending` or `running`, the gate is not run, nothing is
+// recorded, and the user is told which agents are still at work. The agent's
+// report starts a new turn, and that turn's stop is judged. A `shell` or a
+// `monitor` (a dev server, a watch) does not count, or one left running would
+// switch the gate off for good. An entry in any other shape (no status, a
+// status or a type not listed, no object) does not count either: what cannot
+// be read never skips the gate.
 //
 // Apart from that second stop, the agent finishes without a gate having
-// passed in two cases only: no folder from `cwd` upward has a gate script,
-// or the tree is the one a green run is on record for. Anything that goes
-// wrong on the way (a package.json that is not JSON, a file that cannot be
-// read) is sent back as "nothing is verified", never passed over.
+// passed in three cases only: no folder from `cwd` upward has a gate script,
+// the tree is the one a green run is on record for, or an agent is still at
+// work. Anything that goes wrong on the way (a package.json that is not JSON,
+// a file that cannot be read) is sent back as "nothing is verified", never
+// passed over.
+//
+// The third case has a gap: a session that ends for good while an agent is
+// still at work (the user closes it, the agent is never waited for) ends with
+// no gate run on its last tree. CI, which runs the same script, catches what
+// that leaves.
 //
 // Works under Claude Code and Codex: both send `stop_hook_active` and both read
-// `{"decision":"block","reason":…}`.
+// `{"decision":"block","reason":…}`. Codex sends no `background_tasks`, nor
+// anything else that says a subagent is still at work, so under Codex every
+// stop is judged as before. Its orchestrator waits for the results it asked
+// for before it answers, which makes the race less likely there, not
+// impossible.
 
 import { spawn, spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
@@ -86,10 +110,36 @@ export interface RunLimits {
  */
 export const RUN_LIMITS: RunLimits = { runMs: 9 * 60 * 1000, stopMs: 20 * 1000, killMs: 5 * 1000 };
 
-/** The fields both hosts send that this hook reads. */
+/** The kinds of background task that are agents, and so may be editing the tree. A `shell` or a `monitor` is not one. */
+const AGENT_TASKS = ["subagent", "teammate", "workflow"];
+/**
+ * The statuses of a task that has not ended. The Agent SDK's
+ * `SDKTaskUpdatedMessage` lists the five a task goes through; the other three
+ * are "completed", "failed" and "killed".
+ */
+const IN_FLIGHT = ["pending", "running"];
+const DESCRIPTION_CHARACTERS = 120;
+
+/** The fields the hosts send that this hook reads. Only Claude Code sends `background_tasks`. */
 export interface StopPayload {
   cwd?: string;
   stop_hook_active?: boolean;
+  /** Read as unknown: an entry is believed only in the shape the hooks reference documents. */
+  background_tasks?: unknown;
+}
+
+/** What the hook writes back: a block with its reason, or a message to the user and nothing else. */
+export interface StopReply {
+  decision?: "block";
+  reason?: string;
+  systemMessage?: string;
+}
+
+/** An entry of `background_tasks` that is an agent still at work. */
+interface AgentAtWork {
+  type: string;
+  description: string;
+  agentType?: string;
 }
 
 export interface GateRun {
@@ -97,6 +147,57 @@ export interface GateRun {
   output: string;
   /** The gate was stopped before it finished, so it verified nothing. */
   timedOut?: boolean;
+}
+
+/**
+ * The hook's answer to a stop. While an agent of the session is still at work
+ * the gate is not run: the agent may be halfway through an edit of this very
+ * tree, and its report starts the turn whose stop is judged.
+ */
+export async function replyToStop(payload: StopPayload, run: (root: string, script: string) => GateRun | Promise<GateRun> = runGate): Promise<StopReply | undefined> {
+  const agents = agentsAtWork(payload.background_tasks);
+
+  if (agents.length > 0) {
+    return { systemMessage: deferral(agents) };
+  }
+
+  const reason = await judgeStop(payload, run);
+
+  return reason ? { decision: "block", reason } : undefined;
+}
+
+/** The agents in a payload's `background_tasks` that have not ended. An entry in any other shape is not one: it never skips the gate. */
+function agentsAtWork(tasks: unknown): AgentAtWork[] {
+  if (!Array.isArray(tasks)) {
+    return [];
+  }
+
+  return tasks.flatMap((task: unknown): AgentAtWork[] => {
+    if (typeof task !== "object" || task === null) {
+      return [];
+    }
+
+    const { type, status, description, agent_type: agentType } = task as Record<string, unknown>;
+
+    if (typeof type !== "string" || !AGENT_TASKS.includes(type) || typeof status !== "string" || !IN_FLIGHT.includes(status)) {
+      return [];
+    }
+
+    return [{ type, description: typeof description === "string" ? description : "", agentType: typeof agentType === "string" && agentType !== "" ? agentType : undefined }];
+  });
+}
+
+function deferral(agents: AgentAtWork[]): string {
+  const named = agents.map((agent) => {
+    const description = agent.description.length > DESCRIPTION_CHARACTERS ? `${agent.description.slice(0, DESCRIPTION_CHARACTERS)}…` : agent.description;
+
+    return `${agent.agentType ?? agent.type}${description === "" ? "" : ` "${description}"`}`;
+  });
+
+  return [
+    `The gate was not run: ${agents.length === 1 ? "an agent of this session is" : `${agents.length} agents of this session are`} still at work, and may be editing this tree (${named.join("; ")}).`,
+    `It runs at the next stop, once ${agents.length === 1 ? "it has" : "they have"} finished.`,
+  ].join(" ");
 }
 
 export async function judgeStop(
@@ -387,8 +488,8 @@ function readPayload(): StopPayload {
 }
 
 if (isMainModule(import.meta.url)) {
-  const reason = await judgeStop(readPayload());
-  const reply = reason ? `${JSON.stringify({ decision: "block", reason })}\n` : "";
+  const answer = await replyToStop(readPayload());
+  const reply = answer ? `${JSON.stringify(answer)}\n` : "";
 
   // Exits by itself once the reply is written: a gate that was left behind must not keep the hook alive.
   process.stdout.write(reply, () => {

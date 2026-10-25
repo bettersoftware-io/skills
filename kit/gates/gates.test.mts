@@ -10,6 +10,7 @@ import { ConfigError, loadConfig, readVendorEntries } from "./lib/config.mts";
 import { buildRules, type Rule, vendorRuleName } from "./lib/depcruise.mts";
 import { resolveSubpathImport } from "./lib/files.mts";
 import { checkPortContracts, portContractsSkipReason } from "./lib/contracts.mts";
+import { checkLanguage } from "./lib/language.mts";
 import { checkLockfile, lockfileSkipReason, readImporters } from "./lib/lockfile.mts";
 import { checkNodeFloor } from "./lib/node-floor.mts";
 import { checkPackageManager } from "./lib/package-manager.mts";
@@ -130,7 +131,16 @@ describe("a project that breaks the rules", () => {
     expect(of("typescript-only").map((finding) => finding.file)).toEqual([
       ".github/scripts/release.js",
       "scripts/build.mjs",
+      "tools/legacy-x/loader.js",
+      "tools/loader.js",
     ]);
+  });
+
+  it("leaves alone every JavaScript file under a folder listed with a trailing slash, and no folder whose name only begins the same", () => {
+    expect(of("typescript-only", "tools/legacy/loader.js")).toEqual([]);
+    expect(of("typescript-only", "tools/legacy/plugins/extra.cjs")).toEqual([]);
+    expect(messages("typescript-only", "tools/legacy-x/loader.js")).toContain("A JavaScript file in a TypeScript project");
+    expect(messages("typescript-only", "tools/loader.js")).toContain("A JavaScript file in a TypeScript project");
   });
 
   it("judges source in a dot-folder, and skips only folders of generated files", () => {
@@ -1030,6 +1040,41 @@ describe("reactRules on a declaration", () => {
   });
 });
 
+describe("javascriptAllowed in the config", () => {
+  it("reads a file and a folder whatever slashes they are written with", async () => {
+    const root = createJavascriptAllowedRoot({ "./stylelint.config.mjs": "a reason", "./tools/legacy//": "a reason", "/scripts/vendor/": "a reason" });
+    const { config } = await loadConfig(root);
+
+    expect(Object.keys(config.javascriptAllowed)).toEqual(["stylelint.config.mjs", "tools/legacy/", "scripts/vendor/"]);
+  });
+
+  it("reads a key without a trailing slash as one file, which covers nothing under a folder of that name", async () => {
+    const project = await loadConfig(createJavascriptAllowedRoot({ "tools/legacy": "a reason" }));
+
+    expect(checkLanguage(project, ["tools/legacy", "tools/legacy/loader.js"]).map((finding) => finding.file)).toEqual(["tools/legacy/loader.js"]);
+  });
+
+  it("is a configuration error when a key is a pattern, and the message names the folder to write instead", async () => {
+    const root = createJavascriptAllowedRoot({ "tools/legacy/**": "a reason" });
+
+    await expect(loadConfig(root)).rejects.toThrow(
+      'architecture.config.mts: javascriptAllowed names "tools/legacy/**", a pattern. A key is a file\'s path, or a folder\'s path ending in "/", which covers every file under it: write "tools/legacy/".',
+    );
+    await expect(loadConfig(root)).rejects.toBeInstanceOf(ConfigError);
+  });
+
+  it("names the folder before the first wildcard, or none when the pattern starts with one", async () => {
+    await expect(loadConfig(createJavascriptAllowedRoot({ "tools/plugin-?.js": "a reason" }))).rejects.toThrow(/names "tools\/plugin-\?\.js", a pattern\..*: write "tools\/"\.$/);
+    await expect(loadConfig(createJavascriptAllowedRoot({ "**/*.cjs": "a reason" }))).rejects.toThrow(/names "\*\*\/\*\.cjs", a pattern\..*: list each file, or the folder that holds them\.$/);
+  });
+
+  it("is a configuration error when a key names no path, which would allow JavaScript anywhere", async () => {
+    await expect(loadConfig(createJavascriptAllowedRoot({ "./": "a reason" }))).rejects.toThrow(
+      'architecture.config.mts: javascriptAllowed names "./", which is the whole project. Name the file, or the folder that holds the JavaScript, ending in "/".',
+    );
+  });
+});
+
 describe("a project that cannot be judged", () => {
   it("refuses instead of passing when no layers are declared", async () => {
     await expect(runGates({ root: fixtures })).rejects.toBeInstanceOf(ConfigError);
@@ -1040,6 +1085,14 @@ function createConfigRoot(packages: string): string {
   const root = mkdtempSync(join(tmpdir(), "arch-react-rules-"));
 
   writeFileSync(join(root, "architecture.config.mts"), `export default { packages: ${packages} };\n`);
+
+  return root;
+}
+
+function createJavascriptAllowedRoot(javascriptAllowed: Record<string, string>): string {
+  const root = mkdtempSync(join(tmpdir(), "arch-javascript-allowed-"));
+
+  writeFileSync(join(root, "architecture.config.mts"), `export default { packages: {}, javascriptAllowed: ${JSON.stringify(javascriptAllowed)} };\n`);
 
   return root;
 }
