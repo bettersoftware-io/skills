@@ -18,7 +18,7 @@ addons/<name>/
   addon.json           what to add to package.json files, and how to prove it works
   files/               copied into the project, at the same relative paths
   choice/<option>/files/   one set of starting files per option, when the add-on offers a choice
-  AGENTS.section.md    appended to the project's AGENTS.md
+  AGENTS.section.md    appended to the project's AGENTS.md (see "The section in AGENTS.md")
   README.md            for readers of this repository: what it adds, how it was tested, its limits
   tests/               tests of the add-on's own scripts; run by this repository, never copied
 ```
@@ -175,6 +175,35 @@ addons/<name>/
   `packages: { … }` map the script can add to is left alone, and the script
   says which line to add by hand. The package itself is a starting file (its
   `package.json`, its source), so the project owns it from the first day.
+
+## The section in AGENTS.md
+
+`AGENTS.section.md` goes into the project's `AGENTS.md` between
+`<!-- add-on: <name> -->` and `<!-- /add-on: <name> -->`. What is between
+the markers belongs to the add-on, as its files do: an update replaces it, and
+a project's own text goes outside them. So a section the project edited is
+treated as an edited file is. Until 0.21.3 it was not: an update replaced
+an edited section and printed only "updated".
+
+The section as it was installed is kept as
+`tools/templates/<add-on>.AGENTS.section.md.txt`, an installed file of the
+add-on, so its hash is in `tools/installed.json`. An update compares the
+project's section with it:
+
+| The project's section | The add-on's section | The update |
+|---|---|---|
+| Is the add-on's text now | Any | Leaves it |
+| Is the copy (never changed) | Changed | Replaces it, and prints `updated` |
+| Was changed | Not changed | Leaves it, and says nothing |
+| Was changed | Changed | Refuses, as for an edited file: nothing is written, and the refusal names the section and shows what changed in the add-on's text. `--force` replaces it, keeps the project's text as `tools/templates/<add-on>.replaced.AGENTS.section.md.txt`, and the summary says to move it out of the markers and delete the copy, on every update while the copy is there |
+| Is not there (deleted, or never added) | Any | Adds it at the end, as an update writes a file of the add-on the project deleted |
+
+A record from before the copy was kept cannot say what was installed. Then a
+section is replaced only when it is a version the add-on shipped before the
+copy existed: `scripts/lib/agents-sections-shipped.json` holds a hash of
+every such version, taken from this repository's history, and never needs a
+new entry. Any other text is refused as an edited section, with the add-on's
+section now shown against the project's.
 
 ## Paths the installer reads
 

@@ -34,6 +34,7 @@ import { fileURLToPath } from "node:url";
 
 import { isMainModule } from "../kit/gates/lib/files.mts";
 import { LINT_DEPENDENCIES } from "../kit/lint-dependencies.mts";
+import { findSection, judgeSection, readSection, sectionHash, sectionMarkers, type SectionState, sectionTemplateOf } from "./lib/agents-section.mts";
 import { type Declaration, declarePackages } from "./lib/architecture.mts";
 import { type Json, mergeSettings, parseSettings, refuseRetired, type RetiredCommands, SettingsError } from "./lib/host-settings.mts";
 import {
@@ -70,6 +71,7 @@ import {
   type OwnedChange,
   readTemplates,
   printable,
+  SHOWN_LINES,
   showLines,
   type Template,
   withoutAddonSections,
@@ -209,7 +211,12 @@ export interface AddResult {
   settingsChanges: string[];
   /** One line per package declared in the architecture config. */
   declared: string[];
-  agents: "added" | "updated" | "unchanged" | "none";
+  /**
+   * The add-on's section of AGENTS.md. `kept`: the project changed it and the
+   * add-on did not, so it was left. `replaced`: the project had changed it,
+   * and `--force` replaced it; the project's text is kept beside the templates.
+   */
+  agents: "added" | "updated" | "replaced" | "unchanged" | "kept" | "none";
   /** Files written once for the project to own: the kit's set-up files, an add-on's starting files. */
   created: string[];
   /** What is still to be done by hand. */
@@ -609,6 +616,7 @@ function addAddon(destination: string, project: string, asked: string, force: bo
   }
 
   const templates = keepTemplates(files, starting, unit);
+  const section = planAgentsSection(destination, unit, addon, projectScope, files, force, repository);
   // Read before the update replaces or removes them: the old text is what the project's file is compared with.
   const templatesBefore = readTemplates(destination, [...templates, ...left]);
 
@@ -627,7 +635,7 @@ function addAddon(destination: string, project: string, asked: string, force: bo
     }
   }
 
-  const outcome = installFiles(destination, unit, files, force, chosen, handovers);
+  const outcome = installFiles(destination, unit, files, force, chosen, handovers, section.refusal);
   const created: string[] = [];
   const choiceRemoved: string[] = [];
   const choiceNotes: string[] = [];
@@ -732,10 +740,7 @@ function addAddon(destination: string, project: string, asked: string, force: bo
     writeProjectFile(destination, path, `${JSON.stringify(json, null, 2)}\n`);
   }
 
-  const section = join(addon, "AGENTS.section.md");
-  const agents = existsSync(section)
-    ? writeAgentsSection(destination, unit, readFileSync(section, "utf8").replaceAll(`${STARTER_SCOPE}/`, `${projectScope}/`))
-    : "none";
+  const agents = writeAgentsSection(destination, unit, section);
 
   if (architecturePlan.text !== undefined) {
     writeProjectFile(destination, ARCHITECTURE_CONFIG, architecturePlan.text);
@@ -754,6 +759,12 @@ function addAddon(destination: string, project: string, asked: string, force: bo
 
     return [`${path} ${when}. Your version is kept as ${copy}. Move what you changed into ${to}, then delete the copy. ${note}`];
   });
+  const sectionCopy = savedCopyOf(unit, SECTION_SOURCE);
+  const sectionKept = projectHas(destination, sectionCopy)
+    ? [
+        `AGENTS.md: the section for ${unit} ${agents === "replaced" ? "was replaced, and it had changes of this project's" : "was replaced by an earlier update"}. Your version is kept as ${sectionCopy}. Move what is this project's own into AGENTS.md outside the section's markers, where no update replaces it, then delete the copy`,
+      ]
+    : [];
 
   // Never in silence: a file the add-on ships and the project lacks is
   // written when it is known to be new, and named when that cannot be told.
@@ -771,6 +782,7 @@ function addAddon(destination: string, project: string, asked: string, force: bo
   const notes = [
     ...kept,
     ...unseenNote,
+    ...sectionKept,
     ...choiceNotes,
     ...architecturePlan.notes,
     ...settingsPlan.unmerged,
@@ -1296,29 +1308,129 @@ function planPackageChanges(project: string, manifest: AddonManifest, force: boo
   };
 }
 
-function writeAgentsSection(project: string, unit: string, section: string): AddResult["agents"] {
-  const start = `<!-- add-on: ${unit} -->`;
-  const end = `<!-- /add-on: ${unit} -->`;
-  const block = `${start}\n${section.trim()}\n${end}`;
-  const original = readProjectTextIfThere(project, "AGENTS.md") ?? "";
-  const from = original.indexOf(start);
-  const to = original.indexOf(end);
+/** The add-on's own file that holds its section. */
+const SECTION_SOURCE = "AGENTS.section.md";
 
-  if (from === -1 || to === -1) {
+/** Every version of each add-on's section shipped before the project kept a copy of it: see `lib/agents-section.mts`. */
+const SECTIONS_SHIPPED = "scripts/lib/agents-sections-shipped.json";
+
+interface SectionPlan {
+  /** The add-on's section now, in the project's scope, trimmed. Undefined: the add-on has none. */
+  shipped?: string;
+  state?: SectionState;
+  /** The project's section, trimmed. */
+  current?: string;
+  /** What the refusal says of the section: empty unless an edited section would be replaced without `--force`. */
+  refusal: string[];
+}
+
+/**
+ * Works out what becomes of the add-on's section of AGENTS.md, before
+ * anything is written, and adds the copy of the section as it is installed
+ * now to the add-on's files.
+ */
+function planAgentsSection(
+  destination: string,
+  unit: string,
+  addon: string,
+  projectScope: string,
+  files: Map<string, Buffer>,
+  force: boolean,
+  repository: string,
+): SectionPlan {
+  const source = join(addon, SECTION_SOURCE);
+
+  if (!existsSync(source)) {
+    return { refusal: [] };
+  }
+
+  const shipped = readFileSync(source, "utf8").replaceAll(`${STARTER_SCOPE}/`, `${projectScope}/`).trim();
+  const installed = readProjectTextIfThere(destination, sectionTemplateOf(unit))?.trim();
+  const current = readSection(readProjectTextIfThere(destination, "AGENTS.md") ?? "", unit);
+  const known = readShippedSections(repository, unit);
+  const shippedBefore = current !== undefined && known.includes(sectionHash(current.replaceAll(`${projectScope}/`, `${STARTER_SCOPE}/`)));
+  const state = judgeSection({ current, installed, shipped, shippedBefore });
+
+  // Written under --force, so checked with everything else before anything is.
+  assertInside(destination, savedCopyOf(unit, SECTION_SOURCE));
+  files.set(sectionTemplateOf(unit), Buffer.from(`${shipped}\n`));
+
+  return {
+    shipped,
+    state,
+    current,
+    refusal: state === "edited" && !force ? describeEditedSection(unit, installed, shipped, current as string) : [],
+  };
+}
+
+/** The hashes of the unit's section as it was shipped before projects kept a copy. None for a unit that had no section then. */
+function readShippedSections(repository: string, unit: string): string[] {
+  const shipped = existsSync(join(repository, SECTIONS_SHIPPED)) ? (JSON.parse(readFileSync(join(repository, SECTIONS_SHIPPED), "utf8")) as Record<string, string[]>) : {};
+
+  return Object.hasOwn(shipped, unit) ? (shipped[unit] as string[]) : [];
+}
+
+/** What a refusal says of a section the project changed: which, why it cannot be told safe to replace, what changed, and what --force does. */
+function describeEditedSection(unit: string, installed: string | undefined, shipped: string, current: string): string[] {
+  const { start, end } = sectionMarkers(unit);
+  const lines = installed === undefined ? differenceOf(shipped, current) : differenceOf(installed, shipped);
+  const shown = [
+    ...lines.slice(0, SHOWN_LINES).map((line) => `      ${line}`),
+    ...(lines.length > SHOWN_LINES ? [`      … and ${lines.length - SHOWN_LINES} more line(s)`] : []),
+  ];
+
+  return [
+    `The section for ${unit} in AGENTS.md, between ${start} and ${end}, was changed in this project, and this update would replace it:`,
+    installed === undefined
+      ? `      No copy of it as it was installed is kept (${sectionTemplateOf(unit)} is newer than this project's record), and it is no version of the section that ${unit} has shipped. The add-on's section now is \`-\`, yours is \`+\`:`
+      : `      What changed in the add-on's section since it was installed:`,
+    ...shown,
+    `      Run this again with --force. It replaces the section with the add-on's, and keeps yours as ${savedCopyOf(unit, SECTION_SOURCE)}.`,
+    "      Then move what is this project's own from the copy into AGENTS.md outside the section's markers, where no update replaces it, and delete the copy.",
+  ];
+}
+
+/**
+ * Writes the add-on's section into AGENTS.md, as planned: added when it is not
+ * there, replaced when the project never changed it or `--force` was given,
+ * and otherwise left. Under `--force` the project's text is kept first,
+ * below any copy an earlier update kept and nobody moved yet.
+ */
+function writeAgentsSection(project: string, unit: string, { shipped, state, current }: SectionPlan): AddResult["agents"] {
+  if (shipped === undefined) {
+    return "none";
+  }
+
+  if (state === "same") {
+    return "unchanged";
+  }
+
+  if (state === "kept") {
+    return "kept";
+  }
+
+  const { start, end } = sectionMarkers(unit);
+  const block = `${start}\n${shipped}\n${end}`;
+  const original = readProjectTextIfThere(project, "AGENTS.md") ?? "";
+
+  if (state === "absent") {
     writeProjectFile(project, "AGENTS.md", `${original.trimEnd()}${original.trim() === "" ? "" : "\n\n"}${block}\n`);
 
     return "added";
   }
 
-  const replaced = `${original.slice(0, from)}${block}${original.slice(to + end.length)}`;
+  if (state === "edited") {
+    const copy = savedCopyOf(unit, SECTION_SOURCE);
+    const earlier = readProjectTextIfThere(project, copy);
 
-  if (replaced === original) {
-    return "unchanged";
+    writeProjectFile(project, copy, `${earlier === undefined ? "" : `${earlier}\n`}${current}\n`);
   }
 
-  writeProjectFile(project, "AGENTS.md", replaced);
+  const { from, to } = findSection(original, unit) as { from: number; to: number };
 
-  return "updated";
+  writeProjectFile(project, "AGENTS.md", `${original.slice(0, from)}${block}${original.slice(to + end.length)}`);
+
+  return state === "edited" ? "replaced" : "updated";
 }
 
 export function describe(result: AddResult, project: string): string {
@@ -1340,6 +1452,10 @@ export function describe(result: AddResult, project: string): string {
 
   if (result.agents === "added" || result.agents === "updated") {
     lines.push(`  ${result.agents === "added" ? "added  " : "updated"}  AGENTS.md: the section for ${result.unit}`);
+  }
+
+  if (result.agents === "replaced") {
+    lines.push(`  replaced AGENTS.md: the section for ${result.unit}, which had changes of this project's (--force). They are kept: see "Still to do by hand"`);
   }
 
   if (result.unmerged.length > 0) {
