@@ -81,6 +81,10 @@ node <plugin root>/scripts/add-to-project.mts <project> <unit>
   the user, not for them.
 - If it prints "Release notes", show them to the user unchanged: they say what
   the new version changes and what to do.
+- If it prints "Not tracked", git ignores the files it names, so they will
+  never be committed and CI will not have them. Show the section. With the
+  user, change each rule it names in the project's `.gitignore` so it leaves
+  those files out, then check with `git status` that they show as new.
 
 - If it prints "Yours to change", the update changed the template of a file
   the project owns and left the project's file alone. Show the section

@@ -1,0 +1,100 @@
+[
+  {
+    "name": "not tracked: a git that cannot be run is not passed over",
+    "file": "scripts/lib/git-ignored.mts",
+    "find": "  if (run.status !== 0) {\n    return [];\n  }\n",
+    "replace": "",
+    "test": "pnpm vitest run scripts/lib/git-ignored.test.mts -t \"cannot be run\""
+  },
+  {
+    "name": "not tracked: each file is a rule of its own",
+    "file": "scripts/lib/git-ignored.mts",
+    "find": "const key = `${source}\\0${line}\\0${pattern}`;",
+    "replace": "const key = `${source}\\0${line}\\0${pattern}\\0${path}`;",
+    "test": "pnpm vitest run scripts/lib/git-ignored.test.mts -t \"a rule once for all its files\""
+  },
+  {
+    "name": "not tracked: a rule's files are in the order they were given",
+    "file": "scripts/lib/git-ignored.mts",
+    "find": "paths: rule.paths.sort()",
+    "replace": "paths: rule.paths",
+    "test": "pnpm vitest run scripts/lib/git-ignored.test.mts -t \"a rule once for all its files\""
+  },
+  {
+    "name": "not tracked: a rule's file is named from the repository's top",
+    "file": "scripts/lib/git-ignored.mts",
+    "find": "source: fromProject(source, prefix)",
+    "replace": "source",
+    "test": "pnpm vitest run scripts/lib/git-ignored.test.mts -t \"from the project's folder\""
+  },
+  {
+    "name": "not tracked: the person's own ignore file is named as if it were in the repository",
+    "file": "scripts/lib/git-ignored.mts",
+    "find": "return isAbsolute(source) ? source : posix.relative(prefix, source);",
+    "replace": "return posix.relative(prefix, source);",
+    "test": "pnpm vitest run scripts/lib/git-ignored.test.mts -t \"by its full path\""
+  },
+  {
+    "name": "not tracked: the kit's files are not asked about",
+    "file": "scripts/add-to-project.mts",
+    "find": "untracked: findIgnored(destination, [...outcome.written, ...outcome.unchanged, ...setup.created]),",
+    "replace": "untracked: findIgnored(destination, [...outcome.unchanged, ...setup.created]),",
+    "test": "pnpm vitest run scripts/add-to-project.test.mts -t \"after the kit goes in\""
+  },
+  {
+    "name": "not tracked: the files the kit's setup created are not asked about",
+    "file": "scripts/add-to-project.mts",
+    "find": "untracked: findIgnored(destination, [...outcome.written, ...outcome.unchanged, ...setup.created]),",
+    "replace": "untracked: findIgnored(destination, [...outcome.written, ...outcome.unchanged]),",
+    "test": "pnpm vitest run scripts/add-to-project.test.mts -t \"after the kit goes in\""
+  },
+  {
+    "name": "not tracked: an add-on update says nothing of files it left as they were",
+    "file": "scripts/add-to-project.mts",
+    "find": "untracked: findIgnored(destination, [...outcome.written, ...outcome.unchanged, ...created, ...settingsWritten]),",
+    "replace": "untracked: findIgnored(destination, [...outcome.written, ...created, ...settingsWritten]),",
+    "test": "pnpm vitest run scripts/add-to-project.test.mts -t \"again by each update\""
+  },
+  {
+    "name": "not tracked: an add-on's starting files are not asked about",
+    "file": "scripts/add-to-project.mts",
+    "find": "untracked: findIgnored(destination, [...outcome.written, ...outcome.unchanged, ...created, ...settingsWritten]),",
+    "replace": "untracked: findIgnored(destination, [...outcome.written, ...outcome.unchanged, ...settingsWritten]),",
+    "test": "pnpm vitest run scripts/add-to-project.test.mts -t \"when it is a starting file\""
+  },
+  {
+    "name": "not tracked: a host's settings file the add-on merged into is not asked about",
+    "file": "scripts/add-to-project.mts",
+    "find": "      settingsWritten.push(path);\n",
+    "replace": "",
+    "test": "pnpm vitest run scripts/add-to-project.test.mts -t \"when it is a starting file\""
+  },
+  {
+    "name": "not tracked: the summary does not print them",
+    "file": "scripts/add-to-project.mts",
+    "find": "  lines.push(...describeUntracked(result));\n",
+    "replace": "",
+    "test": "pnpm vitest run scripts/add-to-project.test.mts -t \"after the kit goes in\""
+  },
+  {
+    "name": "not tracked: a rule's files past five are dropped without a count",
+    "file": "scripts/add-to-project.mts",
+    "find": "${paths.length > NAMED_PER_RULE ? `, and ${paths.length - NAMED_PER_RULE} more` : \"\"}",
+    "replace": "",
+    "test": "pnpm vitest run scripts/add-to-project.test.mts -t \"the rest counted\""
+  },
+  {
+    "name": "not tracked: the summary has a section when nothing is ignored",
+    "file": "scripts/add-to-project.mts",
+    "find": "  if (untracked.length === 0) {\n    return [];\n  }\n\n  const count",
+    "replace": "  const count",
+    "test": "pnpm vitest run scripts/add-to-project.test.mts -t \"leaves the summary as it was\""
+  },
+  {
+    "name": "not tracked: the starter ignores the agent hosts' folder",
+    "file": "starter/.gitignore",
+    "find": "\n.claude/settings.local.json\n",
+    "replace": "\n.claude/\n",
+    "test": "pnpm vitest run scripts/create-project.test.mts -t \"ignores none of the files it was created with\""
+  }
+]
