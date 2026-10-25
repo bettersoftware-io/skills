@@ -397,6 +397,13 @@ feature with sign-in and routing. The Opus evals and the further tests of
   in one checkout at once, and the hook then says "red", not "run again".
 - **The stop hook's nine-minute limit is tested with short limits only**, on
   the same code path.
+- **The stop hook's wait for an agent still at work is tested against the
+  documented `Stop` payload only.** It reads `background_tasks`, which the
+  hooks reference documents, and has not been run in a live session with a
+  background subagent. A session that ends for good while an agent is still
+  at work ends with no gate on its last tree; CI is what catches that. Codex
+  sends no such list, so under Codex a controller can still be blocked by a
+  subagent's half-done edit.
 - **The quiet gate copies the environment pnpm 12.6 gives a script.** A later
   pnpm may set more; the test that compares the two runs would show it.
 - **An update says a thing once.** A changed template, a file compared with a
