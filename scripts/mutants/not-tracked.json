@@ -70,6 +70,13 @@
     "test": "pnpm vitest run scripts/add-to-project.test.mts -t \"when it is a starting file\""
   },
   {
+    "name": "not tracked: the files the starter unit wrote are not asked about",
+    "file": "scripts/add-to-project.mts",
+    "find": "untracked: findIgnored(destination, writes),",
+    "replace": "untracked: [],",
+    "test": "pnpm vitest run scripts/add-to-project.test.mts -t \"names a file it wrote that the project ignores\""
+  },
+  {
     "name": "not tracked: the summary does not print them",
     "file": "scripts/add-to-project.mts",
     "find": "  lines.push(...describeUntracked(result));\n",

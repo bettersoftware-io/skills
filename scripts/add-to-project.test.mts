@@ -587,6 +587,334 @@ describe("a kit update in a project that kept no copy of a template", () => {
   });
 });
 
+describe("adding the starter to a project that was not created from it", () => {
+  /** A stand-in starter: root settings, a CI workflow, two packages, and what the unit never copies. */
+  function withStarter(repository: string): void {
+    write(
+      repository,
+      "starter/package.json",
+      `${JSON.stringify(
+        {
+          name: "starter",
+          private: true,
+          type: "module",
+          packageManager: "pnpm@12.14.0+sha512.abc",
+          scripts: {
+            gates: "node tools/arch/gates/run.mts",
+            lint: "eslint --max-warnings 0 .",
+            "gate:fast": "pnpm gates && pnpm lint && pnpm typecheck",
+            "gate:full": "pnpm gate:fast && pnpm test",
+          },
+          devDependencies: { eslint: "^10.5.0", "@types/node": "^26.2.0" },
+        },
+        null,
+        2,
+      )}\n`,
+    );
+    write(repository, "starter/tsconfig.base.json", '{ "compilerOptions": { "strict": true } }\n');
+    write(repository, "starter/.gitignore", "node_modules/\n");
+    write(repository, "starter/.nvmrc", "26\n");
+    write(repository, "starter/pnpm-workspace.yaml", "packages:\n  - packages/*\n");
+    write(repository, "starter/CLAUDE.md", "@AGENTS.md\n");
+    write(repository, "starter/AGENTS.md", "# Working in this project\n");
+    write(repository, "starter/.github/workflows/ci.yml", "name: CI\n");
+    write(
+      repository,
+      "starter/architecture.config.mts",
+      [
+        "const config = {",
+        "  packages: {",
+        '    "packages/domain": { role: "domain", npm: ["rxjs"] },',
+        '    "packages/web": { role: "client", noNodeBuiltins: true },',
+        "  },",
+        '  adapters: ["packages/domain/src/simulators"],',
+        "};",
+        "",
+        "export default config;",
+        "",
+      ].join("\n"),
+    );
+    write(repository, "starter/packages/domain/package.json", '{\n  "name": "@app/domain"\n}\n');
+    write(repository, "starter/packages/domain/src/index.ts", "export const price = 1;\n");
+    write(repository, "starter/packages/web/package.json", '{\n  "name": "@app/web",\n  "dependencies": {\n    "@app/domain": "workspace:*"\n  }\n}\n');
+    write(repository, "starter/packages/web/src/main.ts", 'import { price } from "@app/domain";\n');
+    // Never copied: the lockfile and README are the project's, the hosts' folders and the kit are the kit's, the rest is installed or built.
+    write(repository, "starter/pnpm-lock.yaml", "lockfileVersion: 9\n");
+    write(repository, "starter/README.md", "# The starter\n");
+    write(repository, "starter/.claude/settings.json", '{ "the starter\'s": true }\n');
+    write(repository, "starter/tools/arch/gates/run.mts", "// the kit, linked\n");
+    write(repository, "starter/node_modules/eslint/index.js", "// installed\n");
+    write(repository, "starter/packages/domain/dist/index.js", "// built\n");
+    write(repository, "starter/tsconfig.tsbuildinfo", "{}");
+  }
+
+  /** The stand-in repository with a starter, and its project with the kit taken from it: so the kit keeps its copies of the starter's settings. */
+  function createWorldForStarter(): { repository: string; project: string } {
+    const world = createWorld();
+
+    withStarter(world.repository);
+    addToProject({ project: world.project, unit: "kit", repository: world.repository });
+
+    return world;
+  }
+
+  /** A project that has nothing but a package.json and the kit: no package, so no scope to read. */
+  function createBareWorld(): { repository: string; project: string } {
+    const world = createWorld();
+
+    withStarter(world.repository);
+    rmSync(join(world.project, "packages"), { recursive: true });
+    rmSync(join(world.project, "AGENTS.md"));
+    write(world.project, "package.json", '{\n  "name": "bare",\n  "private": true\n}\n');
+    addToProject({ project: world.project, unit: "kit", repository: world.repository, scope: "@acme" });
+
+    return world;
+  }
+
+  it("refuses a project that does not have the kit, and changes nothing", () => {
+    const { repository, project } = createWorld();
+    withStarter(repository);
+    const before = snapshot(project);
+
+    expect(() => addToProject({ project, unit: "starter", repository })).toThrow(`${project} does not have the kit (no tools/arch) — add it first: add-to-project.mts ${project} kit`);
+    expect(snapshot(project)).toEqual(before);
+  });
+
+  it("asks for the scope in a project that has no package to read it from", () => {
+    const { repository, project } = createBareWorld();
+
+    expect(() => addToProject({ project, unit: "starter", repository })).toThrow(/pass --scope @yours/);
+  });
+
+  it("writes every file of the starter the project lacks, in the project's scope, and nothing the unit never copies", () => {
+    const { repository, project } = createBareWorld();
+
+    const result = addToProject({ project, unit: "starter", repository, scope: "@acme" });
+
+    expect(result.created).toEqual([
+      ".github/workflows/ci.yml",
+      ".gitignore",
+      ".nvmrc",
+      "AGENTS.md",
+      "CLAUDE.md",
+      "architecture.config.mts",
+      "packages/domain/package.json",
+      "packages/domain/src/index.ts",
+      "packages/web/package.json",
+      "packages/web/src/main.ts",
+      "pnpm-workspace.yaml",
+      "tsconfig.base.json",
+    ]);
+    expect(read(project, "packages/web/src/main.ts")).toBe('import { price } from "@acme/domain";\n');
+    expect(readJson(project, "packages/web/package.json").dependencies).toEqual({ "@acme/domain": "workspace:*" });
+
+    for (const path of ["pnpm-lock.yaml", "README.md", "node_modules", "packages/domain/dist", "tsconfig.tsbuildinfo"]) {
+      expect(existsSync(join(project, path)), path).toBe(false);
+    }
+
+    // The kit's, not the starter's.
+    expect(read(project, ".claude/settings.json")).toBe(CLAUDE_SETTINGS);
+    expect(read(project, "tools/arch/gates/run.mts")).toBe("// gates, version 1\n");
+  });
+
+  it("names a file it wrote that the project ignores, so no commit has it", () => {
+    const { repository, project } = createBareWorld();
+    makeRepository(project, "packages/web/\n");
+
+    const { untracked } = addToProject({ project, unit: "starter", repository, scope: "@acme" });
+
+    expect(untracked).toEqual([{ source: ".gitignore", line: 1, pattern: "packages/web/", paths: ["packages/web/package.json", "packages/web/src/main.ts"] }]);
+  });
+
+  it("puts the starter's architecture config in place of the kit's example when the project never changed it and took every package", () => {
+    const { repository, project } = createBareWorld();
+
+    const result = addToProject({ project, unit: "starter", repository, scope: "@acme" });
+
+    expect(read(project, "architecture.config.mts")).toBe(read(repository, "starter/architecture.config.mts"));
+    expect(result.declared).toEqual([]);
+  });
+
+  it("merges the root package.json: adds what the project lacks, keeps what differs and says so, and keeps the project's name", () => {
+    const { repository, project } = createWorldForStarter();
+
+    const result = addToProject({ project, unit: "starter", repository });
+    const manifest = readJson(project, "package.json");
+
+    expect(manifest.name).toBe("project");
+    expect(manifest.packageManager).toBe("pnpm@12.14.0+sha512.abc");
+    expect(manifest.scripts.lint).toBe("eslint --max-warnings 0 .");
+    expect(manifest.scripts["gate:fast"]).toBe("pnpm gates && pnpm lint");
+    expect(Object.keys(manifest.devDependencies)).toEqual(["@types/node", "eslint"]);
+    expect(result.packageChanges).toEqual([
+      "package.json: private",
+      "package.json: type",
+      "package.json: packageManager",
+      "package.json: scripts.lint",
+      "package.json: devDependencies.eslint",
+      "package.json: devDependencies.@types/node",
+    ]);
+    expect(result.notes).toContain(
+      'package.json: scripts.gate:fast is this project\'s "pnpm gates && pnpm lint", and was kept. The starter\'s is "pnpm gates && pnpm lint && pnpm typecheck". add-to-project.mts ' +
+        `${project} starter --force takes the starter's, for every entry of package.json named here`,
+    );
+  });
+
+  it("replaces under --force the entries of package.json that differ, and never a file", () => {
+    const { repository, project } = createWorldForStarter();
+    write(project, "tsconfig.base.json", "{}\n");
+
+    const result = addToProject({ project, unit: "starter", repository, force: true });
+
+    expect(readJson(project, "package.json").scripts["gate:fast"]).toBe("pnpm gates && pnpm lint && pnpm typecheck");
+    // Not even --force gives the project the starter's name.
+    expect(readJson(project, "package.json").name).toBe("project");
+    expect(result.packageChanges).toContain("package.json: scripts.gate:fast (--force)");
+    expect(read(project, "tsconfig.base.json")).toBe("{}\n");
+  });
+
+  it("keeps a file the project has that differs, and names the command that shows how", () => {
+    const { repository, project } = createWorldForStarter();
+    write(project, "tsconfig.base.json", '{ "compilerOptions": { "strict": true, "noUncheckedIndexedAccess": true } }\n');
+
+    const result = addToProject({ project, unit: "starter", repository });
+
+    expect(read(project, "tsconfig.base.json")).toBe('{ "compilerOptions": { "strict": true, "noUncheckedIndexedAccess": true } }\n');
+    expect(result.created).not.toContain("tsconfig.base.json");
+    expect(result.notes).toContain(
+      `tsconfig.base.json is this project's own and differs from the starter's, so it was kept. To see how: diff tools/arch/templates/tsconfig.base.json.txt tsconfig.base.json (or add-to-project.mts ${project} --compare starter)`,
+    );
+    // The project's AGENTS.md is its own too.
+    expect(read(project, "AGENTS.md")).toBe("# Working here\n\nThe project's own text.\n");
+    expect(result.notes.some((note) => note.startsWith("AGENTS.md is this project's own"))).toBe(true);
+    // The kit's example stays: a package of the starter's was kept, so the starter's config would declare one that is not its.
+    expect(read(project, "architecture.config.mts")).toBe("// the example config\n");
+  });
+
+  it("says nothing of a file the project has that is the starter's word for word, AGENTS.md read without the add-ons' sections", () => {
+    const { repository, project } = createWorldForStarter();
+    write(project, ".nvmrc", "26\n");
+    write(project, "AGENTS.md", "# Working in this project\n\n<!-- add-on: demo -->\n## Demo\n<!-- /add-on: demo -->\n");
+
+    const result = addToProject({ project, unit: "starter", repository });
+
+    expect(result.created).not.toContain(".nvmrc");
+    expect(result.notes.join("\n")).not.toContain(".nvmrc");
+    expect(result.notes.join("\n")).not.toContain("AGENTS.md");
+  });
+
+  it("writes no file into a package the project already has, says so, and declares the packages it did write", () => {
+    const { repository, project } = createWorldForStarter();
+    write(project, "architecture.config.mts", 'const config = {\n  packages: {\n    "packages/api": { role: "server" },\n  },\n};\n\nexport default config;\n');
+
+    const result = addToProject({ project, unit: "starter", repository });
+
+    expect(existsSync(join(project, "packages/web/src/main.ts"))).toBe(false);
+    expect(read(project, "packages/web/package.json")).toBe('{ "name": "@acme/web", "scripts": {} }\n');
+    expect(result.created).toContain("packages/domain/src/index.ts");
+    expect(result.notes).toContain(
+      `packages/web is this project's own, so no file of the starter's package was written into it. To see how its settings differ: add-to-project.mts ${project} --compare starter`,
+    );
+    expect(result.declared).toEqual(['"packages/domain": { role: "domain", npm: ["rxjs"] },']);
+    expect(read(project, "architecture.config.mts")).toContain('"packages/domain": { role: "domain", npm: ["rxjs"] },');
+    expect(result.notes).toContain(
+      'architecture.config.mts is this project\'s own, so only the starter\'s packages were declared in it. The starter\'s config also has: adapters: ["packages/domain/src/simulators"]. Add what applies to the packages it wrote',
+    );
+  });
+
+  it("says nothing of a package the project has that is the starter's word for word, as in a project created from it", () => {
+    const { repository, project } = createWorldForStarter();
+    write(project, "packages/domain/package.json", '{\n  "name": "@acme/domain"\n}\n');
+    write(project, "packages/domain/src/index.ts", "export const price = 1;\n");
+
+    const result = addToProject({ project, unit: "starter", repository });
+
+    expect(result.notes.filter((note) => note.startsWith("packages/"))).toEqual([
+      `packages/web is this project's own, so no file of the starter's package was written into it. To see how its settings differ: add-to-project.mts ${project} --compare starter`,
+    ]);
+    expect(result.created.filter((path) => path.startsWith("packages/"))).toEqual([]);
+  });
+
+  it("records the starter with no file of its own, and a second run writes nothing and says nothing", () => {
+    const { repository, project } = createWorldForStarter();
+    write(project, "tsconfig.base.json", "{}\n");
+    addToProject({ project, unit: "starter", repository });
+
+    // Every file the starter shipped, written or not: the next run knows the project has met each of them.
+    expect(readJson(project, "tools/installed.json").starter).toEqual({
+      files: {},
+      starting: [
+        ".github/workflows/ci.yml",
+        ".gitignore",
+        ".nvmrc",
+        "AGENTS.md",
+        "CLAUDE.md",
+        "architecture.config.mts",
+        "package.json",
+        "packages/domain/package.json",
+        "packages/domain/src/index.ts",
+        "packages/web/package.json",
+        "packages/web/src/main.ts",
+        "pnpm-workspace.yaml",
+        "tsconfig.base.json",
+      ],
+    });
+
+    const before = snapshot(project);
+    const second = addToProject({ project, unit: "starter", repository });
+
+    expect(second.created).toEqual([]);
+    expect(second.packageChanges).toEqual([]);
+    expect(second.notes).toEqual([]);
+    expect(snapshot(project)).toEqual(before);
+  });
+
+  it("writes on a later run a file or package the starter ships that is new, and not one the project deleted", () => {
+    const { repository, project } = createWorldForStarter();
+    addToProject({ project, unit: "starter", repository });
+    rmSync(join(project, ".nvmrc"));
+    rmSync(join(project, "packages/domain"), { recursive: true });
+    write(repository, "starter/turbo.json", "{}\n");
+    write(repository, "starter/packages/server/package.json", '{\n  "name": "@app/server"\n}\n');
+
+    const result = addToProject({ project, unit: "starter", repository });
+
+    expect(result.created).toEqual(["packages/server/package.json", "turbo.json"]);
+    expect(existsSync(join(project, ".nvmrc"))).toBe(false);
+    expect(existsSync(join(project, "packages/domain"))).toBe(false);
+    expect(read(project, "packages/server/package.json")).toContain('"name": "@acme/server"');
+  });
+
+  it("is compared with the kit's copies of the starter's files, and once in a comparison of every unit", () => {
+    const { repository, project } = createWorldForStarter();
+    write(project, "tsconfig.base.json", "{}\n");
+    addToProject({ project, unit: "starter", repository });
+
+    const starter = compareWithTemplates({ project, repository, unit: "starter" });
+
+    expect(starter.find(({ owned }) => owned === "tsconfig.base.json")).toMatchObject({ unit: "starter", template: "tools/arch/templates/tsconfig.base.json.txt", state: "differs" });
+    expect(starter.some(({ owned }) => owned === ".claude/settings.json")).toBe(false);
+
+    const every = compareWithTemplates({ project, repository });
+
+    expect(every.filter(({ owned }) => owned === "tsconfig.base.json").map(({ unit }) => unit)).toEqual(["kit"]);
+  });
+
+  it("prints what it kept under what is left to do by hand", () => {
+    const { repository, project } = createWorldForStarter();
+    write(project, "tsconfig.base.json", "{}\n");
+
+    const printed = describeResult(addToProject({ project, unit: "starter", repository }), project).split("\n");
+
+    expect(printed[0]).toBe("starter: 7 file(s) written, each the project's own from now on");
+    expect(printed).toContain("  created  packages/domain/src/index.ts");
+    expect(printed).toContain("Still to do by hand:");
+    expect(printed).toContain(
+      `  - tsconfig.base.json is this project's own and differs from the starter's, so it was kept. To see how: diff tools/arch/templates/tsconfig.base.json.txt tsconfig.base.json (or add-to-project.mts ${project} --compare starter)`,
+    );
+  });
+});
+
 describe("what an add-on update leaves to the project", () => {
   it("says nothing when the add-on is first added", () => {
     const { repository, project } = createWorldWithKit();

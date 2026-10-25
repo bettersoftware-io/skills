@@ -1,10 +1,10 @@
-import { mkdirSync, mkdtempSync, readdirSync, readFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 
-import { listAddons } from "./add-to-project.mts";
+import { addToProject, listAddons } from "./add-to-project.mts";
 import { createProject } from "./create-project.mts";
 import { renameScope, sortDependencies } from "./lib/install.mts";
 
@@ -63,6 +63,22 @@ describe("the dependencies of a package.json this repository ships", () => {
       expect(readFileSync(join(destination, "packages/client-core/package.json"), "utf8")).toContain(`"${scope}/domain"`);
       // The copy kept as the template is the file as it was written: an update must find them equal.
       expect(readFileSync(join(destination, "tools/templates/e2e.packages__e2e__package.json.txt"), "utf8")).toBe(readFileSync(join(destination, "packages/e2e/package.json"), "utf8"));
+    },
+  );
+
+  it.each(["@ci-organisation-with-a-long-name", "@skills-demo", "@zeta"])(
+    "are in name order in a project that had only a package.json, after the kit and then the starter, under the scope %s",
+    (scope) => {
+      const project = mkdtempSync(join(tmpdir(), "dependency-order-bare-"));
+
+      writeFileSync(join(project, "package.json"), '{\n  "name": "bare",\n  "private": true\n}\n');
+      addToProject({ project, unit: "kit", scope });
+      addToProject({ project, unit: "starter", scope });
+
+      expect(findUnsorted(project)).toEqual([]);
+      expect(readFileSync(join(project, "packages/client-core/package.json"), "utf8")).toContain(`"${scope}/domain"`);
+      // The kit's copy of each of the starter's package.json files is the file as the starter wrote it: an update finds them equal.
+      expect(readFileSync(join(project, "tools/arch/templates/packages__client-core__package.json.txt"), "utf8")).toBe(readFileSync(join(project, "packages/client-core/package.json"), "utf8"));
     },
   );
 });

@@ -17,7 +17,7 @@ import { basename, dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { isMainModule } from "../kit/gates/lib/files.mts";
-import { addToProject, KIT, listAddons, type ListedAddon, parseUnit } from "./add-to-project.mts";
+import { addToProject, KIT, listAddons, type ListedAddon, parseUnit, SKIPPED_IN_STARTER } from "./add-to-project.mts";
 import { listFiles, renameScope } from "./lib/install.mts";
 import { printable } from "./lib/templates.mts";
 
@@ -32,14 +32,6 @@ const STARTER_NAME = "starter";
  * those is a word to swap in the other text.
  */
 const README_TEMPLATE = join(REPOSITORY, "scripts", "templates", "README.project.md");
-
-/**
- * Never copied from the starter: installed or generated files, the kit link,
- * and the two hosts' settings folders. Those are written by the kit's setup,
- * from the kit's own templates, which also knows what to do when a host does
- * not let them be written.
- */
-const SKIPPED_IN_STARTER = new Set(["node_modules", "dist", "coverage", ".turbo", "tools", ".claude", ".codex"]);
 
 const TEXT_FILE = /\.(ts|tsx|mts|json|json5|md|yaml|yml|html|css)$|^\.gitignore$/;
 

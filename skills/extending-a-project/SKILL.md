@@ -1,6 +1,6 @@
 ---
 name: extending-a-project
-description: Use when a project that has the architecture kit (a tools/arch folder and an architecture.config file) needs an add-on (coverage gates, visual golden tests, end-to-end tests, rendering-performance checks, a formatter and linter, CI security checks, repository hygiene, typed lint, agent workflow), when its copy of the kit or of an add-on should be brought up to date, or when an existing project wants the architecture gates for the first time.
+description: Use when a project that has the architecture kit (a tools/arch folder and an architecture.config file) needs an add-on (coverage gates, visual golden tests, end-to-end tests, rendering-performance checks, a formatter and linter, CI security checks, repository hygiene, typed lint, agent workflow), when its copy of the kit or of an add-on should be brought up to date, or when an existing project wants the architecture gates, or the starter's files and packages, for the first time.
 ---
 
 # Extending a project
@@ -28,6 +28,7 @@ node <plugin root>/scripts/add-to-project.mts --list
 | Unit | The project gains |
 |---|---|
 | `kit` | The architecture gates, lint rules and agent hooks in `tools/arch`. Run it again to update them |
+| `starter` | For a project not created from the starter, after `kit`: the starter's settings files, CI workflow and packages, each written only where the project has none |
 | `coverage` | A per-file coverage gate, a ranked list of gaps, a mutation check, a published report |
 | `visual` | Screenshot tests of the UI against committed golden images |
 | `e2e` | End-to-end tests: Playwright drives the built client in a real browser, on the simulator and against the real server |
@@ -76,6 +77,15 @@ node <plugin root>/scripts/add-to-project.mts <project> <unit>
   "Still to do by hand".
 - If it says the add-on needs a newer kit, it has changed nothing. Run the
   script with `kit` first, then again with the add-on.
+- `starter` never writes over a file the project has. Each file it kept is
+  under "Still to do by hand" with the `diff` that shows how it differs from
+  the starter's; a package the project has is named, and none of the starter's
+  files went into it. An entry of the root `package.json` that differs is
+  kept and named too; `--force` replaces those entries, and only those, so
+  run it only when the user says to. Take what the user wants from each
+  `diff` with them: the project's lines are its own (an option of
+  `tsconfig.base.json`, a pattern of `pnpm-workspace.yaml`, a line of
+  `.gitignore`).
 - If it prints "Still to do by hand", those steps are the user's to decide
   (which role each package plays, how to merge hook settings). Do them with
   the user, not for them.

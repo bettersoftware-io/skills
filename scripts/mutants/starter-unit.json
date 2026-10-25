@@ -1,0 +1,184 @@
+[
+  {
+    "name": "starter: a project without the kit is not refused",
+    "file": "scripts/add-to-project.mts",
+    "find": "if (!projectHas(destination, \"tools/arch/gates/run.mts\")) {",
+    "replace": "if (false) {",
+    "test": "pnpm vitest run scripts/add-to-project.test.mts -t \"refuses a project that does not have the kit\""
+  },
+  {
+    "name": "starter: a folder it never copies is copied",
+    "file": "scripts/add-to-project.mts",
+    "find": "if (SKIPPED_IN_STARTER.has(entry.name) || (folder === \"\"",
+    "replace": "if ((folder === \"\"",
+    "test": "pnpm vitest run scripts/add-to-project.test.mts -t \"nothing the unit never copies\""
+  },
+  {
+    "name": "starter: the lockfile and README are taken",
+    "file": "scripts/add-to-project.mts",
+    "find": "(folder === \"\" && NOT_TAKEN_FROM_STARTER.has(entry.name))",
+    "replace": "false",
+    "test": "pnpm vitest run scripts/add-to-project.test.mts -t \"nothing the unit never copies\""
+  },
+  {
+    "name": "starter: a build's tsbuildinfo is taken",
+    "file": "scripts/add-to-project.mts",
+    "find": " || entry.name.endsWith(\".tsbuildinfo\")) {",
+    "replace": ") {",
+    "test": "pnpm vitest run scripts/add-to-project.test.mts -t \"nothing the unit never copies\""
+  },
+  {
+    "name": "starter: the files keep the starter's scope",
+    "file": "scripts/add-to-project.mts",
+    "find": "rewriteScope(readStarterFiles(join(repository, STARTER)), STARTER_SCOPE, projectScope)",
+    "replace": "readStarterFiles(join(repository, STARTER))",
+    "test": "pnpm vitest run scripts/add-to-project.test.mts -t \"nothing the unit never copies\""
+  },
+  {
+    "name": "starter: a file the project has is written over",
+    "file": "scripts/add-to-project.mts",
+    "find": "path !== ARCHITECTURE_CONFIG && !met.has(path)) {\n      if (!projectHas(destination, path)) {",
+    "replace": "path !== ARCHITECTURE_CONFIG && !met.has(path)) {\n      if (true) {",
+    "test": "pnpm vitest run scripts/add-to-project.test.mts -t \"keeps a file the project has that differs\""
+  },
+  {
+    "name": "starter: a file that is the starter's word for word is named",
+    "file": "scripts/add-to-project.mts",
+    "find": "} else if (!sameAsStarter(destination, path, files.get(path) as Buffer)) {",
+    "replace": "} else {",
+    "test": "pnpm vitest run scripts/add-to-project.test.mts -t \"says nothing of a file the project has that is the starter's word for word\""
+  },
+  {
+    "name": "starter: AGENTS.md is compared with the add-ons' sections in it",
+    "file": "scripts/add-to-project.mts",
+    "find": "return path === \"AGENTS.md\" ? withoutAddonSections(readProjectText(project, path)) === content.toString(\"utf8\") :",
+    "replace": "return path === \"AGENTS.md\" ? readProjectText(project, path) === content.toString(\"utf8\") :",
+    "test": "pnpm vitest run scripts/add-to-project.test.mts -t \"AGENTS.md read without the add-ons' sections\""
+  },
+  {
+    "name": "starter: a file met before is written again",
+    "file": "scripts/add-to-project.mts",
+    "find": " && !met.has(path)) {",
+    "replace": ") {",
+    "test": "pnpm vitest run scripts/add-to-project.test.mts -t \"not one the project deleted\""
+  },
+  {
+    "name": "starter: a package the project has gets the starter's files",
+    "file": "scripts/add-to-project.mts",
+    "find": "if (projectHas(destination, folder)) {",
+    "replace": "if (false) {",
+    "test": "pnpm vitest run scripts/add-to-project.test.mts -t \"writes no file into a package the project already has\""
+  },
+  {
+    "name": "starter: a package met before is written again",
+    "file": "scripts/add-to-project.mts",
+    "find": "if (paths.some((path) => met.has(path))) {",
+    "replace": "if (false) {",
+    "test": "pnpm vitest run scripts/add-to-project.test.mts -t \"not one the project deleted\""
+  },
+  {
+    "name": "starter: a package that is the starter's word for word is named",
+    "file": "scripts/add-to-project.mts",
+    "find": "if (paths.some((path) => !projectHas(destination, path) ||",
+    "replace": "if (true || paths.some((path) => !projectHas(destination, path) ||",
+    "test": "pnpm vitest run scripts/add-to-project.test.mts -t \"says nothing of a package the project has that is the starter\""
+  },
+  {
+    "name": "starter: package.json is merged again on every run",
+    "file": "scripts/add-to-project.mts",
+    "find": "met.has(\"package.json\") ? { changes: [], kept: [] }",
+    "replace": "false ? { changes: [], kept: [] }",
+    "test": "pnpm vitest run scripts/add-to-project.test.mts -t \"a second run writes nothing and says nothing\""
+  },
+  {
+    "name": "starter: the project's name is replaced",
+    "file": "scripts/add-to-project.mts",
+    "find": "if (key === \"name\") {",
+    "replace": "if (false) {",
+    "test": "pnpm vitest run scripts/add-to-project.test.mts -t \"replaces under --force the entries of package.json\""
+  },
+  {
+    "name": "starter: an entry that differs is replaced without --force",
+    "file": "scripts/add-to-project.mts",
+    "find": "if (existing === undefined || force) {",
+    "replace": "if (true) {",
+    "test": "pnpm vitest run scripts/add-to-project.test.mts -t \"merges the root package.json\""
+  },
+  {
+    "name": "starter: --force does not replace an entry that differs",
+    "file": "scripts/add-to-project.mts",
+    "find": "if (existing === undefined || force) {",
+    "replace": "if (existing === undefined) {",
+    "test": "pnpm vitest run scripts/add-to-project.test.mts -t \"replaces under --force the entries of package.json\""
+  },
+  {
+    "name": "starter: scripts are taken or kept whole",
+    "file": "scripts/add-to-project.mts",
+    "find": "if (MERGED_BY_ENTRY.has(key) && typeof value === \"object\" && value !== null) {",
+    "replace": "if (false) {",
+    "test": "pnpm vitest run scripts/add-to-project.test.mts -t \"merges the root package.json\""
+  },
+  {
+    "name": "starter: the kit's untouched example is never replaced",
+    "file": "scripts/add-to-project.mts",
+    "find": "(current !== undefined && current === example && written.length === packages)",
+    "replace": "false",
+    "test": "pnpm vitest run scripts/add-to-project.test.mts -t \"puts the starter's architecture config in place of the kit's example\""
+  },
+  {
+    "name": "starter: the kit's example is replaced though a package was kept",
+    "file": "scripts/add-to-project.mts",
+    "find": "current === example && written.length === packages",
+    "replace": "current === example",
+    "test": "pnpm vitest run scripts/add-to-project.test.mts -t \"keeps a file the project has that differs\""
+  },
+  {
+    "name": "starter: a package it did not write is declared",
+    "file": "scripts/add-to-project.mts",
+    "find": ".filter(([path]) => written.includes(path))",
+    "replace": "",
+    "test": "pnpm vitest run scripts/add-to-project.test.mts -t \"writes no file into a package the project already has\""
+  },
+  {
+    "name": "starter: the rest of the starter's config is not named",
+    "file": "scripts/add-to-project.mts",
+    "find": "rest.length === 0\n",
+    "replace": "true\n",
+    "test": "pnpm vitest run scripts/add-to-project.test.mts -t \"writes no file into a package the project already has\""
+  },
+  {
+    "name": "starter: what it shipped is not recorded",
+    "file": "scripts/add-to-project.mts",
+    "find": "recordStarting(destination, STARTER, [...files.keys()].sort());",
+    "replace": "",
+    "test": "pnpm vitest run scripts/add-to-project.test.mts -t \"records the starter with no file of its own\""
+  },
+  {
+    "name": "starter: a comparison of every unit compares the starter's files twice",
+    "file": "scripts/add-to-project.mts",
+    "find": "installed.filter((name) => name !== STARTER || !installed.includes(KIT))",
+    "replace": "installed",
+    "test": "pnpm vitest run scripts/add-to-project.test.mts -t \"is compared with the kit's copies of the starter's files\""
+  },
+  {
+    "name": "starter: the starter is compared with every template of the kit",
+    "file": "scripts/add-to-project.mts",
+    "find": "source?.startsWith(`${STARTER}/`) === true",
+    "replace": "true",
+    "test": "pnpm vitest run scripts/add-to-project.test.mts -t \"is compared with the kit's copies of the starter's files\""
+  },
+  {
+    "name": "starter: the summary counts the files the starter does not own",
+    "file": "scripts/add-to-project.mts",
+    "find": "result.unit === STARTER\n",
+    "replace": "false\n",
+    "test": "pnpm vitest run scripts/add-to-project.test.mts -t \"prints what it kept under what is left to do by hand\""
+  },
+  {
+    "name": "starter: a kept file is named without the command that shows how",
+    "file": "scripts/add-to-project.mts",
+    "find": "        ? `diff ${template} ${path} (or ${compare})`",
+    "replace": "        ? `${path}`",
+    "test": "pnpm vitest run scripts/add-to-project.test.mts -t \"keeps a file the project has that differs\""
+  }
+]
