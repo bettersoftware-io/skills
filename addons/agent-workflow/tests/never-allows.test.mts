@@ -176,6 +176,26 @@ describe("a command the hook does not read", () => {
     expect(judgeCall(createCall(deep(20_000, "ls")))).toBeUndefined();
   });
 
+  // git may run an outward step under another name (an alias from HOME's settings), so naming git is enough.
+  it("is refused when it is nested too deep and names an outward step with quotes or a backslash inside the word", () => {
+    expect(judgeCall(createCall(deep(20_000, 'ls && pu"s"h')))?.decision).toBe("deny");
+    expect(judgeCall(createCall(deep(20_000, "HOME=/tmp/x g\\it p")))?.decision).toBe("deny");
+  });
+
+  it("is refused when a wrapper is followed by too many words that name git, however the text spells them", () => {
+    const answer = judgeCall(createCall(`HOME=/tmp/x stdbuf -o L ${'g"i"t '.repeat(40)}p && ls`));
+
+    expect(answer?.decision).toBe("deny");
+    expect(answer?.reason).toContain("too long or too deeply nested");
+  });
+
+  it("is refused when it names git and no outward step: nested too deep to read", () => {
+    const answer = judgeCall(createCall(deep(20_000, "HOME=/tmp/x git p && ls")));
+
+    expect(answer?.decision).toBe("deny");
+    expect(answer?.reason).toContain("too long or too deeply nested");
+  });
+
   it("is read, and judged as any other, at the deepest nesting it takes", () => {
     expect(judgeCall(createCall(deep(40, "ls && git push origin main")))?.reason).toContain("joins an outward step");
     expect(judgeCall(createCall(deep(41, "ls && git push origin main")))?.reason).toContain("too long or too deeply nested");

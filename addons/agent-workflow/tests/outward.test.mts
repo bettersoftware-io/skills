@@ -4,7 +4,7 @@ import { describe, expect, it } from "vitest";
 
 import { commandOf, judgeCall } from "../files/tools/agent-workflow/hooks/split-outward-commands.mts";
 import { judgeCommand } from "../files/tools/agent-workflow/lib/outward.mts";
-import { parseShell } from "../files/tools/agent-workflow/lib/shell.mts";
+import { LimitError, parseShell } from "../files/tools/agent-workflow/lib/shell.mts";
 import { ADDON } from "./support.mts";
 
 const HOOK = join(ADDON, "files/tools/agent-workflow/hooks/split-outward-commands.mts");
@@ -397,6 +397,80 @@ describe("a push where the reader once did not look", () => {
 
   it("reads what is inside ((…)) as commands as well, which a shell without arithmetic runs", () => {
     expect(judgeCommand("((git push origin worktree-a)) && ls")).toMatchObject({ outward: ["git push origin"], chained: true });
+  });
+});
+
+describe("a push the reader once took for another command", () => {
+  it.each([
+    ["behind stdbuf with an option that takes a word", "stdbuf -o L git push origin worktree-a", "git push origin"],
+    ["behind stdbuf with three such options", "stdbuf -i 0 -o L -e L git push origin worktree-a", "git push origin"],
+    ["behind xargs -I", "xargs -I {} git push origin {}", "git push origin"],
+    ["behind env -C", "env -C sub git push origin worktree-a", "git push origin"],
+    ["behind exec -a", "exec -a name git push origin worktree-a", "git push origin"],
+    ["behind stdbuf, a pull request merged", "stdbuf -o L gh pr merge 1", "gh pr merge"],
+    ["behind stdbuf, inside bash -c", "stdbuf -o L bash -c 'git push origin worktree-a'", "git push origin"],
+    ["git.exe", "git.exe push origin worktree-a", "git.exe push origin"],
+    ["git with a Windows path", "'C:\\Git\\bin\\git.exe' push origin worktree-a", "C:\\Git\\bin\\git.exe push origin"],
+    ["gh.exe", "gh.exe pr merge 1", "gh.exe pr merge"],
+    ["GIT.EXE, in capitals", "GIT.EXE push origin worktree-a", "GIT.EXE push origin"],
+    ["git --attr-source with its value as the next word", "git --attr-source HEAD push origin worktree-a", "git --attr-source HEAD"],
+    ["git --config-env with its value as the next word", "git --config-env core.x=X push origin worktree-a", "git --config-env core.x=X"],
+  ])("is found: %s", (_name, command, first) => {
+    expect(judgeCommand(command)?.outward).toEqual([first]);
+    expect(judgeCommand(`git add -A && ${command}`)?.chained).toBe(true);
+  });
+
+  // git runs `alias.p=push` as `push`, and `p` is all the reader sees of it.
+  it.each([
+    ["-c alias", "git -c alias.p=push p origin worktree-a"],
+    ["-c alias, in capitals", "git -c Alias.P=push P origin worktree-a"],
+    ["--config-env alias", "git --config-env alias.p=PUSHED p"],
+    ["--config-env= alias", "git --config-env=alias.p=PUSHED p"],
+  ])("takes a command that sets an alias for an outward step, and asks about it: %s", (_name, command) => {
+    expect(judgeCommand(command)).toMatchObject({ chained: false, redirected: true });
+    expect(judgeCommand(command)?.outward).toHaveLength(1);
+    expect(judgeCommand(`git add -A && ${command}`)?.chained).toBe(true);
+  });
+
+  // A wrapper's option may take a value that is itself `git` or `gh`.
+  it.each([
+    ["env -C git", "env -C git git push origin worktree-a", "git push origin"],
+    ["stdbuf -o gh", "stdbuf -o gh gh pr merge 1", "gh pr merge"],
+    ["xargs -I bash", "xargs -I bash bash -c 'git push origin worktree-a'", "git push origin"],
+    ["env -C git, then bash -c", "env -C git bash -c 'git push origin worktree-a'", "git push origin"],
+  ])("is found where a wrapper's value names a program this reads: %s", (_name, command, first) => {
+    expect(judgeCommand(command)?.outward).toEqual([first]);
+    expect(judgeCommand(`git add -A && ${command}`)?.chained).toBe(true);
+  });
+
+  it("will not read a wrapper followed by more than 32 words that name git, gh or a shell", () => {
+    expect(() => judgeCommand(`stdbuf -o L ${"git ".repeat(40)}status`)).toThrow(LimitError);
+  });
+
+  // git reads an alias from a setting given in front of it, or from a file a setting includes.
+  it.each([
+    ["GIT_CONFIG_KEY_0", "GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=alias.p GIT_CONFIG_VALUE_0=push git p"],
+    ["GIT_CONFIG_PARAMETERS", "GIT_CONFIG_PARAMETERS=\"'alias.p'='push'\" git p"],
+    ["GIT_CONFIG_GLOBAL, behind env", "env GIT_CONFIG_GLOBAL=/tmp/g git p"],
+    ["HOME", "HOME=/tmp/x git p"],
+    ["XDG_CONFIG_HOME", "XDG_CONFIG_HOME=/tmp/x git p"],
+    ["-c include.path", "git -c include.path=/tmp/a p"],
+    ["-c includeIf", "git -c includeIf.onbranch:x.path=/tmp/a p"],
+  ])("takes git with a setting in front that may name an alias for an outward step, and asks: %s", (_name, command) => {
+    expect(judgeCommand(command)).toMatchObject({ chained: false, redirected: true });
+    expect(judgeCommand(command)?.outward).toHaveLength(1);
+    expect(judgeCommand(`git add -A && ${command}`)?.chained).toBe(true);
+  });
+
+  it.each([
+    ["a setting that is no alias", "git -c user.name=x commit -m wip"],
+    ["a pager set in front", "GIT_PAGER=cat git log"],
+    ["tracing set in front", "GIT_TRACE=1 git status"],
+    ["a program behind a wrapper that is not git or gh", "stdbuf -o L make"],
+    ["xargs that runs another program", "xargs -I {} echo {}"],
+    ["the words as text, with no wrapper in front", "echo git push"],
+  ])("is not a step: %s", (_name, command) => {
+    expect(judgeCommand(command)).toEqual({ outward: [], chained: false, redirected: false });
   });
 });
 

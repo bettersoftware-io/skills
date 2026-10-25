@@ -21,7 +21,24 @@ const WRITE_METHODS = ["POST", "PATCH", "PUT", "DELETE"];
 /** `gh api` sends these as a request body, which makes the call a write unless a method says otherwise. */
 const GH_API_FIELDS = ["-f", "-F", "--field", "--raw-field", "--input"];
 /** `git` options that take their value as the next word. */
-const GIT_OPTIONS_WITH_VALUE = ["-C", "-c", "--git-dir", "--work-tree", "--namespace", "--exec-path"];
+const GIT_OPTIONS_WITH_VALUE = ["-C", "-c", "--git-dir", "--work-tree", "--namespace", "--exec-path", "--config-env", "--attr-source"];
+/**
+ * A setting `git -c` or `--config-env` gives that may make a word of its own a
+ * command: `alias.p=push` runs `git p` as a push, and an included file may
+ * hold such an alias.
+ */
+const ALIAS_SETTING = /^(?:alias|include|includeif)\./i;
+/** A value set in front of `git` that hands it settings, or the files they are read from, so an alias the reader cannot see. */
+const CONFIG_IN_FRONT = /^(?:GIT_CONFIG\w*|HOME|XDG_CONFIG_HOME)=/;
+/** How many words behind a wrapper that name a program this reads are tried as the command, before the stage is not read at all. */
+const WRAPPED_CANDIDATES = 32;
+
+/**
+ * A stage not read because a wrapper is followed by more than
+ * `WRAPPED_CANDIDATES` words that name git, gh or a shell. Those words were
+ * read, so the hook refuses it whatever the text looks like.
+ */
+export class WrappedLimitError extends LimitError {}
 /**
  * Words before a command that are not the command: what a shell allows there,
  * and programs that run the command that follows them. Claude Code looks past
@@ -116,7 +133,7 @@ function judgeScript(script: Script, depth = 0): Reading {
     for (const stage of stages) {
       const words = commandWords(stage);
 
-      if (isOutward(words)) {
+      if (isOutward(words) || isConfiguredGit(stage, words)) {
         outward.push(words.slice(0, 3).join(" "));
         // What stands behind a pipe from another command is no lone step: a filter comes after, never before.
         chained ||= behind;
@@ -170,17 +187,41 @@ function judgeScript(script: Script, depth = 0): Reading {
  * command that may be local and letting a chain through unread.
  */
 export function mentionsOutward(text: string): boolean {
-  const word = /(?:^|[^A-Za-z0-9_-])(?:push|gh)(?:$|[^A-Za-z0-9_-])/;
+  return mentions(text, /(?:^|[^A-Za-z0-9_-])(?:push|gh)(?:$|[^A-Za-z0-9_-])/);
+}
 
+/**
+ * Whether the text names git at all. Asked only about a command too long or
+ * too deeply nested to read: git may run an outward step under a name the
+ * text does not show (an alias from settings given in front of it), and a
+ * command of that size is rare enough to refuse.
+ */
+export function mentionsGit(text: string): boolean {
+  return mentions(text, /(?:^|[^A-Za-z0-9_-])git(?:\.exe)?(?:$|[^A-Za-z0-9_-])/i);
+}
+
+function mentions(text: string, word: RegExp): boolean {
   // Also with each line continuation taken out, as the shell reads it: `pu`, a continuation and `sh` are `push`.
   // Any run of backslashes before a new line goes too: backticks make two of them one, and then a continuation.
-  return word.test(text) || word.test(text.replace(/\\+\n/g, ""));
+  // And with every quote and backslash taken out, as the shell takes them out of a word: `pu"s"h`, `g\it`.
+  const joined = text.replace(/\\+\n/g, "");
+
+  return word.test(text) || word.test(joined) || word.test(joined.replace(/['"\\]/g, ""));
 }
 
 /**
  * The command's own words: no `VAR=value` in front, no `then`, `time`, `env`
  * or `xargs`, and none of what such a word takes before the command (`nice
  * -n 5`, `timeout 30s`, `command --`).
+ *
+ * Such a program's options are not all known here (`stdbuf -o L`, `xargs -I
+ * {}`, `env -C dir`, `exec -a name`), and an option's value may itself be
+ * `git` or `gh` (`env -C git git push`). So when one stands in front, each
+ * later word that names a program this reads is tried in turn, and the first
+ * that is an outward step, or runs a command from its argument, is taken for
+ * the command; with none, the first such word. A wrong guess refuses a chain;
+ * it lets none through. More than `WRAPPED_CANDIDATES` such words and the
+ * stage is not read: `LimitError`.
  */
 export function commandWords(stage: Stage): string[] {
   let start = 0;
@@ -199,19 +240,67 @@ export function commandWords(stage: Stage): string[] {
     }
   }
 
-  return stage.slice(start);
+  return led ? stage.slice(wrappedStart(stage, start)) : stage.slice(start);
+}
+
+/** Where the command behind a wrapper starts: see `commandWords`. */
+function wrappedStart(stage: Stage, start: number): number {
+  let first: number | undefined;
+  let tried = 0;
+
+  for (let index = start; index < stage.length; index += 1) {
+    if (!isJudged(stage[index] ?? "")) {
+      continue;
+    }
+
+    tried += 1;
+
+    if (tried > WRAPPED_CANDIDATES) {
+      throw new WrappedLimitError(`a program that runs a command is followed by more than ${WRAPPED_CANDIDATES} words that name git, gh or a shell`);
+    }
+
+    const words = stage.slice(index);
+
+    if (isOutward(words) || inlineScript(words) !== undefined) {
+      return index;
+    }
+
+    first ??= index;
+  }
+
+  return first ?? start;
+}
+
+/** The program a word names: the last part of a path written with either slash, without `.exe`, in lower case. */
+function programName(word: string): string {
+  return (word.split(/[\\/]/).pop() ?? "").replace(/\.exe$/i, "").toLowerCase();
+}
+
+/** A program whose words this reads: git, gh, and what runs a command from its argument. */
+function isJudged(word: string): boolean {
+  const program = programName(word);
+
+  return program === "git" || program === "gh" || program === "eval" || SHELLS.includes(program);
+}
+
+/** Whether git runs with a value set in front of it that may give it an alias (`GIT_CONFIG_KEY_0=alias.p`, `HOME=/tmp/x`). */
+function isConfiguredGit(stage: Stage, words: string[]): boolean {
+  return isGit(words) && stage.slice(0, stage.length - words.length).some((word) => CONFIG_IN_FRONT.test(word));
 }
 
 function isGit(words: string[]): boolean {
-  return (words[0] ?? "").split("/").pop() === "git";
+  return programName(words[0] ?? "") === "git";
 }
 
 export function isOutward(words: string[]): boolean {
   if (isGit(words)) {
-    return GIT_OUTWARD.includes(skipGitOptions(words.slice(1))[0] ?? "");
+    const options = words.slice(1);
+    const own = skipGitOptions(options);
+
+    return GIT_OUTWARD.includes(own[0] ?? "") || setsAlias(options.slice(0, options.length - own.length));
   }
 
-  const program = (words[0] ?? "").split("/").pop();
+  const program = programName(words[0] ?? "");
 
   if (program === "gh") {
     const rest = skipGhOptions(words.slice(1));
@@ -279,6 +368,19 @@ function skipGitOptions(words: string[]): string[] {
   return words.slice(start);
 }
 
+/**
+ * Whether git's own options set an alias. The alias's name is the only word
+ * the reader sees of the command it stands for, so a command that sets one is
+ * taken for an outward step: refused in a chain, asked about alone.
+ */
+function setsAlias(options: string[]): boolean {
+  return options.some((option, index) => {
+    const value = option === "-c" || option === "--config-env" ? options[index + 1] : /^--config-env=(.*)$/.exec(option)?.[1];
+
+    return ALIAS_SETTING.test(value ?? "");
+  });
+}
+
 /** `gh -R owner/name pr merge` → `pr merge`. */
 function skipGhOptions(words: string[]): string[] {
   let start = 0;
@@ -309,7 +411,7 @@ function isWritingApiCall(words: string[]): boolean {
 
 /** What `bash -c <text>` or `eval <text>` will run, when it can be read. */
 function inlineScript(words: string[]): Script | undefined {
-  const program = (words[0] ?? "").split("/").pop() ?? "";
+  const program = programName(words[0] ?? "");
   let text: string | undefined;
 
   if (program === "eval") {

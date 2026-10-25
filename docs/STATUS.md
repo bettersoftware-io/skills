@@ -369,9 +369,14 @@ feature with sign-in and routing. The Opus evals and the further tests of
   possible difference from the hosts, with no detail; not followed up. The
   cost of a wrong "registered" is a joined command that gets one prompt, not
   an unprompted push: the host's own permission rules are untouched.
-- **`lib/outward.mts` knows git by the last part of a `/` path only.**
-  `isGit` does not take `git.exe`, or a path written with backslashes, for
-  git, so a push started that way is not seen as an outward step.
+- **The push hook does not see what git's settings say.** It reads only the
+  command, by design. An alias or a push target set by an earlier command
+  (`git config alias.p push`, then `git p && …`; `git config
+  remote.origin.push a:main`, then a plain `git push`) is not seen. Ask rules
+  for those `git config` writes were weighed on 2026-10-25 and left out: a
+  rule cannot tell `git config remote.origin.url` (a read) from a write, so
+  every such read would prompt. In the default permission mode the setting
+  is itself a step a person approves first; under bypass it is not.
 - **Two eval-depth mutants survive only under load.** "is refused when evals
   are nested inside one another too deep" and "… too deep (the count goes
   down the evals)" survived the full run of the add-on's 961 mutants on

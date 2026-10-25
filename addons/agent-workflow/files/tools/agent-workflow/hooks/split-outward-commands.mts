@@ -21,10 +21,12 @@
 // host's own permission rules still judge it, and when it names an outward
 // step Claude Code is given the question too. The refusal orders the work;
 // it is not what keeps a push from happening. A command this will not read
-// (longer than a million characters, or nested more than forty deep) is
-// refused when it holds the word `push` or `gh` at all, and so is a command
-// the reader fails on: a chain must not get through because it was written
-// to be hard to read.
+// (longer than a million characters, nested more than forty deep, or a
+// wrapper followed by more than 32 words that name git, gh or a shell) is
+// refused when it holds the word `push`, `gh` or `git` at all, and so is a
+// command the reader fails on: a chain must not get through because it was
+// written to be hard to read. `git` counts there because git may run a push
+// under an alias the text does not show.
 //
 // It asks about a push that is not written plainly: one that holds a colon
 // (`source:target`, `:target`), which can write to another branch than the
@@ -60,7 +62,7 @@
 import { readFileSync } from "node:fs";
 
 import { isMainModule } from "../lib/main.mts";
-import { judgeCommand, mentionsOutward, type Verdict } from "../lib/outward.mts";
+import { judgeCommand, mentionsGit, mentionsOutward, type Verdict, WrappedLimitError } from "../lib/outward.mts";
 
 /** The fields a host sends that this hook reads. */
 export interface CommandPayload {
@@ -99,13 +101,13 @@ export function judgeCall(payload: CommandPayload): Answer | undefined {
 
   try {
     verdict = command === undefined ? undefined : judgeCommand(command);
-  } catch {
+  } catch (error) {
     // Not read: too long, nested too deep, or the reader itself failed. A chain must not pass for that.
-    return command !== undefined && mentionsOutward(command)
+    return command !== undefined && (error instanceof WrappedLimitError || mentionsOutward(command) || mentionsGit(command))
       ? {
           decision: "deny",
           reason: [
-            "Refused: this command is too long or too deeply nested to be read, and it names an outward step (push, gh).",
+            "Refused: this command is too long or too deeply nested to be read, and it names an outward step (push, gh) or git.",
             "Run each outward step as a short tool call of its own, with nothing else in it.",
           ].join("\n"),
         }

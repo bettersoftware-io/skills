@@ -145,7 +145,22 @@ A step is read behind a program that only runs it: `time`, `command`,
 `exec`, `nohup`, `env`, `timeout`, `nice`, `stdbuf`, `builtin`, `noglob` and
 `xargs`, each with its own options (`nice -n 5`, `timeout -s KILL 30s`). Claude Code
 looks past the same words when it matches a permission rule to a command, so
-`nice git push` runs under an `allow` rule for `git push`.
+`nice git push` runs under an `allow` rule for `git push`. Not every option of
+those programs is known here (`stdbuf -o L`, `xargs -I {}`, `env -C dir`,
+`exec -a name`), and a value may itself be `git` (`env -C git git push`). So
+behind one of them each later `git`, `gh`, shell or `eval` is tried in turn,
+and the first that is an outward step or runs a command from its argument is
+taken for the command: a wrong guess refuses a chain, and lets none through.
+Past 32 such words the command is not read, and is refused if it names `push`
+or `gh`. Git and gh are known by a path written with either slash, and with
+`.exe`.
+
+A command that may give git an alias is taken for an outward step, since the
+alias's name is the only word the hook sees of what it runs:
+`git -c alias.p=push p`, `--config-env alias.…`, a setting that includes a
+file (`-c include.path=…`, `includeIf.…`), and a value set in front of `git`
+that hands it settings (`GIT_CONFIG_*`, `HOME`, `XDG_CONFIG_HOME`). It is
+refused in a chain and asked about alone.
 
 It is let through when the outward step is alone: with a pipe into a filter
 (`git push 2>&1 | tail -2`), with redirections, with a `$(cat <<'EOF' … EOF)`
@@ -989,8 +1004,8 @@ Each `((` is tried as arithmetic to its own close before it is taken for a
 subshell, so a long run of brackets cost one look ahead per bracket. What
 those tries read, over the whole command, is bounded by the longest command
 (a million characters). Past that the command is not read, and is refused
-when it names an outward step: a hundred thousand brackets are answered in
-well under a second.
+when it names an outward step or git: a hundred thousand brackets are
+answered in well under a second.
 
 ## Not verified
 
