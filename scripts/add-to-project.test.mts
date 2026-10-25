@@ -639,6 +639,93 @@ describe("what an add-on update leaves to the project", () => {
   });
 });
 
+describe("a workflow whose actions an update bot moved", () => {
+  const WORKFLOW = ".github/workflows/demo.yml";
+  const SHIPPED = "addons/demo/files/.github/workflows/demo.yml";
+
+  /** A workflow as Renovate and Dependabot pin it: a commit, and its version beside it. */
+  function workflow(checkout: string, setupNode: string, run = "pnpm demo"): string {
+    return `jobs:\n  demo:\n    steps:\n      - uses: actions/checkout@${checkout}\n      - uses: actions/setup-node@${setupNode}\n      - run: ${run}\n`;
+  }
+
+  function createWorldWithWorkflow(): { repository: string; project: string } {
+    const world = createWorldWithKit();
+
+    write(world.repository, SHIPPED, workflow("aaa1 # v6.0.0", "bbb1 # v6.0.0"));
+    addToProject({ project: world.project, unit: "demo", repository: world.repository });
+
+    return world;
+  }
+
+  it("is not refused by the add-on's update, and counts as untouched from then on", () => {
+    const { repository, project } = createWorldWithWorkflow();
+    write(project, WORKFLOW, workflow("aaa2 # v7.0.0", "bbb1 # v6.0.0"));
+
+    const result = addToProject({ project, unit: "demo", repository });
+
+    expect(result.files.unchanged).toContain(WORKFLOW);
+    expect(read(project, WORKFLOW)).toBe(workflow("aaa2 # v7.0.0", "bbb1 # v6.0.0"));
+    expect(readJson(project, "tools/installed.json").demo.files[WORKFLOW]).toBe(sha256(workflow("aaa2 # v7.0.0", "bbb1 # v6.0.0")));
+  });
+
+  it("takes the add-on's new copy, at the newer version of each action, and says so", () => {
+    const { repository, project } = createWorldWithWorkflow();
+    write(project, WORKFLOW, workflow("aaa2 # v7.0.0", "bbb1 # v6.0.0"));
+    write(repository, SHIPPED, workflow("aaa1 # v6.0.0", "bbb3 # v6.1.0", "pnpm demo --all"));
+
+    const result = addToProject({ project, unit: "demo", repository });
+
+    expect(read(project, WORKFLOW)).toBe(workflow("aaa2 # v7.0.0", "bbb3 # v6.1.0", "pnpm demo --all"));
+    expect(result.files.repinned).toEqual([WORKFLOW]);
+    expect(describeResult(result, project)).toContain(`  wrote    ${WORKFLOW} (its only changes here were moved action versions, and the newer of each is kept)`);
+  });
+
+  it("as the add-on wrote it, takes the new copy as shipped, an action the add-on moved back included", () => {
+    const { repository, project } = createWorldWithWorkflow();
+    write(repository, SHIPPED, workflow("aaa0 # v5.0.0", "bbb1 # v6.0.0"));
+
+    const result = addToProject({ project, unit: "demo", repository });
+
+    expect(read(project, WORKFLOW)).toBe(workflow("aaa0 # v5.0.0", "bbb1 # v6.0.0"));
+    expect(result.files.repinned).toEqual([]);
+  });
+
+  it("is still refused when it was changed in another way too, and nothing is written", () => {
+    const { repository, project } = createWorldWithWorkflow();
+    write(project, WORKFLOW, workflow("aaa2 # v7.0.0", "bbb1 # v6.0.0", "pnpm demo --project-flag"));
+    write(repository, SHIPPED, workflow("aaa1 # v6.0.0", "bbb3 # v6.1.0", "pnpm demo --all"));
+
+    expect(() => addToProject({ project, unit: "demo", repository })).toThrow(/differ from what was installed[\s\S]*\.github\/workflows\/demo\.yml/);
+    expect(read(project, WORKFLOW)).toBe(workflow("aaa2 # v7.0.0", "bbb1 # v6.0.0", "pnpm demo --project-flag"));
+  });
+
+  it("is told apart only in a workflow: a moved `uses:` in any other file is an edit", () => {
+    const { repository, project } = createWorldWithKit();
+    write(repository, "addons/demo/files/tools/demo/steps.yml", "- uses: actions/checkout@aaa1 # v6.0.0\n");
+    addToProject({ project, unit: "demo", repository });
+    write(project, "tools/demo/steps.yml", "- uses: actions/checkout@aaa2 # v7.0.0\n");
+    write(repository, "addons/demo/files/tools/demo/steps.yml", "- uses: actions/checkout@aaa3 # v6.1.0\n");
+
+    expect(() => addToProject({ project, unit: "demo", repository })).toThrow(/tools\/demo\/steps\.yml/);
+  });
+
+  it("in a project installed before the record kept workflows without their refs, is taken only when it matches the new copy without them", () => {
+    const { repository, project } = createWorldWithWorkflow();
+    const record = readJson(project, "tools/installed.json");
+    delete record.demo.withoutActionRefs;
+    write(project, "tools/installed.json", `${JSON.stringify(record, null, 2)}\n`);
+    write(project, WORKFLOW, workflow("aaa2 # v7.0.0", "bbb1 # v6.0.0"));
+    write(repository, SHIPPED, workflow("aaa1 # v6.0.0", "bbb3 # v6.1.0", "pnpm demo --all"));
+
+    expect(() => addToProject({ project, unit: "demo", repository })).toThrow(/\.github\/workflows\/demo\.yml/);
+
+    write(repository, SHIPPED, workflow("aaa1 # v6.0.0", "bbb3 # v6.1.0"));
+
+    expect(addToProject({ project, unit: "demo", repository }).files.repinned).toEqual([WORKFLOW]);
+    expect(read(project, WORKFLOW)).toBe(workflow("aaa2 # v7.0.0", "bbb3 # v6.1.0"));
+  });
+});
+
 describe("writing a project file", () => {
   it("is refused through a link on its own, so a write that skips the checks up front is still safe", () => {
     const { project } = createWorld();
@@ -2274,4 +2361,9 @@ function read(root: string, path: string): string {
 /** Loosely typed on purpose: each test asserts the shape of the file it reads. */
 function readJson(root: string, path: string): any {
   return JSON.parse(read(root, path));
+}
+
+/** The hash tools/installed.json records for a file. */
+function sha256(text: string): string {
+  return createHash("sha256").update(text).digest("hex");
 }

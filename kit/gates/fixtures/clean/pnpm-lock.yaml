@@ -1,0 +1,27 @@
+lockfileVersion: '9.0'
+
+settings:
+  autoInstallPeers: true
+  excludeLinksFromLockfile: false
+
+importers:
+
+  .: {}
+
+  packages/client-core: {}
+
+  packages/client-react: {}
+
+  packages/contract-types: {}
+
+  packages/domain: {}
+
+  packages/e2e: {}
+
+  packages/integration: {}
+
+  packages/react-bindings: {}
+
+  packages/widgets: {}
+
+packages: {}

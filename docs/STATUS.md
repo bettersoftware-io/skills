@@ -82,6 +82,17 @@ on 2026-10-05, on pushes to main and on a pull request
   Dependency Dashboard (skills-demo #16). In this repository the app ran no
   job inside "before 6am on monday" and opened nothing; the schedule is now
   the whole of Monday.
+- **An update has not yet kept a bot's action versions in a real project.**
+  Since 0.20.2 a workflow whose only changes are moved action commits
+  (`uses: …@<commit> # <version>`) takes the add-on's new copy, at the newer
+  version of each action, where it used to be refused. condo-ledger's
+  `ci-security` update refused `ci-security.yml` and `scorecard.yml` on
+  2026-10-24, after Renovate's actions pull request (#17); its next update
+  should take both. A project installed before 0.20.2 has no record of its
+  workflows without their refs, so until one update has run, a workflow
+  whose template changed as well is still refused. The Playwright image of a
+  workflow is not compared this way: Renovate moves it with the package, and
+  an update puts back the add-on's.
 - **No run where the coverage gate fails has been seen.** The report is meant
   to publish then too.
 - **The motion audit had nothing to judge.** The starter has no animation, so
@@ -170,45 +181,12 @@ Added on 2026-10-11 ([the record](documenting-architecture-2026-10-11.md)).
 
 ## Next, with no plan yet
 
-- **An update bot's pull request edits files the installer owns.** Both bots
-  move the action commits in `.github/workflows/`, which the add-ons wrote
-  and `tools/installed.json` records. A merged bump makes each file one the
-  next update of its add-on refuses, unless the add-on's new copy is the same
-  byte for byte. Seen on 2026-10-24: condo-ledger merged Renovate's actions
-  pull request (#17), and its next `ci-security` update refused
-  `ci-security.yml` and `scorecard.yml`; `--force` would have put the older
-  commits back. Leaving the add-ons' workflows to the add-on updates, as
-  `tools/` is left, would close it, at the cost of a project's actions moving
-  only when its add-ons are updated.
-
-
-Found while Origamic's dependency rule went into its gates, on 2026-10-16
-(skills #30 and #31, origamic #18).
-
-- **An explicit package that declares `reactCompiler: true` is not checked
-  against a build.** `reactRules: "client"` gives it the memoization ban when
-  it declares the compiler, but the build that compiles it is another
-  package's (the app's), so `check:react-policies` reads no `vite.config.ts`
-  for it and cannot tell a false declaration. Seen on 2026-10-16.
-- **The core's "no UI framework" rule sees only an import that resolves.**
-  Its pattern is `node_modules/react/`, so `import "react"` in a core that
-  cannot resolve React is not one of its findings. In Origamic the library
-  ban (`vendorOnlyIn`) caught it; a project that lists React nowhere in
-  `vendorOnlyIn` would not see it at all. Matching the bare name too, as
-  the library ban does, would close it.
-- **No gate sees a workspace package missing from the lockfile.** pnpm 12
-  writes no importer for a package with no dependency, and its frozen
-  install, which CI runs, then refuses the lockfile; `gate:full` is green
-  and only CI fails. Origamic added `packages/<name>: {}` by hand. Whether a
-  package of the workspace has an entry under `importers` is decidable from
-  `pnpm-lock.yaml`.
-
-Found while a project was set up with the plugin, on 2026-10-12 and 13.
-
-- **`pnpm repo:settings` names no check of a job with a `strategy:`.** This
-  repository's two matrix jobs make twelve checks, and the ruleset the
-  command printed asked for one. A matrix whose values are written out in
-  the file could be read. The twelve names were added by hand.
+- **The React Compiler check of an explicit package does not read a build's
+  `exclude`.** Since 0.20.3 an explicit package that declares
+  `reactCompiler: true` is checked against every package with a
+  `vite.config.ts` that depends on it, and each must run the compiler. A
+  build that runs it with an `exclude` naming the package's folder (Origamic's
+  web app excludes `packages/runtime` that way) still passes.
 
 ## Open decisions
 
@@ -330,7 +308,7 @@ Found while a project was set up with the plugin, on 2026-10-12 and 13.
   choice the add-on's README states. A review on 2026-10-24 gave the detail
   of the second: places where the reader read a command otherwise than bash
   (`$'…'`, an unquoted heredoc's body, `${…}`, and more of that kind found
-  with them), closed in 0.20.2 ([the add-on's
+  with them), closed in 0.20.4 ([the add-on's
   README](../addons/agent-workflow/README.md#a-review-against-the-hosts-own-matching)).
   The reader is still compared with bash by hand, case by case, and not with
   a shell's own parser over generated commands.

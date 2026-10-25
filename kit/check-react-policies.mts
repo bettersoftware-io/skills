@@ -13,7 +13,8 @@
 //   - a package imports React and has another role, so it gets none of them;
 //   - a client bans manual memoization but its build does not run the
 //     compiler, so nothing memoizes; or it runs the compiler and does not say
-//     so, so a hand-written memo is not banned;
+//     so, so a hand-written memo is not banned. An explicit package is built
+//     by the packages that depend on it, so each of their builds must run it;
 //   - a later block in the project's own ESLint config sets the same rule.
 //     ESLint keeps one set of options per rule, so the kit's are replaced.
 //
@@ -24,7 +25,7 @@
 // Exit 0: every React package is covered, or none imports React (SKIP).
 // Exit 1: findings. Exit 2: the check could not run.
 
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 
 import { ConfigError, loadConfig, type Project, reactRoleOf } from "./gates/lib/config.mts";
@@ -105,10 +106,12 @@ export async function judgeReactPolicies(project: Project, resolveLint: ResolveL
     const declaresCompiler = reactRole === "client" && declared.reactCompiler === true;
 
     if (reactRole === "client") {
-      // The build that compiles an explicit package is another package's, so
-      // its vite.config.ts is not here to be read.
+      // The build that compiles an explicit package is another package's: each
+      // package with a vite.config.ts that depends on it, directly or not.
       if (declared.role === "client") {
         findings.push(...judgeCompiler(path, declaresCompiler, compiles));
+      } else if (declaresCompiler) {
+        findings.push(...judgeBuildsOf(path, buildsOf(project, path), (build) => runsCompiler(root, build) === true));
       }
 
       if (!isError(lint, "react-hooks/rules-of-hooks")) {
@@ -148,6 +151,46 @@ function judgeCompiler(path: string, declared: boolean, compiles: boolean | unde
   }
 
   return [];
+}
+
+/** What an explicit package that declares the compiler is told when a build that includes it does not run it, or no build is seen. */
+function judgeBuildsOf(path: string, builds: string[], compiles: (build: string) => boolean): string[] {
+  const withoutCompiler = builds.filter((build) => !compiles(build));
+
+  if (builds.length === 0) {
+    return [
+      `${path} declares reactCompiler: true, so manual memoization is banned there, but no package of the workspace that depends on it has a vite.config.ts, so no build is seen to compile it. Nothing may memoize in its place. Name it in the package.json of the app that bundles it, or remove reactCompiler from its declaration in architecture.config.mts.`,
+    ];
+  }
+
+  if (withoutCompiler.length > 0) {
+    return [
+      `${path} declares reactCompiler: true, so manual memoization is banned there, but ${withoutCompiler.join(", ")} ${withoutCompiler.length === 1 ? "builds it and does" : "build it and do"} not run the React Compiler in ${withoutCompiler.length === 1 ? "its" : "their"} vite.config.ts. Nothing memoizes it there. Run the compiler in that build (plugins: [react(), babel({ presets: [reactCompilerPreset()] })]), or remove reactCompiler from its declaration in architecture.config.mts.`,
+    ];
+  }
+
+  return [];
+}
+
+/** The workspace packages with a Vite config that depend on the package at `path`, through their package.json, directly or through others. */
+export function buildsOf({ root, workspace }: Pick<Project, "root" | "workspace">, path: string): string[] {
+  const dependsOn = new Map(
+    workspace.map((pkg) => {
+      const manifest = join(root, pkg.path, "package.json");
+      const { dependencies = {}, devDependencies = {} } = existsSync(manifest)
+        ? (JSON.parse(readFileSync(manifest, "utf8")) as { dependencies?: Record<string, string>; devDependencies?: Record<string, string> })
+        : {};
+
+      return [pkg.path, workspace.filter(({ name }) => name in dependencies || name in devDependencies).map((dependency) => dependency.path)];
+    }),
+  );
+  const reaches = (from: string, seen: Set<string>): boolean =>
+    (dependsOn.get(from) ?? []).some((next) => next === path || (!seen.has(next) && reaches(next, seen.add(next))));
+
+  return workspace
+    .map((pkg) => pkg.path)
+    .filter((candidate) => candidate !== path && runsCompiler(root, candidate) !== undefined && reaches(candidate, new Set([candidate])))
+    .sort();
 }
 
 function missing(path: string, file: string, what: string, rule: string): string {

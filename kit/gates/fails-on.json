@@ -9,6 +9,7 @@
   "package-scripts": "a workspace package has no typecheck script, or no test script and no listed reason; an e2e package has a test script; a script runs eslint without --max-warnings 0, or vitest without --no-fsModuleCache",
   "node-floor": "a package.json has engines.node, or the root's has no devEngines.runtime that names node with a version and \"onFail\": \"error\"",
   "package-manager": "the root package.json has no packageManager, or one that is not an exact version followed by +sha512. and the hash of that release",
+  "lockfile": "a package of the workspace has no entry under importers: in pnpm-lock.yaml, so the frozen install CI runs refuses the lockfile",
   "app-harness": "a test calls the function that builds the whole application, anywhere but the one harness file",
   "test-ids": "a test id is written as a string literal, in a component, a selector or a query, outside the client's test-ids file",
   "types-only": "a package declared typesOnly exports a runtime value",

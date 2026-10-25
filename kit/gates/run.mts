@@ -24,6 +24,7 @@ import { checkDependencies } from "./lib/depcruise.mts";
 import { isMainModule } from "./lib/files.mts";
 import { checkInstructionPaths, instructionsSkipReason } from "./lib/instructions.mts";
 import { checkLanguage, languageSkipReason } from "./lib/language.mts";
+import { checkLockfile, lockfileSkipReason } from "./lib/lockfile.mts";
 import { checkNodeFloor, nodeFloorSkipReason } from "./lib/node-floor.mts";
 import { checkPackageManager, packageManagerSkipReason } from "./lib/package-manager.mts";
 import { checkPackageScripts, packageScriptsSkipReason } from "./lib/package-scripts.mts";
@@ -107,6 +108,7 @@ export async function runGates({ root = process.cwd(), files, configFile }: Gate
       "package-scripts",
       "node-floor",
       "package-manager",
+      "lockfile",
       "app-harness",
       "test-ids",
       "types-only",
@@ -121,6 +123,7 @@ export async function runGates({ root = process.cwd(), files, configFile }: Gate
       "package-scripts": packageScriptsSkipReason(project),
       "node-floor": nodeFloorSkipReason(project),
       "package-manager": packageManagerSkipReason(project),
+      lockfile: lockfileSkipReason(project),
       "app-harness": appHarnessSkipReason(project),
       "test-ids": testIdsSkipReason(project),
       "types-only": typesOnlySkipReason(project),
@@ -137,6 +140,7 @@ export async function runGates({ root = process.cwd(), files, configFile }: Gate
       ...checkPackageScripts(project),
       ...checkNodeFloor(project),
       ...checkPackageManager(project),
+      ...checkLockfile(project),
       ...checkAppHarness(project),
       ...checkTestIds(project),
       ...checkTypesOnly(project),
