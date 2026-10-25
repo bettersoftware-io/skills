@@ -177,7 +177,7 @@
   {
     "name": "compare: every unit the project has",
     "file": "scripts/add-to-project.mts",
-    "find": "  const units = unit === undefined ? installed : [parseUnit(unit).name];",
+    "find": "  const units = unit === undefined ? installed.filter((name) => name !== STARTER || !installed.includes(KIT)) : [parseUnit(unit).name];",
     "replace": "  const units = unit === undefined ? installed.slice(0, 1) : [parseUnit(unit).name];",
     "test": "pnpm vitest run scripts/add-to-project.test.mts -t \"lists every file of every unit the project has\""
   },
