@@ -462,6 +462,34 @@
     "test": "pnpm vitest run addons/visual/tests/summary.test.mts"
   },
   {
+    "name": "summary: a scenario that never resolved is counted as a page",
+    "file": "addons/visual/files/tools/visual/summary.mts",
+    "find": "    if (spec.title !== ORPHAN_CHECK && !isUnresolved(spec)) {",
+    "replace": "    if (spec.title !== ORPHAN_CHECK) {",
+    "test": "pnpm vitest run addons/visual/tests/summary.test.mts -t \"as unresolved, not as a page\""
+  },
+  {
+    "name": "summary: a passed scenario with no annotation is unresolved",
+    "file": "addons/visual/files/tools/visual/summary.mts",
+    "find": "    !spec.ok &&\n",
+    "replace": "",
+    "test": "pnpm vitest run addons/visual/tests/summary.test.mts -t \"counts a scenario with no annotation as a page\""
+  },
+  {
+    "name": "summary: the unresolved count is not printed",
+    "file": "addons/visual/files/tools/visual/summary.mts",
+    "find": "${unresolved === 0 ? \"\" : `, ${unresolved} unresolved`}",
+    "replace": "",
+    "test": "pnpm vitest run addons/visual/tests/summary.test.mts -t \"as unresolved, not as a page\""
+  },
+  {
+    "name": "summary: no unresolved scenario is still printed",
+    "file": "addons/visual/files/tools/visual/summary.mts",
+    "find": "${unresolved === 0 ? \"\" : `, ${unresolved} unresolved`}",
+    "replace": "${`, ${unresolved} unresolved`}",
+    "test": "pnpm vitest run addons/visual/tests/summary.test.mts -t \"says nothing of unresolved\""
+  },
+  {
     "name": "summary: the levels line is left out of a failed run",
     "file": "addons/visual/files/tools/visual/summary.mts",
     "find": "      pictures,\n      \"\",\n",
@@ -513,9 +541,16 @@
   {
     "name": "summary: the orphan check is counted as a page",
     "file": "addons/visual/files/tools/visual/summary.mts",
-    "find": "spec.title !== ORPHAN_CHECK",
-    "replace": "true",
+    "find": "spec.title !== ORPHAN_CHECK && !isUnresolved(spec)",
+    "replace": "!isUnresolved(spec)",
     "test": "pnpm vitest run addons/visual/tests/summary.test.mts"
+  },
+  {
+    "name": "summary: a failed orphan check is counted as unresolved",
+    "file": "addons/visual/files/tools/visual/summary.mts",
+    "find": "    spec.title !== ORPHAN_CHECK &&\n",
+    "replace": "",
+    "test": "pnpm vitest run addons/visual/tests/summary.test.mts -t \"failed orphan check\""
   },
   {
     "name": "examples: the goldens are not an example",

@@ -72,6 +72,27 @@ describe("summarise", () => {
     expect(summary.markdown).toContain("Pictures: 0 components, 0 sections, 2 pages");
   });
 
+  it("counts a failed scenario with no annotation as unresolved, not as a page: it failed before its picture was read", () => {
+    const summary = summarise(createReport([{ title: "button", level: "component" }, { title: "contradicts-itself", error: "PictureError: x" }]));
+
+    expect(summary.levels).toEqual({ component: 1, section: 0, page: 0 });
+    expect(summary.unresolved).toBe(1);
+    expect(summary.markdown).toContain("Pictures: 1 component, 0 sections, 0 pages, 1 unresolved");
+  });
+
+  it("does not count a failed orphan check as unresolved", () => {
+    const summary = summarise(createReport([{ title: "button", level: "component" }, { title: "every golden belongs to a scenario", error: "Error: orphans" }]));
+
+    expect(summary.unresolved).toBe(0);
+  });
+
+  it("says nothing of unresolved scenarios when there are none", () => {
+    const summary = summarise(createReport([{ title: "button", level: "component", error: "Error: x" }]));
+
+    expect(summary.unresolved).toBe(0);
+    expect(summary.markdown).not.toContain("unresolved");
+  });
+
   it("prints the level line for a failed run too, and ignores other annotations", () => {
     const summary = summarise(createReport([{ title: "button", level: "component", error: "Error: x" }, { title: "empty", other: true }]));
 

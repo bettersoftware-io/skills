@@ -52,7 +52,8 @@ the row that no page happens to show are never pictured.
 
 No gate counts pictures per level; the word is "reasonable". The job summary
 prints the count on every run (`Pictures: 6 components, 3 sections, 1 page`
-for the starter), so the shape is visible.
+for the starter), so the shape is visible. A scenario that failed before its
+picture was read, one that contradicts itself, is counted as `unresolved`.
 
 ### Where a new picture belongs
 

@@ -44,6 +44,8 @@ export interface Summary {
   exitCode: 0 | 1 | 2;
   /** How many pictures each level has, from the `level` annotation of each test. */
   levels: Record<Level, number>;
+  /** How many scenarios failed before their picture was read, so they have no level. */
+  unresolved: number;
   markdown: string;
 }
 
@@ -52,6 +54,7 @@ export function summarise(report: Report | undefined): Summary {
     return {
       exitCode: 2,
       levels: countLevels([]),
+      unresolved: 0,
       markdown: [
         "### Visual goldens: no verdict",
         "",
@@ -63,13 +66,15 @@ export function summarise(report: Report | undefined): Summary {
   const specs = (report.suites ?? []).flatMap(listSpecs);
   const failed = specs.filter((spec) => !spec.ok);
   const levels = countLevels(specs);
-  const pictures = `Pictures: ${count(levels.component, "component")}, ${count(levels.section, "section")}, ${count(levels.page, "page")}`;
+  const unresolved = specs.filter(isUnresolved).length;
+  const pictures = `Pictures: ${count(levels.component, "component")}, ${count(levels.section, "section")}, ${count(levels.page, "page")}${unresolved === 0 ? "" : `, ${unresolved} unresolved`}`;
   const startupErrors = (report.errors ?? []).map((error) => firstLine(error.message));
 
   if (specs.length === 0) {
     return {
       exitCode: 2,
       levels,
+      unresolved,
       markdown: [
         "### Visual goldens: no verdict",
         "",
@@ -80,12 +85,13 @@ export function summarise(report: Report | undefined): Summary {
   }
 
   if (failed.length === 0 && startupErrors.length === 0) {
-    return { exitCode: 0, levels, markdown: `### Visual goldens: passed\n\n${specs.length} of ${specs.length} checks match the committed images.\n\n${pictures}` };
+    return { exitCode: 0, levels, unresolved, markdown: `### Visual goldens: passed\n\n${specs.length} of ${specs.length} checks match the committed images.\n\n${pictures}` };
   }
 
   return {
     exitCode: 1,
     levels,
+    unresolved,
     markdown: [
       "### Visual goldens: failed",
       "",
@@ -111,17 +117,29 @@ function listSpecs(suite: ReportSuite): ReportSpec[] {
   return [...(suite.specs ?? []), ...(suite.suites ?? []).flatMap(listSpecs)];
 }
 
-/** A test with no level annotation is a page: that is what a scenario with no `Picture` field is. */
+/** A test with no level annotation is a page: that is what a scenario with no `Picture` field is. An unresolved one is no level. */
 function countLevels(specs: ReportSpec[]): Record<Level, number> {
   const levels: Record<Level, number> = { component: 0, section: 0, page: 0 };
 
   for (const spec of specs) {
-    if (spec.title !== ORPHAN_CHECK) {
+    if (spec.title !== ORPHAN_CHECK && !isUnresolved(spec)) {
       levels[readLevel(spec)] += 1;
     }
   }
 
   return levels;
+}
+
+/**
+ * A failed scenario with no level annotation: the spec annotates the level as
+ * soon as the scenario resolves, so this one threw while resolving.
+ */
+function isUnresolved(spec: ReportSpec): boolean {
+  return (
+    spec.title !== ORPHAN_CHECK &&
+    !spec.ok &&
+    !(spec.tests ?? []).some((test) => (test.annotations ?? []).some((annotation) => annotation.type === "level"))
+  );
 }
 
 function readLevel(spec: ReportSpec): Level {
