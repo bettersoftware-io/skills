@@ -68,10 +68,12 @@
 // the gate failed on the subagent's half-done edit. So a running shell or
 // monitor counts when the transcript of one of the session's subagents
 // (`<session>/subagents/agent-<id>.jsonl`, beside `transcript_path`) records
-// it as a task that subagent started, and the subagent's `.meta.json` does not
-// say it has finished. That layout is the host's and not documented: a
-// transcript that is not there or cannot be read names no subagent, and the
-// gate runs as before.
+// it as a task that subagent started (a tool's result with that
+// `backgroundTaskId`), and the subagent's `.meta.json` says
+// `"finished": false`. That layout is the host's and not documented, so the
+// hook believes it only in that shape: a transcript or a record that is not
+// there, cannot be read or says anything else names no subagent, and the gate
+// runs as before.
 //
 // Apart from that second stop, the agent finishes without a gate having
 // passed in three cases only: no folder from `cwd` upward has a gate script,
@@ -227,8 +229,9 @@ function agentsAtWork(tasks: unknown, transcriptPath: unknown): AgentAtWork[] {
  * finished. While a subagent waits on a shell of its own, the host lists the
  * shell and not the subagent, and the shell's entry does not say whose it is:
  * the subagent's transcript, which records the id of each task it started in
- * the background, does. A transcript or a record that cannot be read names no
- * subagent, and the gate runs.
+ * the background, does. Only a subagent whose `.meta.json` says
+ * `"finished": false` is looked at: a record that cannot be read, or says
+ * anything else, names no subagent, and the gate runs.
  */
 function subagentsWaitingOn(tasks: AgentAtWork[], transcriptPath: unknown): AgentAtWork[] {
   if (tasks.length === 0 || typeof transcriptPath !== "string" || !transcriptPath.endsWith(".jsonl")) {
@@ -246,17 +249,11 @@ function subagentsWaitingOn(tasks: AgentAtWork[], transcriptPath: unknown): Agen
 
   return names.flatMap((name): AgentAtWork[] => {
     const id = SUBAGENT_TRANSCRIPT.exec(name)?.[1];
-    const transcript = id === undefined ? undefined : readOrUndefined(join(folder, name));
-    // The transcript is JSON lines as `JSON.stringify` writes them, so the id is quoted on both sides.
-    const task = transcript === undefined ? undefined : tasks.find((waited) => transcript.includes(`"backgroundTaskId":${JSON.stringify(waited.id)}`));
+    const meta = id === undefined ? {} : readMeta(join(folder, `agent-${id}.meta.json`));
+    const started = meta.finished === false ? tasksStartedIn(readOrUndefined(join(folder, name))) : new Set<string>();
+    const task = tasks.find((waited) => waited.id !== undefined && started.has(waited.id));
 
     if (id === undefined || task === undefined) {
-      return [];
-    }
-
-    const meta = readMeta(join(folder, `agent-${id}.meta.json`));
-
-    if (meta.finished === true) {
       return [];
     }
 
@@ -277,6 +274,35 @@ function readOrUndefined(path: string): string | undefined {
   } catch {
     return undefined;
   }
+}
+
+/**
+ * The ids of the tasks a transcript records as started in the background: a
+ * tool's result whose `backgroundTaskId` is the id. The id written anywhere
+ * else (in a tool's output, in a record of another kind) is not one, and a
+ * line that is not JSON is passed over.
+ */
+function tasksStartedIn(transcript: string | undefined): Set<string> {
+  const started = new Set<string>();
+
+  for (const line of transcript?.split("\n") ?? []) {
+    let record: unknown;
+
+    try {
+      record = JSON.parse(line);
+    } catch {
+      continue;
+    }
+
+    const result: unknown = typeof record === "object" && record !== null ? (record as Record<string, unknown>).toolUseResult : undefined;
+    const id: unknown = typeof result === "object" && result !== null ? (result as Record<string, unknown>).backgroundTaskId : undefined;
+
+    if (typeof id === "string" && id !== "") {
+      started.add(id);
+    }
+  }
+
+  return started;
 }
 
 /** What a subagent's `.meta.json` says of it, or nothing when it cannot be read. */

@@ -916,13 +916,49 @@ describe("a stop while a subagent waits on a shell of its own", () => {
     expect(gate.runs()).toBe(1);
   });
 
-  it("still lets the turn end, naming the subagent by its type, when its record of itself cannot be read", async () => {
+  it("names the subagent by its type and the shell, when its record gives no description", async () => {
     const gate = createCountedGate(red);
-    const transcript = createSession({ a7d95027dbff24ace: { startedShell: "b3zljfh2e", meta: "not json" } });
+    const transcript = createSession({ a7d95027dbff24ace: { startedShell: "b3zljfh2e", meta: { finished: false } } });
     const reply = await replyToStop({ ...createStopPayload(createProject({ "gate:full": "false" }), [shell]), transcript_path: transcript }, gate.run);
 
     expect(gate.runs()).toBe(0);
     expect(reply?.systemMessage).toContain('subagent "Wait until 90 seconds have passed"');
+  });
+
+  it.each<[string, Record<string, unknown> | string | null]>([
+    ["cannot be read", "not json"],
+    ["is not there", null],
+    ["does not say whether it has finished", { agentType: "general-purpose" }],
+    ["says it has not finished, but not as true or false", { finished: "false" }],
+    ["is not an object", "[false]"],
+  ])("runs the gate when the subagent's record of itself %s: only a record that says it is still at work skips the gate", async (_case, meta) => {
+    const gate = createCountedGate(red);
+    const transcript = createSession({ a7d95027dbff24ace: { startedShell: "b3zljfh2e", meta } });
+
+    await replyToStop({ ...createStopPayload(createProject({ "gate:full": "false" }), [shell]), transcript_path: transcript }, gate.run);
+
+    expect(gate.runs()).toBe(1);
+  });
+
+  it.each<[string, unknown[]]>([
+    ["only in the text of a tool's output", [{ type: "user", message: { content: [{ type: "tool_result", content: '"backgroundTaskId":"b3zljfh2e"' }] } }]],
+    ["only in a record that is not a tool's result", [{ type: "queue-operation", backgroundTaskId: "b3zljfh2e" }]],
+    ["only on a line that is not JSON", ['{"toolUseResult":{"backgroundTaskId":"b3zljfh2e"}']],
+  ])("runs the gate when the subagent's transcript names the shell %s, and not as a task it started", async (_case, lines) => {
+    const gate = createCountedGate(red);
+    const transcript = createSession({ a7d95027dbff24ace: { lines } });
+
+    await replyToStop({ ...createStopPayload(createProject({ "gate:full": "false" }), [shell]), transcript_path: transcript }, gate.run);
+
+    expect(gate.runs()).toBe(1);
+  });
+
+  it("finds the task the subagent started among lines it cannot read", async () => {
+    const transcript = createSession({
+      a7d95027dbff24ace: { lines: ["not json", "", { type: "user", toolUseResult: "Error: a tool result that is text" }, { type: "user", toolUseResult: { backgroundTaskId: "b3zljfh2e" } }] },
+    });
+
+    expect(await replyToStop({ ...createStopPayload(createProject({ "gate:full": "false" }), [shell]), transcript_path: transcript }, red)).toEqual({ systemMessage: expect.any(String) });
   });
 
   it("names a subagent once, when the host lists it and its shell both", async () => {
@@ -964,7 +1000,7 @@ describe("a stop while a subagent waits on a shell of its own", () => {
  * with its `.meta.json`. Each subagent's transcript records the shell it
  * started in the background, as the tool result does. Returns the session's path.
  */
-function createSession(subagents: Record<string, { startedShell: string; meta?: Record<string, unknown> | string }>): string {
+function createSession(subagents: Record<string, { startedShell?: string; lines?: unknown[]; meta?: Record<string, unknown> | string | null }>): string {
   const folder = mkdtempSync(join(tmpdir(), "arch-session-"));
   const transcript = join(folder, "ea560a1c.jsonl");
   const subagentsFolder = join(folder, "ea560a1c", "subagents");
@@ -972,15 +1008,16 @@ function createSession(subagents: Record<string, { startedShell: string; meta?: 
   writeFileSync(transcript, `${JSON.stringify({ type: "user", message: { content: "Start one background subagent" } })}\n`);
   mkdirSync(subagentsFolder, { recursive: true });
 
-  for (const [id, { startedShell, meta }] of Object.entries(subagents)) {
-    const lines = [
+  // A subagent at work: its record says it has not finished, unless a test says otherwise (`null` writes none).
+  for (const [id, { startedShell, lines, meta = { agentType: "general-purpose", finished: false } }] of Object.entries(subagents)) {
+    const written = lines ?? [
       { agentId: id, type: "assistant", message: { content: [{ type: "tool_use", name: "Bash", input: { run_in_background: true } }] } },
       { agentId: id, type: "user", toolUseResult: { stdout: "", stderr: "", interrupted: false, backgroundTaskId: startedShell } },
     ];
 
-    writeFileSync(join(subagentsFolder, `agent-${id}.jsonl`), `${lines.map((line) => JSON.stringify(line)).join("\n")}\n`);
+    writeFileSync(join(subagentsFolder, `agent-${id}.jsonl`), `${written.map((line) => (typeof line === "string" ? line : JSON.stringify(line))).join("\n")}\n`);
 
-    if (meta !== undefined) {
+    if (meta !== null) {
       writeFileSync(join(subagentsFolder, `agent-${id}.meta.json`), typeof meta === "string" ? meta : JSON.stringify(meta));
     }
   }
