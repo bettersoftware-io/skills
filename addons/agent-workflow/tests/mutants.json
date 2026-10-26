@@ -6437,7 +6437,7 @@
   {
     "name": "the writer pins the agent by tag",
     "file": "addons/agent-workflow/files/.github/workflows/changelog-writer.yml",
-    "find": "anthropics/claude-code-action@f27be6b65a4652f08a2ba3cff79114829b588967 # v1.0.252",
+    "find": "anthropics/claude-code-action@db77d4d3c98f3f6380e7cd45ffba2342a3dbde3c # v1.0.254",
     "replace": "anthropics/claude-code-action@v1 # v1",
     "test": "pnpm vitest run addons/agent-workflow/tests/addon.test.mts --testNamePattern=\"pins every action by commit, at the commits chosen\""
   },
