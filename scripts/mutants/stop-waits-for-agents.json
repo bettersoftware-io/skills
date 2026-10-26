@@ -156,22 +156,15 @@
   {
     "name": "before-stop: every running shell holds the gate back",
     "file": "kit/hooks/before-stop.mts",
-    "find": "const task = tasks.find((waited) => waited.id !== undefined && started.has(waited.id));",
-    "replace": "const task = started.size > 0 ? tasks[0] : undefined;",
+    "find": "const at = waited.id === undefined ? undefined : started.get(waited.id);",
+    "replace": "const at = started.size > 0 ? now : undefined;",
     "test": "pnpm vitest run kit/hooks/hooks.test.mts -t \"waits on a shell of its own\""
   },
   {
     "name": "before-stop: an id that only begins the shell's matches",
     "file": "kit/hooks/before-stop.mts",
-    "find": "started.has(waited.id)",
-    "replace": "[...started].some((startedId) => startedId.startsWith(waited.id as string))",
-    "test": "pnpm vitest run kit/hooks/hooks.test.mts -t \"waits on a shell of its own\""
-  },
-  {
-    "name": "before-stop: a finished subagent still holds the gate back",
-    "file": "kit/hooks/before-stop.mts",
-    "find": "const started = meta.finished === false ? tasksStartedIn(",
-    "replace": "const started = meta.finished !== true ? tasksStartedIn(",
+    "find": "started.get(waited.id)",
+    "replace": "[...started].find(([startedId]) => startedId.startsWith(waited.id as string))?.[1]",
     "test": "pnpm vitest run kit/hooks/hooks.test.mts -t \"waits on a shell of its own\""
   },
   {
@@ -226,8 +219,8 @@
   {
     "name": "before-stop: the id is found anywhere in a line",
     "file": "kit/hooks/before-stop.mts",
-    "find": "const result: unknown = typeof record === \"object\" && record !== null ? (record as Record<string, unknown>).toolUseResult : undefined;",
-    "replace": "const result: unknown = typeof record === \"object\" && record !== null ? ((record as Record<string, unknown>).toolUseResult ?? record) : undefined;",
+    "find": "const id: unknown = typeof result === \"object\" && result !== null ? (result as Record<string, unknown>).backgroundTaskId : undefined;",
+    "replace": "const id: unknown = ((typeof result === \"object\" && result !== null ? result : record) as Record<string, unknown>).backgroundTaskId;",
     "test": "pnpm vitest run kit/hooks/hooks.test.mts -t \"waits on a shell of its own\""
   },
   {
@@ -242,6 +235,34 @@
     "file": "kit/hooks/before-stop.mts",
     "find": "const id: unknown = typeof result === \"object\" && result !== null ? (result as Record<string, unknown>).backgroundTaskId : undefined;",
     "replace": "const id: unknown = (result as Record<string, unknown>).backgroundTaskId;",
+    "test": "pnpm vitest run kit/hooks/hooks.test.mts -t \"waits on a shell of its own\""
+  },
+  {
+    "name": "before-stop: a subagent's shell holds the gate back for good",
+    "file": "kit/hooks/before-stop.mts",
+    "find": "now - at <= SUBAGENT_WAIT_MS",
+    "replace": "true",
+    "test": "pnpm vitest run kit/hooks/hooks.test.mts -t \"waits on a shell of its own\""
+  },
+  {
+    "name": "before-stop: a shell started at a time still to come holds the gate back",
+    "file": "kit/hooks/before-stop.mts",
+    "find": "at <= now && ",
+    "replace": "",
+    "test": "pnpm vitest run kit/hooks/hooks.test.mts -t \"waits on a shell of its own\""
+  },
+  {
+    "name": "before-stop: a subagent's shell holds the gate back for less than thirty minutes",
+    "file": "kit/hooks/before-stop.mts",
+    "find": "const SUBAGENT_WAIT_MS = 30 * 60 * 1000;",
+    "replace": "const SUBAGENT_WAIT_MS = 28 * 60 * 1000;",
+    "test": "pnpm vitest run kit/hooks/hooks.test.mts -t \"waits on a shell of its own\""
+  },
+  {
+    "name": "before-stop: a subagent's shell is timed in seconds",
+    "file": "kit/hooks/before-stop.mts",
+    "find": "const SUBAGENT_WAIT_MS = 30 * 60 * 1000;",
+    "replace": "const SUBAGENT_WAIT_MS = 30 * 60 * 1000 * 1000;",
     "test": "pnpm vitest run kit/hooks/hooks.test.mts -t \"waits on a shell of its own\""
   }
 ]

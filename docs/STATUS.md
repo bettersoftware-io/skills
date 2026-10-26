@@ -411,13 +411,11 @@ feature with sign-in and routing. The Opus evals and the further tests of
 - **The stop hook's nine-minute limit is tested with short limits only**, on
   the same code path.
 - **The stop hook's wait for a subagent that waits on its own shell rests on
-  an undocumented layout.** A live run showed that Claude Code lists only the
-  shell while such a subagent waits. The hook finds the subagent through its
-  transcript beside the session's and its `.meta.json` `finished` field, and
-  waits only while that field is `false`. Neither is documented, and what the
-  field says while a subagent waits has not been seen live. If it is already
-  true then, or absent, the hook runs the gate as before. A second live run
-  with the logging hook would say. A session that ends for good while an agent is still
+  an undocumented layout.** Two live runs showed that Claude Code lists only
+  the shell while such a subagent waits, and counts the subagent as done. The
+  hook finds the subagent through the transcript beside the session's, which
+  is not documented. A subagent's shell holds the gate back for thirty
+  minutes at most. A session that ends for good while an agent is still
   at work ends with no gate on its last tree; CI is what catches that. Codex
   sends no such list, so under Codex a controller can still be blocked by a
   subagent's half-done edit.

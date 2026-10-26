@@ -63,17 +63,20 @@
 //
 // A subagent can end its own turn to wait on a shell it started (a test run,
 // a wait on the checks). While it waits the host lists the shell, not the
-// subagent, and the shell's entry does not say whose it is. A live session
+// subagent, and the shell's entry does not say whose it is. Two live sessions
 // showed it: the controller stopped with only a running shell in the list, and
-// the gate failed on the subagent's half-done edit. So a running shell or
-// monitor counts when the transcript of one of the session's subagents
+// the gate failed on the subagent's half-done edit. While it waits, the host
+// counts the subagent as done (its `.meta.json` says `"finished": true`, the
+// controller is told it completed); the shell's end is what wakes it again.
+// So a running shell or monitor counts as that subagent at work when the
+// transcript of one of the session's subagents
 // (`<session>/subagents/agent-<id>.jsonl`, beside `transcript_path`) records
-// it as a task that subagent started (a tool's result with that
-// `backgroundTaskId`), and the subagent's `.meta.json` says
-// `"finished": false`. That layout is the host's and not documented, so the
-// hook believes it only in that shape: a transcript or a record that is not
-// there, cannot be read or says anything else names no subagent, and the gate
-// runs as before.
+// it as a task that subagent started: a tool's result with that
+// `backgroundTaskId`, at a time in the last thirty minutes. Past that, a
+// server a subagent left running stops holding the gate back. The layout is
+// the host's and not documented, so the hook believes it only in that shape:
+// a transcript that is not there, cannot be read, or records the task in any
+// other way or with no time names no subagent, and the gate runs as before.
 //
 // Apart from that second stop, the agent finishes without a gate having
 // passed in three cases only: no folder from `cwd` upward has a gate script,
@@ -130,6 +133,12 @@ const AGENT_TASKS = ["subagent", "teammate", "workflow"];
 const WAITED_ON_TASKS = ["shell", "monitor"];
 /** A subagent's transcript, beside the session's: `<session>/subagents/agent-<id>.jsonl`. */
 const SUBAGENT_TRANSCRIPT = /^agent-([\w-]+)\.jsonl$/;
+/**
+ * How long a shell a subagent started holds the gate back. Long enough for a
+ * test run or a wait on the checks; a server the subagent left running stops
+ * holding it back after this.
+ */
+const SUBAGENT_WAIT_MS = 30 * 60 * 1000;
 /**
  * The statuses of a task that has not ended. The Agent SDK's
  * `SDKTaskUpdatedMessage` lists the five a task goes through; the other three
@@ -225,15 +234,14 @@ function agentsAtWork(tasks: unknown, transcriptPath: unknown): AgentAtWork[] {
 }
 
 /**
- * The subagents of the session that started one of these tasks and have not
- * finished. While a subagent waits on a shell of its own, the host lists the
- * shell and not the subagent, and the shell's entry does not say whose it is:
- * the subagent's transcript, which records the id of each task it started in
- * the background, does. Only a subagent whose `.meta.json` says
- * `"finished": false` is looked at: a record that cannot be read, or says
- * anything else, names no subagent, and the gate runs.
+ * The subagents of the session that started one of these tasks in the last
+ * thirty minutes. While a subagent waits on a shell of its own, the host lists
+ * the shell and not the subagent, and the shell's entry does not say whose it
+ * is: the subagent's transcript, which records the id and the time of each
+ * task it started in the background, does. A transcript that cannot be read
+ * names no subagent, and the gate runs.
  */
-function subagentsWaitingOn(tasks: AgentAtWork[], transcriptPath: unknown): AgentAtWork[] {
+function subagentsWaitingOn(tasks: AgentAtWork[], transcriptPath: unknown, now = Date.now()): AgentAtWork[] {
   if (tasks.length === 0 || typeof transcriptPath !== "string" || !transcriptPath.endsWith(".jsonl")) {
     return [];
   }
@@ -249,13 +257,19 @@ function subagentsWaitingOn(tasks: AgentAtWork[], transcriptPath: unknown): Agen
 
   return names.flatMap((name): AgentAtWork[] => {
     const id = SUBAGENT_TRANSCRIPT.exec(name)?.[1];
-    const meta = id === undefined ? {} : readMeta(join(folder, `agent-${id}.meta.json`));
-    const started = meta.finished === false ? tasksStartedIn(readOrUndefined(join(folder, name))) : new Set<string>();
-    const task = tasks.find((waited) => waited.id !== undefined && started.has(waited.id));
+    const started = id === undefined ? new Map<string, number>() : tasksStartedIn(readOrUndefined(join(folder, name)));
+    const task = tasks.find((waited) => {
+      const at = waited.id === undefined ? undefined : started.get(waited.id);
+
+      return at !== undefined && at <= now && now - at <= SUBAGENT_WAIT_MS;
+    });
 
     if (id === undefined || task === undefined) {
       return [];
     }
+
+    // Read for the subagent's name only: while it waits it says `"finished": true`, as after any turn of its own.
+    const meta = readMeta(join(folder, `agent-${id}.meta.json`));
 
     return [
       {
@@ -277,13 +291,14 @@ function readOrUndefined(path: string): string | undefined {
 }
 
 /**
- * The ids of the tasks a transcript records as started in the background: a
- * tool's result whose `backgroundTaskId` is the id. The id written anywhere
- * else (in a tool's output, in a record of another kind) is not one, and a
- * line that is not JSON is passed over.
+ * The tasks a transcript records as started in the background, each with the
+ * time of the record: a tool's result whose `backgroundTaskId` is the id. The
+ * id written anywhere else (in a tool's output, in a record of another kind)
+ * is not one, a record with no time it can read is passed over, and so is a
+ * line that is not JSON.
  */
-function tasksStartedIn(transcript: string | undefined): Set<string> {
-  const started = new Set<string>();
+function tasksStartedIn(transcript: string | undefined): Map<string, number> {
+  const started = new Map<string, number>();
 
   for (const line of transcript?.split("\n") ?? []) {
     let record: unknown;
@@ -294,11 +309,12 @@ function tasksStartedIn(transcript: string | undefined): Set<string> {
       continue;
     }
 
-    const result: unknown = typeof record === "object" && record !== null ? (record as Record<string, unknown>).toolUseResult : undefined;
+    const { toolUseResult: result, timestamp } = typeof record === "object" && record !== null ? (record as Record<string, unknown>) : {};
     const id: unknown = typeof result === "object" && result !== null ? (result as Record<string, unknown>).backgroundTaskId : undefined;
+    const at = typeof timestamp === "string" ? Date.parse(timestamp) : Number.NaN;
 
-    if (typeof id === "string" && id !== "") {
-      started.add(id);
+    if (typeof id === "string" && id !== "" && !Number.isNaN(at)) {
+      started.set(id, at);
     }
   }
 
