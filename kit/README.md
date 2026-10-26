@@ -872,10 +872,11 @@ turn's stop is judged as usual.
   Claude Code lists the shell and not the subagent, so the hook looks for the
   shell's id in the session's subagent transcripts
   (`<session>/subagents/agent-<id>.jsonl`, beside `transcript_path`). If a
-  subagent whose `.meta.json` says `"finished": false` started it, the gate
-  waits for that subagent too. That layout is Claude Code's own and not
-  documented: when it is not there, cannot be read or says anything else,
-  the gate runs.
+  subagent started it in the last thirty minutes, the gate waits for that
+  subagent too; past that, a server a subagent left running stops holding it
+  back. That layout is Claude Code's own and not documented: when it is not
+  there, cannot be read or records the shell in any other shape, the gate
+  runs.
 - An entry in a shape the reference does not document (no status, a type or
   a status it does not list) does not either: what cannot be read runs the
   gate.
@@ -893,9 +894,13 @@ turn's stop is judged as usual.
   typecheck, waited 90 seconds on a background shell, then deleted it. The
   controller's first stop listed the subagent and the gate waited. Its second
   stop listed only the subagent's shell, and the gate ran on the broken file
-  and blocked. That second case is what the transcript lookup is for. It was
-  tested against the payload logged in that run and a copy of that
-  subagent's transcript, not yet in a second live run.
+  and blocked. That second case is what the transcript lookup is for.
+- Live again on 2026-10-26, the same way, with a hook that logged each
+  subagent's `.meta.json`: while the subagent waited on its shell, its record
+  said `"finished": true`, and it said nothing about finishing while the
+  subagent worked. The lookup therefore does not read that field. The lookup
+  is tested against the payloads logged in both runs and a copy of the first
+  run's subagent transcript, not yet in a third live run.
 
 It was `gate:fast` until a run with the smallest model stopped there with
 `gate:full` red and reported green
