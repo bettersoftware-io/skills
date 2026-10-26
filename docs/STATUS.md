@@ -3,7 +3,7 @@
 What is not done yet. Finished work is removed from this page, not archived;
 the test records in this folder and the git log say what was done.
 
-**Last updated: 2026-10-25**
+**Last updated: 2026-10-26**
 
 ## Waiting on something outside this repository
 
@@ -39,18 +39,17 @@ on 2026-10-05, on pushes to main and on a pull request
   Not seen: Dependency Review refusing a pull request for an advisory or a
   licence, and what Scorecard's findings look like in the repository's
   code-scanning page.
-- **The weekly tag workflow and the changelog writer have not run on
-  GitHub.** In skills-demo on 2026-10-25
-  ([the record](changelog-2026-10-24.md#on-github-2026-10-25)) the release
-  workflow was skipped while `CHANGELOG_RELEASES` was unset, and on a pull
-  request; once set, it waited for a tag; `changelog tag 2026-W42 --apply`
-  made a tag dated 2026-10-19T00:05:00Z; a run by hand then published the
-  release
-  [2026-W42](https://github.com/bettersoftware-io/skills-demo/releases/tag/2026-W42).
-  Not seen: `weekly-tag.yml`'s first scheduled run (Monday 2026-10-26, 00:05
-  UTC: the W43 tag and its issue), a release made by a merged entry whose tag
-  already exists, and a run of the writer (the headless agent with no write
-  token; `CHANGELOG_WRITER` is unset).
+- **The changelog writer has not run.** The rest of the changelog's
+  workflows has, in skills-demo
+  ([the record](changelog-2026-10-24.md#monday-2026-10-26)): the release
+  workflow skipped while switched off, waiting for a tag, and publishing by
+  hand (2026-10-25); `weekly-tag.yml`'s first scheduled run on 2026-10-26,
+  which started at 04:29 UTC and still dated its `2026-W43` tag 00:05, and
+  opened its issue; and the merge of the W43 entry, which published the
+  release [2026-W43](https://github.com/bettersoftware-io/skills-demo/releases/tag/2026-W43)
+  by itself and closed the issue. Not seen: a run of
+  `changelog-writer.yml` (the headless agent with no write token;
+  `CHANGELOG_WRITER` is unset, and a run is paid).
 - **The changelog reminder has not been watched in an interactive session.**
   In Codex 0.164.0 it fires once its hooks are trusted with `/hooks`: on
   2026-10-25 `codex exec`, with W42 made due, quoted the reminder word for

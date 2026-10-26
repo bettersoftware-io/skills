@@ -293,3 +293,22 @@ interactive session (Codex 0.164.0). `~/.codex/config.toml` then holds one
   `git fetch`), and `due` was quiet again.
 
 Not seen: either hook in an interactive session of Codex or Claude Code.
+
+## Monday, 2026-10-26
+
+- **The weekly tag.** `weekly-tag.yml` ran on its schedule, at 04:29 UTC
+  rather than 00:05 (GitHub starts a scheduled run late at busy times). It
+  tagged `f026cf8`, the last commit on main before Monday 00:00 UTC, as
+  `2026-W43`, with the tagger date `2026-10-26T00:05:00Z`, and opened
+  skills-demo #21, "Changelog: write 2026-W43": 4 pull requests (#17 to #20)
+  and a "Still due" line for the week.
+- **The sync after it.** At 05:10 UTC: `sync-releases: 0 to write, 1
+  unchanged`. W43 had a tag and no entry yet.
+- **The entry, and the release it made.** The W43 entry (skills-demo #22,
+  `Closes #21`) passed `pnpm changelog check 2026-W43`. Its merge ran the
+  sync: `create 2026-W43 (latest)`, `sync-releases: 1 to write, 1
+  unchanged`, `created 2026-W43`. The release
+  [2026-W43 — 19 Oct – 25 Oct](https://github.com/bettersoftware-io/skills-demo/releases/tag/2026-W43)
+  is Latest, 2026-W42 is below it, and #21 is closed.
+
+Still not seen: the writer, and either hook in an interactive session.
