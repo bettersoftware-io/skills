@@ -195,6 +195,24 @@ Added on 2026-10-11 ([the record](documenting-architecture-2026-10-11.md)).
 
 ## Next, with no plan yet
 
+Found while condo-ledger as it was before the plugin took the kit, on
+2026-10-25 ([the record](kit-adoption-condo-ledger-2026-10-25.md)).
+
+- **Adopting the kit is all or nothing.** Neither the gates nor the lint can
+  accept the findings an old codebase already has and hold only new code to
+  the rules, so a project is red until every finding is fixed: 585 files in
+  that run. A baseline, findings recorded at adoption and refused only when
+  new, would let a project take the kit first and pay the rest down.
+- **`extending-a-project` gives an existing project one path.** It installs
+  and lists what is left. It does not lay out the choices for a codebase
+  never held to the rules, with what each costs: fix in place, adopt the
+  starter and move the code in (what the owner did), or accept the findings
+  for now.
+- **The `package-scripts` gate demands a flag that vitest 2 rejects.**
+  `--no-fsModuleCache` on every vitest script made the run move vitest to 5
+  and vite to 7 before the gate could pass. The gate could read the
+  installed vitest and say what to do on one that does not know the flag.
+
 - **The React Compiler check of an explicit package does not read a build's
   `exclude`.** Since 0.20.3 an explicit package that declares
   `reactCompiler: true` is checked against every package with a
@@ -274,23 +292,14 @@ feature with sign-in and routing. The Opus evals and the further tests of
   Sonnet). A case where both sides pass is a finding about the skill as well.
 - **The evals on Claude Opus, three runs a case.** Once a case, Opus passed
   every trigger case and, with the plugin, every outcome case.
-- **The kit in a real existing project.** The script sets up the files and says
-  what is left. Declaring each package's role, and deciding what to do with the
-  findings on code that was never held to these rules, is judgement nobody has
-  watched an agent do. *The test:* condo-ledger as it was before the plugin,
-  at `b7a88de` (2026-06-20): about 16,000 lines of TypeScript, an app and
-  three packages, on pnpm 9. A copy at that commit, with no remote, and one
-  fresh session with the plugin, asked to add the architecture gates to the
-  project, with the owner there to answer it. Then read how it declared each
-  package's role,
-  what it did with the findings on the old code (fixed, listed as an
-  exception, or a rule loosened), and whether the result is one to keep. The
-  owner's own adoption, on 2026-10-11, is the reference: it moved the project
-  onto the starter's layout and archived the old web app
-  ([condo-ledger's merge log](https://github.com/bettersoftware-io/condo-ledger/blob/main/docs/superpowers/notes/2026-10-11-m0-merge-log.md)).
-  `extending-a-project` says the roles are decided with the user, not for
-  them, so the owner answers the session's questions as it goes: that is
-  part of what is watched.
+- **The kit in an existing project, run once** ([the record](kit-adoption-condo-ledger-2026-10-25.md),
+  condo-ledger before the plugin, 2026-10-25). The session proposed each
+  package's role with a reason, asked before every large step and switched
+  no rule off. It kept the layout it found and refactored it until the gates
+  passed (147 gate findings and about 4,300 lint findings to 1, in 585 files);
+  the owner had instead moved the project onto the starter. Not shown: whether
+  its result was one to keep, a second run, another project. Three findings
+  of the run are under "Next".
 
 ## Known limits
 
