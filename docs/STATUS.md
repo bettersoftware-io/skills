@@ -3,7 +3,7 @@
 What is not done yet. Finished work is removed from this page, not archived;
 the test records in this folder and the git log say what was done.
 
-**Last updated: 2026-10-26**
+**Last updated: 2026-10-27**
 
 ## Waiting on something outside this repository
 
@@ -420,10 +420,12 @@ feature with sign-in and routing. The Opus evals and the further tests of
 - **The stop hook's nine-minute limit is tested with short limits only**, on
   the same code path.
 - **The stop hook's wait for a subagent that waits on its own shell rests on
-  an undocumented layout.** Two live runs showed that Claude Code lists only
-  the shell while such a subagent waits, and counts the subagent as done. The
+  an undocumented layout.** Live runs showed that Claude Code lists only the
+  shell while such a subagent waits, and counts the subagent as done. The
   hook finds the subagent through the transcript beside the session's, which
-  is not documented. A subagent's shell holds the gate back for thirty
+  is not documented. A third live run (Claude Code 2.1.310) showed the wait
+  working end to end; if a later Claude Code lays it out otherwise, the gate
+  runs as before. A subagent's shell holds the gate back for thirty
   minutes at most. A session that ends for good while an agent is still
   at work ends with no gate on its last tree; CI is what catches that. Codex
   sends no such list, so under Codex a controller can still be blocked by a

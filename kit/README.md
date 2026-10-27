@@ -900,7 +900,11 @@ turn's stop is judged as usual.
   said `"finished": true`, and it said nothing about finishing while the
   subagent worked. The lookup therefore does not read that field. The lookup
   is tested against the payloads logged in both runs and a copy of the first
-  run's subagent transcript, not yet in a third live run.
+  run's subagent transcript.
+- Live a third time on 2026-10-26, the same way, with this hook: the
+  controller's stop while the subagent worked and its stop while only the
+  subagent's shell was listed both let the turn end without the gate, and
+  the stop after the subagent deleted the file ran it, with no block.
 
 It was `gate:fast` until a run with the smallest model stopped there with
 `gate:full` red and reported green
