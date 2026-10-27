@@ -17,6 +17,7 @@
   "dependencies": {
     "@app/domain": "workspace:*",
     "@app/shared": "workspace:*",
+    "@better-software/rx-ws-effects": "^0.1.0",
     "rxjs": "^7.8.2",
     "ws": "^8.21.0"
   },

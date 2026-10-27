@@ -85,9 +85,9 @@
   },
   {
     "name": "fullstack: the server accepts a client and sends it nothing",
-    "file": "packages/server/src/startServer.ts",
-    "find": "socket.send(JSON.stringify(encodePrice(price)));",
-    "replace": "void price;",
+    "file": "packages/server/src/toSocket.ts",
+    "find": "ws.send(JSON.stringify(message));",
+    "replace": "void message;",
     "test": "pnpm e2e --mode fullstack"
   },
   {

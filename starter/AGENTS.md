@@ -46,7 +46,7 @@ the gates read; a package that is not listed there fails.
 | `packages/client-core` | core | Adapters, presenters, state machines, the composition of the app | domain, shared |
 | `packages/react-bindings` | bindings | The view model: the only place RxJS meets React | core, domain |
 | `packages/client-react` | client | `src/app` (composition root) and `src/ui` (dumb components) | bindings, core, domain |
-| `packages/server` | server | The WebSocket server | domain, shared |
+| `packages/server` | server | The WebSocket server. What it sends is written as effects on `@better-software/rx-ws-effects` | domain, shared |
 | `packages/integration` | integration | Tests that run a client adapter against the real server. Tests only | every package above; nothing imports it |
 
 ## Where a thing goes
@@ -77,7 +77,8 @@ Four rules about imports:
 - No Node built-in (`node:fs`, `node:path`) outside `packages/server`, except
   in tests: everything else runs in the browser.
 - `react` and `react-dom` are imported only in `react-bindings` and
-  `client-react`; `ws` only in `server`.
+  `client-react`; `ws` and `@better-software/rx-ws-effects` only in
+  `server`.
 - What is written for tests (a `testing/` folder, a `*.page.tsx`, a test) is
   imported only by tests.
 
@@ -94,6 +95,8 @@ The price list is a worked example of every one of these. Copy its shape:
 | State machine (per-component state) | `packages/client-core/src/machines/selectionMachine.ts` |
 | View model | `packages/react-bindings/src/createViewModel.ts` |
 | Composition root | `packages/client-react/src/app/startApp.tsx` |
+| Server effect (what a connection is sent) | `packages/server/src/streamPrices.ts` |
+| Server transport adapter (`ws` to the effects' `Socket`) | `packages/server/src/toSocket.ts` |
 | Client adapter against the real server | `packages/integration/src/priceOverWebSocket.port.test.ts` |
 | Dumb component | `packages/client-react/src/ui/PriceList.tsx` |
 | Page object and its test | `packages/client-react/src/ui/PriceList.page.tsx`, `PriceList.test.tsx` |

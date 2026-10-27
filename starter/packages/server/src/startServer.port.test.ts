@@ -1,7 +1,7 @@
 import { connect } from "node:net";
 
 import { Subject } from "rxjs";
-import { describe, expect, it, onTestFinished } from "vitest";
+import { describe, expect, it, onTestFinished, vi } from "vitest";
 
 import type { Price } from "@app/domain";
 import { encodePrice, WS_PATH } from "@app/shared";
@@ -63,6 +63,25 @@ describe("the price server", () => {
     prices$.next({ symbol: "EURUSD", mid: 1.1 });
 
     expect(await message).toEqual(encodePrice({ symbol: "EURUSD", mid: 1.1 }));
+  });
+
+  it("drops its clients with code 1011 when the price feed fails", async () => {
+    const prices$ = new Subject<Price>();
+    const server = await startTestServer(prices$);
+    const client = await connectClient(server.port);
+    const closed = client.nextClose();
+    const loggedError = vi.spyOn(console, "error").mockImplementation(() => {
+      // The library logs the failure; the test only reads it.
+    });
+
+    onTestFinished(() => {
+      loggedError.mockRestore();
+    });
+
+    prices$.error(new Error("the feed broke"));
+
+    expect(await closed).toBe(1011);
+    expect(loggedError).toHaveBeenCalledOnce();
   });
 
   it("stops listening to the price source when the last client leaves", async () => {
@@ -134,6 +153,8 @@ function breakTheProtocol(port: number): Promise<void> {
 
 interface ConnectedClient {
   nextMessage: () => Promise<unknown>;
+  /** Resolves with the close code when the server closes the connection. */
+  nextClose: () => Promise<number>;
   close: () => Promise<void>;
 }
 
@@ -153,6 +174,17 @@ function connectClient(port: number): Promise<ConnectedClient> {
               "message",
               (event) => {
                 received(JSON.parse(String(event.data)));
+              },
+              { once: true },
+            );
+          });
+        },
+        nextClose: () => {
+          return new Promise((closed) => {
+            socket.addEventListener(
+              "close",
+              (event) => {
+                closed(event.code);
               },
               { once: true },
             );

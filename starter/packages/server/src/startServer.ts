@@ -1,10 +1,14 @@
 import type { AddressInfo } from "node:net";
 
+import { createWsListener } from "@better-software/rx-ws-effects";
 import { share } from "rxjs";
 import { WebSocketServer } from "ws";
 
 import type { PricePort } from "@app/domain";
-import { encodePrice, WS_PATH } from "@app/shared";
+import { WS_PATH } from "@app/shared";
+
+import { streamPrices } from "./streamPrices.ts";
+import { toSocket } from "./toSocket.ts";
 
 export interface ServerOptions {
   /** 0 picks a free port. */
@@ -24,27 +28,23 @@ export interface RunningServer {
  *
  * The server takes its price source as a port, like the client does, so a test
  * drives it by hand and production runs it on the simulator.
+ *
+ * What the server sends is written as effects (`streamPrices.ts`), run by
+ * `@better-software/rx-ws-effects`. A failure stays in its connection: if the
+ * feed fails, each client is dropped with code 1011, and the process carries
+ * on.
  */
 export function startServer({
   port,
   prices,
 }: ServerOptions): Promise<RunningServer> {
   const server = new WebSocketServer({ port, path: WS_PATH });
-  const prices$ = prices.prices().pipe(share());
+  const serveConnection = createWsListener(streamPrices, {
+    prices$: prices.prices().pipe(share()),
+  });
 
   server.on("connection", (socket) => {
-    const subscription = prices$.subscribe((price) => {
-      socket.send(JSON.stringify(encodePrice(price)));
-    });
-
-    socket.on("close", () => {
-      subscription.unsubscribe();
-    });
-
-    // Without a listener, one client's protocol error would end the process.
-    socket.on("error", () => {
-      socket.terminate();
-    });
+    serveConnection(toSocket(socket));
   });
 
   return new Promise((resolve, reject) => {
