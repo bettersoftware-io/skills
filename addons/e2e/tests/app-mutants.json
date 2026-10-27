@@ -22,7 +22,7 @@
   },
   {
     "name": "sim: a mid is drawn to two decimals",
-    "file": "packages/client-react/src/ui/PriceList.tsx",
+    "file": "packages/client-react/src/ui/PriceRow.tsx",
     "find": "row.mid.toFixed(4)",
     "replace": "row.mid.toFixed(2)",
     "test": "pnpm e2e --mode sim -g \"shows a row\""
@@ -36,7 +36,7 @@
   },
   {
     "name": "sim: a click on a row reaches nothing",
-    "file": "packages/client-react/src/ui/PriceList.tsx",
+    "file": "packages/client-react/src/ui/PriceRow.tsx",
     "find": "      onClick={selectRow}\n",
     "replace": "",
     "test": "pnpm e2e --mode sim -g \"marks the row\""
