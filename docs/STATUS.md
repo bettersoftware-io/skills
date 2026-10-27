@@ -15,13 +15,6 @@ the test records in this folder and the git log say what was done.
   `gh auth refresh -h github.com -s delete_repo`, then
   `gh repo delete bettersoftware-io/skills-visual-proof --yes`.
 
-- **The starter's server uses `rx-ws-effects`.** It is a plain imperative
-  handler today. The package
-  ([bettersoftware-io/rx-ws-effects](https://github.com/bettersoftware-io/rx-ws-effects))
-  is on npm since 2026-10-25, 13:05 UTC, as `@better-software/rx-ws-effects`
-  0.1.0 (tag `v0.1.0`). pnpm refuses a version younger than 24 hours, so this
-  can start from 2026-10-26, 13:05 UTC.
-
 ## Seen on GitHub only in part
 
 The add-ons' workflows ran in
@@ -89,16 +82,21 @@ on 2026-10-05, on pushes to main and on a pull request
 - **Nothing here has run on Linux outside GitHub's CI,** and nothing through
   a real `docker build`. The Dockerfile check was compared with BuildKit's own
   parser, built from source; the `e2e` workflow and its container have not run.
-- **The shipped Renovate config has opened one wave.** On 2026-10-19, in
-  condo-ledger and origamic: "actions" passed in condo-ledger (#17, merged),
-  and pnpm installed every lockfile it wrote. "minor and patch" moved
-  Playwright's package without its image, and `playwright-pin` failed it;
-  0.19.1 gives Playwright a group of its own, read from the image too. The
-  next wave, on 2026-10-26, is the first under that rule, in all four
-  repositories: skills-demo was given the app on 2026-10-25 and has its
-  Dependency Dashboard (skills-demo #16). In this repository the app ran no
-  job inside "before 6am on monday" and opened nothing; the schedule is now
-  the whole of Monday.
+- **Each Renovate wave that moves an action of the changelog writer fails
+  here until a person edits a test.** The second wave, on 2026-10-26, was the
+  first with Playwright in a group of its own, in all four repositories: eight
+  pull requests, one "actions" and one "minor and patch" in each, all merged
+  the same day. Playwright opened none, and every lockfile installed. A group
+  that holds one update is titled after its package; its branch keeps the
+  group's name. In this repository "actions" (#86) moved
+  `anthropics/claude-code-action` from v1.0.252 to v1.0.254, and
+  `addons/agent-workflow/tests/addon.test.mts` failed: its `PINS` list, and a
+  mutant in `addons/agent-workflow/tests/mutants.json`, name the commit of
+  every action of `changelog-writer.yml`. The two were moved by hand
+  (74e2d01), after reading the action's diff (two commits, Claude Code
+  2.1.302 to 2.1.304). To decide: keep the list, so that the agent's version
+  never moves without a person, or check only that each action is pinned by
+  commit with its version beside it, and let Renovate move them.
 - **An update has not yet kept a bot's action versions in a real project.**
   Since 0.20.2 a workflow whose only changes are moved action commits
   (`uses: …@<commit> # <version>`) takes the add-on's new copy, at the newer

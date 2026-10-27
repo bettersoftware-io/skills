@@ -51,6 +51,7 @@ const config: ArchitectureConfig = {
     react: ["packages/react-bindings", "packages/client-react"],
     "react-dom": ["packages/react-bindings", "packages/client-react"],
     ws: ["packages/server"],
+    "@better-software/rx-ws-effects": ["packages/server"],
   },
 };
 

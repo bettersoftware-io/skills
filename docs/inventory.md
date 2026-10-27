@@ -38,7 +38,7 @@ For any TypeScript pnpm monorepo.
 | Dumb UI: no `rxjs`, `localStorage`, `fetch`, env or timers in `src/ui` | grep gates 26–29 (30–33 for a React Native client) |
 | Where UI logic goes: machine, DOM-frame hook plus pure function, plain hook, or context read | ADR-005 decision tree |
 | Use cases own enrichment; simulators are production code behind the same ports | design decisions §10.5 |
-| Declarative WebSocket effects for the server and for simulated backends | `@rtc/ws-effects`, to be published as `@better-software/rx-ws-effects` |
+| Declarative WebSocket effects for the server and for simulated backends | `@rtc/ws-effects`, published as `@better-software/rx-ws-effects` (0.1.0, 2026-10-25); the starter's server runs on it since 0.23.0 |
 
 ## Keep: testing
 
