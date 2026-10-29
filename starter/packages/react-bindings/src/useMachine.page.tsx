@@ -15,6 +15,11 @@ interface MountOptions {
   strict?: boolean;
 }
 
+interface MachineHolderProps<TState, TIntents extends object> {
+  createMachine: () => Machine<TState, TIntents>;
+  onView: (view: MachineView<TState, TIntents>) => void;
+}
+
 /** Mounts a component that does nothing but hold a machine, and reports what it sees. */
 export function mountMachine<TState, TIntents extends object>(
   createMachine: () => Machine<TState, TIntents>,
@@ -22,21 +27,14 @@ export function mountMachine<TState, TIntents extends object>(
 ): MachinePage<TState, TIntents> {
   let view: MachineView<TState, TIntents> | undefined;
 
-  function Holder(): ReactElement {
-    view = useMachine(createMachine);
-
-    return <output />;
+  function keepView(seen: MachineView<TState, TIntents>): void {
+    view = seen;
   }
 
-  const rendered = render(
-    strict ? (
-      <StrictMode>
-        <Holder />
-      </StrictMode>
-    ) : (
-      <Holder />
-    ),
+  const holder = (
+    <MachineHolder createMachine={createMachine} onView={keepView} />
   );
+  const rendered = render(strict ? <StrictMode>{holder}</StrictMode> : holder);
 
   function currentView(): MachineView<TState, TIntents> {
     if (view === undefined) {
@@ -61,4 +59,18 @@ export function mountMachine<TState, TIntents extends object>(
       });
     },
   };
+}
+
+/**
+ * A component that does nothing but hold a machine, and hands each view it
+ * renders to `onView`. It is defined here, not inside `mountMachine`, so that
+ * React sees one component type across renders.
+ */
+function MachineHolder<TState, TIntents extends object>({
+  createMachine,
+  onView,
+}: MachineHolderProps<TState, TIntents>): ReactElement {
+  onView(useMachine(createMachine));
+
+  return <output />;
 }
