@@ -34,6 +34,13 @@
         "Biome 2.6's new rule `noComponentHookFactories` fails a capitalised function defined inside another function. The starter had two, and a project made from it has the same two copies: in `useMachine.page.tsx`, `mountMachine`'s holder component is now a component of its own (`MachineHolder`, given an `onView` prop); in `fakeWebSocket.ts`, the stand-in constructor is now named `connectFakeSocket`.",
         "An update no longer refuses a dependency that an update bot moved past the add-on's version: the newer one is kept. One older than the add-on's is moved to the add-on's, and the update says from what."
       ]
+    },
+    {
+      "id": "0.24.1",
+      "notes": [
+        "Biome's Playwright rules now apply only in specs, Playwright configs, `packages/e2e` and `tests/visual`. In 2.6 they read any call named `describe` as Playwright's, so a function of the app called `describe` failed `usePlaywrightValidDescribeCallback`.",
+        "Biome 2.6's other new rules can find more in a project's own code than in the starter: `useMathMinMax` (`biome lint --only=complexity/useMathMinMax --write --unsafe` rewrites them), `noUselessStringRaw` and `noUselessFragments`. Each is a small rewrite with no change of behaviour."
+      ]
     }
   ]
 }

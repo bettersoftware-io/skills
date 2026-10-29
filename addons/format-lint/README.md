@@ -79,7 +79,8 @@ by the first, or the line carries a `biome-ignore` with the reason.
 | `preset: recommended` | as shipped | Biome's own set |
 | `react` and `test` domains | recommended | The hook rules, `key` rules, focused tests, exports in tests. Set by name so they do not depend on what Biome finds in a `package.json` |
 | `project` domain | recommended | Adds one rule in 2.5.14, `correctness/noPrivateImports`: a name marked `@private` in its JSDoc is imported only from its own folder and below, one marked `@package` only from its own package. A re-export (`export { x } from`) is not caught |
-| `playwright`, `turborepo` and `types` domains | recommended | They add no rule in 2.5.14 (measured, see below). They are named so that a rule a later Biome moves into one of them reaches the project with the update that brings that Biome |
+| `turborepo` and `types` domains | recommended | They add no rule in 2.5.14 (measured, see below). They are named so that a rule a later Biome moves into one of them reaches the project with the update that brings that Biome |
+| `playwright` domain | off, and recommended in specs, Playwright configs, `packages/e2e` and `tests/visual` | Biome 2.6 made its rules stable, and they read every call named `describe` as Playwright's: three wizards of condo-ledger that call a helper `describe(…)` failed `usePlaywrightValidDescribeCallback`. In the files that run Playwright they apply as before |
 | `style/noNonNullAssertion` | error | `!` switches the type checker off without a trace. Check the value and throw instead. Shipped as a warning |
 | `style/useImportType`, `style/useExportType` | error | A statement that names only types is spelled `import type`. The starter sets `verbatimModuleSyntax`, where `import { type A }` stays behind as a runtime import of the module |
 | `style/useBlockStatements` | error | Every branch body is a block: a second statement is a one-line diff, and there is no dangling `else` |

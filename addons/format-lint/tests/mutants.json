@@ -215,5 +215,19 @@
     "find": "      \"!.*/**\",\n",
     "replace": "      \"!**/.*/**\",\n",
     "test": "pnpm vitest run addons/format-lint/tests/addon.test.mts -t \"still judges packages/app/.storybook/broken.ts\""
+  },
+  {
+    "name": "rules: Playwright's rules run everywhere again",
+    "file": "addons/format-lint/files/tools/format-lint/biome.base.json",
+    "find": "\"playwright\": \"none\",",
+    "replace": "\"playwright\": \"recommended\",",
+    "test": "pnpm vitest run addons/format-lint/tests/rules.test.mts -t \"runs Playwright's rules in a spec\""
+  },
+  {
+    "name": "rules: Playwright's rules run in no spec",
+    "file": "addons/format-lint/files/tools/format-lint/biome.base.json",
+    "find": "          \"playwright\": \"recommended\"\n",
+    "replace": "          \"playwright\": \"none\"\n",
+    "test": "pnpm vitest run addons/format-lint/tests/rules.test.mts -t \"runs Playwright's rules in a spec\""
   }
 ]
