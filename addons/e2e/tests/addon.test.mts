@@ -7,7 +7,10 @@ import { describe, expect, it, onTestFinished } from "vitest";
 
 import { architectureLint } from "../../../kit/eslint.config.mts";
 import type { ArchitectureConfig } from "../../../kit/gates/lib/config.mts";
+import { checkInstructionPaths } from "../../../kit/gates/lib/instructions.mts";
+import { loadConfig } from "../../../kit/gates/lib/config.mts";
 import { runGates } from "../../../kit/gates/run.mts";
+import { createProject } from "../../../scripts/create-project.mts";
 import { declarePackages } from "../../../scripts/lib/architecture.mts";
 import type { E2eConfig } from "../files/tools/e2e/lib/config.mts";
 import { RESULTS } from "../files/tools/e2e/lib/counts.mts";
@@ -297,6 +300,21 @@ describe("the shipped specs and page objects, under the kit's own rules", { time
 
     expect(files.length).toBeGreaterThanOrEqual(10);
     expect(result.findings).toEqual([]);
+  });
+
+  it("are named in the AGENTS.md section by their templates, so a project that replaced them passes agent-docs", async () => {
+    const project = createProject({ target: join(mkdtempSync(join(tmpdir(), "e2e-agents-")), "ledger"), addons: ["e2e"] }).destination;
+
+    onTestFinished(() => {
+      rmSync(project, { recursive: true, force: true });
+    });
+
+    // A project whose app is not the starter's replaces the examples, as condo-ledger did.
+    for (const shipped of ["src/sim", "src/fullstack", "src/pages"]) {
+      rmSync(join(project, PACKAGE, shipped), { recursive: true });
+    }
+
+    expect(checkInstructionPaths(await loadConfig(project))).toEqual([]);
   });
 
   it("fail the structure gate until the package is declared", async () => {

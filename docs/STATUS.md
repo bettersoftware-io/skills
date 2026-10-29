@@ -227,6 +227,14 @@ Found while condo-ledger as it was before the plugin took the kit, on
   gate's fullstack mode shows the gap there once the server serves a port,
   and a check that pairs a served message with an adapter does not exist.
 
+- **The role `server` is any Node-side package, and the `end-to-end` gate
+  reads it as a server to run against.** condo-ledger declares its offline
+  seed generator, `packages/legacy-import`, as a server, so that it may import
+  the domain and use Node; its architecture config now says in
+  `serversWithoutEndToEnd` why no mode starts it. A role for a Node tool that
+  serves nothing, or a way to say so on the declaration, would make that entry
+  unneeded.
+
 ## Open decisions
 
 - **Nothing says when a new pattern earns a row in the `AGENTS.md` table.** The

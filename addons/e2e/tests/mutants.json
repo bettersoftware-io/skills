@@ -1475,5 +1475,12 @@
     "find": "  if (typeof mode.env === \"function\") {\n    // A first start of what it reads (a database pulling its images) can take minutes.\n    say(`[e2e] ${name}: reading its variables`);\n  }\n\n  const env = await readEnv(name, mode.env);\n",
     "replace": "  const env = await readEnv(name, mode.env);\n  if (typeof mode.env === \"function\") {\n    // A first start of what it reads (a database pulling its images) can take minutes.\n    say(`[e2e] ${name}: reading its variables`);\n  }\n\n",
     "test": "pnpm vitest run addons/e2e/tests/run.port.test.mts -t \"says it is reading a mode's variables\""
+  },
+  {
+    "name": "section: names an example by its place in the project again",
+    "file": "addons/e2e/AGENTS.section.md",
+    "find": "`tools/templates/e2e.packages__e2e__src__sim__selection.spec.ts.txt`: a",
+    "replace": "`packages/e2e/src/sim/selection.spec.ts`: a",
+    "test": "pnpm vitest run addons/e2e/tests/addon.test.mts -t \"named in the AGENTS.md section by their templates\""
   }
 ]
