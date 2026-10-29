@@ -1158,6 +1158,44 @@ describe("adding an add-on", () => {
     expect(readJson(project, "packages/api/package.json").scripts["test:demo"]).toBe("demo --filter @acme/web");
   });
 
+  it("keeps a dependency an update bot moved past the add-on's version, and updates the rest of the add-on", () => {
+    const { repository, project } = createWorldWithKit();
+
+    addToProject({ project, unit: "demo", repository });
+    writeDevDependency(project, "demo-tool", "^1.4.2");
+    write(repository, "addons/demo/files/tools/demo/check.mts", "// version 2\n");
+
+    const result = addToProject({ project, unit: "demo", repository });
+
+    expect(readJson(project, "package.json").devDependencies["demo-tool"]).toBe("^1.4.2");
+    expect(read(project, "tools/demo/check.mts")).toBe("// version 2\n");
+    expect(result.packageChanges).toEqual([]);
+  });
+
+  it("moves a dependency older than the add-on's to the add-on's, and says from what", () => {
+    const { repository, project } = createWorldWithKit();
+
+    addToProject({ project, unit: "demo", repository });
+    writeDevDependency(project, "demo-tool", "0.9.3");
+
+    const result = addToProject({ project, unit: "demo", repository });
+
+    expect(readJson(project, "package.json").devDependencies["demo-tool"]).toBe("^1.0.0");
+    expect(result.packageChanges).toEqual(["package.json: devDependencies.demo-tool, 0.9.3 → ^1.0.0"]);
+  });
+
+  it("refuses a dependency it cannot compare with the add-on's, and changes nothing", () => {
+    const { repository, project } = createWorldWithKit();
+
+    addToProject({ project, unit: "demo", repository });
+    writeDevDependency(project, "demo-tool", "github:someone/demo-tool");
+
+    expect(() => addToProject({ project, unit: "demo", repository })).toThrow(
+      'package.json devDependencies.demo-tool is "github:someone/demo-tool", the add-on wants "^1.0.0"',
+    );
+    expect(readJson(project, "package.json").devDependencies["demo-tool"]).toBe("github:someone/demo-tool");
+  });
+
   it("keeps a package's dependencies in order, as a person adding one by hand would", () => {
     const { repository, project } = createWorldWithKit();
     const manifest = readJson(project, "package.json");
@@ -3048,4 +3086,12 @@ function readJson(root: string, path: string): any {
 /** The hash tools/installed.json records for a file. */
 function sha256(text: string): string {
   return createHash("sha256").update(text).digest("hex");
+}
+
+/** The project's root package.json with one dev dependency at the version given, as an update bot would leave it. */
+function writeDevDependency(project: string, name: string, version: string): void {
+  const manifest = readJson(project, "package.json");
+
+  manifest.devDependencies = { ...manifest.devDependencies, [name]: version };
+  write(project, "package.json", `${JSON.stringify(manifest, null, 2)}\n`);
 }
