@@ -1,7 +1,7 @@
 {
   "name": "e2e",
   "summary": "End-to-end tests: Playwright drives the built client in a real browser, on the simulator and against the real server, through page objects.",
-  "recommended": false,
+  "recommended": true,
   "requiresGates": [
     "playwright-pin"
   ],

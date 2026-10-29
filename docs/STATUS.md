@@ -3,7 +3,7 @@
 What is not done yet. Finished work is removed from this page, not archived;
 the test records in this folder and the git log say what was done.
 
-**Last updated: 2026-10-27**
+**Last updated: 2026-10-29**
 
 ## Waiting on something outside this repository
 
@@ -217,6 +217,15 @@ Found while condo-ledger as it was before the plugin took the kit, on
   `vite.config.ts` that depends on it, and each must run the compiler. A
   build that runs it with an `exclude` naming the package's folder (Origamic's
   web app excludes `packages/runtime` that way) still passes.
+
+- **Nothing asks for a real adapter when the server starts serving a port.**
+  The `port-contracts` gate holds every adapter folder that exists to the
+  contract of each port it implements, the way RTC runs one contract against
+  its simulator and its WebSocket adapter. It cannot tell that a port the
+  server now serves has no adapter on the client yet. condo-ledger's server
+  greets only, so its client runs on simulators alone; the `end-to-end`
+  gate's fullstack mode shows the gap there once the server serves a port,
+  and a check that pairs a served message with an adapter does not exist.
 
 ## Open decisions
 

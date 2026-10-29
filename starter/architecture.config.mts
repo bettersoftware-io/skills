@@ -53,6 +53,13 @@ const config: ArchitectureConfig = {
     ws: ["packages/server"],
     "@better-software/rx-ws-effects": ["packages/server"],
   },
+
+  // The e2e add-on drives the built client in a browser, on its simulator and
+  // against the server. Without it, this line says why the project has no such
+  // test; the end-to-end gate shows the reason, and fails once an e2e package
+  // is there and the line is not gone.
+  withoutEndToEnd:
+    "the e2e add-on was not chosen when the project was created: add it with add-to-project.mts <project> e2e, then delete this line",
 };
 
 export default config;

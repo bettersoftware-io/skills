@@ -79,8 +79,8 @@ node scripts/add-to-project.mts <project> coverage
 | `kit` | The same command brings a project's copy of the gates up to date, or sets them up in a project that did not start here |
 | `starter` | After `kit`, in a project that did not start here: the starter's settings files, CI workflow and packages, each written only where the project has none |
 
-`coverage`, `format-lint`, `ci-security`, `strict-lint` and `agent-workflow` are
-marked recommended: a new project should take them unless it has a reason
+`coverage`, `format-lint`, `ci-security`, `strict-lint`, `agent-workflow` and
+`e2e` are marked recommended: a new project should take them unless it has a reason
 not to. The creation skill
 offers the list with those selected, and `create-project.mts --with
 recommended` takes them where nobody can be asked.

@@ -116,6 +116,10 @@ const config: ArchitectureConfig = {
   // A package that imports React and is neither a client nor the bindings
   // gets none of React's lint rules. List it here with the reason.
   reactWithoutPolicies: {},
+
+  // A project with a client and no package of role "e2e" (the e2e add-on)
+  // says here why nothing drives the client in a browser:
+  //   withoutEndToEnd: "the client is a command-line tool"
 };
 
 export default config;

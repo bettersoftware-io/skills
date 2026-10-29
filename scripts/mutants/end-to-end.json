@@ -1,0 +1,107 @@
+[
+  {
+    "name": "end-to-end: a project with no e2e package passes",
+    "file": "kit/gates/lib/end-to-end.mts",
+    "find": "if (drivers.length === 0) {",
+    "replace": "if (drivers.length < 0) {",
+    "test": "pnpm vitest run kit/gates/end-to-end.test.mts"
+  },
+  {
+    "name": "end-to-end: withoutEndToEnd skips the gate even with an e2e package",
+    "file": "kit/gates/lib/end-to-end.mts",
+    "find": "if (config.withoutEndToEnd !== \"\" && packagesWithRole(config, \"e2e\").length === 0) {",
+    "replace": "if (config.withoutEndToEnd !== \"\") {",
+    "test": "pnpm vitest run kit/gates/end-to-end.test.mts"
+  },
+  {
+    "name": "end-to-end: a stale withoutEndToEnd is not reported",
+    "file": "kit/gates/lib/end-to-end.mts",
+    "find": "  if (config.withoutEndToEnd !== \"\") {\n    return [\n",
+    "replace": "  if (config.withoutEndToEnd === \"never\") {\n    return [\n",
+    "test": "pnpm vitest run kit/gates/end-to-end.test.mts"
+  },
+  {
+    "name": "end-to-end: a client the config does not build passes",
+    "file": "kit/gates/lib/end-to-end.mts",
+    "find": ".filter((client) => client.path !== stripSlashes(settings.client.cwd))",
+    "replace": ".filter(() => false)",
+    "test": "pnpm vitest run kit/gates/end-to-end.test.mts"
+  },
+  {
+    "name": "end-to-end: a server no mode starts passes",
+    "file": "kit/gates/lib/end-to-end.mts",
+    "find": ".filter((server) => !servers.has(server.path))",
+    "replace": ".filter(() => false)",
+    "test": "pnpm vitest run kit/gates/end-to-end.test.mts"
+  },
+  {
+    "name": "end-to-end: a mode without a spec passes",
+    "file": "kit/gates/lib/end-to-end.mts",
+    "find": ".filter((mode) => !listSourceFiles(root, join(settings.tests, \"src\", mode)).some((file) => SPEC.test(file)))",
+    "replace": ".filter(() => false)",
+    "test": "pnpm vitest run kit/gates/end-to-end.test.mts"
+  },
+  {
+    "name": "end-to-end: any source file counts as a spec",
+    "file": "kit/gates/lib/end-to-end.mts",
+    "find": "listSourceFiles(root, join(settings.tests, \"src\", mode)).some((file) => SPEC.test(file))",
+    "replace": "listSourceFiles(root, join(settings.tests, \"src\", mode)).length > 0",
+    "test": "pnpm vitest run kit/gates/end-to-end.test.mts"
+  },
+  {
+    "name": "end-to-end: a server folder is compared as written",
+    "file": "kit/gates/lib/end-to-end.mts",
+    "find": "[stripSlashes(server.cwd)]",
+    "replace": "[server.cwd]",
+    "test": "pnpm vitest run kit/gates/end-to-end.test.mts"
+  },
+  {
+    "name": "end-to-end: a config of another shape is accepted",
+    "file": "kit/gates/lib/end-to-end.mts",
+    "find": "return typeof value.client.cwd === \"string\";",
+    "replace": "return true;",
+    "test": "pnpm vitest run kit/gates/end-to-end.test.mts"
+  },
+  {
+    "name": "end-to-end: an unloadable config throws instead of being reported",
+    "file": "kit/gates/lib/end-to-end.mts",
+    "find": "    return `${E2E_CONFIG} could not be read: ${error instanceof Error ? error.message : String(error)}`;",
+    "replace": "    throw error;",
+    "test": "pnpm vitest run kit/gates/end-to-end.test.mts"
+  },
+  {
+    "name": "end-to-end: a missing config is not reported",
+    "file": "kit/gates/lib/end-to-end.mts",
+    "find": "  if (!existsSync(file)) {\n    return `A package",
+    "replace": "  if (false) {\n    return `A package",
+    "test": "pnpm vitest run kit/gates/end-to-end.test.mts"
+  },
+  {
+    "name": "end-to-end: no client means a judgement, not a skip",
+    "file": "kit/gates/lib/end-to-end.mts",
+    "find": "if (packagesWithRole(config, \"client\").length === 0) {",
+    "replace": "if (packagesWithRole(config, \"client\").length < 0) {",
+    "test": "pnpm vitest run kit/gates/end-to-end.test.mts"
+  },
+  {
+    "name": "end-to-end: the runner leaves the gate out",
+    "file": "kit/gates/run.mts",
+    "find": "      ...(await checkEndToEnd(project)),\n",
+    "replace": "",
+    "test": "pnpm vitest run kit/gates/gates.test.mts"
+  },
+  {
+    "name": "create-project: a project with the e2e add-on keeps the starter's withoutEndToEnd",
+    "file": "scripts/create-project.mts",
+    "find": "if (chosen.some((asked) => parseUnit(asked).name === END_TO_END)) {",
+    "replace": "if (chosen.some(() => false)) {",
+    "test": "pnpm vitest run scripts/create-project.test.mts -t \"withoutEndToEnd|browser test\""
+  },
+  {
+    "name": "create-project: a withoutEndToEnd in another shape is passed over",
+    "file": "scripts/create-project.mts",
+    "find": "    throw new ProjectError(`${file} has no withoutEndToEnd in the shape the starter writes it, so it could not be removed for the e2e add-on`);",
+    "replace": "    return;",
+    "test": "pnpm vitest run scripts/create-project.test.mts -t \"withoutEndToEnd|browser test\""
+  }
+]

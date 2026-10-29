@@ -103,6 +103,34 @@ describe("creating a project from the starter", () => {
     expect(added).toEqual(["coverage", "format-lint"]);
   });
 
+  it("gives a project made without the e2e add-on the reason it has no browser test, and one made with it none", () => {
+    const without = createProject({ target: createTarget("price-desk") });
+    const withIt = createProject({ target: createTarget("price-desk"), addons: ["e2e"] });
+    const configOf = (project: string): string => readFileSync(join(project, "architecture.config.mts"), "utf8");
+
+    expect(configOf(without.destination)).toContain('withoutEndToEnd:\n    "the e2e add-on was not chosen when the project was created');
+    expect(configOf(withIt.destination)).not.toContain("withoutEndToEnd");
+    expect(configOf(withIt.destination)).not.toContain("The e2e add-on drives the built client");
+    expect(configOf(withIt.destination)).toMatch(/\n {2}\},\n\};\n\nexport default config;\n$/);
+  });
+
+  it("refuses to make a project with the e2e add-on when the starter's withoutEndToEnd cannot be found", () => {
+    expect(() =>
+      createProject(
+        { target: createTarget("price-desk"), addons: ["e2e"] },
+        {
+          addAddon: (project, addon, scope) => {
+            const file = join(project, "architecture.config.mts");
+
+            writeFileSync(file, readFileSync(file, "utf8").replace("withoutEndToEnd:\n", "withoutEndToEnd: "));
+
+            return addToProject({ project, unit: addon, scope });
+          },
+        },
+      ),
+    ).toThrow(/has no withoutEndToEnd in the shape the starter writes it/);
+  });
+
   it("lists what each add-on asks to be run once, in order, for the person to run after installing", () => {
     const { firstRuns } = createProject(
       { target: createTarget("price-desk"), addons: ["coverage", "format-lint"] },

@@ -156,8 +156,8 @@
   {
     "name": "kit pin: the gate is not in the kit's list of its gates",
     "file": "kit/gates/gates.json",
-    "find": "  \"types-only\": [\"typesOnly\"],\n  \"playwright-pin\": []\n",
-    "replace": "  \"types-only\": [\"typesOnly\"]\n",
+    "find": "  \"types-only\": [\"typesOnly\"],\n  \"playwright-pin\": [],\n",
+    "replace": "  \"types-only\": [\"typesOnly\"],\n",
     "test": "pnpm vitest run kit/gates/gates.test.mts -t \"names every gate that runs\""
   },
   {
@@ -462,11 +462,11 @@
     "test": "pnpm vitest run addons/e2e/tests/addon.test.mts -t \"is optional, and joins neither gate\""
   },
   {
-    "name": "addon: it is recommended",
+    "name": "addon: it is not recommended",
     "file": "addons/e2e/addon.json",
-    "find": "\"recommended\": false",
-    "replace": "\"recommended\": true",
-    "test": "pnpm vitest run addons/e2e/tests/addon.test.mts -t \"is optional, and joins neither gate\""
+    "find": "\"recommended\": true",
+    "replace": "\"recommended\": false",
+    "test": "pnpm vitest run addons/e2e/tests/addon.test.mts -t \"is recommended, and joins neither gate\""
   },
   {
     "name": "addon: it names no gate it needs",

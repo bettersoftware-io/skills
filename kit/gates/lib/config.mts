@@ -99,6 +99,8 @@ export interface ArchitectureConfig {
   vendorOnlyIn?: Record<string, string[]>;
   /** Package path → the reason it imports React and gets none of the lint rules a client or the bindings get. */
   reactWithoutPolicies?: Record<string, string>;
+  /** Why this project has a client and no package of role "e2e" to drive it in a browser. */
+  withoutEndToEnd?: string;
 }
 
 export type ResolvedConfig = Required<ArchitectureConfig>;
@@ -210,6 +212,7 @@ const DEFAULTS: Omit<ResolvedConfig, "packages"> = {
   packagesWithoutTests: {},
   vendorOnlyIn: {},
   reactWithoutPolicies: {},
+  withoutEndToEnd: "",
 };
 
 const CLIENT_DEFAULTS = {

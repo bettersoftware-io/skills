@@ -45,6 +45,7 @@ describe("a project that follows the rules", { timeout: 30_000 }, () => {
       "test-ids",
       "types-only",
       "playwright-pin",
+      "end-to-end",
     ]);
     expect(result.skipped).toEqual({});
     expect(formatFindings(result)).toContain("all gates passed.");
@@ -104,6 +105,10 @@ describe("a project that breaks the rules", () => {
 
   it("is judged", () => {
     expect(findings.length).toBeGreaterThan(0);
+  });
+
+  it("names an e2e package whose config, which says what it runs, is missing", () => {
+    expect(messages("end-to-end", "tools/e2e.config.mts")).toContain('A package has the role "e2e", and tools/e2e.config.mts');
   });
 
   it("names a package that has no declared role", () => {
@@ -650,6 +655,7 @@ describe("a gate with nothing to judge", () => {
       "test-ids": "no client package is declared, so there was nothing to check",
       "types-only": "no package is declared typesOnly, so there was nothing to check",
       "playwright-pin": "no package.json asks for @playwright/test, or for the playwright library, so there was no version to hold",
+      "end-to-end": "no client package is declared, so there was nothing for a browser to drive",
     });
     expect(report).toContain("SKIP dumb-ui");
     expect(report).toContain("SKIP port-contracts");

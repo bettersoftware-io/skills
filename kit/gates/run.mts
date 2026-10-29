@@ -21,6 +21,7 @@ import {
   portContractsSkipReason,
 } from "./lib/contracts.mts";
 import { checkDependencies } from "./lib/depcruise.mts";
+import { checkEndToEnd, endToEndSkipReason } from "./lib/end-to-end.mts";
 import { isMainModule } from "./lib/files.mts";
 import { checkInstructionPaths, instructionsSkipReason } from "./lib/instructions.mts";
 import { checkLanguage, languageSkipReason } from "./lib/language.mts";
@@ -113,6 +114,7 @@ export async function runGates({ root = process.cwd(), files, configFile }: Gate
       "test-ids",
       "types-only",
       "playwright-pin",
+      "end-to-end",
     ],
     skipped: dropUndefined({
       "typescript-only": languageSkipReason(project),
@@ -128,6 +130,7 @@ export async function runGates({ root = process.cwd(), files, configFile }: Gate
       "test-ids": testIdsSkipReason(project),
       "types-only": typesOnlySkipReason(project),
       "playwright-pin": playwrightPinSkipReason(project),
+      "end-to-end": endToEndSkipReason(project),
     }),
     findings: [
       ...checkStructure(project),
@@ -145,6 +148,7 @@ export async function runGates({ root = process.cwd(), files, configFile }: Gate
       ...checkTestIds(project),
       ...checkTypesOnly(project),
       ...checkPlaywrightPin(project),
+      ...(await checkEndToEnd(project)),
     ],
   };
 }
