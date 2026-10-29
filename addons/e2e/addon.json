@@ -29,5 +29,13 @@
     "packages/e2e/package.json",
     "packages/e2e/src/"
   ],
-  "verify": "pnpm e2e"
+  "verify": "pnpm e2e",
+  "releaseNotes": [
+    {
+      "id": "0.24.2",
+      "notes": [
+        "The add-on's AGENTS.md section names its example specs by their templates in `tools/templates/`, which every project with the add-on has, not by their place in `packages/e2e/src`. A project that replaced the examples, as one whose app is not the starter's does, failed the kit's `agent-docs` gate on three lines of the section."
+      ]
+    }
+  ]
 }

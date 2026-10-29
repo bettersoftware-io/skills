@@ -1,12 +1,13 @@
 ## End-to-end tests
 
-`packages/e2e` drives the built client in a real browser, with Playwright. It
-runs in two modes, and a mode's specs are in the folder of its name:
+`packages/e2e` drives the built client in a real browser, with Playwright. The
+add-on ships two modes, and a mode's specs are in the folder of its name,
+`packages/e2e/src/<mode>/`:
 
-| Mode | What runs | Specs |
-|---|---|---|
-| `sim` | The client alone, on its in-browser simulator | `packages/e2e/src/sim` |
-| `fullstack` | The client against the real server | `packages/e2e/src/fullstack` |
+| Mode | What runs |
+|---|---|
+| `sim` | The client alone, on its in-browser simulator |
+| `fullstack` | The client against the real server |
 
 ```bash
 pnpm e2e                              # build, serve, run every spec in both modes, stop everything
@@ -48,7 +49,10 @@ belongs in a test that controls time.
 
 ### How a spec is written
 
-Copy `packages/e2e/src/sim/selection.spec.ts`.
+Copy the add-on's example as it shipped,
+`tools/templates/e2e.packages__e2e__src__sim__selection.spec.ts.txt`: a
+project whose app is not the starter's replaces the examples in
+`packages/e2e/src`, and the template stays.
 
 - A spec imports `test` and `expect` from `#/testing/test.ts`, takes page
   objects as fixtures, and asserts on what they return. It never holds the
@@ -70,7 +74,8 @@ Copy `packages/e2e/src/sim/selection.spec.ts`.
   same for two things that must agree.
 - Read a value to compare with only after waiting for the state it depends on.
 - When the state depends on chance, work out the odds and write them beside
-  the timeout, as `packages/e2e/src/sim/priceList.spec.ts` does. Better: assert
+  the timeout, as the example `tools/templates/e2e.packages__e2e__src__sim__priceList.spec.ts.txt`
+  does. Better: assert
   something that does not depend on chance.
 - Do not add a retry, and do not raise a timeout to make a spec pass. A spec
   that fails now and then waits on the wrong thing.
