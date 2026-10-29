@@ -13,5 +13,6 @@
   "app-harness": ["compose", "appHarness"],
   "test-ids": ["testIds"],
   "types-only": ["typesOnly"],
-  "playwright-pin": []
+  "playwright-pin": [],
+  "end-to-end": ["withoutEndToEnd", "serversWithoutEndToEnd"]
 }

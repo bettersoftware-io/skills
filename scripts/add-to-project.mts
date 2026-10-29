@@ -49,7 +49,7 @@ import { fileURLToPath } from "node:url";
 import { isMainModule } from "../kit/gates/lib/files.mts";
 import { LINT_DEPENDENCIES } from "../kit/lint-dependencies.mts";
 import { findSection, judgeSection, readSection, sectionHash, sectionMarkers, type SectionState, sectionTemplateOf } from "./lib/agents-section.mts";
-import { type Declaration, declarePackages, renderDeclaration } from "./lib/architecture.mts";
+import { type Declaration, declarePackages, dropStarterEndToEndExemption, renderDeclaration } from "./lib/architecture.mts";
 import { judgeDependencyVersion } from "./lib/dependency-versions.mts";
 import { findIgnored, type IgnoredFiles } from "./lib/git-ignored.mts";
 import { type Json, mergeSettings, parseSettings, refuseRetired, type RetiredCommands, SettingsError } from "./lib/host-settings.mts";
@@ -1207,11 +1207,19 @@ function planArchitecture(project: string, manifest: AddonManifest): Architectur
 
   assertInside(project, ARCHITECTURE_CONFIG);
 
-  const { text, added, byHand } = declarePackages(readProjectTextIfThere(project, ARCHITECTURE_CONFIG) ?? "", packages);
+  const current = readProjectTextIfThere(project, ARCHITECTURE_CONFIG) ?? "";
+  const { text: declared, added, byHand } = declarePackages(current, packages);
+  // The add-on that brings the e2e package ends the starter's reason for having none.
+  const bringsEndToEnd = Object.values(packages).some((declaration) => declaration.role === "e2e");
+  const withoutExemption = bringsEndToEnd ? dropStarterEndToEndExemption(declared ?? current) : undefined;
+  const text = withoutExemption ?? declared;
 
   return {
     text,
-    declared: added.map((entry) => `${ARCHITECTURE_CONFIG}: packages gains ${entry.replace(/,$/, "")}`),
+    declared: [
+      ...added.map((entry) => `${ARCHITECTURE_CONFIG}: packages gains ${entry.replace(/,$/, "")}`),
+      ...(withoutExemption === undefined ? [] : [`${ARCHITECTURE_CONFIG}: the starter's withoutEndToEnd is gone, since this add-on is the e2e package it waited for`]),
+    ],
     notes: byHand.map(
       (entry) =>
         `add ${entry.replace(/,$/, "")} to the packages of ${ARCHITECTURE_CONFIG}: the file has no \`packages: { … }\` map this script can add to, and the structure gate fails on a package that is not declared`,

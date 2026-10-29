@@ -13,5 +13,6 @@
   "app-harness": "a test calls the function that builds the whole application, anywhere but the one harness file",
   "test-ids": "a test id is written as a string literal, in a component, a selector or a query, outside the client's test-ids file",
   "types-only": "a package declared typesOnly exports a runtime value",
-  "playwright-pin": "a package.json asks for Playwright by a range, two packages ask for two versions, or a workflow's container image is another version"
+  "playwright-pin": "a package.json asks for Playwright by a range, two packages ask for two versions, or a workflow's container image is another version",
+  "end-to-end": "a package is a client and no package of role e2e drives it in a browser, a server that no mode starts, a mode with no spec, or a withoutEndToEnd left after the e2e package came"
 }

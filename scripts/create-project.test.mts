@@ -103,6 +103,36 @@ describe("creating a project from the starter", () => {
     expect(added).toEqual(["coverage", "format-lint"]);
   });
 
+  it("gives a project made without the e2e add-on the reason it has no browser test, and one made with it none", () => {
+    const without = createProject({ target: createTarget("price-desk") });
+    const withIt = createProject({ target: createTarget("price-desk"), addons: ["e2e"] });
+    const configOf = (project: string): string => readFileSync(join(project, "architecture.config.mts"), "utf8");
+
+    expect(configOf(without.destination)).toContain('withoutEndToEnd:\n    "the e2e add-on was not chosen when the project was created');
+    expect(configOf(withIt.destination)).not.toContain("withoutEndToEnd");
+    expect(configOf(withIt.destination)).not.toContain("The e2e add-on drives the built client");
+    expect(configOf(withIt.destination)).toMatch(/\n {2}\},\n\};\n\nexport default config;\n$/);
+  });
+
+  it("takes the starter's withoutEndToEnd out when the e2e add-on is added later, and says so", () => {
+    const { destination: project } = createProject({ target: createTarget("price-desk") });
+
+    const result = addToProject({ project, unit: "e2e" });
+
+    expect(readFileSync(join(project, "architecture.config.mts"), "utf8")).not.toContain("withoutEndToEnd");
+    expect(result.declared).toContain("architecture.config.mts: the starter's withoutEndToEnd is gone, since this add-on is the e2e package it waited for");
+  });
+
+  it("leaves a withoutEndToEnd the project rewrote when the e2e add-on is added, for the gate to name", () => {
+    const { destination: project } = createProject({ target: createTarget("price-desk") });
+    const file = join(project, "architecture.config.mts");
+
+    writeFileSync(file, readFileSync(file, "utf8").replace("the e2e add-on was not chosen when the project was created", "the client is a kiosk"));
+    addToProject({ project, unit: "e2e" });
+
+    expect(readFileSync(file, "utf8")).toContain('"the client is a kiosk: add it with');
+  });
+
   it("lists what each add-on asks to be run once, in order, for the person to run after installing", () => {
     const { firstRuns } = createProject(
       { target: createTarget("price-desk"), addons: ["coverage", "format-lint"] },

@@ -4,6 +4,15 @@ Adds a Playwright tier to a project created from the starter. It builds the
 client for production, serves the build, and drives it in a real browser: once
 alone, on its in-browser simulator, and once against the real server.
 
+It is recommended, and the kit's `end-to-end` gate holds a project with a
+client to it: a client with no package of role `e2e`, a server that no mode
+starts, or a mode with no spec fails `gate:fast`. A project that has a reason
+to go without writes it in `withoutEndToEnd`, in `architecture.config.mts`,
+and one whose server cannot be run against yet writes that in
+`serversWithoutEndToEnd`. A project created without this add-on starts with
+the starter's `withoutEndToEnd`; adding the add-on later takes that line out,
+unless the project rewrote it, which the gate then names.
+
 ```bash
 node scripts/add-to-project.mts <project> e2e
 cd <project> && pnpm install && pnpm e2e:install && pnpm e2e

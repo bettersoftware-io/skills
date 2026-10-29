@@ -43,10 +43,10 @@ function readShippedPackage(): PackageJson {
 }
 
 describe("what the add-on asks of a project", () => {
-  it("is optional, and joins neither gate: the run needs a browser and a port", () => {
+  it("is recommended, and joins neither gate: the run needs a browser and a port", () => {
     const { recommended, gates, verify } = readManifest();
 
-    expect(recommended).toBe(false);
+    expect(recommended).toBe(true);
     expect(gates).toEqual({ fast: [], full: [] });
     expect(verify).toBe("pnpm e2e");
   });
