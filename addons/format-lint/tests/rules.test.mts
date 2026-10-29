@@ -178,11 +178,20 @@ describe("the rule sets the base turns on", () => {
     expect(base.linter.domains).toEqual({
       react: "recommended",
       test: "recommended",
-      playwright: "recommended",
+      playwright: "none",
       project: "recommended",
       turborepo: "recommended",
       types: "recommended",
     });
+  });
+
+  it("runs Playwright's rules in a spec, and not on a function of the app that happens to be called describe", () => {
+    const spec = 'import { test } from "@playwright/test";\n\ntest.describe("the list", async () => {});\n';
+    const app = 'function describe(id: string): string {\n  return `entry ${id}`;\n}\n\nexport const text: string = describe("1");\n';
+    const run = runScript(createProject({ "packages/e2e/src/sim/list.spec.ts": spec, "src/describe.ts": app }), CHECK);
+
+    expect(run.output).toContain("packages/e2e/src/sim/list.spec.ts:3:1 lint/correctness/usePlaywrightValidDescribeCallback");
+    expect(run.output).not.toContain("src/describe.ts");
   });
 
   it("lints CSS", () => {

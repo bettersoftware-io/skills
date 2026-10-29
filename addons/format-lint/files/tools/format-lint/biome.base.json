@@ -56,7 +56,7 @@
     "domains": {
       "react": "recommended",
       "test": "recommended",
-      "playwright": "recommended",
+      "playwright": "none",
       "project": "recommended",
       "turborepo": "recommended",
       "types": "recommended"
@@ -126,6 +126,14 @@
     }
   },
   "overrides": [
+    {
+      "includes": ["**/*.spec.ts", "**/*.spec.tsx", "**/playwright.config.ts", "packages/e2e/**", "**/tests/visual/**"],
+      "linter": {
+        "domains": {
+          "playwright": "recommended"
+        }
+      }
+    },
     {
       "includes": ["**/tsconfig*.json"],
       "json": {
