@@ -85,7 +85,9 @@ export function installFakeWebSocket(): FakeWebSocket {
 
   // `new WebSocket(url)` returns whatever the constructor returns when that
   // is an object, so a plain function stands in for the class.
-  globalThis.WebSocket = function WebSocket(url: string): SocketHandlers {
+  globalThis.WebSocket = function connectFakeSocket(
+    url: string,
+  ): SocketHandlers {
     return connect(url);
   } as unknown as typeof globalThis.WebSocket;
 

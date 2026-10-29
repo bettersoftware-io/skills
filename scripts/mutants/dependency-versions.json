@@ -1,0 +1,51 @@
+[
+  {
+    "name": "dependency versions: the same version counts as older",
+    "file": "scripts/lib/dependency-versions.mts",
+    "find": "compareVersions(theirs.numbers, ours.numbers) >= 0 ? \"keep\" : \"take\"",
+    "replace": "compareVersions(theirs.numbers, ours.numbers) > 0 ? \"keep\" : \"take\"",
+    "test": "pnpm vitest run scripts/lib/dependency-versions.test.mts"
+  },
+  {
+    "name": "dependency versions: an alias of another package is compared",
+    "file": "scripts/lib/dependency-versions.mts",
+    "find": " || theirs.alias !== ours.alias",
+    "replace": "",
+    "test": "pnpm vitest run scripts/lib/dependency-versions.test.mts"
+  },
+  {
+    "name": "dependency versions: a prerelease is read as a version",
+    "file": "scripts/lib/dependency-versions.mts",
+    "find": "(\\d+(?:\\.\\d+){0,2})$/",
+    "replace": "(\\d+(?:\\.\\d+){0,2})/",
+    "test": "pnpm vitest run scripts/lib/dependency-versions.test.mts"
+  },
+  {
+    "name": "dependency versions: a range operator is not read",
+    "file": "scripts/lib/dependency-versions.mts",
+    "find": "(?:\\^|~|>=)?",
+    "replace": "",
+    "test": "pnpm vitest run scripts/lib/dependency-versions.test.mts"
+  },
+  {
+    "name": "add-on update: a newer dependency is still refused",
+    "file": "scripts/add-to-project.mts",
+    "find": "          if (verdict === \"keep\") {\n            continue;\n          }\n",
+    "replace": "          if (verdict === \"keep\") {\n            conflicts.push(`${key} is newer`);\n            continue;\n          }\n",
+    "test": "pnpm vitest run scripts/add-to-project.test.mts -t \"update bot moved past\""
+  },
+  {
+    "name": "add-on update: a script that differs replaces the project's",
+    "file": "scripts/add-to-project.mts",
+    "find": "const verdict = existing === undefined || force ? \"take\" : judgeDependencyVersion(existing, value);",
+    "replace": "const verdict = existing === undefined || force || section === \"scripts\" ? \"take\" : judgeDependencyVersion(existing, value);",
+    "test": "pnpm vitest run scripts/add-to-project.test.mts"
+  },
+  {
+    "name": "add-on update: an older dependency is kept",
+    "file": "scripts/add-to-project.mts",
+    "find": "const verdict = existing === undefined || force ? \"take\" : judgeDependencyVersion(existing, value);",
+    "replace": "const verdict = existing === undefined || force ? \"take\" : judgeDependencyVersion(existing, value) === \"take\" ? \"keep\" : judgeDependencyVersion(existing, value);",
+    "test": "pnpm vitest run scripts/add-to-project.test.mts -t \"older than the add-on\""
+  }
+]

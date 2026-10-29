@@ -275,8 +275,11 @@ them; each was pointed at the test that can, or the test was made literal).
 
 ## Limits
 
-- **Markdown, YAML and HTML are not read** by Biome 2.5.14 as configured: an
-  ill-formed workflow file or `index.html` passes this check.
+- **Markdown, YAML and HTML are not read** by Biome 2.6.2 as configured: an
+  ill-formed workflow file or `index.html` passes this check. Biome 2.6
+  formats Markdown and YAML by default; the base switches both off. The
+  add-ons write sections of `AGENTS.md` and record their hashes, and the
+  lockfile and the workflows are not Biome's to rewrite.
 - **The fixer does not add braces.** In 2.5.14 the fix for
   `useBlockStatements` is marked unsafe, so `pnpm biome:fix` reports it and
   leaves it. (The source config's comment says it is fixed on write.)

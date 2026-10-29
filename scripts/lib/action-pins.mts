@@ -53,7 +53,7 @@ function versionOf(comment: string | undefined): number[] | undefined {
 }
 
 /** Above zero when `a` is the newer version. A missing part counts as 0: v7 is v7.0.0. */
-function compareVersions(a: number[], b: number[]): number {
+export function compareVersions(a: number[], b: number[]): number {
   for (let index = 0; index < Math.max(a.length, b.length); index += 1) {
     const difference = (a[index] ?? 0) - (b[index] ?? 0);
 

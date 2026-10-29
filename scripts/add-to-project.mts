@@ -50,6 +50,7 @@ import { isMainModule } from "../kit/gates/lib/files.mts";
 import { LINT_DEPENDENCIES } from "../kit/lint-dependencies.mts";
 import { findSection, judgeSection, readSection, sectionHash, sectionMarkers, type SectionState, sectionTemplateOf } from "./lib/agents-section.mts";
 import { type Declaration, declarePackages, renderDeclaration } from "./lib/architecture.mts";
+import { judgeDependencyVersion } from "./lib/dependency-versions.mts";
 import { findIgnored, type IgnoredFiles } from "./lib/git-ignored.mts";
 import { type Json, mergeSettings, parseSettings, refuseRetired, type RetiredCommands, SettingsError } from "./lib/host-settings.mts";
 import {
@@ -1585,14 +1586,23 @@ function planPackageChanges(project: string, manifest: AddonManifest, force: boo
             continue;
           }
 
-          if (existing !== undefined && !force) {
+          // A script is never a version, so one that differs is always a conflict.
+          const verdict = existing === undefined || force ? "take" : judgeDependencyVersion(existing, value);
+
+          if (verdict === "keep") {
+            continue;
+          }
+
+          if (verdict === "conflict") {
             conflicts.push(`${join(path, "package.json")} ${section}.${key} is "${existing}", the add-on wants "${value}"`);
             continue;
           }
 
           json[section] = withEntry(section, json[section], key, value);
           changed.add(json);
-          changes.push(`${join(path, "package.json")}: ${section}.${key}`);
+          changes.push(
+            `${join(path, "package.json")}: ${section}.${key}${existing === undefined || existing === value || force ? "" : `, ${existing} → ${value}`}`,
+          );
         }
       }
     }
