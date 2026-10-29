@@ -77,7 +77,14 @@ export async function checkEndToEnd(project: Project): Promise<Finding[]> {
     return [{ gate: GATE, file: E2E_CONFIG, message: settings }];
   }
 
-  const servers = new Set(Object.values(settings.modes).flatMap(({ server }) => (server?.cwd === undefined ? [] : [stripSlashes(server.cwd)])));
+  // Server folder → the first mode that starts it.
+  const started = new Map(
+    Object.entries(settings.modes)
+      .reverse()
+      .flatMap(([mode, { server }]) => (server?.cwd === undefined ? [] : [[stripSlashes(server.cwd), mode] as const])),
+  );
+  const serverPaths = new Set(packagesWithRole(config, "server").map(({ path }) => path));
+  const exempt = config.serversWithoutEndToEnd;
 
   return [
     ...clients
@@ -88,12 +95,28 @@ export async function checkEndToEnd(project: Project): Promise<Finding[]> {
         message: `${client.path} is a client, and ${E2E_CONFIG} builds ${settings.client.cwd} only, so no browser test drives it.`,
       })),
     ...packagesWithRole(config, "server")
-      .filter((server) => !servers.has(server.path))
+      .filter((server) => !started.has(server.path) && exempt[server.path] === undefined)
       .map((server) => ({
         gate: GATE,
         file: E2E_CONFIG,
-        message: `${server.path} is a server, and no mode of ${E2E_CONFIG} starts it, so the client is never seen against it. Add a mode whose server runs it, as the add-on's "fullstack" mode does.`,
+        message: `${server.path} is a server, and no mode of ${E2E_CONFIG} starts it, so the client is never seen against it. Add a mode whose server runs it, as the add-on's "fullstack" mode does, or write in serversWithoutEndToEnd, in the architecture config, why it has none yet.`,
       })),
+    ...Object.entries(exempt).flatMap(([path, reason]) => {
+      const mode = started.get(path);
+
+      if (!serverPaths.has(path)) {
+        return [{ gate: GATE, message: `serversWithoutEndToEnd names ${path}, which is not a package of role "server". Remove the entry, or correct the path.` }];
+      }
+
+      return mode === undefined
+        ? []
+        : [
+            {
+              gate: GATE,
+              message: `serversWithoutEndToEnd says ${path} has no end-to-end mode ("${reason}"), and the mode "${mode}" starts it. Remove the entry: the reason no longer holds.`,
+            },
+          ];
+    }),
     ...Object.keys(settings.modes)
       .filter((mode) => !listSourceFiles(root, join(settings.tests, "src", mode)).some((file) => SPEC.test(file)))
       .map((mode) => ({

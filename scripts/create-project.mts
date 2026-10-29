@@ -109,10 +109,6 @@ export function createProject(
     const notes = writeProject(destination, scope, projectName, steps);
 
     const firstRuns = chosen.flatMap((addon) => steps.addAddon(destination, addon, scope).firstRun ?? []);
-
-    if (chosen.some((asked) => parseUnit(asked).name === END_TO_END)) {
-      dropEndToEndExemption(destination);
-    }
     // Under the name it was asked for, so the README says which option the project has.
     const added = chosen.flatMap((asked) => available.filter((addon) => addon.name === parseUnit(asked).name).map((addon) => nameWithOption(addon, asked)));
 
@@ -137,24 +133,6 @@ export function createProject(
       `Could not create the project, and removed what it had written: ${error instanceof Error ? error.message : String(error)}`,
     );
   }
-}
-
-/** The add-on whose package drives the client in a browser: with it, the starter's reason for having none is dropped. */
-const END_TO_END = "e2e";
-
-/** The starter's `withoutEndToEnd`, with the comment above it, from its first line to its last. */
-const END_TO_END_EXEMPTION = /\n\n {2}\/\/ The e2e add-on drives the built client[^]*?\n {2}withoutEndToEnd:\n {4}"[^"\n]*",\n/;
-
-/** Removes the starter's `withoutEndToEnd` from a project created with the e2e add-on, which the end-to-end gate would fail it for. */
-function dropEndToEndExemption(destination: string): void {
-  const file = join(destination, "architecture.config.mts");
-  const text = readFileSync(file, "utf8");
-
-  if (!END_TO_END_EXEMPTION.test(text)) {
-    throw new ProjectError(`${file} has no withoutEndToEnd in the shape the starter writes it, so it could not be removed for the e2e add-on`);
-  }
-
-  writeFileSync(file, text.replace(END_TO_END_EXEMPTION, "\n"));
 }
 
 /** The add-on as the README lists it: under the name it was asked for, with what its option, or its default, says after its summary. */

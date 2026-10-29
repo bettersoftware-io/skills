@@ -436,15 +436,15 @@
   {
     "name": "scripts add: a project's own declaration is replaced",
     "file": "scripts/add-to-project.mts",
-    "find": "declarePackages(readProjectTextIfThere(project, ARCHITECTURE_CONFIG) ?? \"\", packages)",
-    "replace": "declarePackages((readProjectTextIfThere(project, ARCHITECTURE_CONFIG) ?? \"\").replaceAll(\"packages/demo\", \"packages/was-demo\"), packages)",
+    "find": "declarePackages(current, packages)",
+    "replace": "declarePackages(current.replaceAll(\"packages/demo\", \"packages/was-demo\"), packages)",
     "test": "pnpm vitest run scripts/add-to-project.test.mts -t \"leaves a declaration the project already wrote\""
   },
   {
     "name": "scripts add: a config that is a link is read through, and found out only after files were written",
     "file": "scripts/add-to-project.mts",
-    "find": "  assertInside(project, ARCHITECTURE_CONFIG);\n\n  const { text, added, byHand } = declarePackages(readProjectTextIfThere(project, ARCHITECTURE_CONFIG) ?? \"\", packages);",
-    "replace": "  const { text, added, byHand } = declarePackages(existsSync(join(project, ARCHITECTURE_CONFIG)) ? readFileSync(join(project, ARCHITECTURE_CONFIG), \"utf8\") : \"\", packages);",
+    "find": "  assertInside(project, ARCHITECTURE_CONFIG);\n\n  const current = readProjectTextIfThere(project, ARCHITECTURE_CONFIG) ?? \"\";",
+    "replace": "  const current = existsSync(join(project, ARCHITECTURE_CONFIG)) ? readFileSync(join(project, ARCHITECTURE_CONFIG), \"utf8\") : \"\";",
     "test": "pnpm vitest run scripts/add-to-project.test.mts -t \"never declares a package through an architecture config\""
   },
   {
@@ -779,7 +779,7 @@
   {
     "name": "tools config: a missing config is a crash, not a message",
     "file": "addons/e2e/files/tools/e2e/lib/config.mts",
-    "find": "  if (!existsSync(file)) {\n    throw new E2eError(`${PROJECT_CONFIG} not found in ${root} \u2014 run this from the project root`);\n  }\n",
+    "find": "  if (!existsSync(file)) {\n    throw new E2eError(`${PROJECT_CONFIG} not found in ${root} — run this from the project root`);\n  }\n",
     "replace": "",
     "test": "pnpm vitest run addons/e2e/tests/config.test.mts -t \"could not be read when the file is not there\""
   },
@@ -842,7 +842,7 @@
   {
     "name": "tools modes: a tests package with no src is a crash",
     "file": "addons/e2e/files/tools/e2e/lib/config.mts",
-    "find": "  if (!existsSync(source)) {\n    throw new E2eError(`${config.tests}/src not found \u2014 ${PROJECT_CONFIG} says the specs are there`);\n  }\n",
+    "find": "  if (!existsSync(source)) {\n    throw new E2eError(`${config.tests}/src not found — ${PROJECT_CONFIG} says the specs are there`);\n  }\n",
     "replace": "",
     "test": "pnpm vitest run addons/e2e/tests/config.test.mts -t \"refuses a tests package with no src folder\""
   },

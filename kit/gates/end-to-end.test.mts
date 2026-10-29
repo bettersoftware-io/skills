@@ -4,7 +4,7 @@ import { dirname, join } from "node:path";
 
 import { afterEach, describe, expect, it } from "vitest";
 
-import type { PackageDeclaration, Project, ResolvedConfig } from "./lib/config.mts";
+import { loadConfig, type PackageDeclaration, type Project, type ResolvedConfig } from "./lib/config.mts";
 import { checkEndToEnd, E2E_CONFIG, endToEndSkipReason } from "./lib/end-to-end.mts";
 
 const CLIENT_AND_SERVER = {
@@ -21,6 +21,9 @@ const SHIPPED_CONFIG = `export default {
   modes: { sim: {}, fullstack: { server: { cwd: "packages/server" } } },
 };
 `;
+
+/** The shipped config with its fullstack mode taken out. */
+const SIM_ONLY_CONFIG = SHIPPED_CONFIG.replace(', fullstack: { server: { cwd: "packages/server" } }', "");
 
 const BOTH_SPECS = ["packages/e2e/src/sim/prices.spec.ts", "packages/e2e/src/fullstack/serverPrices.spec.ts"];
 
@@ -70,7 +73,7 @@ describe("what the e2e package runs", () => {
     const findings = await checkEndToEnd(
       createProject({
         packages: DRIVEN,
-        e2eConfig: SHIPPED_CONFIG.replace(', fullstack: { server: { cwd: "packages/server" } }', ""),
+        e2eConfig: SIM_ONLY_CONFIG,
         files: [BOTH_SPECS[0] ?? ""],
       }),
     );
@@ -78,6 +81,44 @@ describe("what the e2e package runs", () => {
     expect(findings.map(({ file, message }) => `${file}: ${message}`)).toEqual([
       expect.stringContaining(`${E2E_CONFIG}: packages/server is a server, and no mode of ${E2E_CONFIG} starts it`),
     ]);
+  });
+
+  it("passes a server no mode starts when serversWithoutEndToEnd says why", async () => {
+    const project = createProject({
+      packages: DRIVEN,
+      e2eConfig: SIM_ONLY_CONFIG,
+      files: [BOTH_SPECS[0] ?? ""],
+      serversWithoutEndToEnd: { "packages/server": "it greets only; the client takes no server URL before M3" },
+    });
+
+    expect(await checkEndToEnd(project)).toEqual([]);
+  });
+
+  it("fails a serversWithoutEndToEnd entry once a mode starts that server, and one that names no server", async () => {
+    const findings = await checkEndToEnd(
+      createProject({
+        packages: DRIVEN,
+        e2eConfig: SHIPPED_CONFIG,
+        files: BOTH_SPECS,
+        serversWithoutEndToEnd: { "packages/server": "not yet", "packages/client-react": "a typo" },
+      }),
+    );
+
+    expect(findings.map(({ message }) => message)).toEqual([
+      expect.stringContaining('serversWithoutEndToEnd says packages/server has no end-to-end mode ("not yet"), and the mode "fullstack" starts it. Remove the entry'),
+      expect.stringContaining('serversWithoutEndToEnd names packages/client-react, which is not a package of role "server"'),
+    ]);
+  });
+
+  it("reads a serversWithoutEndToEnd entry written with ./ or a trailing slash as the server's folder", async () => {
+    const root = createProject({ packages: {} }).root;
+
+    writeFile(
+      join(root, "architecture.config.mts"),
+      'export default { packages: { "packages/server": { role: "server" } }, serversWithoutEndToEnd: { "./packages/server/": "not yet" } };\n',
+    );
+
+    expect((await loadConfig(root)).config.serversWithoutEndToEnd).toEqual({ "packages/server": "not yet" });
   });
 
   it("reads a server's folder written with ./ or a trailing slash as the same folder", async () => {
@@ -145,9 +186,10 @@ interface ProjectShape {
   /** Files that only need to exist. */
   files?: string[];
   withoutEndToEnd?: string;
+  serversWithoutEndToEnd?: Record<string, string>;
 }
 
-function createProject({ packages, e2eConfig, files = [], withoutEndToEnd = "" }: ProjectShape): Project {
+function createProject({ packages, e2eConfig, files = [], withoutEndToEnd = "", serversWithoutEndToEnd = {} }: ProjectShape): Project {
   const root = mkdtempSync(join(tmpdir(), "end-to-end-"));
 
   scratch.push(root);
@@ -161,7 +203,7 @@ function createProject({ packages, e2eConfig, files = [], withoutEndToEnd = "" }
   }
 
   // The gate reads the declared roles and the files, and nothing of the workspace.
-  return { root, config: { packages, withoutEndToEnd } as ResolvedConfig, workspace: [] };
+  return { root, config: { packages, withoutEndToEnd, serversWithoutEndToEnd } as ResolvedConfig, workspace: [] };
 }
 
 function writeFile(file: string, text: string): void {

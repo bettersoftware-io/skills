@@ -47,7 +47,7 @@ A project declares its layers once, in `architecture.config.mts`
 | `test-ids` | A test id is written as a string literal, in a component, a selector or a query, outside the client's test-ids file |
 | `types-only` | A package declared `typesOnly` exports a runtime value |
 | `playwright-pin` | A `package.json` asks for `@playwright/test` or `playwright` as a range; two ask for two versions; another version is installed; a workflow's Playwright image has another version |
-| `end-to-end` | A package is a client and no package of role `e2e` drives it in a browser, with no reason given in `withoutEndToEnd`; a server that no mode of `tools/e2e.config.mts` starts; a client it does not build; a mode with no spec; a `withoutEndToEnd` left once an `e2e` package is there |
+| `end-to-end` | A package is a client and no package of role `e2e` drives it in a browser, with no reason given in `withoutEndToEnd`; a server that no mode of `tools/e2e.config.mts` starts, unless `serversWithoutEndToEnd` gives the reason; a client it does not build; a mode with no spec; a `withoutEndToEnd` left once an `e2e` package is there, or a `serversWithoutEndToEnd` entry once a mode starts that server |
 
 ```bash
 node tools/arch/gates/run.mts                 # every gate

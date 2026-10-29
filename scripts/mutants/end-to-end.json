@@ -30,7 +30,7 @@
   {
     "name": "end-to-end: a server no mode starts passes",
     "file": "kit/gates/lib/end-to-end.mts",
-    "find": ".filter((server) => !servers.has(server.path))",
+    "find": ".filter((server) => !started.has(server.path) && exempt[server.path] === undefined)",
     "replace": ".filter(() => false)",
     "test": "pnpm vitest run kit/gates/end-to-end.test.mts"
   },
@@ -51,8 +51,8 @@
   {
     "name": "end-to-end: a server folder is compared as written",
     "file": "kit/gates/lib/end-to-end.mts",
-    "find": "[stripSlashes(server.cwd)]",
-    "replace": "[server.cwd]",
+    "find": "[[stripSlashes(server.cwd), mode] as const]",
+    "replace": "[[server.cwd, mode] as const]",
     "test": "pnpm vitest run kit/gates/end-to-end.test.mts"
   },
   {
@@ -91,17 +91,59 @@
     "test": "pnpm vitest run kit/gates/gates.test.mts"
   },
   {
-    "name": "create-project: a project with the e2e add-on keeps the starter's withoutEndToEnd",
-    "file": "scripts/create-project.mts",
-    "find": "if (chosen.some((asked) => parseUnit(asked).name === END_TO_END)) {",
-    "replace": "if (chosen.some(() => false)) {",
+    "name": "end-to-end: serversWithoutEndToEnd is not read",
+    "file": "kit/gates/lib/end-to-end.mts",
+    "find": " && exempt[server.path] === undefined)",
+    "replace": ")",
+    "test": "pnpm vitest run kit/gates/end-to-end.test.mts"
+  },
+  {
+    "name": "end-to-end: a stale serversWithoutEndToEnd entry passes",
+    "file": "kit/gates/lib/end-to-end.mts",
+    "find": "      return mode === undefined\n",
+    "replace": "      return true\n",
+    "test": "pnpm vitest run kit/gates/end-to-end.test.mts"
+  },
+  {
+    "name": "end-to-end: an entry that names no server passes",
+    "file": "kit/gates/lib/end-to-end.mts",
+    "find": "      if (!serverPaths.has(path)) {",
+    "replace": "      if (false) {",
+    "test": "pnpm vitest run kit/gates/end-to-end.test.mts"
+  },
+  {
+    "name": "end-to-end: the entries' paths are read as written",
+    "file": "kit/gates/lib/config.mts",
+    "find": "      serversWithoutEndToEnd: withPlainPaths(declared.serversWithoutEndToEnd ?? {}),\n",
+    "replace": "",
+    "test": "pnpm vitest run kit/gates/end-to-end.test.mts -t \"serversWithoutEndToEnd entry written with\""
+  },
+  {
+    "name": "add-to-project: the e2e add-on leaves the starter's withoutEndToEnd",
+    "file": "scripts/add-to-project.mts",
+    "find": "const withoutExemption = bringsEndToEnd ? dropStarterEndToEndExemption(declared ?? current) : undefined;",
+    "replace": "const withoutExemption = undefined;",
     "test": "pnpm vitest run scripts/create-project.test.mts -t \"withoutEndToEnd|browser test\""
   },
   {
-    "name": "create-project: a withoutEndToEnd in another shape is passed over",
-    "file": "scripts/create-project.mts",
-    "find": "    throw new ProjectError(`${file} has no withoutEndToEnd in the shape the starter writes it, so it could not be removed for the e2e add-on`);",
-    "replace": "    return;",
+    "name": "add-to-project: every add-on that declares a package takes the line out",
+    "file": "scripts/add-to-project.mts",
+    "find": "const bringsEndToEnd = Object.values(packages).some((declaration) => declaration.role === \"e2e\");",
+    "replace": "const bringsEndToEnd = true;",
+    "test": "pnpm vitest run scripts/add-to-project.test.mts -t \"role e2e, and only then\""
+  },
+  {
+    "name": "add-to-project: a rewritten withoutEndToEnd is taken out too",
+    "file": "scripts/lib/architecture.mts",
+    "find": "return text.includes(STARTER_END_TO_END_EXEMPTION) ? text.replace(STARTER_END_TO_END_EXEMPTION, \"\\n\") : undefined;",
+    "replace": "return text.replace(/\\n\\n {2}\\/\\/ The e2e add-on drives[^]*?withoutEndToEnd:\\n {4}\"[^\"\\n]*\",\\n/, \"\\n\");",
+    "test": "pnpm vitest run scripts/create-project.test.mts -t \"withoutEndToEnd|browser test\""
+  },
+  {
+    "name": "add-to-project: the starter's line is gone but not reported",
+    "file": "scripts/add-to-project.mts",
+    "find": "...(withoutExemption === undefined ? [] : [`${ARCHITECTURE_CONFIG}: the starter's withoutEndToEnd is gone, since this add-on is the e2e package it waited for`]),",
+    "replace": "",
     "test": "pnpm vitest run scripts/create-project.test.mts -t \"withoutEndToEnd|browser test\""
   }
 ]

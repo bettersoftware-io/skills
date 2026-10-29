@@ -114,21 +114,23 @@ describe("creating a project from the starter", () => {
     expect(configOf(withIt.destination)).toMatch(/\n {2}\},\n\};\n\nexport default config;\n$/);
   });
 
-  it("refuses to make a project with the e2e add-on when the starter's withoutEndToEnd cannot be found", () => {
-    expect(() =>
-      createProject(
-        { target: createTarget("price-desk"), addons: ["e2e"] },
-        {
-          addAddon: (project, addon, scope) => {
-            const file = join(project, "architecture.config.mts");
+  it("takes the starter's withoutEndToEnd out when the e2e add-on is added later, and says so", () => {
+    const { destination: project } = createProject({ target: createTarget("price-desk") });
 
-            writeFileSync(file, readFileSync(file, "utf8").replace("withoutEndToEnd:\n", "withoutEndToEnd: "));
+    const result = addToProject({ project, unit: "e2e" });
 
-            return addToProject({ project, unit: addon, scope });
-          },
-        },
-      ),
-    ).toThrow(/has no withoutEndToEnd in the shape the starter writes it/);
+    expect(readFileSync(join(project, "architecture.config.mts"), "utf8")).not.toContain("withoutEndToEnd");
+    expect(result.declared).toContain("architecture.config.mts: the starter's withoutEndToEnd is gone, since this add-on is the e2e package it waited for");
+  });
+
+  it("leaves a withoutEndToEnd the project rewrote when the e2e add-on is added, for the gate to name", () => {
+    const { destination: project } = createProject({ target: createTarget("price-desk") });
+    const file = join(project, "architecture.config.mts");
+
+    writeFileSync(file, readFileSync(file, "utf8").replace("the e2e add-on was not chosen when the project was created", "the client is a kiosk"));
+    addToProject({ project, unit: "e2e" });
+
+    expect(readFileSync(file, "utf8")).toContain('"the client is a kiosk: add it with');
   });
 
   it("lists what each add-on asks to be run once, in order, for the person to run after installing", () => {

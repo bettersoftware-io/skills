@@ -14,5 +14,5 @@
   "test-ids": ["testIds"],
   "types-only": ["typesOnly"],
   "playwright-pin": [],
-  "end-to-end": ["withoutEndToEnd"]
+  "end-to-end": ["withoutEndToEnd", "serversWithoutEndToEnd"]
 }

@@ -6,6 +6,7 @@ import { dirname, join } from "node:path";
 import { describe, expect, it, onTestFinished } from "vitest";
 
 import { addToProject, compareWithTemplates, describe as describeResult, describeComparison, describeYours, listAddons, parseUnit, writeUnlessProtected } from "./add-to-project.mts";
+import { STARTER_END_TO_END_EXEMPTION } from "./lib/architecture.mts";
 import { InstallError, replaceProjectFile, writeProjectFile } from "./lib/install.mts";
 
 describe("adding the kit", () => {
@@ -1322,6 +1323,25 @@ describe("adding an add-on", () => {
     expect(first.notes).toEqual([]);
     expect(second.declared).toEqual([]);
     expect(readJson(project, "packages/demo/package.json").name).toBe("@acme/demo");
+  });
+
+  it("takes the starter's withoutEndToEnd out when the package it brings has the role e2e, and only then", () => {
+    const { repository, project } = createWorldWithKit();
+    const layers = PROJECT_LAYERS.replace("\n};\n", `${STARTER_END_TO_END_EXEMPTION}};\n`);
+    withOwnPackage(repository);
+    write(project, "architecture.config.mts", layers);
+    const manifest = readJson(repository, "addons/demo/addon.json");
+
+    write(repository, "addons/demo/addon.json", JSON.stringify({ ...manifest, architecture: { packages: { "packages/demo": { role: "leaf" } } } }));
+    addToProject({ project, unit: "demo", repository });
+
+    expect(read(project, "architecture.config.mts")).toContain("withoutEndToEnd");
+
+    write(project, "architecture.config.mts", layers);
+    write(repository, "addons/demo/addon.json", JSON.stringify(manifest));
+    addToProject({ project, unit: "demo", repository });
+
+    expect(read(project, "architecture.config.mts")).not.toContain("withoutEndToEnd");
   });
 
   it("leaves a declaration the project already wrote for that package as it is", () => {

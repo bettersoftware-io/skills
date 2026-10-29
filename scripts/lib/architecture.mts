@@ -189,3 +189,16 @@ function findStringEnd(text: string, from: number): number | undefined {
 function escapeForRegExp(text: string): string {
   return text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
+
+/**
+ * The starter's `withoutEndToEnd`, with the comment above it, as the starter
+ * writes it. A project made without the e2e add-on has it; the add-on, once
+ * added, takes it out again. A project that changed it keeps it: the
+ * end-to-end gate then says what to do.
+ */
+export const STARTER_END_TO_END_EXEMPTION = "\n\n  // The e2e add-on drives the built client in a browser, on its simulator and\n  // against the server. Without it, this line says why the project has no such\n  // test; the end-to-end gate shows the reason, and fails once an e2e package\n  // is there and the line is not gone.\n  withoutEndToEnd:\n    \"the e2e add-on was not chosen when the project was created: add it with add-to-project.mts <project> e2e, then delete this line\",\n";
+
+/** The config without the starter's `withoutEndToEnd`, or undefined when it does not hold it as the starter wrote it. */
+export function dropStarterEndToEndExemption(text: string): string | undefined {
+  return text.includes(STARTER_END_TO_END_EXEMPTION) ? text.replace(STARTER_END_TO_END_EXEMPTION, "\n") : undefined;
+}

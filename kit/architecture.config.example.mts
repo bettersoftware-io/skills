@@ -120,6 +120,8 @@ const config: ArchitectureConfig = {
   // A project with a client and no package of role "e2e" (the e2e add-on)
   // says here why nothing drives the client in a browser:
   //   withoutEndToEnd: "the client is a command-line tool"
+  // and a server that no end-to-end mode starts yet, with the reason:
+  //   serversWithoutEndToEnd: { "packages/server": "it serves no port before M3" },
 };
 
 export default config;
