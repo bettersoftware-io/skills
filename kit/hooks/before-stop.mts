@@ -73,10 +73,12 @@
 // (`<session>/subagents/agent-<id>.jsonl`, beside `transcript_path`) records
 // it as a task that subagent started: a tool's result with that
 // `backgroundTaskId`, at a time in the last thirty minutes. Past that, a
-// server a subagent left running stops holding the gate back. The layout is
-// the host's and not documented, so the hook believes it only in that shape:
-// a transcript that is not there, cannot be read, or records the task in any
-// other way or with no time names no subagent, and the gate runs as before.
+// server a subagent left running stops holding the gate back. The hooks
+// reference shows that folder; the record inside it is the host's and not
+// documented, so the hook believes it only in that shape. A transcript that is
+// not there, cannot be read, or records the task in any other way or with no
+// time names no subagent, and the gate runs as before. So does one the host
+// has not written yet: the reference says a transcript may lag.
 //
 // Apart from that second stop, the agent finishes without a gate having
 // passed in three cases only: no folder from `cwd` upward has a gate script,

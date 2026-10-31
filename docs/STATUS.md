@@ -412,8 +412,11 @@ feature with sign-in and routing. The Opus evals and the further tests of
   seen. Ask rules
   for those `git config` writes were weighed on 2026-10-25 and left out: a
   rule cannot tell `git config remote.origin.url` (a read) from a write, so
-  every such read would prompt. In the default permission mode the setting
-  is itself a step a person approves first; under bypass it is not.
+  every such read would prompt. Refusing any git subcommand the hook does not
+  know was weighed on 2026-10-31 and left out too: it would refuse everyday
+  aliases in a chain and still not see `git-<name>`. In the default
+  permission mode the setting is itself a step a person approves first; under
+  bypass it is not.
 - **Security reviews on 2026-10-29 found shapes the push hook does not read.**
   None is closed. Each was run against the 0.24.2 hook on 2026-10-31, and each
   command below got no answer from it, so a joined push is left to the host's
@@ -457,13 +460,19 @@ feature with sign-in and routing. The Opus evals and the further tests of
 - **The stop hook's nine-minute limit is tested with short limits only**, on
   the same code path.
 - **The stop hook's wait for a subagent that waits on its own shell rests on
-  an undocumented layout.** Live runs showed that Claude Code lists only the
-  shell while such a subagent waits, and counts the subagent as done. The
-  hook finds the subagent through the transcript beside the session's, which
-  is not documented. A third live run (Claude Code 2.1.310) showed the wait
-  working end to end; if a later Claude Code lays it out otherwise, the gate
-  runs as before. A subagent's shell holds the gate back for thirty
-  minutes at most. A session that ends for good while an agent is still
+  an undocumented record.** Live runs showed that Claude Code lists only the
+  shell while such a subagent waits, and counts the subagent as done, and
+  `background_tasks` does not say who started a task. The hooks reference
+  shows the `subagents/` folder beside the session's transcript; the record
+  in it that the hook reads (`toolUseResult.backgroundTaskId`) is not
+  documented. A third live run (Claude Code 2.1.310) showed the wait working
+  end to end; on 2026-10-31 no record from 2.1.316 was there yet to compare.
+  If a later Claude Code writes it otherwise, or has not written it yet (the
+  reference says a transcript may lag), the gate runs as before: a false block
+  and never a skipped gate. An owner field on a `background_tasks` entry would
+  remove this; that was reported to Claude Code on 2026-10-25, as the
+  subagent dropping out of the list. A subagent's shell holds the gate back
+  for thirty minutes at most. A session that ends for good while an agent is still
   at work ends with no gate on its last tree; CI is what catches that. Codex
   sends no such list, so under Codex a controller can still be blocked by a
   subagent's half-done edit.

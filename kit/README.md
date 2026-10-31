@@ -875,9 +875,9 @@ turn's stop is judged as usual.
   (`<session>/subagents/agent-<id>.jsonl`, beside `transcript_path`). If a
   subagent started it in the last thirty minutes, the gate waits for that
   subagent too; past that, a server a subagent left running stops holding it
-  back. That layout is Claude Code's own and not documented: when it is not
-  there, cannot be read or records the shell in any other shape, the gate
-  runs.
+  back. The hooks reference shows that folder, but the record inside it is
+  Claude Code's own and not documented: when it is not there, not written
+  yet, cannot be read or records the shell in any other shape, the gate runs.
 - An entry in a shape the reference does not document (no status, a type or
   a status it does not list) does not either: what cannot be read runs the
   gate.
