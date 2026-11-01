@@ -152,22 +152,33 @@ behind one of them each later `git`, `gh`, shell or `eval` is tried in turn,
 and the first that is an outward step or runs a command from its argument is
 taken for the command: a wrong guess refuses a chain, and lets none through.
 Past 32 such words the command is not read, and is refused if it names `push`
-or `gh`. Git and gh are known by a path written with either slash, and with
-`.exe`.
+or `gh`. Git, gh and those programs are known by a path written with either
+slash, and with `.exe`. A value set in front of a command counts as written
+with `=` or `+=`, on a name or on an element (`A[0]=1`).
 
 A command that may give git an alias is taken for an outward step, since the
 alias's name is the only word the hook sees of what it runs:
 `git -c alias.p=push p`, `--config-env alias.…`, a setting that includes a
 file (`-c include.path=…`, `includeIf.…`), a `git config` that writes one
-(`git config alias.p push && git p`), and any `git` in a script that sets
-what git reads its settings or its commands from (`GIT_CONFIG_*`, `GIT_DIR`,
-`GIT_COMMON_DIR`, `GIT_EXEC_PATH`, `HOME`, `XDG_CONFIG_HOME`), in front of it,
-as a step of its own, with `export`, or inside an `eval` (which runs in the
-same shell; `bash -c` does not). It is refused in a chain and asked about
-alone; so is a plain push in such a script. `env -S '…'` is read as `bash -c
-'…'` is, unless its text holds a backslash or a `$`, which env changes before
-it runs it: that text is not read, and is asked about when it names `push`
-or `gh`.
+(`git config alias.p push && git p`; `get` and `list` read only right after
+`config`, and `--get` and its kin only in front of the key, since behind it
+git takes them for values), and any `git` in a
+script that sets what git reads its settings or its commands from
+(`GIT_CONFIG_*`, `GIT_DIR`, `GIT_COMMON_DIR`, `GIT_EXEC_PATH`, `HOME`, `PATH`,
+`XDG_CONFIG_HOME`), in front of it, as a step of its own, with `export`, or
+inside an `eval` (which runs in the same shell; `bash -c` does not). It is
+refused in a chain and asked about alone; so is a plain push in such a script.
+So `export PATH=…; git status && pnpm test` is refused too, for a `git-<name>`
+program may sit on that `PATH`: set it in a call of its own, or leave it out.
+
+`env -S '…'` is read as `env …` is, behind any options of env, joined (`-vS`,
+`-uFOO`) or not. An `env` that is the command is refused, under either host and
+whatever it names, when its text holds a backslash or a `$`, which env changes
+before it runs it, when the text cannot be parsed, or when it is given an
+option env does not have: what it
+runs then is not known, and need not name anything. The short options were
+tried on macOS's `env`; the long ones, which only GNU's has, and their cut
+forms (`--split-str=`) come from its documentation, and were not run.
 
 It is let through when the outward step is alone: with a pipe into a filter
 (`git push 2>&1 | tail -2`), with redirections, with a `$(cat <<'EOF' … EOF)`
@@ -806,6 +817,7 @@ the agent to run. That also lets Codex use the same file.
 | The hook | `PreToolUse`, two groups, matchers `Bash` and `Monitor`, in `.claude/settings.json` | `PreToolUse`, matcher `Bash`, in `.codex/hooks.json` |
 | The refusal | `permissionDecision: "deny"` | The same shape |
 | The question about a push not written plainly | `permissionDecision: "ask"` | Not given. Codex calls that answer unsupported, so the hook says nothing to a payload that holds a `turn_id`, which Codex sends with every call |
+| A command that cannot be read and names an outward step | `permissionDecision: "ask"` | `permissionDecision: "deny"`: no one can be asked, and it must not pass for being hard to read |
 | Permission rules | `permissions.ask` in the project | None in the project. Codex's approval mode and sandbox decide |
 | The changelog reminder | `SessionStart` in `.claude/settings.json`, matcher `startup\|resume\|clear` | `SessionStart` in `.codex/hooks.json`, matcher `startup\|resume\|clear`. Codex asks you to trust a new hook: run `/hooks` |
 | Commands | `/workflow:changelog` and the two others | No project slash commands. The skills `$workflow-changelog` and the two others point at the same files |
@@ -999,7 +1011,8 @@ bash 5.3 and 3.2, zsh and dash:
 | Inside double quotes, backticks kept `\"` as written; bash makes it `"` | `` echo "`echo \" ' \"; git push …; echo \" ' \"`" `` | `\"` is `"` there too: refused as a chain |
 
 What shells read differently from one another, the reader does not read:
-the command is unreadable, and is asked about when it names an outward step.
+the command is unreadable, and is asked about when it names an outward step
+(refused under Codex, which cannot ask).
 That is any unquoted `case` inside `$(…)`, wherever it stands (`f() { case
 …`, `function f { case …`), since its patterns end in `)`; a quote inside
 `${…}` within double quotes, a heredoc or arithmetic; a single quote in

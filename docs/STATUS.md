@@ -3,7 +3,7 @@
 What is not done yet. Finished work is removed from this page, not archived;
 the test records in this folder and the git log say what was done.
 
-**Last updated: 2026-10-31**
+**Last updated: 2026-11-01**
 
 ## Waiting on something outside this repository
 
@@ -417,28 +417,6 @@ feature with sign-in and routing. The Opus evals and the further tests of
   aliases in a chain and still not see `git-<name>`. In the default
   permission mode the setting is itself a step a person approves first; under
   bypass it is not.
-- **Security reviews on 2026-10-29 found shapes the push hook does not read.**
-  None is closed. Each was run against the 0.24.2 hook on 2026-10-31, and each
-  command below got no answer from it, so a joined push is left to the host's
-  rules:
-  - `PATH` is not among the settings it follows. `HOME=/tmp/x git frob && echo
-    done` is refused; the same with `PATH=/tmp/x:$PATH` is not, so a
-    `git-frob` put on that `PATH` by the same command runs unseen.
-  - A read word anywhere in `git config` makes the whole call a read.
-    `git config alias.p push get` writes the alias (`get` is a value pattern
-    to git), and `git config alias.p push get; git p && echo done` passes.
-  - `env` reads `-S` only as its own word or as `--split-string`.
-    `env -vS '…'` and `env -u FOO -S '…'` run the text on macOS and are not
-    read. An
-    abbreviation such as `--split-str=` is not read either; that one runs only
-    under GNU `env`, and was not run here.
-  - Text after `env -S` with a `$` or a backslash is not read at all, by design
-    (the add-on's README). It is asked about when it names `push` or `gh`, and
-    says nothing when it does not: `env -S 'git pu$Xsh origin main && echo x'`.
-    From the code, not run: Codex cannot be asked, so there it passes too.
-  The reviews' fixes: add `PATH` to `GIT_SETTINGS`; count `get` and `list` only
-  in the subcommand's place; treat an `env` whose options cannot all be read
-  as unreadable; refuse rather than ask when the host cannot ask.
 - **Two eval-depth mutants survive only under load.** "is refused when evals
   are nested inside one another too deep" and "… too deep (the count goes
   down the evals)" survived the full run of the add-on's 961 mutants on
@@ -466,7 +444,7 @@ feature with sign-in and routing. The Opus evals and the further tests of
   shows the `subagents/` folder beside the session's transcript; the record
   in it that the hook reads (`toolUseResult.backgroundTaskId`) is not
   documented. A third live run (Claude Code 2.1.310) showed the wait working
-  end to end; on 2026-10-31 no record from 2.1.316 was there yet to compare.
+  end to end, and on 2026-11-01 a subagent of 2.1.316 wrote the same record.
   If a later Claude Code writes it otherwise, or has not written it yet (the
   reference says a transcript may lag), the gate runs as before: a false block
   and never a skipped gate. An owner field on a `background_tasks` entry would
@@ -552,9 +530,11 @@ feature with sign-in and routing. The Opus evals and the further tests of
   repository is never remembered.
   A review on 2026-10-29 found the same of the wait for a subagent
   (`subagentsWaitingOn`): it trusts transcript files beside the session's, which
-  an agent can write, so a made-up one can delay the gate. Not closed; the wait
-  is bounded by its thirty minutes. Its fix: match ids against what the host
-  listed as subagents.
+  an agent can write, so a made-up one can delay the gate. Left as it is on
+  2026-11-01: the wait is bounded by its thirty minutes, and CI runs the same
+  gate. The review's fix, matching ids against what the host listed as
+  subagents, cannot work: the host does not list a subagent while it waits on
+  its shell, which is the case the wait is for.
 - **The stop hook reads every file git does not ignore, on every stop,** to
   know whether the tree changed. Not measured on a large repository.
 - **A stop-hook gate that is cut off at nine minutes may leave its child
