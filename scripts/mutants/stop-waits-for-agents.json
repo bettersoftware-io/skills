@@ -86,8 +86,8 @@
   {
     "name": "before-stop: a list that is not one is read as one",
     "file": "kit/hooks/before-stop.mts",
-    "find": "  if (!Array.isArray(tasks)) {\n    return [];\n  }\n\n  const inFlight = tasks.flatMap(",
-    "replace": "  const inFlight = (Array.isArray(tasks) ? tasks : [tasks]).flatMap(",
+    "find": "const agents = Array.isArray(payload.background_tasks) ? agentsAtWork(payload.background_tasks, payload.transcript_path) : agentsOnRecord(payload);",
+    "replace": "const agents = agentsAtWork(Array.isArray(payload.background_tasks) ? payload.background_tasks : [payload.background_tasks], payload.transcript_path);",
     "test": "pnpm vitest run kit/hooks/hooks.test.mts -t \"when the list of tasks is not a list\""
   },
   {

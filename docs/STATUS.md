@@ -451,9 +451,16 @@ feature with sign-in and routing. The Opus evals and the further tests of
   remove this; that was reported to Claude Code on 2026-10-25, as the
   subagent dropping out of the list. A subagent's shell holds the gate back
   for thirty minutes at most. A session that ends for good while an agent is still
-  at work ends with no gate on its last tree; CI is what catches that. Codex
-  sends no such list, so under Codex a controller can still be blocked by a
-  subagent's half-done edit.
+  at work ends with no gate on its last tree; CI is what catches that.
+- **Under Codex a stop can come before the subagent's start.** In a live run
+  `Stop` came a second before `SubagentStart`, so that stop is judged while
+  the subagent is about to work. A gate that takes longer than the subagent's
+  first edit can still fail on it. Nothing Codex sends says a subagent is on
+  its way. And a subagent's gate runs with the tree as it is: a controller
+  still editing can send a subagent back for its own half-done edit.
+- **A project on an older kit keeps today's behaviour under Codex** until its
+  `.codex/hooks.json` takes the two new entries, which a kit update names, and
+  a person trusts them with `/hooks`.
 - **The quiet gate copies the environment pnpm 12.6 gives a script.** A later
   pnpm may set more; the test that compares the two runs would show it.
 - **An update says a thing once.** A changed template, a file compared with a

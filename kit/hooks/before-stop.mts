@@ -93,11 +93,12 @@
 // that leaves.
 //
 // Works under Claude Code and Codex: both send `stop_hook_active` and both read
-// `{"decision":"block","reason":…}`. Codex sends no `background_tasks`, nor
-// anything else that says a subagent is still at work, so under Codex every
-// stop is judged as before. Its orchestrator waits for the results it asked
-// for before it answers, which makes the race less likely there, not
-// impossible.
+// `{"decision":"block","reason":…}`. Codex sends no `background_tasks` and does
+// not wait for a subagent, so there `watch-subagents.mts` keeps a record of
+// the ones at work, which this reads, and judges the tree when the last one
+// stops: no `Stop` follows that under Codex. A `Stop` can come before the
+// `SubagentStart` of the subagent the turn just started (seen live, a second
+// apart). That stop is judged, on a tree the subagent has not touched yet.
 
 import { spawn, spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
@@ -105,6 +106,7 @@ import { existsSync, lstatSync, mkdirSync, readdirSync, readFileSync, readlinkSy
 import { dirname, join } from "node:path";
 
 import { isMainModule, isPlainPath } from "../gates/lib/files.mts";
+import { subagentsOnRecord } from "./subagent-records.mts";
 
 /** Tried in order: the gate CI runs, then the fast one for a project that has no other. */
 const SCRIPTS = ["gate:full", "gate:fast"];
@@ -157,6 +159,7 @@ export interface StopPayload {
   background_tasks?: unknown;
   /** The session's transcript; its subagents' are kept beside it. */
   transcript_path?: unknown;
+  session_id?: unknown;
 }
 
 /** What the hook writes back: a block with its reason, or a message to the user and nothing else. */
@@ -187,7 +190,8 @@ export interface GateRun {
  * tree, and its report starts the turn whose stop is judged.
  */
 export async function replyToStop(payload: StopPayload, run: (root: string, script: string) => GateRun | Promise<GateRun> = runGate): Promise<StopReply | undefined> {
-  const agents = agentsAtWork(payload.background_tasks, payload.transcript_path);
+  // A host that sends no list, as Codex does not, has told `watch-subagents.mts` instead.
+  const agents = Array.isArray(payload.background_tasks) ? agentsAtWork(payload.background_tasks, payload.transcript_path) : agentsOnRecord(payload);
 
   if (agents.length > 0) {
     return { systemMessage: deferral(agents) };
@@ -203,11 +207,7 @@ export async function replyToStop(payload: StopPayload, run: (root: string, scri
  * subagents that ended their turn to wait on a shell or a monitor still
  * running. An entry in any other shape is not one: it never skips the gate.
  */
-function agentsAtWork(tasks: unknown, transcriptPath: unknown): AgentAtWork[] {
-  if (!Array.isArray(tasks)) {
-    return [];
-  }
-
+function agentsAtWork(tasks: unknown[], transcriptPath: unknown): AgentAtWork[] {
   const inFlight = tasks.flatMap((task: unknown): AgentAtWork[] => {
     if (typeof task !== "object" || task === null) {
       return [];
@@ -331,6 +331,21 @@ function readMeta(path: string): Record<string, unknown> {
     return typeof meta === "object" && meta !== null ? (meta as Record<string, unknown>) : {};
   } catch {
     return {};
+  }
+}
+
+/** The subagents `watch-subagents.mts` has on record for this session. A project that cannot be found has none. */
+function agentsOnRecord({ cwd, session_id: session }: StopPayload): AgentAtWork[] {
+  if (typeof cwd !== "string" || typeof session !== "string") {
+    return [];
+  }
+
+  try {
+    const project = findProject(cwd);
+
+    return project === undefined ? [] : subagentsOnRecord(project.root, session).map(({ id, type }) => ({ id, type: "subagent", description: "", agentType: type }));
+  } catch {
+    return [];
   }
 }
 
@@ -624,7 +639,7 @@ function writeLastGreen(root: string, tree: string): void {
 }
 
 /** What the host sent. A payload that cannot be read is an empty one: the gate is then run, never skipped. */
-function readPayload(): StopPayload {
+export function readPayload(): StopPayload {
   try {
     const payload: unknown = JSON.parse(readFileSync(0, "utf8") || "{}");
 
