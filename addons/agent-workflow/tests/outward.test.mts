@@ -547,7 +547,37 @@ describe("a step that gives git a meaning another step of the script uses", () =
   });
 
   it.each([
+    ["a quote left open", "env -S \"git push origin 'x\" && ls"],
+    ["a quote left open after -v", "env -vS \"pu'sh\""],
+  ])("does not read env -S text it cannot parse, and says so: %s", (_name, command) => {
+    expect(() => judgeCommand(command)).toThrow(UnreadEnvError);
+  });
+
+  it.each([
+    ["a signal", "timeout -s KILL 5 env -x ls"],
+    ["stdbuf's option", "stdbuf -o L env -x ls"],
+    ["xargs's option", "xargs -I {} env -x ls"],
+    ["a time", "timeout 30s env -x ls"],
+    ["a value set in front", "A=1 nohup env -x ls"],
+    ["a path", "/usr/bin/nohup -x y env -x ls"],
+    ["two options, the second with a word", "stdbuf -oL -e L env -x ls"],
+  ])("refuses an env it cannot read behind a wrapper's own options: %s", (_name, command) => {
+    expect(() => judgeCommand(command)).toThrow(UnreadEnvError);
+  });
+
+  it("does not read an env whose options it cannot read: behind an option alone", () => {
+    expect(() => judgeCommand("nohup -x env -x ls")).toThrow(UnreadEnvError);
+  });
+
+  it("reads env -S text behind a wrapper's own options the same way", () => {
+    expect(() => judgeCommand("stdbuf -o L env -S 'pu${X}sh' && ls")).toThrow(UnreadEnvError);
+  });
+
+  it.each([
     ["grep for the word", "grep env -rn src"],
+    ["an option's word that is the command", "nice -n 5 grep env -rn src"],
+    ["a number in front", "5 env -x ls"],
+    ["a quote left open", "echo env -S \"it's\" && ls"],
     ["echo of a $", "echo env -x '$HOME' && ls"],
     ["a wrapper's grep", "timeout 5 grep env -rn src"],
   ])("leaves a word env that is not the command alone: %s", (_name, command) => {
@@ -590,6 +620,14 @@ describe("a step that gives git a meaning another step of the script uses", () =
     expect(judgeCommand(command)).toMatchObject({ outward: ["git push origin"], chained: true });
   });
 
+  // To env the words behind the text are words: `#x` starts no comment, and a quote closes nothing.
+  it.each([
+    ["a word a shell takes for a comment", "env -S 'git -C' '#x' push origin worktree-a && ls"],
+    ["a quote", "env -S 'git -C' \"it's\" push origin worktree-a && ls"],
+  ])("reads the words behind the text of env -S as words: %s", (_name, command) => {
+    expect(judgeCommand(command)).toMatchObject({ chained: true });
+  });
+
   it("reads -S in the text of -S", () => {
     expect(judgeCommand("env -S '-S git push origin worktree-a' && ls")).toMatchObject({ chained: true });
     expect(judgeCommand("env -S '-S git push origin worktree-a' && ls")?.outward).toContain("git push origin");
@@ -628,6 +666,8 @@ describe("a step that gives git a meaning another step of the script uses", () =
   it.each([
     ["an assignment that adds", "A+=1 git push origin worktree-a"],
     ["two, the second adding", "A=1 B+=2 git push origin worktree-a"],
+    ["an element of an array", "A[0]=1 git push origin worktree-a"],
+    ["an element that adds", "A[0]+=1 git push origin worktree-a"],
   ])("reads past a variable set for the command: %s", (_name, command) => {
     expect(judgeCommand(`ls && ${command}`)).toMatchObject({ outward: ["git push origin"], chained: true });
   });
@@ -639,6 +679,8 @@ describe("a step that gives git a meaning another step of the script uses", () =
     ["PATH that adds", "PATH+=:/tmp/x git frob"],
     ["export PATH that adds", "export PATH+=:/tmp/x; git frob"],
     ["HOME that adds", "HOME+=/x; git p"],
+    ["PATH written as its first element", "PATH[0]=/tmp/x; git frob"],
+    ["PATH's element that adds", "PATH[0]+=:/tmp/x; git frob"],
   ])("takes git after a step that moves where it finds its commands for an outward step: %s", (_name, command) => {
     expect(judgeCommand(command)?.outward.length).toBeGreaterThan(0);
     expect(judgeCommand(`ls && ${command}`)?.chained).toBe(true);
@@ -654,7 +696,18 @@ describe("a step that gives git a meaning another step of the script uses", () =
     expect(judgeCommand(command)?.chained).toBe(true);
   });
 
-  it.each(["git config get alias.p", "git config get --local alias.p", "git config list", "git config --get alias.p", "git config alias.p --get", "git config -l", "git config --local --list"])(
+  // git stops reading options at the first word that is not one: `git config alias.p push --get` writes.
+  it.each([
+    ["behind the key and the value", "git config alias.p push --get; git p"],
+    ["behind the key", "git config alias.p --get; git p"],
+    ["behind the key, -l", "git config alias.p push -l; git p"],
+    ["behind --", "git config -- alias.p --get; git p"],
+    ["behind an option and the key", "git config --local alias.p push --list; git p"],
+  ])("takes a write for a write when a read option stands behind the key: %s", (_name, command) => {
+    expect(judgeCommand(command)?.chained).toBe(true);
+  });
+
+  it.each(["git config get alias.p", "git config get --local alias.p", "git config list", "git config --get alias.p", "git config --local --get alias.p", "git config -f x --get alias.p", "git config -l", "git config --local --list"])(
     "leaves a read of git config alone: %s",
     (command) => {
       expect(judgeCommand(command)).toEqual({ outward: [], chained: false, redirected: false });

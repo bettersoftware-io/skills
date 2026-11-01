@@ -7305,8 +7305,8 @@
   {
     "name": "HOME in front of git is not looked at",
     "file": "addons/agent-workflow/files/tools/agent-workflow/lib/outward.mts",
-    "find": "const GIT_SETTINGS = /^(?:GIT_CONFIG\\w*|GIT_DIR|GIT_COMMON_DIR|GIT_EXEC_PATH|HOME|PATH|XDG_CONFIG_HOME)\\+?=/;",
-    "replace": "const GIT_SETTINGS = /^(?:GIT_CONFIG\\w*|GIT_DIR|GIT_COMMON_DIR|GIT_EXEC_PATH|PATH|XDG_CONFIG_HOME)\\+?=/;",
+    "find": "GIT_EXEC_PATH|HOME|PATH|XDG_CONFIG_HOME)(?:\\[[^\\]]*\\])?\\+?=/;",
+    "replace": "GIT_EXEC_PATH|PATH|XDG_CONFIG_HOME)(?:\\[[^\\]]*\\])?\\+?=/;",
     "test": "pnpm vitest run addons/agent-workflow/tests/outward.test.mts -t \"and asks: HOME\""
   },
   {
@@ -7389,8 +7389,8 @@
   {
     "name": "reading an alias is taken for writing one",
     "file": "addons/agent-workflow/files/tools/agent-workflow/lib/outward.mts",
-    "find": "  return own[0] === \"config\" && !reads && ",
-    "replace": "  return own[0] === \"config\" && ",
+    "find": "return own[0] === \"config\" && !onlyReads(args) && ",
+    "replace": "return own[0] === \"config\" && ",
     "test": "pnpm vitest run addons/agent-workflow/tests/outward.test.mts -t \"asks about writing an alias alone, and lets reading one through\""
   },
   {
@@ -7436,13 +7436,6 @@
     "test": "pnpm vitest run addons/agent-workflow/tests/outward.test.mts -t \"reads the text of env -S as a command: env --split-string\""
   },
   {
-    "name": "a read word that is an option's value is taken for a read",
-    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/outward.mts",
-    "find": " && !CONFIG_OPTIONS_WITH_VALUE.includes(args[index - 1] ?? \"\")",
-    "replace": "",
-    "test": "pnpm vitest run addons/agent-workflow/tests/outward.test.mts -t \"a read word is only the value of an option\""
-  },
-  {
     "name": "a setting made inside eval is not followed",
     "file": "addons/agent-workflow/files/tools/agent-workflow/lib/outward.mts",
     "find": "programName(words[0] ?? \"\") === \"eval\" && inner.moves",
@@ -7480,22 +7473,22 @@
   {
     "name": "PATH is not among what git's commands are found by",
     "file": "addons/agent-workflow/files/tools/agent-workflow/lib/outward.mts",
-    "find": "GIT_EXEC_PATH|HOME|PATH|XDG_CONFIG_HOME)\\+?=/;",
-    "replace": "GIT_EXEC_PATH|HOME|XDG_CONFIG_HOME)\\+?=/;",
+    "find": "GIT_EXEC_PATH|HOME|PATH|XDG_CONFIG_HOME)(?:\\[[^\\]]*\\])?\\+?=/;",
+    "replace": "GIT_EXEC_PATH|HOME|XDG_CONFIG_HOME)(?:\\[[^\\]]*\\])?\\+?=/;",
     "test": "pnpm vitest run addons/agent-workflow/tests/outward.test.mts -t \"takes git after a step that moves where it finds its commands for an outward step: PATH in front\""
   },
   {
     "name": "a setting that adds to a value is not followed",
     "file": "addons/agent-workflow/files/tools/agent-workflow/lib/outward.mts",
-    "find": "GIT_EXEC_PATH|HOME|PATH|XDG_CONFIG_HOME)\\+?=/;",
-    "replace": "GIT_EXEC_PATH|HOME|PATH|XDG_CONFIG_HOME)=/;",
+    "find": "GIT_EXEC_PATH|HOME|PATH|XDG_CONFIG_HOME)(?:\\[[^\\]]*\\])?\\+?=/;",
+    "replace": "GIT_EXEC_PATH|HOME|PATH|XDG_CONFIG_HOME)(?:\\[[^\\]]*\\])?=/;",
     "test": "pnpm vitest run addons/agent-workflow/tests/outward.test.mts -t \"takes git after a step that moves where it finds its commands for an outward step: PATH that adds\""
   },
   {
     "name": "an assignment that adds is taken for the command",
     "file": "addons/agent-workflow/files/tools/agent-workflow/lib/outward.mts",
-    "find": "const ASSIGNMENT = /^[A-Za-z_][A-Za-z0-9_]*\\+?=/;",
-    "replace": "const ASSIGNMENT = /^[A-Za-z_][A-Za-z0-9_]*=/;",
+    "find": "const ASSIGNMENT = /^[A-Za-z_][A-Za-z0-9_]*(?:\\[[^\\]]*\\])?\\+?=/;",
+    "replace": "const ASSIGNMENT = /^[A-Za-z_][A-Za-z0-9_]*(?:\\[[^\\]]*\\])?=/;",
     "test": "pnpm vitest run addons/agent-workflow/tests/outward.test.mts -t \"reads past a variable set for the command: an assignment that adds\""
   },
   {
@@ -7508,8 +7501,8 @@
   {
     "name": "a read word anywhere in git config is a read",
     "file": "addons/agent-workflow/files/tools/agent-workflow/lib/outward.mts",
-    "find": "const reads = CONFIG_READ_COMMANDS.includes(args[0] ?? \"\") ||",
-    "replace": "const reads = args.some((word) => CONFIG_READ_COMMANDS.includes(word)) ||",
+    "find": "if (CONFIG_READ_COMMANDS.includes(args[0] ?? \"\")) {",
+    "replace": "if (args.some((word) => CONFIG_READ_COMMANDS.includes(word))) {",
     "test": "pnpm vitest run addons/agent-workflow/tests/outward.test.mts -t \"takes a write for a write when a read word is not in the subcommand's place: a value pattern\""
   },
   {
@@ -7520,39 +7513,18 @@
     "test": "pnpm vitest run addons/agent-workflow/tests/outward.test.mts -t \"leaves a read of git config alone: git config --get alias.p\""
   },
   {
-    "name": "a read option of git config counts only first",
-    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/outward.mts",
-    "find": "args.some((word, index) => CONFIG_READ_OPTIONS.includes(word) &&",
-    "replace": "args.slice(0, 1).some((word, index) => CONFIG_READ_OPTIONS.includes(word) &&",
-    "test": "pnpm vitest run addons/agent-workflow/tests/outward.test.mts -t \"leaves a read of git config alone: git config alias.p --get\""
-  },
-  {
     "name": "the text of env -S is read without env in front",
     "file": "addons/agent-workflow/files/tools/agent-workflow/lib/outward.mts",
-    "find": "return readScript([\"env\", split.text, ...stage.slice(split.after)].join(\" \"));",
-    "replace": "return readScript([split.text, ...stage.slice(split.after)].join(\" \"));",
+    "find": "const script = readScript([\"env\", split.text, ...quoted].join(\" \"));",
+    "replace": "const script = readScript([split.text, ...quoted].join(\" \"));",
     "test": "pnpm vitest run addons/agent-workflow/tests/outward.test.mts -t \"reads the text of env -S as a command: an option of env in the text\""
   },
   {
     "name": "words after the text of env -S are dropped",
     "file": "addons/agent-workflow/files/tools/agent-workflow/lib/outward.mts",
-    "find": "return readScript([\"env\", split.text, ...stage.slice(split.after)].join(\" \"));",
-    "replace": "return readScript([\"env\", split.text].join(\" \"));",
+    "find": "const script = readScript([\"env\", split.text, ...quoted].join(\" \"));",
+    "replace": "const script = readScript([\"env\", split.text].join(\" \"));",
     "test": "pnpm vitest run addons/agent-workflow/tests/outward.test.mts -t \"reads the text of env -S as a command: joined text\""
-  },
-  {
-    "name": "an env named by another command is sure to run",
-    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/outward.mts",
-    "find": "  const sure = stage.slice(0, env).every(",
-    "replace": "  const sure = true || stage.slice(0, env).every(",
-    "test": "pnpm vitest run addons/agent-workflow/tests/outward.test.mts -t \"leaves a word env that is not the command alone\""
-  },
-  {
-    "name": "an env behind a wrapper is not sure to run",
-    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/outward.mts",
-    "find": "ASSIGNMENT.test(word) || LEADING_WORDS.includes(programName(word)) || word.startsWith(\"-\") || LEADING_VALUE.test(word));",
-    "replace": "ASSIGNMENT.test(word));",
-    "test": "pnpm vitest run addons/agent-workflow/tests/outward.test.mts -t \"does not read env -S text that env would change, and says so: behind a wrapper\""
   },
   {
     "name": "an option env does not have is let through",
@@ -7686,5 +7658,131 @@
     "find": "      : {\n          decision: \"deny\",\n          reason:\n            \"Refused: this command could not be read",
     "replace": "      : undefined ?? {\n          decision: \"ask\",\n          reason:\n            \"Refused: this command could not be read",
     "test": "pnpm vitest run addons/agent-workflow/tests/outward.test.mts -t \"and refuses it under Codex\""
+  },
+  {
+    "name": "a read option behind the key is a read",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/outward.mts",
+    "find": "for (let index = 0; args[index]?.startsWith(\"-\"); index += 1) {",
+    "replace": "for (let index = 0; index < args.length; index += 1) {",
+    "test": "pnpm vitest run addons/agent-workflow/tests/outward.test.mts -t \"takes a write for a write when a read option stands behind the key: behind the key and the value\""
+  },
+  {
+    "name": "a read option is not read in front of the key",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/outward.mts",
+    "find": "    if (CONFIG_READ_OPTIONS.includes(args[index] ?? \"\")) {\n      return true;\n    }\n",
+    "replace": "",
+    "test": "pnpm vitest run addons/agent-workflow/tests/outward.test.mts -t \"leaves a read of git config alone: git config --get alias.p\""
+  },
+  {
+    "name": "an option's value is read as an option",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/outward.mts",
+    "find": "    index += CONFIG_OPTIONS_WITH_VALUE.includes(args[index] ?? \"\") ? 1 : 0;\n",
+    "replace": "",
+    "test": "pnpm vitest run addons/agent-workflow/tests/outward.test.mts -t \"takes a write for a write when a read word is only the value of an option\""
+  },
+  {
+    "name": "a word in front of the key ends the options",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/outward.mts",
+    "find": "index += CONFIG_OPTIONS_WITH_VALUE.includes(args[index] ?? \"\") ? 1 : 0;",
+    "replace": "index += 0;",
+    "test": "pnpm vitest run addons/agent-workflow/tests/outward.test.mts -t \"takes a write for a write when a read word is only the value of an option\""
+  },
+  {
+    "name": "an env any word stands in front of is sure",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/outward.mts",
+    "find": "const sure = standsFirst(stage, env);",
+    "replace": "const sure = true;",
+    "test": "pnpm vitest run addons/agent-workflow/tests/outward.test.mts -t \"leaves a word env that is not the command alone\""
+  },
+  {
+    "name": "no env is sure",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/outward.mts",
+    "find": "const sure = standsFirst(stage, env);",
+    "replace": "const sure = false;",
+    "test": "pnpm vitest run addons/agent-workflow/tests/outward.test.mts -t \"does not read an env whose options it cannot read\""
+  },
+  {
+    "name": "a wrapper is not known by its path before env",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/outward.mts",
+    "find": "    if (LEADING_WORDS.includes(programName(current))) {\n      led = true;\n    } else if (led && current.startsWith(\"-\")) {",
+    "replace": "    if (LEADING_WORDS.includes(current)) {\n      led = true;\n    } else if (led && current.startsWith(\"-\")) {",
+    "test": "pnpm vitest run addons/agent-workflow/tests/outward.test.mts -t \"refuses an env it cannot read behind a wrapper's own options: a path\""
+  },
+  {
+    "name": "a wrapper's option takes no word",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/outward.mts",
+    "find": "index += stage[index + 1]?.startsWith(\"-\") ? 0 : 1;",
+    "replace": "index += 0;",
+    "test": "pnpm vitest run addons/agent-workflow/tests/outward.test.mts -t \"refuses an env it cannot read behind a wrapper's own options: stdbuf\""
+  },
+  {
+    "name": "a wrapper's option takes an option",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/outward.mts",
+    "find": "index += stage[index + 1]?.startsWith(\"-\") ? 0 : 1;",
+    "replace": "index += 1;",
+    "test": "pnpm vitest run addons/agent-workflow/tests/outward.test.mts -t \"refuses an env it cannot read behind a wrapper's own options: two options\""
+  },
+  {
+    "name": "a value is not looked past before env",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/outward.mts",
+    "find": "} else if (!ASSIGNMENT.test(current) && !(led && LEADING_VALUE.test(current))) {",
+    "replace": "} else if (!ASSIGNMENT.test(current)) {",
+    "test": "pnpm vitest run addons/agent-workflow/tests/outward.test.mts -t \"refuses an env it cannot read behind a wrapper's own options: a time\""
+  },
+  {
+    "name": "a value set in front of env is not looked past",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/outward.mts",
+    "find": "} else if (!ASSIGNMENT.test(current) && !(led && LEADING_VALUE.test(current))) {",
+    "replace": "} else if (!(led && LEADING_VALUE.test(current))) {",
+    "test": "pnpm vitest run addons/agent-workflow/tests/outward.test.mts -t \"refuses an env it cannot read behind a wrapper's own options: a value set in front\""
+  },
+  {
+    "name": "a number before a wrapper is looked past",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/outward.mts",
+    "find": "!(led && LEADING_VALUE.test(current))",
+    "replace": "!LEADING_VALUE.test(current)",
+    "test": "pnpm vitest run addons/agent-workflow/tests/outward.test.mts -t \"leaves a word env that is not the command alone: a number in front\""
+  },
+  {
+    "name": "env text that cannot be parsed is left alone",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/outward.mts",
+    "find": "if (script === undefined && sure) {",
+    "replace": "if (false) {",
+    "test": "pnpm vitest run addons/agent-workflow/tests/outward.test.mts -t \"does not read env -S text it cannot parse\""
+  },
+  {
+    "name": "env text that cannot be parsed is refused wherever env stands",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/outward.mts",
+    "find": "if (script === undefined && sure) {",
+    "replace": "if (script === undefined) {",
+    "test": "pnpm vitest run addons/agent-workflow/tests/outward.test.mts -t \"leaves a word env that is not the command alone: a quote left open\""
+  },
+  {
+    "name": "the words behind env's text are not quoted",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/outward.mts",
+    "find": "const quoted = stage.slice(split.after).map((word) => `'${word.replaceAll(\"'\", \"'\\\\''\")}'`);",
+    "replace": "const quoted = stage.slice(split.after);",
+    "test": "pnpm vitest run addons/agent-workflow/tests/outward.test.mts -t \"reads the words behind the text of env -S as words: a word a shell\""
+  },
+  {
+    "name": "a quote in a word behind env's text is not escaped",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/outward.mts",
+    "find": "`'${word.replaceAll(\"'\", \"'\\\\''\")}'`",
+    "replace": "`'${word}'`",
+    "test": "pnpm vitest run addons/agent-workflow/tests/outward.test.mts -t \"reads the words behind the text of env -S as words: a quote\""
+  },
+  {
+    "name": "an element of an array is taken for the command",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/outward.mts",
+    "find": "const ASSIGNMENT = /^[A-Za-z_][A-Za-z0-9_]*(?:\\[[^\\]]*\\])?\\+?=/;",
+    "replace": "const ASSIGNMENT = /^[A-Za-z_][A-Za-z0-9_]*\\+?=/;",
+    "test": "pnpm vitest run addons/agent-workflow/tests/outward.test.mts -t \"reads past a variable set for the command: an element of an array\""
+  },
+  {
+    "name": "a setting's element is not followed",
+    "file": "addons/agent-workflow/files/tools/agent-workflow/lib/outward.mts",
+    "find": "|XDG_CONFIG_HOME)(?:\\[[^\\]]*\\])?\\+?=/;",
+    "replace": "|XDG_CONFIG_HOME)\\+?=/;",
+    "test": "pnpm vitest run addons/agent-workflow/tests/outward.test.mts -t \"for an outward step: PATH written as its first element\""
   }
 ]

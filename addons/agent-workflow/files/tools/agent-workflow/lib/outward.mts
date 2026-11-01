@@ -35,10 +35,10 @@ const ALIAS_SETTING = /^(?:alias|include|includeif)\./i;
  * anywhere in a script (in front of git, as a step of its own, or with
  * `export`), it makes every `git` of that script one this cannot judge.
  */
-const GIT_SETTINGS = /^(?:GIT_CONFIG\w*|GIT_DIR|GIT_COMMON_DIR|GIT_EXEC_PATH|HOME|PATH|XDG_CONFIG_HOME)\+?=/;
-/** A value set in front of a command. `A+=1 git push` runs git as `A=1 git push` does. */
-const ASSIGNMENT = /^[A-Za-z_][A-Za-z0-9_]*\+?=/;
-/** `git config` options that only read, wherever they stand. */
+const GIT_SETTINGS = /^(?:GIT_CONFIG\w*|GIT_DIR|GIT_COMMON_DIR|GIT_EXEC_PATH|HOME|PATH|XDG_CONFIG_HOME)(?:\[[^\]]*\])?\+?=/;
+/** A value set in front of a command. `A+=1 git push` runs git as `A=1 git push` does, and `PATH[0]=…` sets `PATH`. */
+const ASSIGNMENT = /^[A-Za-z_][A-Za-z0-9_]*(?:\[[^\]]*\])?\+?=/;
+/** `git config` options that only read, in front of the key: git stops reading options at the first word that is not one. */
 const CONFIG_READ_OPTIONS = ["--get", "--get-all", "--get-regexp", "--get-urlmatch", "--list", "-l"];
 /** `git config` subcommands that only read: only right after `config`, for anywhere else git takes the word for a value. */
 const CONFIG_READ_COMMANDS = ["get", "list"];
@@ -430,9 +430,24 @@ function setsAlias(options: string[]): boolean {
 function writesAlias(own: string[]): boolean {
   const args = own.slice(1);
 
-  const reads = CONFIG_READ_COMMANDS.includes(args[0] ?? "") || args.some((word, index) => CONFIG_READ_OPTIONS.includes(word) && !CONFIG_OPTIONS_WITH_VALUE.includes(args[index - 1] ?? ""));
+  return own[0] === "config" && !onlyReads(args) && args.some((word) => ALIAS_SETTING.test(word));
+}
 
-  return own[0] === "config" && !reads && args.some((word) => ALIAS_SETTING.test(word));
+/** Whether `git config` is given a read: a subcommand right after `config`, or a read option among the options in front of the key. */
+function onlyReads(args: string[]): boolean {
+  if (CONFIG_READ_COMMANDS.includes(args[0] ?? "")) {
+    return true;
+  }
+
+  for (let index = 0; args[index]?.startsWith("-"); index += 1) {
+    if (CONFIG_READ_OPTIONS.includes(args[index] ?? "")) {
+      return true;
+    }
+
+    index += CONFIG_OPTIONS_WITH_VALUE.includes(args[index] ?? "") ? 1 : 0;
+  }
+
+  return false;
 }
 
 /** `gh -R owner/name pr merge` → `pr merge`. */
@@ -469,9 +484,8 @@ function isWritingApiCall(words: string[]): boolean {
  * push'`), so it is what `env <text>` runs. Read as a command line, as
  * `bash -c` takes one.
  *
- * Only an `env` with nothing but what may stand before a command in front of
- * it is sure to be the command: `grep env -rn .` only names it. Of such an
- * `env`, options or text this cannot read are refused.
+ * An `env` this finds as the command (`standsFirst`) is refused when its
+ * options or its text cannot be read. Any other only names it: `grep env -rn .`.
  */
 function splitStringScript(stage: Stage): Script | undefined {
   const env = stage.findIndex((word) => programName(word) === "env");
@@ -480,7 +494,7 @@ function splitStringScript(stage: Stage): Script | undefined {
     return undefined;
   }
 
-  const sure = stage.slice(0, env).every((word) => ASSIGNMENT.test(word) || LEADING_WORDS.includes(programName(word)) || word.startsWith("-") || LEADING_VALUE.test(word));
+  const sure = standsFirst(stage, env);
   const split = readEnvOptions(stage, env);
 
   if (split === "unread") {
@@ -502,7 +516,39 @@ function splitStringScript(stage: Stage): Script | undefined {
     throw sure ? new UnreadEnvError(reason) : new ShellError(reason);
   }
 
-  return readScript(["env", split.text, ...stage.slice(split.after)].join(" "));
+  // The words behind the text are quoted: to env they are words, and to a reader of a command line `#x` would end the line.
+  const quoted = stage.slice(split.after).map((word) => `'${word.replaceAll("'", "'\\''")}'`);
+  const script = readScript(["env", split.text, ...quoted].join(" "));
+
+  if (script === undefined && sure) {
+    throw new UnreadEnvError("env -S is given text that cannot be read");
+  }
+
+  return script;
+}
+
+/**
+ * Whether only what may stand before a command stands in front of this word.
+ * A wrapper's options are not all known, so one may take the word after it
+ * (`stdbuf -o L`, `timeout -s KILL`); a wrong guess refuses an `env` that was
+ * no command, and lets none through.
+ */
+function standsFirst(stage: Stage, word: number): boolean {
+  let led = false;
+
+  for (let index = 0; index < word; index += 1) {
+    const current = stage[index] ?? "";
+
+    if (LEADING_WORDS.includes(programName(current))) {
+      led = true;
+    } else if (led && current.startsWith("-")) {
+      index += stage[index + 1]?.startsWith("-") ? 0 : 1;
+    } else if (!ASSIGNMENT.test(current) && !(led && LEADING_VALUE.test(current))) {
+      return false;
+    }
+  }
+
+  return true;
 }
 
 /**
