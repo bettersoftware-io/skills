@@ -1,5 +1,5 @@
 import { spawnSync } from "node:child_process";
-import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, renameSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
+import { chmodSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, realpathSync, renameSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -7,6 +7,7 @@ import { beforeEach, describe, expect, it, onTestFinished, vi } from "vitest";
 
 import { editedFilesOf, judgeEdit } from "./after-edit.mts";
 import { findProject, type GateRun, judgeStop, replyToStop, runGate, type RunLimits, type StopPayload } from "./before-stop.mts";
+import { replyToSubagent, type SubagentPayload } from "./watch-subagents.mts";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const broken = join(here, "..", "gates", "fixtures", "broken");
@@ -1001,6 +1002,410 @@ describe("a stop while a subagent waits on a shell of its own", () => {
     expect(gate.runs()).toBe(1);
   });
 });
+
+// Codex does not wait for a subagent and sends no list of what is in flight.
+// Seen live (Codex 0.166.0, 2026-11-01): the controller stopped while a
+// subagent's broken file was on disk, the gate blocked it, and the controller
+// deleted the file the subagent was working on. No `Stop` followed the
+// subagent's end, so nothing judged what it left. The payloads are the ones
+// logged in that run.
+describe("a stop under Codex while a subagent is at work", { timeout: 30_000 }, () => {
+  const red = () => ({ status: 1, output: "FAIL half-edited (1)" });
+  const green = () => ({ status: 0, output: "all gates passed." });
+  const stop = (cwd: string, fields: Record<string, unknown> = {}): StopPayload & Record<string, unknown> => ({ session_id: SESSION, turn_id: "turn-1", cwd, hook_event_name: "Stop", stop_hook_active: false, ...fields });
+
+  it("lets the turn end without running the gate while a subagent has started and not stopped, and says so", async () => {
+    const gate = createCountedGate(red);
+    const project = createGitProject({ "gate:full": "false" });
+
+    await replyToSubagent(subagent("SubagentStart", project), gate.run);
+    const reply = await replyToStop(stop(project), gate.run);
+
+    expect(gate.runs()).toBe(0);
+    expect(reply).toEqual({ systemMessage: expect.stringContaining("still at work") });
+    expect(reply?.systemMessage).toContain("default");
+  });
+
+  it("does not run the gate again at the stop on a tree the subagent's stop found green", async () => {
+    const gate = createCountedGate(green);
+    const project = createGitProject({ "gate:full": "true" });
+
+    await replyToSubagent(subagent("SubagentStart", project), gate.run);
+    await replyToSubagent(subagent("SubagentStop", project), gate.run);
+
+    expect(await replyToStop(stop(project), gate.run)).toBeUndefined();
+    expect(gate.runs()).toBe(1);
+  });
+
+  it("runs the gate at the stop once the subagent is off the record", async () => {
+    const project = createGitProject({ "gate:full": "false" });
+
+    await replyToSubagent(subagent("SubagentStart", project), red);
+    await replyToSubagent(subagent("SubagentStop", project, { stop_hook_active: true }), red);
+
+    expect(await replyToStop(stop(project), red)).toEqual({ decision: "block", reason: expect.stringContaining("is red") });
+  });
+
+  it("does not wait for a subagent of another session", async () => {
+    const project = createGitProject({ "gate:full": "false" });
+
+    await replyToSubagent(subagent("SubagentStart", project, { session_id: "another-session" }), green);
+
+    expect(await replyToStop(stop(project), red)).toEqual({ decision: "block", reason: expect.any(String) });
+  });
+
+  it("does not wait past thirty minutes for a subagent that never stopped", async () => {
+    const project = createGitProject({ "gate:full": "false" });
+    const minutes = (count: number): number => Date.now() - count * 60_000;
+
+    await replyToSubagent(subagent("SubagentStart", project), green, minutes(29));
+    expect(await replyToStop(stop(project), red)).toEqual({ systemMessage: expect.any(String) });
+
+    await replyToSubagent(subagent("SubagentStart", project), green, minutes(31));
+    expect(await replyToStop(stop(project), red)).toEqual({ decision: "block", reason: expect.any(String) });
+  });
+
+  it("runs the gate at a record from a time still to come", async () => {
+    const project = createGitProject({ "gate:full": "false" });
+
+    await replyToSubagent(subagent("SubagentStart", project), green, Date.now() + 60_000);
+
+    expect(await replyToStop(stop(project), red)).toEqual({ decision: "block", reason: expect.any(String) });
+  });
+
+  it("runs the gate when the record cannot be read", async () => {
+    const project = createGitProject({ "gate:full": "false" });
+
+    await replyToSubagent(subagent("SubagentStart", project), green);
+    writeFileSync(join(project, RECORD_FOLDER, AGENT), "not json");
+
+    expect(await replyToStop(stop(project), red)).toEqual({ decision: "block", reason: expect.any(String) });
+  });
+
+  it("reads no record when Claude Code sends its own list", async () => {
+    const project = createGitProject({ "gate:full": "false" });
+
+    await replyToSubagent(subagent("SubagentStart", project), green);
+
+    expect(await replyToStop(stop(project, { background_tasks: [] }), red)).toEqual({ decision: "block", reason: expect.any(String) });
+  });
+});
+
+describe("a subagent that stops under Codex", { timeout: 60_000 }, () => {
+  const red = () => ({ status: 1, output: "FAIL half-edited (1)" });
+  const green = () => ({ status: 0, output: "all gates passed." });
+
+  it("says nothing when one starts: text it wrote would go to the subagent", async () => {
+    expect(await replyToSubagent(subagent("SubagentStart", createGitProject({ "gate:full": "false" })), red)).toBeUndefined();
+  });
+
+  it("judges what the last subagent left, which no stop would", async () => {
+    const gate = createCountedGate(red);
+    const project = createGitProject({ "gate:full": "false" });
+
+    await replyToSubagent(subagent("SubagentStart", project), gate.run);
+    const reply = await replyToSubagent(subagent("SubagentStop", project), gate.run);
+
+    expect(gate.runs()).toBe(1);
+    expect(reply).toEqual({ decision: "block", reason: expect.stringContaining("FAIL half-edited (1)") });
+  });
+
+  it("says nothing when the gate is green, and the agent is off the record", async () => {
+    const project = createGitProject({ "gate:full": "true" });
+
+    await replyToSubagent(subagent("SubagentStart", project), green);
+
+    expect(await replyToSubagent(subagent("SubagentStop", project), green)).toBeUndefined();
+    expect(readdirSync(join(project, RECORD_FOLDER))).toEqual([]);
+  });
+
+  it("does not run the gate while another subagent is at work, and the last one runs it", async () => {
+    const gate = createCountedGate(red);
+    const project = createGitProject({ "gate:full": "false" });
+    const second = { agent_id: "01a19779-d3fd-7fb3-aba9-7696b05cc0d3" };
+
+    await replyToSubagent(subagent("SubagentStart", project), gate.run);
+    await replyToSubagent(subagent("SubagentStart", project, second), gate.run);
+
+    expect(await replyToSubagent(subagent("SubagentStop", project), gate.run)).toBeUndefined();
+    expect(gate.runs()).toBe(0);
+    expect(await replyToSubagent(subagent("SubagentStop", project, second), gate.run)).toEqual({ decision: "block", reason: expect.any(String) });
+  });
+
+  it("does not count a subagent of another session as at work", async () => {
+    const gate = createCountedGate(red);
+    const project = createGitProject({ "gate:full": "false" });
+
+    await replyToSubagent(subagent("SubagentStart", project, { agent_id: "other-agent", session_id: "another-session" }), gate.run);
+    await replyToSubagent(subagent("SubagentStart", project), gate.run);
+    await replyToSubagent(subagent("SubagentStop", project), gate.run);
+
+    expect(gate.runs()).toBe(1);
+  });
+
+  it("keeps a subagent it sends back on the record, for it is still at work", async () => {
+    const gate = createCountedGate(red);
+    const project = createGitProject({ "gate:full": "false" });
+
+    await replyToSubagent(subagent("SubagentStart", project), gate.run);
+    await replyToSubagent(subagent("SubagentStop", project), gate.run);
+
+    expect(await replyToStop({ session_id: SESSION, cwd: project }, gate.run)).toEqual({ systemMessage: expect.any(String) });
+  });
+
+  it("lets a subagent it sent back stop, takes it off the record, and says the gate is still red: a gate it cannot fix ends in no loop, and in a report", async () => {
+    const gate = createCountedGate(red);
+    const project = createGitProject({ "gate:full": "false" });
+
+    await replyToSubagent(subagent("SubagentStart", project), gate.run);
+    await replyToSubagent(subagent("SubagentStop", project), gate.run);
+
+    expect(await replyToSubagent(subagent("SubagentStop", project, { stop_hook_active: true }), gate.run)).toEqual({ systemMessage: expect.stringContaining("FAIL half-edited (1)") });
+    expect(gate.runs()).toBe(2);
+    expect(readdirSync(join(project, RECORD_FOLDER))).toEqual([]);
+  });
+
+  it("says nothing of a subagent that fixed what it was sent back for", async () => {
+    const results = [red, green];
+    const project = createGitProject({ "gate:full": "true" });
+    const run = (): GateRun => (results.shift() ?? green)();
+
+    await replyToSubagent(subagent("SubagentStart", project), run);
+    await replyToSubagent(subagent("SubagentStop", project), run);
+
+    expect(await replyToSubagent(subagent("SubagentStop", project, { stop_hook_active: true }), run)).toBeUndefined();
+    expect(readdirSync(join(project, RECORD_FOLDER))).toEqual([]);
+  });
+
+  it("judges what another subagent left while this one was back", async () => {
+    const gate = createCountedGate(red);
+    const project = createGitProject({ "gate:full": "false" });
+    const second = { agent_id: "01a19779-d3fd-7fb3-aba9-7696b05cc0d3" };
+
+    await replyToSubagent(subagent("SubagentStart", project), gate.run);
+    await replyToSubagent(subagent("SubagentStop", project), gate.run);
+    await replyToSubagent(subagent("SubagentStart", project, second), gate.run);
+    await replyToSubagent(subagent("SubagentStop", project, second), gate.run);
+
+    expect(await replyToSubagent(subagent("SubagentStop", project, { stop_hook_active: true }), gate.run)).toEqual({ systemMessage: expect.any(String) });
+  });
+
+  it("does not judge a subagent that was sent back while another is at work", async () => {
+    const gate = createCountedGate(red);
+    const project = createGitProject({ "gate:full": "false" });
+    const second = { agent_id: "01a19779-d3fd-7fb3-aba9-7696b05cc0d3" };
+
+    await replyToSubagent(subagent("SubagentStart", project), gate.run);
+    await replyToSubagent(subagent("SubagentStart", project, second), gate.run);
+
+    expect(await replyToSubagent(subagent("SubagentStop", project, { stop_hook_active: true }), gate.run)).toBeUndefined();
+    expect(gate.runs()).toBe(0);
+  });
+
+  it.each<[string, Record<string, unknown>]>([
+    ["an agent id that is no plain word", { agent_id: "../x" }],
+    ["no session", { session_id: undefined }],
+  ])("still judges a stop it cannot record: %s", async (_case, fields) => {
+    const reply = await replyToSubagent(subagent("SubagentStop", createGitProject({ "gate:full": "false" }), fields), red);
+
+    expect(reply).toEqual({ decision: "block", reason: expect.stringContaining("is red") });
+  });
+
+  it("does not send back again a subagent whose stop it cannot record: no loop on any path", async () => {
+    const broken = createGitProject({ "gate:full": "false" });
+
+    writeFileSync(join(broken, "package.json"), "not json");
+
+    expect(await replyToSubagent(subagent("SubagentStop", broken, { stop_hook_active: true }), red)).toEqual({ systemMessage: expect.stringContaining("could not be read as JSON") });
+    expect(await replyToSubagent(subagent("SubagentStop", createGitProject({ "gate:full": "false" }), { agent_id: "../x", stop_hook_active: true }), red)).toEqual({ systemMessage: expect.stringContaining("is red") });
+  });
+
+  it("sends a subagent back as nothing verified when the project cannot be read", async () => {
+    const project = createGitProject({ "gate:full": "false" });
+
+    writeFileSync(join(project, "package.json"), "not json");
+
+    expect(await replyToSubagent(subagent("SubagentStop", project), red)).toEqual({ decision: "block", reason: expect.stringContaining("could not be read as JSON") });
+  });
+
+  it("judges a subagent that was never on the record", async () => {
+    const gate = createCountedGate(red);
+
+    expect(await replyToSubagent(subagent("SubagentStop", createGitProject({ "gate:full": "false" })), gate.run)).toEqual({ decision: "block", reason: expect.any(String) });
+  });
+
+  it.each([
+    ["a path", "../../../escaped"],
+    ["no text", 7],
+    ["nothing", ""],
+  ])("records nothing for an agent id that is %s", async (_case, id) => {
+    const project = createGitProject({ "gate:full": "false" });
+
+    await replyToSubagent(subagent("SubagentStart", project, { agent_id: id }), green);
+
+    expect(existsSync(join(project, RECORD_FOLDER))).toBe(false);
+    expect(existsSync(join(project, "..", "escaped"))).toBe(false);
+  });
+
+  it("records nothing for a session that is no text", async () => {
+    const project = createGitProject({ "gate:full": "false" });
+
+    await replyToSubagent(subagent("SubagentStart", project, { session_id: undefined }), green);
+
+    expect(existsSync(join(project, RECORD_FOLDER))).toBe(false);
+  });
+
+  it("reads no such event as a stop, and runs no gate", async () => {
+    const gate = createCountedGate(red);
+
+    expect(await replyToSubagent(subagent("SubagentStop", createGitProject({ "gate:full": "false" }), { hook_event_name: "SomethingElse" }), gate.run)).toBeUndefined();
+    expect(gate.runs()).toBe(0);
+  });
+
+  it("says nothing in a folder whose package.json is not JSON", async () => {
+    const project = createGitProject({ "gate:full": "false" });
+
+    writeFileSync(join(project, "package.json"), "not json");
+
+    expect(await replyToSubagent(subagent("SubagentStart", project), red)).toBeUndefined();
+  });
+
+  it("does not count a record it cannot read as a subagent at work", async () => {
+    const gate = createCountedGate(red);
+    const project = createGitProject({ "gate:full": "false" });
+
+    await replyToSubagent(subagent("SubagentStart", project), gate.run);
+    writeFileSync(join(project, RECORD_FOLDER, "a-record-of-nothing"), "not json");
+
+    expect(await replyToSubagent(subagent("SubagentStop", project), gate.run)).toEqual({ decision: "block", reason: expect.any(String) });
+  });
+
+  it("writes nothing through a link at the records' folder, and waits for nothing", async () => {
+    const project = createGitProject({ "gate:full": "false" });
+    const outside = mkdtempSync(join(tmpdir(), "arch-outside-"));
+
+    mkdirSync(join(project, "node_modules/.cache/arch"), { recursive: true });
+    symlinkSync(outside, join(project, RECORD_FOLDER));
+    await replyToSubagent(subagent("SubagentStart", project), green);
+
+    expect(readdirSync(outside)).toEqual([]);
+    expect(await replyToStop({ session_id: SESSION, cwd: project }, red)).toEqual({ decision: "block", reason: expect.any(String) });
+  });
+
+  it("does not write through a link at the subagent's own record", async () => {
+    const project = createGitProject({ "gate:full": "false" });
+    const outside = join(mkdtempSync(join(tmpdir(), "arch-outside-")), "kept");
+
+    writeFileSync(outside, "kept");
+    await replyToSubagent(subagent("SubagentStart", project), green);
+    rmSync(join(project, RECORD_FOLDER, AGENT));
+    symlinkSync(outside, join(project, RECORD_FOLDER, AGENT));
+    await replyToSubagent(subagent("SubagentStart", project), green);
+
+    expect(readFileSync(outside, "utf8")).toBe("kept");
+  });
+
+  it("removes nothing through a link at the records' folder", async () => {
+    const project = createGitProject({ "gate:full": "false" });
+    const outside = mkdtempSync(join(tmpdir(), "arch-outside-"));
+
+    writeFileSync(join(outside, AGENT), "kept");
+    mkdirSync(join(project, "node_modules/.cache/arch"), { recursive: true });
+    symlinkSync(outside, join(project, RECORD_FOLDER));
+    await replyToSubagent(subagent("SubagentStop", project, { stop_hook_active: true }), green);
+
+    expect(readdirSync(outside)).toEqual([AGENT]);
+  });
+
+  it("does not wait for a subagent whose folder is a link", async () => {
+    const project = createGitProject({ "gate:full": "false" });
+    const outside = mkdtempSync(join(tmpdir(), "arch-outside-"));
+
+    await replyToSubagent(subagent("SubagentStart", project), green);
+    writeFileSync(join(outside, AGENT), readFileSync(join(project, RECORD_FOLDER, AGENT)));
+    rmSync(join(project, RECORD_FOLDER), { recursive: true });
+    symlinkSync(outside, join(project, RECORD_FOLDER));
+
+    expect(await replyToStop({ session_id: SESSION, cwd: project }, red)).toEqual({ decision: "block", reason: expect.any(String) });
+  });
+
+  it("does not believe a record that is a link", async () => {
+    const project = createGitProject({ "gate:full": "false" });
+    const outside = join(mkdtempSync(join(tmpdir(), "arch-outside-")), "record");
+
+    await replyToSubagent(subagent("SubagentStart", project), green);
+    writeFileSync(outside, readFileSync(join(project, RECORD_FOLDER, AGENT)));
+    rmSync(join(project, RECORD_FOLDER, AGENT));
+    symlinkSync(outside, join(project, RECORD_FOLDER, AGENT));
+
+    expect(await replyToStop({ session_id: SESSION, cwd: project }, red)).toEqual({ decision: "block", reason: expect.any(String) });
+  });
+
+  it("says nothing, and does not fall over, where a record cannot be written or removed", async () => {
+    const project = createGitProject({ "gate:full": "false" });
+
+    mkdirSync(join(project, RECORD_FOLDER, AGENT), { recursive: true });
+    writeFileSync(join(project, RECORD_FOLDER, AGENT, "inside"), "");
+
+    expect(await replyToSubagent(subagent("SubagentStart", project), green)).toBeUndefined();
+    expect(await replyToSubagent(subagent("SubagentStop", project, { stop_hook_active: true }), green)).toBeUndefined();
+  });
+
+  it("says nothing, and does not fall over, where the records' folder is a file", async () => {
+    const project = createGitProject({ "gate:full": "false" });
+
+    mkdirSync(join(project, "node_modules/.cache/arch"), { recursive: true });
+    writeFileSync(join(project, RECORD_FOLDER), "");
+
+    expect(await replyToSubagent(subagent("SubagentStart", project), green)).toBeUndefined();
+    expect(await replyToSubagent(subagent("SubagentStop", project), red)).toEqual({ decision: "block", reason: expect.any(String) });
+  });
+
+  it("says nothing in a folder with no gate", async () => {
+    expect(await replyToSubagent(subagent("SubagentStop", mkdtempSync(join(tmpdir(), "arch-none-"))), red)).toBeUndefined();
+  });
+
+  it("answers with no text at all when run as a command for a start, and a block for a red stop", () => {
+    const project = createGitProject({ "gate:full": "node -e \"console.log('still red'); process.exit(1)\"" });
+    const hook = (payload: SubagentPayload): { status: number | null; stdout: string } =>
+      spawnSync(process.execPath, [join(here, "watch-subagents.mts")], { input: JSON.stringify(payload), encoding: "utf8", env: { ...process.env, CLAUDE_PROJECT_DIR: "" }, timeout: 60_000 });
+
+    expect(hook(subagent("SubagentStart", project))).toMatchObject({ status: 0, stdout: "" });
+    expect(hook(subagent("SubagentStop", project)).status).toBe(0);
+    expect(JSON.parse(hook(subagent("SubagentStop", project)).stdout)).toEqual({ decision: "block", reason: expect.stringContaining("still red") });
+  });
+
+  it("is registered for Codex and not for Claude Code, whose own list needs no record", () => {
+    for (const file of [join(here, "codex.hooks.json"), join(here, "../../starter/.codex/hooks.json")]) {
+      const { hooks } = JSON.parse(readFileSync(file, "utf8")) as { hooks: Record<string, unknown> };
+
+      expect(JSON.stringify(hooks.SubagentStart)).toContain("watch-subagents.mts");
+      expect(JSON.stringify(hooks.SubagentStop)).toContain("watch-subagents.mts");
+    }
+
+    expect(readFileSync(join(here, "claude.settings.json"), "utf8")).not.toContain("watch-subagents");
+  });
+});
+
+const SESSION = "01a19778-cdd7-7112-adf4-d7d2326d910d";
+const AGENT = "01a19779-d3fd-7fb3-aba9-7696b05cc0d2";
+const RECORD_FOLDER = "node_modules/.cache/arch/subagents-at-work";
+
+/** A subagent's event as Codex sends it, from the payloads logged in the live run. */
+function subagent(event: "SubagentStart" | "SubagentStop", cwd: string, fields: Record<string, unknown> = {}): SubagentPayload {
+  return {
+    session_id: SESSION,
+    turn_id: "01a19779-d42c-7e32-8037-7f1c193c97f2",
+    cwd,
+    hook_event_name: event,
+    model: "gpt-6-luna",
+    permission_mode: "default",
+    agent_id: AGENT,
+    agent_type: "default",
+    ...(event === "SubagentStop" ? { stop_hook_active: false, last_assistant_message: "Done." } : {}),
+    ...fields,
+  };
+}
 
 /**
  * A session's transcript with its subagents' beside it, laid out as Claude

@@ -9,6 +9,20 @@
         ]
       }
     ],
+    "SubagentStart": [
+      {
+        "hooks": [
+          { "type": "command", "command": "node tools/arch/hooks/watch-subagents.mts", "statusMessage": "Recording the subagent", "timeout": 20 }
+        ]
+      }
+    ],
+    "SubagentStop": [
+      {
+        "hooks": [
+          { "type": "command", "command": "node tools/arch/hooks/watch-subagents.mts", "statusMessage": "Running the gate", "timeout": 600 }
+        ]
+      }
+    ],
     "Stop": [
       {
         "hooks": [

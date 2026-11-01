@@ -883,7 +883,19 @@ turn's stop is judged as usual.
   gate.
 - A session that ends for good while an agent is still at work ends with no
   gate run on its last tree. CI catches what that leaves.
-- Codex sends no such list, so every stop there is judged as before.
+- Codex sends no such list and does not wait for a subagent, so
+  `hooks/watch-subagents.mts` does the same work there, registered in
+  `.codex/hooks.json` under `SubagentStart` and `SubagentStop`. It records
+  each subagent, in a file of its own under `node_modules/.cache/arch/`, and
+  the stop hook waits for those of its session, for thirty minutes at most.
+- Under Codex no `Stop` follows a subagent's end, so `watch-subagents.mts`
+  runs the gate when the last subagent of a session stops. If it is red, that
+  subagent is sent back to fix it, once. When it stops again the gate runs
+  again, and if it is still red the subagent is let through and you are told.
+  A tree found green needs no second run at the next stop. A subagent that is
+  not the last stops without a gate. The wait falls on the last subagent.
+- Codex skips a hook nobody has trusted. After an update that adds these two,
+  a person runs `/hooks` in that project; until then Codex behaves as before.
 - How it was tested: against the payload documented in the hooks reference,
   quoted in `hooks/hooks.test.mts`, and against the timeline of the session
   that hit it (the gate's block came 69 seconds after a background agent was
@@ -906,6 +918,16 @@ turn's stop is judged as usual.
   controller's stop while the subagent worked and its stop while only the
   subagent's shell was listed both let the turn end without the gate, and
   the stop after the subagent deleted the file ran it, with no block.
+- Live under Codex 0.166.0 on 2026-11-01, before `watch-subagents.mts`: a
+  controller that started a subagent and then ran `sleep 30` stopped with the
+  subagent's broken file on disk. The gate blocked it, the controller deleted
+  the file, and no `Stop` followed the subagent's end. The hook is tested on
+  the payloads logged in that run.
+- Live again the same day, with the hook: the same prompt, with a file that
+  stayed broken. The controller stopped with the file on disk and was not
+  blocked. When the subagent stopped, the gate went red and sent it back. Its
+  next stop was let through and took it off the record. This ran in a project
+  made by `create-project.mts`, with a logging hook beside this one.
 
 It was `gate:fast` until a run with the smallest model stopped there with
 `gate:full` red and reported green
