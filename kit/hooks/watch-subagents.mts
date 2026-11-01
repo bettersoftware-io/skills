@@ -56,11 +56,12 @@ export async function replyToSubagent(
   }
 
   const stopping = event === "SubagentStop";
+  const back = payload.stop_hook_active === true;
   const root = projectRoot(cwd);
 
   // Nothing can be recorded, but a stop is still judged: a project that cannot be read is sent back as "nothing is verified".
   if (root === undefined || typeof session !== "string" || !isRecordable(id)) {
-    return stopping ? block(await judgeStop({ cwd }, run)) : undefined;
+    return stopping ? answerStop(await judgeStop({ cwd }, run), back) : undefined;
   }
 
   if (event === "SubagentStart") {
@@ -79,22 +80,21 @@ export async function replyToSubagent(
 
   const reason = await judgeStop({ cwd }, run);
 
-  // Back already, so it is let through, but a gate that is still red is said: nothing else will.
-  if (payload.stop_hook_active === true) {
-    forgetSubagent(root, id);
-
-    return reason === undefined ? undefined : { systemMessage: `A subagent stopped with the gate still red.\n\n${reason}` };
-  }
-
-  if (reason === undefined) {
+  // One that goes back to fix it is still at work.
+  if (reason === undefined || back) {
     forgetSubagent(root, id);
   }
 
-  return block(reason);
+  return answerStop(reason, back);
 }
 
-function block(reason: string | undefined): StopReply | undefined {
-  return reason === undefined ? undefined : { decision: "block", reason };
+/** Sends a subagent back once. Back already, it is let through, and a gate that is still red is said: nothing else will. */
+function answerStop(reason: string | undefined, back: boolean): StopReply | undefined {
+  if (reason === undefined) {
+    return undefined;
+  }
+
+  return back ? { systemMessage: `A subagent stopped with the gate still red.\n\n${reason}` } : { decision: "block", reason };
 }
 
 /** The project a folder is in. One that cannot be read has nothing to record: `judgeStop` says why, on a stop. */

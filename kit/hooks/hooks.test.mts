@@ -1211,6 +1211,15 @@ describe("a subagent that stops under Codex", { timeout: 60_000 }, () => {
     expect(reply).toEqual({ decision: "block", reason: expect.stringContaining("is red") });
   });
 
+  it("does not send back again a subagent whose stop it cannot record: no loop on any path", async () => {
+    const broken = createGitProject({ "gate:full": "false" });
+
+    writeFileSync(join(broken, "package.json"), "not json");
+
+    expect(await replyToSubagent(subagent("SubagentStop", broken, { stop_hook_active: true }), red)).toEqual({ systemMessage: expect.stringContaining("could not be read as JSON") });
+    expect(await replyToSubagent(subagent("SubagentStop", createGitProject({ "gate:full": "false" }), { agent_id: "../x", stop_hook_active: true }), red)).toEqual({ systemMessage: expect.stringContaining("is red") });
+  });
+
   it("sends a subagent back as nothing verified when the project cannot be read", async () => {
     const project = createGitProject({ "gate:full": "false" });
 
