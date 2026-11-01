@@ -171,11 +171,12 @@ refused in a chain and asked about alone; so is a plain push in such a script.
 So `export PATH=…; git status && pnpm test` is refused too, for a `git-<name>`
 program may sit on that `PATH`: set it in a call of its own, or leave it out.
 
-`env -S '…'` is read as `env …` is, behind any options of env, joined (`-vS`,
-`-uFOO`) or not. An `env` that is the command is refused, under either host and
-whatever it names, when its text holds a backslash or a `$`, which env changes
-before it runs it, when the text cannot be parsed, or when it is given an
-option env does not have: what it
+`env -S '…'` is split as env splits it, at any white space and up to a word
+that starts with `#`, and those words are read as `env` with them is, behind
+any options of env, joined (`-vS`, `-uFOO`) or not. An `env` that is the command is refused, under either host and
+whatever it names, when its text holds a backslash, a `$` or a quote, which env
+changes before it runs it, or when it is given an option env does not have:
+what it
 runs then is not known, and need not name anything. The short options were
 tried on macOS's `env`; the long ones, which only GNU's has, and their cut
 forms (`--split-str=`) come from its documentation, and were not run.
