@@ -620,6 +620,35 @@ describe("a step that gives git a meaning another step of the script uses", () =
     expect(judgeCommand(command)).toMatchObject({ outward: ["git push origin"], chained: true });
   });
 
+  // env splits its text at any white space and ends it at a word that starts with `#`, and no shell reads it.
+  it.each([
+    ["a new line", "env -S \"git\npush origin worktree-a\" && ls"],
+    ["a tab", "env -S \"git\tpush origin worktree-a\" && ls"],
+    ["two spaces", "env -S 'git  push origin worktree-a' && ls"],
+    ["a space in front", "env -S ' git push origin worktree-a' && ls"],
+    ["a word that ends the text, with the rest behind it", "env -S 'git #x' push origin worktree-a && ls"],
+    ["a semicolon inside a word", "env -S 'git -C a;b push origin worktree-a' && ls"],
+    ["a pipe inside a word", "env -S 'git -C a|b push origin worktree-a' && ls"],
+  ])("splits the text of env -S as env does: %s", (_name, command) => {
+    expect(judgeCommand(command)).toMatchObject({ chained: true });
+    expect(judgeCommand(command)?.outward.length).toBeGreaterThan(0);
+  });
+
+  it("does not read what stands behind a word that ends the text of env -S", () => {
+    expect(judgeCommand("env -S 'ls # git push'")).toEqual({ outward: [], chained: false, redirected: false });
+  });
+
+  it.each([
+    ["single quotes", "env -S \"bash -c 'git push'\""],
+    ["double quotes", "env -S 'bash -c \"ls\"'"],
+  ])("does not read env -S text that holds what env takes for a quote: %s", (_name, command) => {
+    expect(() => judgeCommand(command)).toThrow(UnreadEnvError);
+  });
+
+  it("leaves text that env would change to the rest of the command when env is not sure to be the command", () => {
+    expect(judgeCommand("grep env -S '$x' && git push origin worktree-a")).toMatchObject({ chained: true });
+  });
+
   // To env the words behind the text are words: `#x` starts no comment, and a quote closes nothing.
   it.each([
     ["a word a shell takes for a comment", "env -S 'git -C' '#x' push origin worktree-a && ls"],
@@ -668,6 +697,7 @@ describe("a step that gives git a meaning another step of the script uses", () =
     ["two, the second adding", "A=1 B+=2 git push origin worktree-a"],
     ["an element of an array", "A[0]=1 git push origin worktree-a"],
     ["an element that adds", "A[0]+=1 git push origin worktree-a"],
+    ["an element with an element in its subscript", "A[b[0]]=1 git push origin worktree-a"],
   ])("reads past a variable set for the command: %s", (_name, command) => {
     expect(judgeCommand(`ls && ${command}`)).toMatchObject({ outward: ["git push origin"], chained: true });
   });
@@ -681,6 +711,7 @@ describe("a step that gives git a meaning another step of the script uses", () =
     ["HOME that adds", "HOME+=/x; git p"],
     ["PATH written as its first element", "PATH[0]=/tmp/x; git frob"],
     ["PATH's element that adds", "PATH[0]+=:/tmp/x; git frob"],
+    ["PATH's element with an element in its subscript", "PATH[a[0]]=/tmp/x; git frob"],
   ])("takes git after a step that moves where it finds its commands for an outward step: %s", (_name, command) => {
     expect(judgeCommand(command)?.outward.length).toBeGreaterThan(0);
     expect(judgeCommand(`ls && ${command}`)?.chained).toBe(true);
@@ -703,6 +734,8 @@ describe("a step that gives git a meaning another step of the script uses", () =
     ["behind the key, -l", "git config alias.p push -l; git p"],
     ["behind --", "git config -- alias.p --get; git p"],
     ["behind an option and the key", "git config --local alias.p push --list; git p"],
+    ["behind an option git takes cut short, whose value it is", "git config --comm --get alias.p push; git p"],
+    ["behind --file cut short", "git config --fi --list alias.p push; git p"],
   ])("takes a write for a write when a read option stands behind the key: %s", (_name, command) => {
     expect(judgeCommand(command)?.chained).toBe(true);
   });

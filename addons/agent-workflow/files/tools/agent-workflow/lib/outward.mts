@@ -35,14 +35,14 @@ const ALIAS_SETTING = /^(?:alias|include|includeif)\./i;
  * anywhere in a script (in front of git, as a step of its own, or with
  * `export`), it makes every `git` of that script one this cannot judge.
  */
-const GIT_SETTINGS = /^(?:GIT_CONFIG\w*|GIT_DIR|GIT_COMMON_DIR|GIT_EXEC_PATH|HOME|PATH|XDG_CONFIG_HOME)(?:\[[^\]]*\])?\+?=/;
+const GIT_SETTINGS = /^(?:GIT_CONFIG\w*|GIT_DIR|GIT_COMMON_DIR|GIT_EXEC_PATH|HOME|PATH|XDG_CONFIG_HOME)(?:\[.*\])?\+?=/;
 /** A value set in front of a command. `A+=1 git push` runs git as `A=1 git push` does, and `PATH[0]=…` sets `PATH`. */
-const ASSIGNMENT = /^[A-Za-z_][A-Za-z0-9_]*(?:\[[^\]]*\])?\+?=/;
+const ASSIGNMENT = /^[A-Za-z_][A-Za-z0-9_]*(?:\[.*\])?\+?=/;
 /** `git config` options that only read, in front of the key: git stops reading options at the first word that is not one. */
 const CONFIG_READ_OPTIONS = ["--get", "--get-all", "--get-regexp", "--get-urlmatch", "--list", "-l"];
 /** `git config` subcommands that only read: only right after `config`, for anywhere else git takes the word for a value. */
 const CONFIG_READ_COMMANDS = ["get", "list"];
-/** `git config` options that take the next word as their value, so a read word after one is no action: `--comment --get`. */
+/** `git config` options that take the next word as their value, so a read word after one is no action: `--comment --get`. git takes any of them cut short (`--comm`). */
 const CONFIG_OPTIONS_WITH_VALUE = ["--comment", "--file", "-f", "--blob", "--type", "--default", "--value"];
 /** How many words behind a wrapper that name a program this reads are tried as the command, before the stage is not read at all. */
 const WRAPPED_CANDIDATES = 32;
@@ -439,12 +439,12 @@ function onlyReads(args: string[]): boolean {
     return true;
   }
 
-  for (let index = 0; args[index]?.startsWith("-"); index += 1) {
+  for (let index = 0; args[index]?.startsWith("-") && args[index] !== "--"; index += 1) {
     if (CONFIG_READ_OPTIONS.includes(args[index] ?? "")) {
       return true;
     }
 
-    index += CONFIG_OPTIONS_WITH_VALUE.includes(args[index] ?? "") ? 1 : 0;
+    index += CONFIG_OPTIONS_WITH_VALUE.some((option) => option.startsWith(args[index] ?? "")) ? 1 : 0;
   }
 
   return false;
@@ -481,8 +481,8 @@ function isWritingApiCall(words: string[]): boolean {
 /**
  * What `env -S <text>` will run, when it can be read: env splits the text
  * into words, and goes on reading them as its own arguments (`-S '-i git
- * push'`), so it is what `env <text>` runs. Read as a command line, as
- * `bash -c` takes one.
+ * push'`), so it is what `env` with those words runs. No shell reads the
+ * text: it is not a command line, as what `bash -c` takes is.
  *
  * An `env` this finds as the command (`standsFirst`) is refused when its
  * options or its text cannot be read. Any other only names it: `grep env -rn .`.
@@ -509,22 +509,21 @@ function splitStringScript(stage: Stage): Script | undefined {
     return undefined;
   }
 
-  // env reads its own escapes (`\_`, `\t`) and `${NAME}` in the text: what it runs is then not this text.
-  if (/[\\$]/.test(split.text)) {
-    const reason = "env -S is given text with a backslash or a $, which env changes before it runs it";
+  // env reads its own quotes, its escapes (`\_`, `\t`) and `${NAME}` in the text: what it runs is then not this text.
+  if (/[\\$'"]/.test(split.text)) {
+    if (sure) {
+      throw new UnreadEnvError("env -S is given text that env changes before it runs it");
+    }
 
-    throw sure ? new UnreadEnvError(reason) : new ShellError(reason);
+    return undefined;
   }
 
-  // The words behind the text are quoted: to env they are words, and to a reader of a command line `#x` would end the line.
-  const quoted = stage.slice(split.after).map((word) => `'${word.replaceAll("'", "'\\''")}'`);
-  const script = readScript(["env", split.text, ...quoted].join(" "));
+  // Split as env splits it, at any white space and up to a word that starts with `#`. Then quoted: to env `;` and `#x` are parts of words.
+  const words = split.text.split(/\s+/);
+  const end = words.findIndex((word) => word.startsWith("#"));
+  const run = [...(end === -1 ? words : words.slice(0, end)), ...stage.slice(split.after)];
 
-  if (script === undefined && sure) {
-    throw new UnreadEnvError("env -S is given text that cannot be read");
-  }
-
-  return script;
+  return readScript(["env", ...run.map((word) => `'${word.replaceAll("'", "'\\''")}'`)].join(" "));
 }
 
 /**
