@@ -17,10 +17,13 @@
 // command only feeds the outer one.
 //
 // A command this cannot read (a quote that never closes, or a form shells
-// read differently, such as a `case` inside `$(…)`) is not refused: the
-// host's own permission rules still judge it, and when it names an outward
-// step Claude Code is given the question too. The refusal orders the work;
-// it is not what keeps a push from happening. A command this will not read
+// read differently, such as a `case` inside `$(…)`) is not refused when it
+// names no outward step: the host's own permission rules still judge it. When
+// it names one, Claude Code is given the question, and Codex, which cannot
+// ask, is given a refusal. The refusal orders the work; it is not what keeps a
+// push from happening. An `env` that is the command, with options or `-S`
+// text this cannot read, is refused under either host, whatever it names: what
+// env runs need not name anything. A command this will not read
 // (longer than a million characters, nested more than forty deep, or a
 // wrapper followed by more than 32 words that name git, gh or a shell) is
 // refused when it holds the word `push`, `gh` or `git` at all, and so is a
@@ -62,7 +65,7 @@
 import { readFileSync } from "node:fs";
 
 import { isMainModule } from "../lib/main.mts";
-import { judgeCommand, mentionsGit, mentionsOutward, type Verdict, WrappedLimitError } from "../lib/outward.mts";
+import { judgeCommand, mentionsGit, mentionsOutward, UnreadEnvError, type Verdict, WrappedLimitError } from "../lib/outward.mts";
 
 /** The fields a host sends that this hook reads. */
 export interface CommandPayload {
@@ -102,6 +105,16 @@ export function judgeCall(payload: CommandPayload): Answer | undefined {
   try {
     verdict = command === undefined ? undefined : judgeCommand(command);
   } catch (error) {
+    if (error instanceof UnreadEnvError) {
+      return {
+        decision: "deny",
+        reason: [
+          "Refused: this env command cannot be read. env changes -S text with a backslash or a $ before it runs it, or it is given an option that is not read here,",
+          "so what it runs is not known. Write the command env would run as a plain command, and run each outward step as a tool call of its own.",
+        ].join("\n"),
+      };
+    }
+
     // Not read: too long, nested too deep, or the reader itself failed. A chain must not pass for that.
     return command !== undefined && (error instanceof WrappedLimitError || mentionsOutward(command) || mentionsGit(command))
       ? {
@@ -115,14 +128,22 @@ export function judgeCall(payload: CommandPayload): Answer | undefined {
   }
 
   if (verdict === undefined) {
-    // Not read, and not for its size: a quote or a heredoc left open, or a form shells read differently. What it does is not known, so a person is asked when it names an outward step.
-    return command !== undefined && mentionsOutward(command) && readsAQuestion(payload)
+    // Not read, and not for its size: a quote or a heredoc left open, or a form shells read differently. What it does is not known, so a person is asked when it names an outward step, and it is refused where no one can be.
+    if (command === undefined || !mentionsOutward(command)) {
+      return undefined;
+    }
+
+    return readsAQuestion(payload)
       ? {
           decision: "ask",
           reason:
             "This command could not be read (a quote or a heredoc is left open, or it is written in a form shells read differently), and it names an outward step (push, gh), so a person is asked whatever rule allows it.",
         }
-      : undefined;
+      : {
+          decision: "deny",
+          reason:
+            "Refused: this command could not be read (a quote or a heredoc is left open, or it is written in a form shells read differently), and it names an outward step (push, gh). Run each outward step as a plain tool call of its own.",
+        };
   }
 
   if (verdict.chained) {

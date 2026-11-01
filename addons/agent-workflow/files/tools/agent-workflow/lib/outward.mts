@@ -30,13 +30,18 @@ const GIT_OPTIONS_WITH_VALUE = ["-C", "-c", "--git-dir", "--work-tree", "--names
 const ALIAS_SETTING = /^(?:alias|include|includeif)\./i;
 /**
  * A value that hands git settings, the files they are read from, or the place
- * it finds its commands: so an alias, or a `git-<name>` program, the reader
- * cannot see. Set anywhere in a script (in front of git, as a step of its own,
- * or with `export`), it makes every `git` of that script one this cannot judge.
+ * it finds its commands (`GIT_EXEC_PATH`, and `PATH` for a `git-<name>`
+ * program): so an alias, or a `git-<name>` program, the reader cannot see. Set
+ * anywhere in a script (in front of git, as a step of its own, or with
+ * `export`), it makes every `git` of that script one this cannot judge.
  */
-const GIT_SETTINGS = /^(?:GIT_CONFIG\w*|GIT_DIR|GIT_COMMON_DIR|GIT_EXEC_PATH|HOME|XDG_CONFIG_HOME)=/;
-/** `git config` arguments that only read. */
-const CONFIG_READS = ["--get", "--get-all", "--get-regexp", "--get-urlmatch", "--list", "-l", "get", "list"];
+const GIT_SETTINGS = /^(?:GIT_CONFIG\w*|GIT_DIR|GIT_COMMON_DIR|GIT_EXEC_PATH|HOME|PATH|XDG_CONFIG_HOME)\+?=/;
+/** A value set in front of a command. `A+=1 git push` runs git as `A=1 git push` does. */
+const ASSIGNMENT = /^[A-Za-z_][A-Za-z0-9_]*\+?=/;
+/** `git config` options that only read, wherever they stand. */
+const CONFIG_READ_OPTIONS = ["--get", "--get-all", "--get-regexp", "--get-urlmatch", "--list", "-l"];
+/** `git config` subcommands that only read: only right after `config`, for anywhere else git takes the word for a value. */
+const CONFIG_READ_COMMANDS = ["get", "list"];
 /** `git config` options that take the next word as their value, so a read word after one is no action: `--comment --get`. */
 const CONFIG_OPTIONS_WITH_VALUE = ["--comment", "--file", "-f", "--blob", "--type", "--default", "--value"];
 /** How many words behind a wrapper that name a program this reads are tried as the command, before the stage is not read at all. */
@@ -48,6 +53,12 @@ const WRAPPED_CANDIDATES = 32;
  * read, so the hook refuses it whatever the text looks like.
  */
 export class WrappedLimitError extends LimitError {}
+/**
+ * An `env` that is the command, with options or `-S` text this cannot read:
+ * what it runs is not known, and the words it runs need not name anything.
+ * Refused whatever the text looks like, and by either host.
+ */
+export class UnreadEnvError extends LimitError {}
 /**
  * Words before a command that are not the command: what a shell allows there,
  * and programs that run the command that follows them. Claude Code looks past
@@ -64,6 +75,14 @@ const LEADING_VALUE = /^\d+(?:\.\d+)?[smhd]?$/;
 /** Options of such a program that take their value as the next word, whatever it is: `timeout -s KILL`, `env -u NAME`. */
 const LEADING_OPTIONS_WITH_VALUE = ["-s", "--signal", "-k", "--kill-after", "-n", "-u"];
 const SHELLS = ["bash", "sh", "zsh", "dash", "ksh"];
+/** `env`'s options of one letter that take no value, on macOS and in GNU env. They join: `-iv`. */
+const ENV_FLAGS = "0iv";
+/** `env`'s options of one letter that take a value, joined (`-uFOO`) or as the next word, and `-S`, whose value is a command line. */
+const ENV_FLAGS_WITH_VALUE = "uCPS";
+/** GNU `env`'s long options. It takes any start of one that fits only one: `--split-str=`. Their values, when they have one, are joined by `=`. */
+const ENV_LONG_OPTIONS = ["null", "ignore-environment", "debug", "block-signal", "default-signal", "ignore-signal", "list-signal-handling", "help", "version"];
+/** The long options that take a value, joined by `=` or as the next word. */
+const ENV_LONG_OPTIONS_WITH_VALUE = ["unset", "chdir", "split-string"];
 /**
  * A word nothing hides in: letters, digits and `. _ - /`. Any other
  * character is a colon, or one the shell may read as something to fill in:
@@ -257,11 +276,11 @@ export function commandWords(stage: Stage): string[] {
   for (; start < stage.length; start += 1) {
     const word = stage[start] ?? "";
 
-    if (LEADING_WORDS.includes(word)) {
+    if (LEADING_WORDS.includes(programName(word))) {
       led = true;
     } else if (led && LEADING_OPTIONS_WITH_VALUE.includes(word)) {
       start += 1;
-    } else if (!(/^[A-Za-z_][A-Za-z0-9_]*=/.test(word) || (led && (word.startsWith("-") || LEADING_VALUE.test(word))))) {
+    } else if (!(ASSIGNMENT.test(word) || (led && (word.startsWith("-") || LEADING_VALUE.test(word))))) {
       break;
     }
   }
@@ -411,7 +430,7 @@ function setsAlias(options: string[]): boolean {
 function writesAlias(own: string[]): boolean {
   const args = own.slice(1);
 
-  const reads = args.some((word, index) => CONFIG_READS.includes(word) && !CONFIG_OPTIONS_WITH_VALUE.includes(args[index - 1] ?? ""));
+  const reads = CONFIG_READ_COMMANDS.includes(args[0] ?? "") || args.some((word, index) => CONFIG_READ_OPTIONS.includes(word) && !CONFIG_OPTIONS_WITH_VALUE.includes(args[index - 1] ?? ""));
 
   return own[0] === "config" && !reads && args.some((word) => ALIAS_SETTING.test(word));
 }
@@ -446,32 +465,115 @@ function isWritingApiCall(words: string[]): boolean {
 
 /**
  * What `env -S <text>` will run, when it can be read: env splits the text
- * into words, so it is a command line as `bash -c` takes one. `-S` and
- * `--split-string` take the next word, or the rest of their own.
+ * into words, and goes on reading them as its own arguments (`-S '-i git
+ * push'`), so it is what `env <text>` runs. Read as a command line, as
+ * `bash -c` takes one.
+ *
+ * Only an `env` with nothing but what may stand before a command in front of
+ * it is sure to be the command: `grep env -rn .` only names it. Of such an
+ * `env`, options or text this cannot read are refused.
  */
 function splitStringScript(stage: Stage): Script | undefined {
   const env = stage.findIndex((word) => programName(word) === "env");
 
-  for (let index = env + 1; env !== -1 && index < stage.length; index += 1) {
-    const word = stage[index] ?? "";
-    const own = /^(?:-S|--split-string=)(.+)$/.exec(word)?.[1];
-    const text = word === "-S" || word === "--split-string" ? stage[index + 1] : own;
+  if (env === -1) {
+    return undefined;
+  }
 
-    if (text !== undefined) {
-      // env reads its own escapes (`\_`, `\t`) and `${NAME}` in the text: what it runs is then not this text.
-      if (/[\\$]/.test(text)) {
-        throw new ShellError("env -S is given text with a backslash or a $, which env changes before it runs it");
-      }
+  const sure = stage.slice(0, env).every((word) => ASSIGNMENT.test(word) || LEADING_WORDS.includes(programName(word)) || word.startsWith("-") || LEADING_VALUE.test(word));
+  const split = readEnvOptions(stage, env);
 
-      return readScript([text, ...stage.slice(index + (own === undefined ? 2 : 1))].join(" "));
+  if (split === "unread") {
+    if (sure) {
+      throw new UnreadEnvError("env is given an option that is not read here");
     }
 
-    if (!word.startsWith("-") && !/^[A-Za-z_][A-Za-z0-9_]*=/.test(word)) {
+    return undefined;
+  }
+
+  if (split === undefined) {
+    return undefined;
+  }
+
+  // env reads its own escapes (`\_`, `\t`) and `${NAME}` in the text: what it runs is then not this text.
+  if (/[\\$]/.test(split.text)) {
+    const reason = "env -S is given text with a backslash or a $, which env changes before it runs it";
+
+    throw sure ? new UnreadEnvError(reason) : new ShellError(reason);
+  }
+
+  return readScript(["env", split.text, ...stage.slice(split.after)].join(" "));
+}
+
+/**
+ * Walks `env`'s options: the text of `-S` and the index of the word after it,
+ * undefined when env gets no `-S`, "unread" at an option it does not have.
+ */
+function readEnvOptions(stage: Stage, env: number): { text: string; after: number } | "unread" | undefined {
+  for (let index = env + 1; index < stage.length; index += 1) {
+    const word = stage[index] ?? "";
+    const taken = word.startsWith("--") && word !== "--" ? readEnvLongOption(word) : word.startsWith("-") && word.length > 1 && word !== "--" ? readEnvFlags(word) : undefined;
+
+    if (taken === "unread") {
+      return taken;
+    }
+
+    if (taken !== undefined) {
+      const value = taken.value ?? (taken.takesValue ? stage[index + 1] : undefined);
+
+      if (taken.split) {
+        return value === undefined ? undefined : { text: value, after: index + (taken.value === undefined ? 2 : 1) };
+      }
+
+      index += taken.takesValue && taken.value === undefined ? 1 : 0;
+    } else if (word !== "-" && !ASSIGNMENT.test(word)) {
       return undefined;
     }
   }
 
   return undefined;
+}
+
+/** What an option of `env` asks of the words after it. */
+interface EnvOption {
+  takesValue: boolean;
+  /** Its value, when it is in the same word. */
+  value?: string;
+  /** It is `-S`: the value is a command line. */
+  split: boolean;
+}
+
+/** `-iv`, `-uFOO`, `-vS text`: letters that join, up to one that takes a value. */
+function readEnvFlags(word: string): EnvOption | "unread" {
+  for (let at = 1; at < word.length; at += 1) {
+    const flag = word.charAt(at);
+
+    if (ENV_FLAGS_WITH_VALUE.includes(flag)) {
+      const rest = word.slice(at + 1);
+
+      return { takesValue: true, value: rest === "" ? undefined : rest, split: flag === "S" };
+    }
+
+    if (!ENV_FLAGS.includes(flag)) {
+      return "unread";
+    }
+  }
+
+  return { takesValue: false, split: false };
+}
+
+/** `--unset=FOO`, `--split-str text`. */
+function readEnvLongOption(word: string): EnvOption | "unread" {
+  const [name = "", ...value] = word.slice(2).split("=");
+  const known = [...ENV_LONG_OPTIONS, ...ENV_LONG_OPTIONS_WITH_VALUE];
+  const fits = known.includes(name) ? [name] : known.filter((option) => option.startsWith(name));
+  const option = fits.length === 1 ? (fits[0] ?? "") : undefined;
+
+  if (option === undefined) {
+    return "unread";
+  }
+
+  return { takesValue: ENV_LONG_OPTIONS_WITH_VALUE.includes(option), value: value.length > 0 ? value.join("=") : undefined, split: option === "split-string" };
 }
 
 /** What `bash -c <text>` or `eval <text>` will run, when it can be read. */

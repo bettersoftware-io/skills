@@ -189,6 +189,13 @@ describe("a command the hook does not read", () => {
     expect(answer?.reason).toContain("too long or too deeply nested");
   });
 
+  it("is refused when a wrapper is followed by too many words that name a shell, though the text names no step", () => {
+    const answer = judgeCall(createCall(`stdbuf -o L ${"bash ".repeat(40)}ls`));
+
+    expect(answer?.decision).toBe("deny");
+    expect(answer?.reason).toContain("too long or too deeply nested");
+  });
+
   it("is refused when it names git and no outward step: nested too deep to read", () => {
     const answer = judgeCall(createCall(deep(20_000, "HOME=/tmp/x git p && ls")));
 
@@ -271,7 +278,7 @@ describe("a command the hook does not read", () => {
   it("is one the reader itself gives up on only for a quote or a heredoc left open, which the host then judges, and a person too", () => {
     expect(judgeCommand("git commit -m 'never closed && git push")).toBeUndefined();
     expect(judgeCall(createCall("git commit -m 'never closed && git push"))?.decision).toBe("ask");
-    expect(judgeCall({ ...createCall("git commit -m 'never closed && git push"), turn_id: "turn-1" })).toBeUndefined();
+    expect(judgeCall({ ...createCall("git commit -m 'never closed && git push"), turn_id: "turn-1" })?.decision).toBe("deny");
     expect(judgeCall(createCall("git commit -m 'never closed"))).toBeUndefined();
   });
 
