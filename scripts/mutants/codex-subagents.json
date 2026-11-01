@@ -14,67 +14,11 @@
     "test": "pnpm vitest run kit/hooks/hooks.test.mts -t \"lets the turn end without running the gate while a subagent has started\""
   },
   {
-    "name": "watch-subagents: a stop that was sent back runs the gate again",
-    "file": "kit/hooks/watch-subagents.mts",
-    "find": "payload.stop_hook_active === true || others.length > 0",
-    "replace": "others.length > 0",
-    "test": "pnpm vitest run kit/hooks/hooks.test.mts -t \"lets a subagent it sent back stop\""
-  },
-  {
-    "name": "watch-subagents: a stop runs the gate while another is at work",
-    "file": "kit/hooks/watch-subagents.mts",
-    "find": "payload.stop_hook_active === true || others.length > 0",
-    "replace": "payload.stop_hook_active === true",
-    "test": "pnpm vitest run kit/hooks/hooks.test.mts -t \"does not run the gate while another subagent is at work\""
-  },
-  {
     "name": "watch-subagents: it counts itself among the others",
     "file": "kit/hooks/watch-subagents.mts",
     "find": ".filter((record) => record.id !== id)",
     "replace": "",
     "test": "pnpm vitest run kit/hooks/hooks.test.mts -t \"judges what the last subagent left\""
-  },
-  {
-    "name": "watch-subagents: a stop leaves the agent on the record when another is at work",
-    "file": "kit/hooks/watch-subagents.mts",
-    "find": "    forgetSubagent(root, id);\n\n    return undefined;\n  }\n\n  const reason",
-    "replace": "    return undefined;\n  }\n\n  const reason",
-    "test": "pnpm vitest run kit/hooks/hooks.test.mts -t \"lets a subagent it sent back stop\""
-  },
-  {
-    "name": "watch-subagents: a green stop leaves the agent on the record",
-    "file": "kit/hooks/watch-subagents.mts",
-    "find": "  if (reason === undefined) {\n    forgetSubagent(root, id);\n",
-    "replace": "  if (reason === undefined) {\n",
-    "test": "pnpm vitest run kit/hooks/hooks.test.mts -t \"says nothing when the gate is green\""
-  },
-  {
-    "name": "watch-subagents: a red gate is not sent back",
-    "file": "kit/hooks/watch-subagents.mts",
-    "find": "return { decision: \"block\", reason };",
-    "replace": "return undefined;",
-    "test": "pnpm vitest run kit/hooks/hooks.test.mts -t \"judges what the last subagent left\""
-  },
-  {
-    "name": "watch-subagents: a red gate takes the agent off the record",
-    "file": "kit/hooks/watch-subagents.mts",
-    "find": "  return { decision: \"block\", reason };",
-    "replace": "  forgetSubagent(root, id);\n\n  return { decision: \"block\", reason };",
-    "test": "pnpm vitest run kit/hooks/hooks.test.mts -t \"keeps a subagent it sends back on the record\""
-  },
-  {
-    "name": "watch-subagents: a session that is no text is recorded",
-    "file": "kit/hooks/watch-subagents.mts",
-    "find": " || typeof session !== \"string\" || !isRecordable(id)",
-    "replace": " || !isRecordable(id)",
-    "test": "pnpm vitest run kit/hooks/hooks.test.mts -t \"records nothing for a session that is no text\""
-  },
-  {
-    "name": "watch-subagents: an agent id that is no plain word is recorded",
-    "file": "kit/hooks/watch-subagents.mts",
-    "find": "typeof session !== \"string\" || !isRecordable(id)",
-    "replace": "typeof session !== \"string\"",
-    "test": "pnpm vitest run kit/hooks/hooks.test.mts -t \"records nothing for an agent id that is\""
   },
   {
     "name": "watch-subagents: the agent's type is dropped",
@@ -89,13 +33,6 @@
     "find": "  try {\n    return findProject(folder)?.root;\n  } catch {\n    return undefined;\n  }",
     "replace": "  return findProject(folder)?.root;",
     "test": "pnpm vitest run kit/hooks/hooks.test.mts -t \"says nothing in a folder whose package.json is not JSON\""
-  },
-  {
-    "name": "watch-subagents: another event runs the gate",
-    "file": "kit/hooks/watch-subagents.mts",
-    "find": "if (event !== \"SubagentStop\" || payload.stop_hook_active",
-    "replace": "if (payload.stop_hook_active",
-    "test": "pnpm vitest run kit/hooks/hooks.test.mts -t \"reads no such event\""
   },
   {
     "name": "watch-subagents: an id with a slash is recorded",
@@ -208,5 +145,103 @@
     "find": "  } catch {\n    return [];\n  }\n\n  return names.flatMap",
     "replace": "  } finally {\n  }\n\n  return names.flatMap",
     "test": "pnpm vitest run kit/hooks/hooks.test.mts -t \"where the records' folder is a file\""
+  },
+  {
+    "name": "watch-subagents: a stop runs the gate while another is at work",
+    "file": "kit/hooks/watch-subagents.mts",
+    "find": "if (!stopping || others.length > 0) {",
+    "replace": "if (!stopping) {",
+    "test": "pnpm vitest run kit/hooks/hooks.test.mts -t \"does not run the gate while another subagent is at work\""
+  },
+  {
+    "name": "watch-subagents: another event runs the gate",
+    "file": "kit/hooks/watch-subagents.mts",
+    "find": "if (!stopping || others.length > 0) {",
+    "replace": "if (others.length > 0) {",
+    "test": "pnpm vitest run kit/hooks/hooks.test.mts -t \"reads no such event\""
+  },
+  {
+    "name": "watch-subagents: a stop leaves the agent on the record when another is at work",
+    "file": "kit/hooks/watch-subagents.mts",
+    "find": "    forgetSubagent(root, id);\n\n    return undefined;\n  }\n\n  const reason",
+    "replace": "    return undefined;\n  }\n\n  const reason",
+    "test": "pnpm vitest run kit/hooks/hooks.test.mts -t \"does not run the gate while another subagent is at work\""
+  },
+  {
+    "name": "watch-subagents: a subagent that came back is sent back again",
+    "file": "kit/hooks/watch-subagents.mts",
+    "find": "if (payload.stop_hook_active === true) {",
+    "replace": "if (false) {",
+    "test": "pnpm vitest run kit/hooks/hooks.test.mts -t \"lets a subagent it sent back stop\""
+  },
+  {
+    "name": "watch-subagents: a subagent that came back stays on the record",
+    "file": "kit/hooks/watch-subagents.mts",
+    "find": "    forgetSubagent(root, id);\n\n    return reason === undefined ? undefined : {",
+    "replace": "    return reason === undefined ? undefined : {",
+    "test": "pnpm vitest run kit/hooks/hooks.test.mts -t \"lets a subagent it sent back stop\""
+  },
+  {
+    "name": "watch-subagents: a gate still red is not said",
+    "file": "kit/hooks/watch-subagents.mts",
+    "find": "return reason === undefined ? undefined : { systemMessage: `A subagent stopped with the gate still red.\\n\\n${reason}` };",
+    "replace": "return undefined;",
+    "test": "pnpm vitest run kit/hooks/hooks.test.mts -t \"lets a subagent it sent back stop\""
+  },
+  {
+    "name": "watch-subagents: a green gate after coming back is reported",
+    "file": "kit/hooks/watch-subagents.mts",
+    "find": "return reason === undefined ? undefined : { systemMessage:",
+    "replace": "return { systemMessage:",
+    "test": "pnpm vitest run kit/hooks/hooks.test.mts -t \"says nothing of a subagent that fixed\""
+  },
+  {
+    "name": "watch-subagents: a green stop leaves the agent on the record",
+    "file": "kit/hooks/watch-subagents.mts",
+    "find": "  if (reason === undefined) {\n    forgetSubagent(root, id);\n  }\n\n  return block(reason);",
+    "replace": "  return block(reason);",
+    "test": "pnpm vitest run kit/hooks/hooks.test.mts -t \"says nothing when the gate is green\""
+  },
+  {
+    "name": "watch-subagents: a red gate takes the agent off the record",
+    "file": "kit/hooks/watch-subagents.mts",
+    "find": "  if (reason === undefined) {\n    forgetSubagent(root, id);\n  }\n\n  return block(reason);",
+    "replace": "  forgetSubagent(root, id);\n\n  return block(reason);",
+    "test": "pnpm vitest run kit/hooks/hooks.test.mts -t \"keeps a subagent it sends back on the record\""
+  },
+  {
+    "name": "watch-subagents: a stop in a project that cannot be read is not judged",
+    "file": "kit/hooks/watch-subagents.mts",
+    "find": "return stopping ? block(await judgeStop({ cwd }, run)) : undefined;",
+    "replace": "return undefined;",
+    "test": "pnpm vitest run kit/hooks/hooks.test.mts -t \"sends a subagent back as nothing verified\""
+  },
+  {
+    "name": "watch-subagents: a start in a project that cannot be read runs the gate",
+    "file": "kit/hooks/watch-subagents.mts",
+    "find": "return stopping ? block(await judgeStop({ cwd }, run)) : undefined;",
+    "replace": "return block(await judgeStop({ cwd }, run));",
+    "test": "pnpm vitest run kit/hooks/hooks.test.mts -t \"says nothing in a folder whose package.json is not JSON\""
+  },
+  {
+    "name": "watch-subagents: a session that is no text is recorded",
+    "file": "kit/hooks/watch-subagents.mts",
+    "find": " || typeof session !== \"string\" || !isRecordable(id)) {",
+    "replace": " || !isRecordable(id)) {",
+    "test": "pnpm vitest run kit/hooks/hooks.test.mts -t \"records nothing for a session that is no text\""
+  },
+  {
+    "name": "watch-subagents: an agent id that is no plain word is recorded",
+    "file": "kit/hooks/watch-subagents.mts",
+    "find": "typeof session !== \"string\" || !isRecordable(id)) {",
+    "replace": "typeof session !== \"string\") {",
+    "test": "pnpm vitest run kit/hooks/hooks.test.mts -t \"records nothing for an agent id that is a path\""
+  },
+  {
+    "name": "watch-subagents: a red gate is not sent back",
+    "file": "kit/hooks/watch-subagents.mts",
+    "find": "return reason === undefined ? undefined : { decision: \"block\", reason };",
+    "replace": "return undefined;",
+    "test": "pnpm vitest run kit/hooks/hooks.test.mts -t \"judges what the last subagent left\""
   }
 ]

@@ -11,11 +11,15 @@
 // which `before-stop.mts` reads and waits for. When the last of a session's
 // subagents stops, this runs the gate that stop would have run. If the gate is
 // red, the subagent is sent back to fix it: `decision: "block"` continues it.
-// `stop_hook_active` means it is already back for that reason; it is let
-// through then, so a gate it cannot fix ends in no loop.
+// `stop_hook_active` means it is already back for that reason. The gate runs
+// again then, since another subagent may have edited the tree meanwhile, and
+// it is let through whatever the gate says, so a gate it cannot fix ends in no
+// loop. A gate that is still red is reported to the person.
 //
 // A subagent that was sent back stays on the record, since it is still at
 // work. One that crashed never stops, so a record counts for thirty minutes.
+// A stop that cannot be recorded (no project that can be read, an id that is
+// no plain word) is still judged.
 //
 // Claude Code has no need of it and does not register it: `background_tasks`
 // says what is in flight, and a subagent's end wakes the controller, whose
@@ -47,10 +51,16 @@ export async function replyToSubagent(
   now = Date.now(),
 ): Promise<StopReply | undefined> {
   const { hook_event_name: event, session_id: session, agent_id: id, agent_type: type, cwd } = payload;
-  const root = typeof cwd === "string" ? projectRoot(cwd) : undefined;
-
-  if (typeof cwd !== "string" || root === undefined || typeof session !== "string" || !isRecordable(id)) {
+  if (typeof cwd !== "string") {
     return undefined;
+  }
+
+  const stopping = event === "SubagentStop";
+  const root = projectRoot(cwd);
+
+  // Nothing can be recorded, but a stop is still judged: a project that cannot be read is sent back as "nothing is verified".
+  if (root === undefined || typeof session !== "string" || !isRecordable(id)) {
+    return stopping ? block(await judgeStop({ cwd }, run)) : undefined;
   }
 
   if (event === "SubagentStart") {
@@ -61,7 +71,7 @@ export async function replyToSubagent(
 
   const others = subagentsOnRecord(root, session, now).filter((record) => record.id !== id);
 
-  if (event !== "SubagentStop" || payload.stop_hook_active === true || others.length > 0) {
+  if (!stopping || others.length > 0) {
     forgetSubagent(root, id);
 
     return undefined;
@@ -69,16 +79,25 @@ export async function replyToSubagent(
 
   const reason = await judgeStop({ cwd }, run);
 
-  if (reason === undefined) {
+  // Back already, so it is let through, but a gate that is still red is said: nothing else will.
+  if (payload.stop_hook_active === true) {
     forgetSubagent(root, id);
 
-    return undefined;
+    return reason === undefined ? undefined : { systemMessage: `A subagent stopped with the gate still red.\n\n${reason}` };
   }
 
-  return { decision: "block", reason };
+  if (reason === undefined) {
+    forgetSubagent(root, id);
+  }
+
+  return block(reason);
 }
 
-/** The project a folder is in. One that cannot be found has no gate to run and nothing to record. */
+function block(reason: string | undefined): StopReply | undefined {
+  return reason === undefined ? undefined : { decision: "block", reason };
+}
+
+/** The project a folder is in. One that cannot be read has nothing to record: `judgeStop` says why, on a stop. */
 function projectRoot(folder: string): string | undefined {
   try {
     return findProject(folder)?.root;

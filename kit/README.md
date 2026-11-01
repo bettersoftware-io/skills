@@ -890,9 +890,10 @@ turn's stop is judged as usual.
   the stop hook waits for those of its session, for thirty minutes at most.
 - Under Codex no `Stop` follows a subagent's end, so `watch-subagents.mts`
   runs the gate when the last subagent of a session stops. If it is red, that
-  subagent is sent back to fix it, once; a tree found green needs no second
-  run at the next stop. A subagent that is not the last stops without a gate.
-  The wait for the gate falls on the last subagent.
+  subagent is sent back to fix it, once. When it stops again the gate runs
+  again, and if it is still red the subagent is let through and you are told.
+  A tree found green needs no second run at the next stop. A subagent that is
+  not the last stops without a gate. The wait falls on the last subagent.
 - Codex skips a hook nobody has trusted. After an update that adds these two,
   a person runs `/hooks` in that project; until then Codex behaves as before.
 - How it was tested: against the payload documented in the hooks reference,

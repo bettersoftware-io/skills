@@ -1153,16 +1153,70 @@ describe("a subagent that stops under Codex", { timeout: 60_000 }, () => {
     expect(await replyToStop({ session_id: SESSION, cwd: project }, gate.run)).toEqual({ systemMessage: expect.any(String) });
   });
 
-  it("lets a subagent it sent back stop, and takes it off the record, so a gate it cannot fix ends in no loop", async () => {
+  it("lets a subagent it sent back stop, takes it off the record, and says the gate is still red: a gate it cannot fix ends in no loop, and in a report", async () => {
     const gate = createCountedGate(red);
     const project = createGitProject({ "gate:full": "false" });
 
     await replyToSubagent(subagent("SubagentStart", project), gate.run);
     await replyToSubagent(subagent("SubagentStop", project), gate.run);
 
-    expect(await replyToSubagent(subagent("SubagentStop", project, { stop_hook_active: true }), gate.run)).toBeUndefined();
-    expect(gate.runs()).toBe(1);
+    expect(await replyToSubagent(subagent("SubagentStop", project, { stop_hook_active: true }), gate.run)).toEqual({ systemMessage: expect.stringContaining("FAIL half-edited (1)") });
+    expect(gate.runs()).toBe(2);
     expect(readdirSync(join(project, RECORD_FOLDER))).toEqual([]);
+  });
+
+  it("says nothing of a subagent that fixed what it was sent back for", async () => {
+    const results = [red, green];
+    const project = createGitProject({ "gate:full": "true" });
+    const run = (): GateRun => (results.shift() ?? green)();
+
+    await replyToSubagent(subagent("SubagentStart", project), run);
+    await replyToSubagent(subagent("SubagentStop", project), run);
+
+    expect(await replyToSubagent(subagent("SubagentStop", project, { stop_hook_active: true }), run)).toBeUndefined();
+    expect(readdirSync(join(project, RECORD_FOLDER))).toEqual([]);
+  });
+
+  it("judges what another subagent left while this one was back", async () => {
+    const gate = createCountedGate(red);
+    const project = createGitProject({ "gate:full": "false" });
+    const second = { agent_id: "01a19779-d3fd-7fb3-aba9-7696b05cc0d3" };
+
+    await replyToSubagent(subagent("SubagentStart", project), gate.run);
+    await replyToSubagent(subagent("SubagentStop", project), gate.run);
+    await replyToSubagent(subagent("SubagentStart", project, second), gate.run);
+    await replyToSubagent(subagent("SubagentStop", project, second), gate.run);
+
+    expect(await replyToSubagent(subagent("SubagentStop", project, { stop_hook_active: true }), gate.run)).toEqual({ systemMessage: expect.any(String) });
+  });
+
+  it("does not judge a subagent that was sent back while another is at work", async () => {
+    const gate = createCountedGate(red);
+    const project = createGitProject({ "gate:full": "false" });
+    const second = { agent_id: "01a19779-d3fd-7fb3-aba9-7696b05cc0d3" };
+
+    await replyToSubagent(subagent("SubagentStart", project), gate.run);
+    await replyToSubagent(subagent("SubagentStart", project, second), gate.run);
+
+    expect(await replyToSubagent(subagent("SubagentStop", project, { stop_hook_active: true }), gate.run)).toBeUndefined();
+    expect(gate.runs()).toBe(0);
+  });
+
+  it.each<[string, Record<string, unknown>]>([
+    ["an agent id that is no plain word", { agent_id: "../x" }],
+    ["no session", { session_id: undefined }],
+  ])("still judges a stop it cannot record: %s", async (_case, fields) => {
+    const reply = await replyToSubagent(subagent("SubagentStop", createGitProject({ "gate:full": "false" }), fields), red);
+
+    expect(reply).toEqual({ decision: "block", reason: expect.stringContaining("is red") });
+  });
+
+  it("sends a subagent back as nothing verified when the project cannot be read", async () => {
+    const project = createGitProject({ "gate:full": "false" });
+
+    writeFileSync(join(project, "package.json"), "not json");
+
+    expect(await replyToSubagent(subagent("SubagentStop", project), red)).toEqual({ decision: "block", reason: expect.stringContaining("could not be read as JSON") });
   });
 
   it("judges a subagent that was never on the record", async () => {
