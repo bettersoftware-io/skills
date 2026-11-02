@@ -347,7 +347,7 @@ describe("the writer workflow", () => {
   const PINS = [
     "actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7",
     "actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0",
-    "anthropics/claude-code-action@db77d4d3c98f3f6380e7cd45ffba2342a3dbde3c # v1.0.254",
+    "anthropics/claude-code-action@925afb53776cf1a2b738c6bdbed37b4d4000ef13 # v1.0.262",
     "actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2",
     "actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2",
   ];
