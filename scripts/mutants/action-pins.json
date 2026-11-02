@@ -84,10 +84,24 @@
     "test": "pnpm vitest run --no-fsModuleCache scripts/add-to-project.test.mts -t \"takes the add-on's new copy, at the newer version\""
   },
   {
-    "name": "install: the record holds what was written",
+    "name": "action pins: the record keeps what was written",
     "file": "scripts/lib/install.mts",
-    "find": "  const recorded = [...toWrite].filter(",
-    "replace": "  const recorded = [...files].filter(",
-    "test": "pnpm vitest run --no-fsModuleCache scripts/add-to-project.test.mts -t \"counts as untouched from then on\""
+    "find": "const recorded = [...files].filter(([path]) => !outcome.refused.includes(path));",
+    "replace": "const recorded = [...toWrite].filter(([path]) => !outcome.refused.includes(path));",
+    "test": "pnpm vitest run scripts/add-to-project.test.mts -t \"keeps the newer version of each action at every update after\""
+  },
+  {
+    "name": "action pins: a workflow whose only changes are moved refs is kept when no longer shipped",
+    "file": "scripts/lib/install.mts",
+    "find": " || onlyRefsMoved(path, readProjectText(project, path), beforeWithoutRefs[path]) || force",
+    "replace": " || force",
+    "test": "pnpm vitest run scripts/add-to-project.test.mts -t \"removes a workflow the add-on no longer ships when its only changes\""
+  },
+  {
+    "name": "action pins: a workflow changed in another way is removed when no longer shipped",
+    "file": "scripts/lib/install.mts",
+    "find": "return isWorkflow(path) && installedWithoutRefs !== undefined && hash(Buffer.from(withoutActionRefs(current))) === installedWithoutRefs;",
+    "replace": "return isWorkflow(path);",
+    "test": "pnpm vitest run scripts/add-to-project.test.mts -t \"keeps a workflow the add-on no longer ships when it was changed in another way too\""
   }
 ]
