@@ -988,7 +988,7 @@ describe("a workflow whose actions an update bot moved", () => {
     return world;
   }
 
-  it("is not refused by the add-on's update, and counts as untouched from then on", () => {
+  it("is not refused by the add-on's update, and is recorded as the add-on shipped it", () => {
     const { repository, project } = createWorldWithWorkflow();
     write(project, WORKFLOW, workflow("aaa2 # v7.0.0", "bbb1 # v6.0.0"));
 
@@ -996,7 +996,46 @@ describe("a workflow whose actions an update bot moved", () => {
 
     expect(result.files.unchanged).toContain(WORKFLOW);
     expect(read(project, WORKFLOW)).toBe(workflow("aaa2 # v7.0.0", "bbb1 # v6.0.0"));
-    expect(readJson(project, "tools/installed.json").demo.files[WORKFLOW]).toBe(sha256(workflow("aaa2 # v7.0.0", "bbb1 # v6.0.0")));
+    expect(readJson(project, "tools/installed.json").demo.files[WORKFLOW]).toBe(sha256(workflow("aaa1 # v6.0.0", "bbb1 # v6.0.0")));
+  });
+
+  // Seen in skills-demo on the update to 0.25.0: the update before had kept
+  // Renovate's newer pins and recorded the file as it then stood, so this one
+  // took the file for untouched and wrote the add-on's older pins over it.
+  it("keeps the newer version of each action at every update after, not only the first", () => {
+    const { repository, project } = createWorldWithWorkflow();
+    write(project, WORKFLOW, workflow("aaa2 # v7.0.0", "bbb1 # v6.0.0"));
+    addToProject({ project, unit: "demo", repository });
+    write(repository, SHIPPED, workflow("aaa1 # v6.0.0", "bbb3 # v6.1.0", "pnpm demo --all"));
+
+    const result = addToProject({ project, unit: "demo", repository });
+
+    expect(read(project, WORKFLOW)).toBe(workflow("aaa2 # v7.0.0", "bbb3 # v6.1.0", "pnpm demo --all"));
+    expect(result.files.repinned).toEqual([WORKFLOW]);
+    expect(addToProject({ project, unit: "demo", repository }).files.unchanged).toContain(WORKFLOW);
+    expect(read(project, WORKFLOW)).toBe(workflow("aaa2 # v7.0.0", "bbb3 # v6.1.0", "pnpm demo --all"));
+  });
+
+  it("removes a workflow the add-on no longer ships when its only changes were moved action versions", () => {
+    const { repository, project } = createWorldWithWorkflow();
+    write(project, WORKFLOW, workflow("aaa2 # v7.0.0", "bbb1 # v6.0.0"));
+    addToProject({ project, unit: "demo", repository });
+    rmSync(join(repository, SHIPPED));
+    write(repository, "addons/demo/files/tools/demo/kept.txt", "kept\n");
+
+    const result = addToProject({ project, unit: "demo", repository });
+
+    expect(result.files.removed).toContain(WORKFLOW);
+    expect(existsSync(join(project, WORKFLOW))).toBe(false);
+  });
+
+  it("keeps a workflow the add-on no longer ships when it was changed in another way too", () => {
+    const { repository, project } = createWorldWithWorkflow();
+    write(project, WORKFLOW, workflow("aaa1 # v6.0.0", "bbb1 # v6.0.0", "pnpm demo --project-flag"));
+    rmSync(join(repository, SHIPPED));
+    write(repository, "addons/demo/files/tools/demo/kept.txt", "kept\n");
+
+    expect(addToProject({ project, unit: "demo", repository }).files.kept).toContain(WORKFLOW);
   });
 
   it("takes the add-on's new copy, at the newer version of each action, and says so", () => {

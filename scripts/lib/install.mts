@@ -276,7 +276,7 @@ export function installFiles(
       continue;
     }
 
-    if (hash(readProjectFile(project, path)) === before[path] || force) {
+    if (hash(readProjectFile(project, path)) === before[path] || onlyRefsMoved(path, readProjectText(project, path), beforeWithoutRefs[path]) || force) {
       removeProjectFile(project, path);
       outcome.removed.push(path);
     } else {
@@ -299,7 +299,9 @@ export function installFiles(
 
   outcome.written = outcome.written.filter((path) => !outcome.refused.includes(path));
 
-  const recorded = [...toWrite].filter(([path]) => !outcome.refused.includes(path));
+  // As shipped, not as written: a workflow kept at an update bot's newer versions must read as moved at the next update
+  // too, or it is taken for untouched and the shipped versions are written over the newer ones.
+  const recorded = [...files].filter(([path]) => !outcome.refused.includes(path));
   const workflows = recorded.filter(([path]) => isWorkflow(path));
 
   record[unit] = {
@@ -337,6 +339,11 @@ function repin(path: string, current: string, shipped: Buffer, installedWithoutR
   }
 
   return Buffer.from(keepNewerActionRefs(current, text));
+}
+
+/** Whether a workflow's only changes since it was installed are moved action refs. */
+function onlyRefsMoved(path: string, current: string, installedWithoutRefs: string | undefined): boolean {
+  return isWorkflow(path) && installedWithoutRefs !== undefined && hash(Buffer.from(withoutActionRefs(current))) === installedWithoutRefs;
 }
 
 /** What a refusal says under a file whose edits have a place in the project's own files. Nothing for any other file. */

@@ -89,7 +89,9 @@ The script records a hash of each file it installs. On a later run an untouched
 file is replaced by the newer version; a file edited in the project is never
 overwritten unless `--force` is given. A workflow whose only changes are the
 action commits an update bot moved counts as untouched: it takes the newer
-version, keeping the newer of each action. Files the project is meant to own
+version, keeping the newer of each action, at that update and every one after
+(the record keeps the file as shipped, so the newer actions are never taken
+for the add-on's own). Files the project is meant to own
 (its scenarios, its goldens, its exclusions) are written once and then left
 alone. When the template of such a file changes, the update says which file,
 what changed and what to do. A project from before a template was kept is
