@@ -233,6 +233,14 @@ added or changed were each turned red by a mutant (`tests/mutants.json`, 6 of
 of them lines the longer scope rewraps), `pnpm gate:full` and `pnpm visual`
 pass. The add-on alone, by the steps of this repository's CI job: passes.
 
+On 2026-11-02, when Renovate moved Biome from 2.6.2 to 2.6.3 (a patch that
+adds nursery rules only): the base config, copied into an empty folder with
+an ill-formed `bad.yml`, `index.html` and `README.md` beside it, gave the same
+five errors under both versions with `biome ci --error-on-warnings .`: three
+parse errors in the YAML, a parse error and `useHtmlLang` in the HTML, none
+in the Markdown. The same YAML moved into `.github/workflows` passed (exit 0).
+The rules and timings above were not measured again.
+
 Not tested: the check on GitHub's runner, and on Windows or Linux at all.
 Biome ships a binary per platform; only the macOS arm64 one ran.
 
@@ -276,11 +284,14 @@ them; each was pointed at the test that can, or the test was made literal).
 
 ## Limits
 
-- **Markdown, YAML and HTML are not read** by Biome 2.6.2 as configured: an
-  ill-formed workflow file or `index.html` passes this check. Biome 2.6
-  formats Markdown and YAML by default; the base switches both off. The
-  add-ons write sections of `AGENTS.md` and record their hashes, and the
-  lockfile and the workflows are not Biome's to rewrite.
+- **Markdown, and anything in a folder whose name starts with a dot, are
+  not read** by Biome 2.6.3 as configured: an ill-formed workflow file in
+  `.github/workflows` passes this check. Biome 2.6 formats Markdown and YAML
+  by default; the base switches both formatters off. The add-ons write
+  sections of `AGENTS.md` and record their hashes, and the lockfile and the
+  workflows are not Biome's to rewrite. YAML and HTML elsewhere are still
+  parsed: an ill-formed `index.html`, or a YAML file outside a dot folder,
+  fails the check (measured on 2026-11-02, the same under 2.6.2 and 2.6.3).
 - **The fixer does not add braces.** In 2.5.14 the fix for
   `useBlockStatements` is marked unsafe, so `pnpm biome:fix` reports it and
   leaves it. (The source config's comment says it is fixed on write.)
