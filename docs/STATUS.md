@@ -3,7 +3,7 @@
 What is not done yet. Finished work is removed from this page, not archived;
 the test records in this folder and the git log say what was done.
 
-**Last updated: 2026-11-01**
+**Last updated: 2026-11-02**
 
 ## Waiting on something outside this repository
 
@@ -94,9 +94,13 @@ on 2026-10-05, on pushes to main and on a pull request
   mutant in `addons/agent-workflow/tests/mutants.json`, name the commit of
   every action of `changelog-writer.yml`. The two were moved by hand
   (74e2d01), after reading the action's diff (two commits, Claude Code
-  2.1.302 to 2.1.304). To decide: keep the list, so that the agent's version
-  never moves without a person, or check only that each action is pinned by
-  commit with its version beside it, and let Renovate move them.
+  2.1.302 to 2.1.304). The third wave, on 2026-11-02, did the same: "actions"
+  (#102) moved it from v1.0.254 to v1.0.262 (eight commits, Claude Code
+  2.1.304 to 2.1.310, Bun 1.4.4, and a pull request run pinned to the event's
+  commit) and failed until the two were moved by hand on Renovate's branch.
+  To decide: keep the list, so that the agent's version never moves without
+  a person, or check only that each action is pinned by commit with its
+  version beside it, and let Renovate move them.
 - **An update has not yet kept a bot's action versions in a real project.**
   Since 0.20.2 a workflow whose only changes are moved action commits
   (`uses: …@<commit> # <version>`) takes the add-on's new copy, at the newer
